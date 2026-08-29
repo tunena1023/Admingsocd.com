@@ -754,7 +754,18 @@ async function decideNewOrder(orderId, action) {
     showToast('Set supervisor, service window and dispatch date before approving.');
     return;
   }
-  const actor = getActorName();
+
+  let actor = getActorName();
+  try {
+    const detail = await api('/get-order-detail', { body: { orderId } });
+    const isOfficeOrder = (detail.history || []).some(h => h.FieldChanged === 'Office Order');
+    if (isOfficeOrder) {
+      const directorActor = promptDirectorPassword();
+      if (!directorActor) return;
+      actor = directorActor;
+    }
+  } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
+
   const ok = document.getElementById(dom + '-ok');
   if (ok) { ok.disabled = true; ok.textContent = 'Approving…'; }
   try {
@@ -1957,8 +1968,7 @@ async function submitCreateOrder() {
     City:           createSelectedClient.city || '',
     Zip:            createSelectedClient.zip || '',
     Contact:        createSelectedClient.contact || '',
-    Status:         'Received',
-    OfficeCreated:  true
+    Status:         'Pending'
   };
 
   try {
