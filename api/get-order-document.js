@@ -1,3 +1,3 @@
 const { toVercel } = require('../lib/vercel-adapter');
-const { handler } = require('../admin-approve-order');
+const { handler } = require('../get-order-document');
 module.exports = toVercel(handler);
