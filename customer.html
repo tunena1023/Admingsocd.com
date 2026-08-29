@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GS Solutions – New Order</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black:   #111111;
+    --gold:    #C9A84C;
+    --gold-lt: #E2C97E;
+    --gold-dk: #8C6F2A;
+    --white:   #FFFFFF;
+    --off:     #F7F6F3;
+    --gray:    #6B6B6B;
+    --border:  #E0D9CC;
+  }
+
+  body { font-family: 'Inter', sans-serif; background: var(--white); color: var(--black); min-height: 100vh; }
+
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 48px; min-height: 72px;
+    border-bottom: 1px solid var(--border);
+    background: var(--white); position: sticky; top: 0; z-index: 100;
+  }
+  .logo-wrap { display: flex; align-items: center; gap: 12px; }
+  .logo-gs { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 700; color: var(--black); }
+  .logo-text { font-family: 'Cormorant Garamond', serif; font-size: 12px; letter-spacing: .1em; color: var(--gray); text-transform: uppercase; }
+  .logo-diamond { width: 80px; height: 80px; }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-link { font-size: 13px; color: var(--gray); text-decoration: none; letter-spacing: .04em; transition: color .2s; }
+  .nav-link:hover { color: var(--gold); }
+
+  .portal-header {
+    background: var(--off); border-bottom: 1px solid var(--border);
+    padding: 16px 48px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .portal-header p { font-size: 12px; color: var(--gray); }
+  .portal-header strong { color: var(--black); }
+  .btn-signout { font-size: 11px; color: var(--gray); background: none; border: none; cursor: pointer; letter-spacing: .06em; text-decoration: underline; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 48px; background: var(--white); }
+  .tab { padding: 16px 20px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .2s, border-color .2s; text-decoration: none; display: inline-block; }
+  .tab.active { color: var(--black); border-bottom-color: var(--gold); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .order-wrap { display: grid; grid-template-columns: 1fr 320px; min-height: calc(100vh - 280px); }
+  .order-main { padding: 48px; border-right: 1px solid var(--border); }
+  .order-sidebar { background: var(--off); padding: 40px 28px; }
+
+  .step-label { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin-bottom: 6px; }
+  .step-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; margin-bottom: 28px; }
+
+  .divisions { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 40px; }
+  .div-card {
+    border: 1.5px solid var(--border); padding: 22px 18px;
+    cursor: pointer; transition: border-color .2s, background .2s; position: relative;
+  }
+  .div-card:hover { border-color: var(--gold-lt); }
+  .div-card.active { border-color: var(--gold); background: #FFFDF5; }
+  .div-card.active::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gold); }
+  .div-icon { font-size: 22px; margin-bottom: 10px; }
+  .div-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--black); }
+  .div-desc { font-size: 11px; color: var(--gray); margin-top: 4px; line-height: 1.5; }
+
+  .services-section { margin-bottom: 36px; }
+  .services-section h3 { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--gray); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+  @media (max-width: 720px) { .cat-grid { grid-template-columns: 1fr; } }
+  .cat-grid .accordion-cat { margin-bottom: 0; }
+
+  .dirt-level-box { background: var(--off); border: 1px solid var(--border); padding: 16px; border-radius: 6px; margin-bottom: 24px; }
+  .dirt-level-box label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 10px; color: var(--black); }
+  .dirt-options { display: flex; gap: 20px; }
+  .dirt-option { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .dirt-hint { font-size: 10px; color: var(--gray); margin-top: 8px; }
+
+  .dates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 16px; }
+  .field-wrap label { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--gray); margin-bottom: 8px; font-weight: 600; }
+  .field-wrap input, .field-wrap textarea {
+    width: 100%; border: 1.5px solid var(--border); padding: 12px 14px;
+    font-size: 13px; font-family: 'Inter', sans-serif; color: var(--black);
+    background: var(--white); outline: none; transition: border-color .2s;
+  }
+  .field-wrap input:focus, .field-wrap textarea:focus { border-color: var(--gold); }
+  .field-wrap textarea { resize: vertical; min-height: 80px; }
+
+  .property-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+
+  .due-warning {
+    display: none; background: #FFF8E6; border: 1px solid #E8D9A0; color: #8C6F2A;
+    font-size: 12px; line-height: 1.6; padding: 12px 14px; border-radius: 6px; margin-bottom: 16px;
+  }
+
+  .submit-row { display: flex; align-items: center; justify-content: space-between; padding-top: 24px; border-top: 1px solid var(--border); }
+  .submit-note { font-size: 11px; color: var(--gray); line-height: 1.7; max-width: 260px; }
+  .btn-submit {
+    background: var(--black); color: var(--white); border: none;
+    padding: 16px 40px; font-size: 11px; font-family: 'Inter', sans-serif;
+    letter-spacing: .14em; text-transform: uppercase; font-weight: 600;
+    cursor: pointer; position: relative; transition: background .2s;
+  }
+  .btn-submit::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--gold); }
+  .btn-submit:hover { background: var(--gold-dk); }
+  .btn-cancel-edit {
+    background: none; border: 1.5px solid var(--border); color: var(--gray);
+    padding: 16px 28px; font-size: 11px; font-family: 'Inter', sans-serif;
+    letter-spacing: .14em; text-transform: uppercase; font-weight: 600;
+    cursor: pointer; transition: border-color .2s, color .2s;
+  }
+  .btn-cancel-edit:hover { border-color: #B33A3A; color: #B33A3A; }
+  .edit-actions { display: flex; gap: 12px; align-items: center; }
+
+  .summary-box { background: var(--white); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
+  .summary-box h4 { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .summary-item { font-size: 12px; color: var(--gray); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
+  .summary-item:last-child { border-bottom: none; }
+  .summary-item span { color: var(--black); font-weight: 500; }
+  .summary-empty { font-size: 12px; color: #bbb; font-style: italic; }
+
+  .summary-remove {
+    margin-left: auto; background: none; border: none; cursor: pointer;
+    font-size: 13px; line-height: 1; color: #C9C2B4; padding: 2px 4px;
+    transition: color .15s, transform .15s;
+  }
+  .summary-remove:hover { color: #B33A3A; transform: scale(1.2); }
+
+  .tracker-steps { display: flex; flex-direction: column; }
+  .t-step { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 20px; position: relative; }
+  .t-step:not(:last-child)::before { content: ''; position: absolute; left: 10px; top: 22px; bottom: 0; width: 1px; background: var(--border); }
+  .t-step.done::before { background: var(--gold); }
+  .t-dot { width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--white); position: relative; z-index: 1; }
+  .t-step.done .t-dot { border-color: var(--gold); background: var(--gold); }
+  .t-step.done .t-dot::after { content: ''; width: 8px; height: 4px; border-left: 1.5px solid white; border-bottom: 1.5px solid white; transform: rotate(-45deg) translateY(-1px); }
+  .t-step.active .t-dot { border-color: var(--gold); }
+  .t-step.active .t-dot::after { content: ''; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; }
+  .t-name { font-size: 12px; font-weight: 600; }
+  .t-step:not(.done):not(.active) .t-name { color: var(--gray); }
+  .t-detail { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  footer { background: var(--black); padding: 24px 48px; display: flex; align-items: center; justify-content: space-between; }
+  footer p { font-size: 11px; color: #555; letter-spacing: .06em; }
+  footer span { color: var(--gold); }
+
+  .contact-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(17,17,17,.55);
+    z-index: 200; align-items: flex-start; justify-content: center; padding: 60px 20px;
+    overflow-y: auto;
+  }
+  .contact-overlay.open { display: flex; }
+  .contact-panel {
+    background: var(--white); border: 1px solid var(--border);
+    max-width: 460px; width: 100%; padding: 40px; position: relative;
+  }
+  .contact-close {
+    position: absolute; top: 12px; right: 16px; background: none; border: none;
+    font-size: 20px; color: var(--gray); cursor: pointer; line-height: 1;
+  }
+  .contact-close:hover { color: var(--black); }
+  .contact-logo-slot { display: flex; justify-content: center; margin-bottom: 12px; }
+  .contact-logo-slot img { width: 72px; height: 72px; object-fit: contain; }
+  .contact-panel h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; text-align: center; margin-bottom: 6px; }
+  .contact-panel .contact-sub { font-size: 12px; color: var(--gray); text-align: center; margin-bottom: 24px; line-height: 1.6; }
+
+  #edit-banner {
+    display: none; background: #FFFDF5; border: 1px solid var(--gold-lt);
+    padding: 12px 16px; font-size: 12px; color: var(--gold-dk); margin-bottom: 28px; line-height: 1.6;
+  }
+
+  /* Notificación de cambios enviados */
+  .toast {
+    position: fixed; bottom: 32px; right: 32px; z-index: 300;
+    background: var(--black); color: var(--white); padding: 18px 24px;
+    border-left: 3px solid var(--gold); max-width: 380px;
+    font-size: 13px; line-height: 1.6; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    display: none; animation: toastIn .35s cubic-bezier(.22,.9,.28,1) both;
+  }
+  .toast.show { display: block; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+  .flash-wrap {
+    position: relative; height: 480px; margin-bottom: 10px;
+    overflow: hidden; border-radius: 20px;
+    background: linear-gradient(180deg, #F4F1EA 0%, #EDE9E0 100%);
+  }
+  .flash-wrap.no-anim .flash-card { transition: none !important; }
+  .flash-card {
+    position: absolute; top: 20px; height: calc(100% - 40px);
+    border-radius: 16px; overflow: hidden; cursor: pointer;
+    background: var(--off);
+    border: 1px solid rgba(17,17,17,.08);
+    box-shadow: 0 6px 18px rgba(17,17,17,.10);
+    transition: transform .65s cubic-bezier(.22,.9,.28,1),
+                width .65s cubic-bezier(.22,.9,.28,1),
+                box-shadow .35s ease, border-color .25s ease;
+  }
+  .flash-card:hover { box-shadow: 0 10px 28px rgba(17,17,17,.16); }
+  .flash-card.active {
+    cursor: default; border-color: rgba(201,168,76,.55);
+    box-shadow: 0 14px 36px rgba(17,17,17,.20);
+    z-index: 5;
+  }
+  .flash-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    transform: translateZ(0); backface-visibility: hidden;
+  }
+  .flash-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(17,17,17,.62) 0%, rgba(17,17,17,.08) 48%, rgba(17,17,17,.12) 100%); }
+
+  .flash-mini {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; padding: 16px 0; gap: 12px;
+    transition: opacity .3s;
+  }
+  .flash-card.active .flash-mini { opacity: 0; pointer-events: none; }
+  .flash-mini-title {
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--white); text-shadow: 0 1px 8px rgba(0,0,0,.75); white-space: nowrap;
+  }
+  .flash-badge {
+    min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px;
+    background: var(--gold); color: var(--black); font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .flash-badge.zero { background: rgba(255,255,255,.9); color: var(--gray); }
+
+  .flash-hero {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    justify-content: flex-end; padding: 24px 26px;
+    opacity: 0; pointer-events: none; transition: opacity .35s .2s;
+  }
+  .flash-card.active:not(.services-open) .flash-hero { opacity: 1; pointer-events: auto; }
+  .flash-hero h4 {
+    font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600;
+    color: var(--white); text-shadow: 0 2px 12px rgba(0,0,0,.6);
+  }
+  .flash-hero .flash-hint {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--gold-lt); margin-bottom: 6px; font-weight: 700;
+  }
+
+  .flash-open {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none; background: var(--white);
+    transform: translateY(12px);
+    transition: opacity .3s ease, transform .35s cubic-bezier(.22,.9,.28,1);
+  }
+  .flash-card.active.services-open .flash-open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .flash-open-head {
+    padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--white); position: relative; z-index: 2;
+  }
+  .flash-open-head h4 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; }
+  .flash-open-head .flash-badge { box-shadow: none; }
+
+  .esc-msg {
+    display: none; width: 100%; background: #FBEAEA; color: #B33A3A;
+    font-size: 11px; font-weight: 600; line-height: 1.5; padding: 8px 22px;
+    border-bottom: 1px solid #EFC9C9;
+  }
+  .esc-msg.show { display: block; }
+
+  .flash-services { flex: 1; overflow-y: auto; padding: 4px 22px 22px; }
+
+  .svc { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .svc:last-child { border-bottom: none; }
+  .svc.enter { animation: svcIn .45s cubic-bezier(.22,.9,.28,1) both; }
+  @keyframes svcIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .svc-name { font-size: 13px; font-weight: 600; color: var(--black); display: block; }
+  .svc-desc { font-size: 11px; color: var(--gray); display: block; margin-top: 2px; line-height: 1.4; }
+  .accordion-cat { transition: box-shadow .2s; }
+  .accordion-cat:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .svc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    border: 1.5px solid var(--border); background: var(--white); color: var(--black);
+    font-size: 11px; font-weight: 600; padding: 7px 13px; border-radius: 16px;
+    cursor: pointer; transition: all .18s ease; user-select: none;
+  }
+  .chip:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(201,168,76,.25); }
+  .chip.checked { background: var(--gold); border-color: var(--gold); color: var(--black); }
+  .chip.locked { opacity: .5; cursor: not-allowed; background: #EFEDE7; border-color: var(--border); color: var(--gray); transform: none !important; box-shadow: none !important; }
+
+  .flash-empty { font-size: 12px; color: var(--gray); font-style: italic; padding: 20px 0; }
+
+  .flash-desc {
+    display: none; margin: 14px 2px 26px; padding: 18px 22px;
+    background: var(--white); border: 1px solid var(--border); border-left: 3px solid var(--gold);
+    font-size: 13px; color: #444; line-height: 1.8; border-radius: 8px;
+    animation: descIn .4s cubic-bezier(.22,.9,.28,1) both;
+  }
+  .flash-desc.show { display: block; }
+  .flash-desc b { color: var(--black); }
+  @keyframes descIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .dialog-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(17,17,17,.55);
+    z-index: 210; align-items: center; justify-content: center; padding: 20px;
+  }
+  .dialog-overlay.open { display: flex; }
+  .dialog-panel {
+    background: var(--white); border: 1px solid var(--border); max-width: 420px;
+    width: 100%; padding: 36px 32px; text-align: center;
+    animation: dialogIn .3s cubic-bezier(.22,.9,.28,1) both;
+  }
+  @keyframes dialogIn {
+    from { opacity: 0; transform: scale(.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .dialog-panel h3 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .dialog-panel p { font-size: 13px; color: var(--gray); line-height: 1.6; margin-bottom: 22px; }
+  .dialog-btns { display: flex; gap: 10px; }
+  .dialog-btns .btn-gold { margin-top: 0; }
+  .btn-ghost {
+    flex: 1; background: none; border: 1.5px solid var(--border); color: var(--black);
+    padding: 14px; font-size: 11px; font-family: 'Inter', sans-serif;
+    letter-spacing: .14em; text-transform: uppercase; font-weight: 700; cursor: pointer;
+    transition: border-color .2s;
+  }
+  .btn-ghost:hover { border-color: var(--gold); }
+  /* FIX: estilo base btn-gold (faltaba en esta página; lo usan el diálogo de draft y la confirmación) */
+  .btn-gold {
+    background: var(--gold); color: var(--black); border: none;
+    padding: 14px; font-size: 11px; font-family: 'Inter', sans-serif;
+    letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+    cursor: pointer; transition: background .2s;
+  }
+  .btn-gold:hover { background: var(--gold-dk); color: var(--white); }
+
+  #order-confirmation { display: none; }
+  .confirm-head { text-align: center; padding: 12px 0 28px; }
+  .confirm-check { font-size: 36px; color: var(--gold); margin-bottom: 12px; }
+  .confirm-head .step-title { margin-bottom: 8px; }
+  .confirm-head p { font-size: 13px; color: var(--gray); line-height: 1.7; }
+  .confirm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 28px; }
+  .confirm-box { background: var(--white); border: 1px solid var(--border); padding: 24px; }
+  .confirm-box h4 { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .confirm-actions { text-align: center; margin-top: 32px; }
+  .confirm-actions .btn-gold { max-width: 320px; }
+
+  @media (max-width: 860px) {
+    nav { padding: 0 20px; }
+    .portal-header { padding: 14px 20px; }
+    .tabs { padding: 0 20px; }
+    .order-wrap { grid-template-columns: 1fr; }
+    .order-main { padding: 28px 20px; }
+    .divisions { grid-template-columns: 1fr; }
+    .property-grid { grid-template-columns: 1fr 1fr; }
+    .dates-grid { grid-template-columns: 1fr; }
+    footer { flex-direction: column; gap: 8px; padding: 20px; }
+    .flash-wrap { height: auto; overflow: visible; padding: 10px; }
+    .flash-card {
+      position: relative; top: 0; left: 0 !important; transform: none !important;
+      width: 100% !important; height: 64px; margin-bottom: 10px;
+      transition: height .5s cubic-bezier(.22,.9,.28,1);
+    }
+    .flash-card.active { height: 500px; }
+    .flash-mini { flex-direction: row; justify-content: flex-start; padding: 0 16px; align-items: center; }
+    .flash-mini-title { writing-mode: horizontal-tb; transform: none; }
+    .confirm-grid { grid-template-columns: 1fr; }
+    .toast { left: 20px; right: 20px; bottom: 20px; max-width: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo-wrap">
+    <img src="data:image/jpeg;base64,/9j/4QBORXhpZgAATU0AKgAAAAgAAwEaAAUAAAABAAAAMgEbAAUAAAABAAAAOgEoAAMAAAABAAIAAAAAAAAADqYAAAAnEAAOpgAAACcQAAAAAP/tAEBQaG90b3Nob3AgMy4wADhCSU0EBgAAAAAABwAIAQEAAQEAOEJJTQQlAAAAAAAQAAAAAAAAAAAAAAAAAAAAAP/iDFhJQ0NfUFJPRklMRQABAQAADEhMaW5vAhAAAG1udHJSR0IgWFlaIAfOAAIACQAGADEAAGFjc3BNU0ZUAAAAAElFQyBzUkdCAAAAAAAAAAAAAAAAAAD21gABAAAAANMtSFAgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEWNwcnQAAAFQAAAAM2Rlc2MAAAGEAAAAbHd0cHQAAAHwAAAAFGJrcHQAAAIEAAAAFHJYWVoAAAIYAAAAFGdYWVoAAAIsAAAAFGJYWVoAAAJAAAAAFGRtbmQAAAJUAAAAcGRtZGQAAALEAAAAiHZ1ZWQAAANMAAAAhnZpZXcAAAPUAAAAJGx1bWkAAAP4AAAAFG1lYXMAAAQMAAAAJHRlY2gAAAQwAAAADHJUUkMAAAQ8AAAIDGdUUkMAAAQ8AAAIDGJUUkMAAAQ8AAAIDHRleHQAAAAAQ29weXJpZ2h0IChjKSAxOTk4IEhld2xldHQtUGFja2FyZCBDb21wYW55AABkZXNjAAAAAAAAABJzUkdCIElFQzYxOTY2LTIuMQAAAAAAAAAAAAAAEnNSR0IgSUVDNjE5NjYtMi4xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYWVogAAAAAAAA81EAAQAAAAEWzFhZWiAAAAAAAAAAAAAAAAAAAAAAWFlaIAAAAAAAAG+iAAA49QAAA5BYWVogAAAAAAAAYpkAALeFAAAY2lhZWiAAAAAAAAAkoAAAD4QAALbPZGVzYwAAAAAAAAAWSUVDIGh0dHA6Ly93d3cuaWVjLmNoAAAAAAAAAAAAAAAWSUVDIGh0dHA6Ly93d3cuaWVjLmNoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGRlc2MAAAAAAAAALklFQyA2MTk2Ni0yLjEgRGVmYXVsdCBSR0IgY29sb3VyIHNwYWNlIC0gc1JHQgAAAAAAAAAAAAAALklFQyA2MTk2Ni0yLjEgRGVmYXVsdCBSR0IgY29sb3VyIHNwYWNlIC0gc1JHQgAAAAAAAAAAAAAAAAAAAAAAAAAAAABkZXNjAAAAAAAAACxSZWZlcmVuY2UgVmlld2luZyBDb25kaXRpb24gaW4gSUVDNjE5NjYtMi4xAAAAAAAAAAAAAAAsUmVmZXJlbmNlIFZpZXdpbmcgQ29uZGl0aW9uIGluIElFQzYxOTY2LTIuMQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdmlldwAAAAAAE6T+ABRfLgAQzxQAA+3MAAQTCwADXJ4AAAABWFlaIAAAAAAATAlWAFAAAABXH+dtZWFzAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAACjwAAAAJzaWcgAAAAAENSVCBjdXJ2AAAAAAAABAAAAAAFAAoADwAUABkAHgAjACgALQAyADcAOwBAAEUASgBPAFQAWQBeAGMAaABtAHIAdwB8AIEAhgCLAJAAlQCaAJ8ApACpAK4AsgC3ALwAwQDGAMsA0ADVANsA4ADlAOsA8AD2APsBAQEHAQ0BEwEZAR8BJQErATIBOAE+AUUBTAFSAVkBYAFnAW4BdQF8AYMBiwGSAZoBoQGpAbEBuQHBAckB0QHZAeEB6QHyAfoCAwIMAhQCHQImAi8COAJBAksCVAJdAmcCcQJ6AoQCjgKYAqICrAK2AsECywLVAuAC6wL1AwADCwMWAyEDLQM4A0MDTwNaA2YDcgN+A4oDlgOiA64DugPHA9MD4APsA/kEBgQTBCAELQQ7BEgEVQRjBHEEfgSMBJoEqAS2BMQE0wThBPAE/gUNBRwFKwU6BUkFWAVnBXcFhgWWBaYFtQXFBdUF5QX2BgYGFgYnBjcGSAZZBmoGewaMBp0GrwbABtEG4wb1BwcHGQcrBz0HTwdhB3QHhgeZB6wHvwfSB+UH+AgLCB8IMghGCFoIbgiCCJYIqgi+CNII5wj7CRAJJQk6CU8JZAl5CY8JpAm6Cc8J5Qn7ChEKJwo9ClQKagqBCpgKrgrFCtwK8wsLCyILOQtRC2kLgAuYC7ALyAvhC/kMEgwqDEMMXAx1DI4MpwzADNkM8w0NDSYNQA1aDXQNjg2pDcMN3g34DhMOLg5JDmQOfw6bDrYO0g7uDwkPJQ9BD14Peg+WD7MPzw/sEAkQJhBDEGEQfhCbELkQ1xD1ERMRMRFPEW0RjBGqEckR6BIHEiYSRRJkEoQSoxLDEuMTAxMjE0MTYxODE6QTxRPlFAYUJxRJFGoUixStFM4U8BUSFTQVVhV4FZsVvRXgFgMWJhZJFmwWjxayFtYW+hcdF0EXZReJF64X0hf3GBsYQBhlGIoYrxjVGPoZIBlFGWsZkRm3Gd0aBBoqGlEadxqeGsUa7BsUGzsbYxuKG7Ib2hwCHCocUhx7HKMczBz1HR4dRx1wHZkdwx3sHhYeQB5qHpQevh7pHxMfPh9pH5Qfvx/qIBUgQSBsIJggxCDwIRwhSCF1IaEhziH7IiciVSKCIq8i3SMKIzgjZiOUI8Ij8CQfJE0kfCSrJNolCSU4JWgllyXHJfcmJyZXJocmtyboJxgnSSd6J6sn3CgNKD8ocSiiKNQpBik4KWspnSnQKgIqNSpoKpsqzysCKzYraSudK9EsBSw5LG4soizXLQwtQS12Last4S4WLkwugi63Lu4vJC9aL5Evxy/+MDUwbDCkMNsxEjFKMYIxujHyMioyYzKbMtQzDTNGM38zuDPxNCs0ZTSeNNg1EzVNNYc1wjX9Njc2cjauNuk3JDdgN5w31zgUOFA4jDjIOQU5Qjl/Obw5+To2OnQ6sjrvOy07azuqO+g8JzxlPKQ84z0iPWE9oT3gPiA+YD6gPuA/IT9hP6I/4kAjQGRApkDnQSlBakGsQe5CMEJyQrVC90M6Q31DwEQDREdEikTORRJFVUWaRd5GIkZnRqtG8Ec1R3tHwEgFSEtIkUjXSR1JY0mpSfBKN0p9SsRLDEtTS5pL4kwqTHJMuk0CTUpNk03cTiVObk63TwBPSU+TT91QJ1BxULtRBlFQUZtR5lIxUnxSx1MTU19TqlP2VEJUj1TbVShVdVXCVg9WXFapVvdXRFeSV+BYL1h9WMtZGllpWbhaB1pWWqZa9VtFW5Vb5Vw1XIZc1l0nXXhdyV4aXmxevV8PX2Ffs2AFYFdgqmD8YU9homH1YklinGLwY0Njl2PrZEBklGTpZT1lkmXnZj1mkmboZz1nk2fpaD9olmjsaUNpmmnxakhqn2r3a09rp2v/bFdsr20IbWBtuW4SbmtuxG8eb3hv0XArcIZw4HE6cZVx8HJLcqZzAXNdc7h0FHRwdMx1KHWFdeF2Pnabdvh3VnezeBF4bnjMeSp5iXnnekZ6pXsEe2N7wnwhfIF84X1BfaF+AX5ifsJ/I3+Ef+WAR4CogQqBa4HNgjCCkoL0g1eDuoQdhICE44VHhauGDoZyhteHO4efiASIaYjOiTOJmYn+imSKyoswi5aL/IxjjMqNMY2Yjf+OZo7OjzaPnpAGkG6Q1pE/kaiSEZJ6kuOTTZO2lCCUipT0lV+VyZY0lp+XCpd1l+CYTJi4mSSZkJn8mmia1ZtCm6+cHJyJnPedZJ3SnkCerp8dn4uf+qBpoNihR6G2oiailqMGo3aj5qRWpMelOKWpphqmi6b9p26n4KhSqMSpN6mpqhyqj6sCq3Wr6axcrNCtRK24ri2uoa8Wr4uwALB1sOqxYLHWskuywrM4s660JbSctRO1irYBtnm28Ldot+C4WbjRuUq5wro7urW7LrunvCG8m70VvY++Cr6Evv+/er/1wHDA7MFnwePCX8Lbw1jD1MRRxM7FS8XIxkbGw8dBx7/IPci8yTrJuco4yrfLNsu2zDXMtc01zbXONs62zzfPuNA50LrRPNG+0j/SwdNE08bUSdTL1U7V0dZV1tjXXNfg2GTY6Nls2fHadtr724DcBdyK3RDdlt4c3qLfKd+v4DbgveFE4cziU+Lb42Pj6+Rz5PzlhOYN5pbnH+ep6DLovOlG6dDqW+rl63Dr++yG7RHtnO4o7rTvQO/M8Fjw5fFy8f/yjPMZ86f0NPTC9VD13vZt9vv3ivgZ+Kj5OPnH+lf65/t3/Af8mP0p/br+S/7c/23////uACFBZG9iZQBkQAAAAAEDABADAgMGAAAAAAAAAAAAAAAA/9sAhAABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAgICAgICAgICAgIDAwMDAwMDAwMDAQEBAQEBAQEBAQECAgECAgMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwP/wgARCADIAMgDAREAAhEBAxEB/8QA6gABAAEEAgMBAAAAAAAAAAAAAAoHCAkLAQYCAwUEAQEAAgIDAQAAAAAAAAAAAAAABgcEBQEDCAIQAAAFBAEEAQQCAgMAAAAAAAQFBgcIAQIDCQoAMEARIBBwMRQSIjITIRU5EQAABgEDAgMEBgYGCwAAAAABAgMEBQYHERIIACExExRBIhUJMFFhgZEWQPBxMlIjEHChsZIXwUJyspOzJCUnGHgSAAIBAgMEBAkICAQHAAAAAAECAxEEIRIFADFBYUBREwYgMHGRoSJCYhQQgbHBMlJyB3CCkiMzQ2MV8KLCU7LS4qOzwzT/2gAMAwEBAhEDEQAAAJ/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOn6HN7hvsIAAAAAAAAAAAYr/LNpcfSus60N7V0Qzy+uAAAAAAAAAALIPNU/ve9KQCgkC31kNMzaqMp1V/16wP8AX3fAAAAAAAAA4MD1QyWO/bMctd7fm+kkhxTbfboqe9s2+JTa/a9i55nTS8y/ko8qQAAAAAcEF014R8s7WdSO3G6GLSNHnah3aY3q+uPp9fPVcrqkHm3nOQAAAAYIDT4GU3QZG1H1nZlKmWHg1MKJOHNbcQmzdG67J/XQdhxWcHJzl3rX8jmTaoAAAADWMEO82+8Q2WZmC7KgF0xuih5FayH4a+4z1ktIkmY/ZZP5Bua9a4YZfjcsIAAAA4NSiRuTexa7IpdRUzgVehoJDBBKVNnwa0wirnz+j7lFea59kjmGDsJrrhnkAAAADWjkMA25PHNyvnyxqyehK4xlmqxJKxtYT1FvEHzscNCSzXn+kIlHjkeFuoTKqAAAADDKabovZNg3R83kW3hCMNBqiCTUSpSHBgdk9eltvlPvfSa7rlEFN0kZYwAAAACIEa14zV+f5tH99AQnguvNihos/EHBd7C8teJ0+PI4JQBtcD3AAAAAAteMC3nqXWW+hYjfUZB6klFvuuy8zd0Q6hPZ8x4y04ygEh89528AAAAAAta85ym4a+I7Y156llcbd0caeeajvbmmpfoWSFTOVovC+1xJiAAAAAAMUPmOyrj+/U3ceiof9bL64jvPP5+OJG5dmDg5ODyAAAAAAOk4OR3bOxwKfnUj7RVMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//9oACAECAAEFAPsINU5AXG3kPqTBDRcXFLyNZVJPmj1DfZfbkt8WRFK4adK1s0etKXId12xuTD9p8fnDiQ4vD4bxog4XJJgtyWYPopkQl1fgENW4CAykT84AwwvMAJqD8c9TRCpgoUKGAhs4gOFxhhwIZTvqk8omk836hEqtIfI0KCs7BHTD1LRYV21uhxCcWKaVofuuAGqLQzACf2G17AoIFG4HcSzeo0Q0YtzRpb3DfD+yVRszVuRHzEiQwPAp3ePFYYt8zhcmc3drSlaMMXZSanyWrgpxCAsBO4L4iUykyFIF3fbfJbjWnxNMI8QXJFlcIUxpSlKeAlbv0np+p+pClNg27cI6XIrw7bv1ZCfRXOmCK86eboyNhOLFiwY/DWF1AD9nB0VJ8vFq5ZOwLRbekSLD/OvefEVnIliUtqqXCMAAAEVhOq/nxBBaAFC/sb//2gAIAQMAAQUA+wmIuHZwvkIMyygCX9tEqro4Qp0WW1pWlfFQt1LqdE6mOSO6h8kFRQ0b8yD478d+K/w0wbBygXfW2t30Kzs1JsmNWp5RWD2/yZcIgPnC5vHAGZgV5s2bKIy48WTNdlwZ8Fe+FD3ChBgGoFF/IIMFAc4Fwf2sGVGkJ/iNCQ0JsvdJ7qWmqrw/6TfsYsuXBkRpwojuxZYUrhFdwJf/AKxTg4KYjj52Y78t5YmgJdhPVgKMcfdpX1VwRGMbX5AgAgdktFlSbxjjAWYZu+o6fzJvjhux25RZtS6n58ExvpmS31Ly0WZ51GnQZDj8Ot1b0r9CtOZRFByhwA8V11193hgf55E+HDZxWUOELiTGZnIoyu+lfDRIKwzKTExKSuzLmy58nVfz4mMUJw4fsb//2gAIAQEAAQUA+whi4CKJ1T78jYE2BI47u1Sk6Io9M3PZjnSGW3232+LMwJZhz0p/w80ZGVfoHewkxYr3NbsPbE/NgI8CZhPCrWlKbiNtUBITpV6ubzltyhObTNu0UwnNza80Gxmntqx3FJIfECRscBaA2JlhMdT23ma49d5A8XN9G1Govm9vmDMoncw/W69xm0zxNS/CD7da0pTkR8l1RsWrT9QnyrOseLLluNG+XRGArbWnSBWy5blZadT2fKogHyMNg6B19QHUymUCyPiZPnqiFnaEWqap/a2vG7WWxvLsPp79drkP7NB+s/X2OHDDMZqa1OPptdfTXVqKgHr+bYxKSw4A7CuO1rXn6QaY+KuoYmzJpSlKc21wTgxmDZSla6noPRAYfXS8OsRNjBWxfQ8xC9w8b3XSxkAYk/nt8zyQR0vNhFtPddFUJCKEWm5iDj/uUJIDZjAOKrgW7v8AUXd1Xd7qMp0wGy+AcqXB5s8VlYaF/WtLkXbCtaiVjFzSITr/ABxl2GQA2Akc2WNjgyQqEhxLw9S3Zr+OWLgMMW6uz37Y+4qUESIFK29VNZzW2ronp0e69e69cP8A912/SJj00MrGW2b8S+acYVGvW5cBrFOlEgql2pIn6iW5gojNc3JPjiqNhVtaVp2uabG44Rc2KV9V4x0+EnM/WFqJdwvXOTYpqOhdtHpXiSaaadOynStIujw/f/X3rFlwiMch2AjO/aXjzpxhaw7i8imGexGLcpLP89ID7qKSep3tb39a1Nnmv1Rp48SR/rp2LSN1kSO1I7F4soNdZtg8Cg4Gc3Kf1dxPTy8VeZdLfh/V9bfuSrvZD6+mv1T8j+betMPCnkK6m5dEZrPmC5CUcqjcNGjYKrMf+ei5lD2PupDtVp765AXGuLp6Gz0MS8kcnGlaRUVOkv8AnX1/a/qIsGpXztcjUtprjVoNS+0rQu9Oxp0HPaZz2TW/u6nX8616/tdXj46EHZ2DvMHD4QuDuSfhVE+aKSffRFDV025DcJSF9uePnEn1DsmLcKRbDQwSLJ6+CuQL4o5zWZNz6SsYoNTLbyTnFS0iiRCG4gWrNem0LOPPowYtdFCpbsCnE64CFV5l3VoUFtrxqFSkyVLnHULyv2aMRF5t2HCC24cdHyJbNGMmvMTeOTiXumsQSN9sBlgIhu8BJFtLIxhnJUEcYpzBj3H/AE+p8Kzr/wDdne6hyzT0tKnXcc3CSERQnC6vRFIzYQbvtG6XKhm68sVTJkEqiKW0p16p1S2lK+qdUtpTvHrcIVTqr6krTtamzhXxpjs4CLRLGMo2t/2H/9oACAECAgY/AP0CWuhahqsMGqzx9pGkhyZ1zFfUZqKzZhTKGzcaUPSfy5ttQdksbstbuy0DKDNGKqSCKjtKioI2LaLdf37uslf3TBnkRAeCE9shpX+C0sY39mN2y2WqSNper1ymO4IEZbiFmwUHlII24UOyujAoRUEYgg7iDxHMdG7g6guDQ6g2PVUxP/6/kZ9Y0pRfEUE8X7uYeVwKOB1SK68tmuO4mtHVNBU1NrKKsBgSBEzUJNKZrd43P+3w2/tfe2zl0fWVOVhKGMObcasQHix4SooH3zv2juLWdJLdxVWVgysOsMCQRzB6JpFhoYi+MhvlkJkbIip2ciliQGJoxXAAk+TaFJSDIFAJG6oArTlX5TDr2kxzOBRZKZZU/DKtHHkqVPEHaW//ACw7yvNY1LG0mKivLKaQSHhWkL7qMTsNE/MTQ5tK1ZTQvkcxfiZCO0RfeXtU45gNrfUNNvI57GVcySRsGRh1hgSDjgeo4HHpHwWv6TDdW/ASLUqetWFGQ81YHaCzs4EitYlCoigKqqMAABgANu1uZ0jirSrMFHnJA2Y2l3FKBvyOrU8uUmnQNY142xm+FgaTIDlzZeFaGg6zQ4VoCdtG1+8CC6uFcsEBCgrK6UAJYgUUbyTxr4cunaxYQ3Ni+9JEDqedGBxHAjEcDs2tflpr82l6mtSIy7GM+6sgq6g/dkEycKAbRab+afdeQ25OUXcIWjc/VPYyYHEI0b/0ydviNA1eK4AAzKDSRK8Hjajr8606ifHd77dR6zabcU8oiYj6NtMSv8K4uE/7pYehvEy2t5bxy2rijI6hlYdTKwII8o2W/wC7erz6d3vqGjt7Ziw9b2mowa2U1wIcA7kibh2/fdYv7cUHYtIpS7fdQyKtFCUrQuolJxIpifGalbkVElvIv7SMPr21K1J/hai/maKI/TU+Imury4SK1jUszuwVVUbyzGgAHEk7N3S/KaykmuXqHu8tAq7i0eYZY0H+/LT+mhNG2Gvd45xqXet2zmV6ukbHeUz1Z5OuZ/X+6EG/xpBFQdu+ulyyKyLerItK7m7SMgg8QY+YPh/EaxdVu2UmOBKGWSnUtRlWu+RyEHWTgY7/AF6RtK7hhs0cS1rKBuZVYAytT+dKBEv8qM47Jpmg2Cw2+BY73kb78jn1nY9ZNBuUAUHQO/VmcGErGnJbiUf6h5/CvINLvVttReMiOVk7VY2IwYx5lDU4Amld4IwMnePv5qX937wNJmo1TCpB9ViHxlagFAwWNPsrGcobYADDoPe+zrQSwytTrzG3k+tvP4DXmqXGUUOVFGaSQgVyxoMWPmUe0QMdtVlm7pTWehRtSGd2+2QaFGUgVetSTFmRPsM1aE9DePcLmwqOZ7DH/wAR+U6L3bjF9r7NkotWjjf7py4ySf003e2y0oRr3fy6ea7kx7DNw3gSMuAUcIY6IPaZsRskMMapCoACqAAANwAGAA4AdE/L+5U0M9pkPP8A+lKf5htNqms30dvYRjF3NBXgAN7MeCqCx4DafSO5Fs9l3YU5Zbl6qXHEMwxWo3QxEyH+YyqaBTax9tqhWj3DgZz1hBujT3VxPtMxx6N+XHea1t+1uoHlypj+8KPGwjwBNWzkYAnHAbQ95fzTvXSyBrDYJVAqngwB/dAigYAmd/bdd20Fhp1pHBZRLRURQqqOQGHl4k4nHo9lf3NnHJeW2bsnZQWjzgByhP2SwUAkY0wrT9B3/9oACAEDAgY/AP0CS30Nq72kbZWZRUKaV9am4U4nDn0nvPLAAZ4kWRQakEhX3gUwIHXtS9hOm6q3trTsyeZwX9oKfeO3xFugu7IioeLE06yuJ+cZhz2IIx6Nr1uf5lt/zD/V8gNheMIuKN6yH9U7vKtDz2yd4LD4PUDh20e4ndUkCv7asPe2+L0eZL6wOIKEZ6fhBIb9Qk8hs0ciFXG8EUI8oO7olxPdFuyaIrRRUk1Bpw579mKj1amny9pp948Yritaq34lPqnzV6jstv3r0pUuNwnjBqOZp66+d15bG+7tX8d5ZEVC1Accq/ZY8jlb3dpLe5haOdDQqwIIPMHHpAuNPu3il61O/wAo3EciCNpJ55GeZzUsTUkniTtkijZm6gCT5hsBNC6E/eBH0joEVupozGm0kCg0AXfvxUH6T4aXNlcPFcLuZSVI+cfRu2Fh3p05Ly0PtUGccyp9UnmpQ89muu6WrKJKVMMhNRyx9dfnDL71Nuy1GzeMncTirfhYVU/MfHacScO2QedgPr2kFKAoh9FPq8SssMjJKpqCpII8hGI2NrqlnHc6NiGklABw4DAiU+UV63G3Z6CX+IB9cKawjrCk1Oau/KSg3DHDxttJ92RT5iDtbsB9qAeh3HiFjjQs5NAAKknqA2XU+80oWIYiKu88A1MSfcX9Y7xt8Bp6m20oCmRcCw96m5fcGHXXx1Rv20S7jQgmEq26lRlaop15vDyRCicWO4f46hsUtFE+pkYseHlPsj3RifaOxnu5iz8OAA6gNwHk+foGiyg1AAx8san6vR4UbTRlogcQDSo6q4027HT4zDb0pz9G70nmKkdC08nehj9AdT9XgCC1jqcKk4KoPFmOAHpPAHa1jXWI59QYeuijAVxBBFaDhRqMftAU3dDAO9W9Ak/6vlW61A9jaDGhwYjrxwVfeb5gd+xsdCjCRDAuB58tcST99qnqA37M7sSxNSTiSeZ6Jfrkqilser7DD5thDbxlpDwH0k7gOZw2W5v2El3vUDH9lTv/ABtgOArsVZittWoQH0sfaPM4DgB4HPoWv2TtlWikth6oZWBOJAwpxNNvgtEQSSLvkJqpI/4zzPqDgCNmlmkLSHeTifkOw6JPbxTssEtM6g0DZa0zdYFTgcP0Hf/aAAgBAQEGPwD+oSMpUtZ4aLtM2xNJQ8JIvUmTyWaldCzMMaDkUk3y5XBRKKKZjLAAa7dvfr9f19n6RxShp9eSZRVotktUJCQh102ksybv5CvlK4YvFEHJUXCR34mIIkMACHcNNevMpU2hyoxLHjqFZmyrpZDiYxENTIxonXWknJ0UwBJBNBd+TtuMiHgBK1Pv3mJsgJKmavabkQoQ5yvkjFScIMZpciEa6BNwbyigt6VZRQBAqY6dFMQxTFMUDFMUQEpimABAxRDUDFEB7CHb9GwfaDF96rZIRdkMAe+QVgYqCYg6DoIAz/HTr7x/v116OjkWlR7+UBPY0tMcUsTa48QKJUjtptoQrhYG+uqabgF0Cm77Ne/RnvHXIn+dONWYmVHFGQjieXZsynUUFrELrOCJqAmQ2omZOWrlwpoAIj4dFpOZ4WawHkRBUGb2Ju7ddvAnegXU6aU2oggMcOnvmK8SSTSAwFFYw9+m8hGvGsgweJEXaPWThF00dIqBuTWbOUDqILpHL3AxDCAh+hiIjoAeIj1G0jNea2MhmRhNsJxvg/GbdG9ZZKxFg+Mi5mINm9axlJauhFMyS068jgWKIGRKr30Uj+OvBAh2yfutrRmzMhyuHJCkKBFHVKx9VTJtVFDAImKWeVAPr6Az/iLxTcMNw6t2clmJi82btQD1ytxfp7gL218jx76B4dREZyZ4PXamMVHCaMzbcKZVhsgCggc20ztpRrxXaG4UKTUBMl8bMfaA6GMOhRPHYkyNQMpWppFeslcY21mtRM90pqJlFHCn5YmAj7WaOZLJh5zyIVkIcx9oGXOAgAuLFxAy4/mq2Cx3bjD+QXaDhk7IJgOogwdOg+BOnLgA2+aZNgumTsRQTd+kqFyjx5YMF3dEybdeTcx0g4qLxUwgQHZSqJqSsY0cqiIIiX1yRygJxVITpg7zPm9lcLzORiExWsOYWTYZIyjNxjkDC3kVoplJsYKpRa5SiKbmekYtJfaYEfNMUS9KNMB8B2pY5NVYEJ7MOb1jvHSOog2UXqtEpJEGSpi6GOQsw4KA+6Bh/e6bnyJwNxLYYnzNHSVKzPd6jIAiOndBawVG6NDKF7/vJgBvs8eo6tcgahl/iROyLsjf49ao1nlLFbXzSaIi8uVAT/NbAFF/cMo4rabdIBAyixS7hLA5QwtkalZVx1aGxHdfu2P7NEWysSqRiEOYGkzCunjI7hDeBVURMVZE+pVCFMAh9JqP6/sAO4j1c+CPy8bY3j8oV9R7Ws/8lYg7d6vjuYApm8njDEC4guyLfIwRMlNT4gp8FX3NGQA/Iq5Zy1ks81K2Kwz0i7l5ydnZF5LzMzLSC6jl/KS0rILOX8lIvXKplFl1lDqqHMJjGER6KRIhlDnMUhCEKJjnMYdpSkIUBMcwj7AAR6TlJmmWuJjFilOlIydbm49ioQxdxTJvHjBFucpi9wEDCAh13/EBAQ8NfEBENdOq1eMa2mzUq+1eWaS1StdOmJOAtMBNNlQFnIQMzDOGspHSCaptCHQUKcRHTvroOFbJ8yEYIORs9GnlPKaQp4C6kx27bMT0ZTMsYiCMO1y8+Y+Y5lk2Ldomimsgm4RI/I76mrI4qlQu+d8ySzvFXHeCtcWjKoQdqfxK7uzZQMiYoOU2GNK7q6L5ZikXlnDBsr/KXP1L2i0zMjYLDPP3EpMzUu7WfScpIujio4ev3i5jrOXKxzCJjGER9gaBoHQMICGlJt8JBUBnER7ySdimUQATg2YorriUBEO+3oxrFUbPAAQAEwzcBLxAFAxyEKJjSLNsUoCdQoBqPcRAPb0HiUfEB8B/aA9YwxPwQyTM1GvWeWa2fkZEzrVzZsJJ4Zrjpn+crRkmkLvGkY+foMViMId02WYTJpV43btXiHnHN137D37fUGvYB07agH0dttWOpskVyLzrJHwxgRZJT/uFdmpeOXeXLJjdECmP/wCOaimq4aq6GTTmnUcVQBIcQF1ISDpy+fPnC7t48eLqOnbt05VOu4cunKxjrOHLhY5jqKHETHOYTCIiI9SeO8cvmVExdjplE2POGaJ9i7ewGPq1JyZI9ixYMW3ljY75ZDEXLERILN/UenWWWWQbILKlhojAeC6g9u7crtlZM4X6Hhbtme4vWci5SVeSt2k4zzoZouKRDljIhKOjG+gbEN245loyWj2MnHOExSXYSLNq+ZLJiAlEirR0iq3UJtHTQxRDTqefPMOQPHjNj5FwvE50wDAQ1InyTChCim7utOjEGNJyQyXWSJ6ksg1JIHS3FbvmxzeYFy5Bc7HuP8rVzAtsZrcVYOsOviVYyNY0QSk4vNt0gHxReQSdMExE46vvgUULPJncnMq2aNFXmgeAff8AeIj3ER64b4rVUcfAKfxrs1/YJGMcG/xnI+UpiAllSF3bDKgwxmyII6agGgddx00KcfvKUwlDv9Zg641UnDmNcfS9WyPg7FuRbtdBg4eUmMt2+70eDsc5fLLYTNzyMq9kJKQU9GBltka1TSbNgSSRIQHlnwJZwp0uqmsC1HuzctyoEwioVTzIxdOZbS7hGPdbtFUXaMiiqHuiBS9ST2awX/6VZrWESQ+VsJQRXPHS9SBCIJpBccSRixqvDHdkKdRV5TnEMo03+YvGvFNUxdljbpj3JPKvMThrZeQtrqrsXS8E2jnD4lLxlApyjSOsCdPqLBydY7hVqiWSlnTlxp5YN00u3f6PC3H8jwxqlgPjxEzyUeComIjeMzWOWmbE8UTA2hVV6rVoFMoCGoET1DsboA76dxHTx0ANR0+3QOsTR7KDSZZPzdiweT2XJRZq3ay8nbckV1rbK9DyCqZRWKlSKISLiUEjHECHbKqAUp1lAEjgVSrHRmJRFQSjrtMoKD4CGH+ICPAH9g9GxVyN5c4KwvkYsHF2U1NyHe42uT4QM0Z0WJlfQvNDiyfmYrAkcOxvLH6ug0+YpxM7/wAWXq8X8dygadd/mKcSvuzDWzf7qw9Binjny6wPmjI5oSTsZaZjy/xNjnzwUMLUJWUIwZmFQ7OPF6l5pg12bw164e8zICJXkKrWUbnx6yRJt2y6wwTmdkEL7i5V6dIhyN46Sco2FsCqglIVz5Seu5YoD1DYkp9jq+cePcEdUsJhbNjKSmI2nNXThV09bY7uMK/i7jTmq66xzkY+oeQ6KpzqEZAc5zGZxnKPj5mvjzNqlaJLT1IcQ2c6CkcxgI8eO1WhaTe2DZLXeCaMPIKCQBABEwABnjDjjyOwtnhF60UCWoCEs1SuRWAIFcqmnsT3NpEXVsxBPuJ3EWCIiUQ3alHQluxJbrLi3NYqJvYOlY8dOHqCq6xiayC7cJBk8paRkRECKJOwL5evkNDBuMUJDkQSELW1WBT1deYYrMcmvzHMkZu5lW7MraPRhgbCIFM8RCSWUDeImTEDm+hHTx065AqvN4tXWOOO7iJE2uz4eGG6u2N5WoaeX8TbOddO27XodP4FPw8s2v4h1iU8EKDiDnOOtANDmb7fSuImSxZDDHChtESenVaLE26aht6s6iqvmHZXp0kJNQEUQWr8CfYJgHuGpB064tZgQSFJvkzjC6pyym0C+ol8U5Msjh0beAAJhJE5EZBoIjoAB9fXiP4j14j+I9R/fw4y50Hv/tUsO33j1kPj5nimRt/xRlCvuK5bqxKAcqbpoqdNw1esXiBk3kTOQ0ggi8j3zc6bli9QSXSOU5Cj1Zb7wpZSfMLAIrOZKMgIcI9ryIpcaY+8kTP0YDs2uRzMinBJN/WxUdPdhlFIxr+6MlSsm0i3Y7uUMsZvL1O9VuZqNli3BR0MhIQVgZR8m0VKPiU6QD1C02lVudtttskg3ia/Wa3FPpufm5R2cCNY6JiI5Bw/kHrg46ETSTMYfq06hObvzQ8pNcRqVJ4ynaJh6EtD5hOsrM0J6+LY2GcqD1Ox2m7gJNydYrKpzJ6avnZSAqgVjTOQOFkK5gzJcvD03F/IO9TziWu+Pr29klW0dccoRLhy6qjCqWx45bN1V25lXVZOQro7pwko5MjqHgPf9R76/R8dOTrZov8AlPOOBz47cuwRN5Cd5wpZpBZ8issUBIVR3UMgRZkgMIGMVupoGhegHTUPaGumoe0NfZqHWJcdu5lstmTiLCw/HjJ9bVenWky1utNDssRXAEFyldHhrRj1s3beeImIMnFvUgH+WAdctsdox7+JlcNZoSq8uxenRVKot5tniEXzFdEwecydJ1zUNxCHTMUSmAdAEcUm5aU63WRzhgbgFFeVC/2CiuWSN6Cv/mJu+PCn8uTRcHrDMyYKkEUTENtEAOYBIP8AlbmkAAxANpyCvg7tTgBhEN3cdPqEOsj1WEIsnD1q+3KvxSblYzhwSNhbLKRjAi65wKZdYrRqQDHEAExgEfb0y/8AmTOf/MpX9BFUTprJHADkUIYqhDBqOhiGKJimDUPEB6PWOR+D8T5xgFExTbV7J2P6teylOYR2Hjy2KLkF49cDa7FUDpqAI6E1MIAN5y3xo414y492a6xizAtmjY+wWN1FpmbnTKxrDCfsa61arb51tVkGUI5h0ZApSlMoUCgmnXrRzcy0xz5SsqoWVTAOUqazeVrG7eErziMPP0KExgsu5RxRMVwkyyUdRxFXhHibhNwD98p55yFDXQBHaI/UBuw6fboPXBbLdukV5e0yeC4Wo2KXdrGcP5iaxVKzGKpCYkXBxFRxISytLByuoYRMdVUxhERHX6PIuHqqyYqZ0x67RzDx6ePFEWpVslVOPkEFKg4fKJG9OwyLWH72GETnTQSeOWrhUdrftN1azRElAWOty8lAWCBmWbiOl4Sbhnq8dLQ8tHuk0nTCTjJBsog4RUKU6SpDFMACHVe5GcdJ9BCSbIhB3uiTvqXNFyrRHDtu7lKRdYxssgqvHuVmxFmrpA6b2NeJpuGyhDlEDZiz/wAg8n454t13nU5pWT8eRuTbk2iawhZp5a03OUpw5BlWUNWwcwjK2Ckmu9NH+sBIRITduIX4mvzc4iIx3lef69XknhojMUdNfNBwa5gmKegeOvU0yxNkdTmPlxsm9Qh6PgkTuaSEq2EpWp7RmaUZp0hhArrdjrwwz7sAARK2MAgbq4XVwzRjnFvtNhtC7BuoosgyWsMy9mFWiCqoAqqi2UeimUxveMUoCPfqP+3jLnQB/wAVMH/R0/4jcY7U3Hmll6sj8YsUUumu444Y1nmx0Rt7kyZjekyfbGJzkrbYdFWKAmlVQIBWJXLbGUu7LyV4zqPFVhxJkuckCz9GGQeqPZZ9iPIaiUrI1Nd84XUWUj3zeUhFFznVK0RXVUXNX3slyiqWFMmzCJVZPFnJddHE8nXpExC+bGp3KwqlxlaCmOH8g7CZWMqnt3plOGwq8/MczOKUXCNm5nKss+5D4ibRxG5CCoKnqj2/yhJsDUNBHX2dYG47cS7Elk7HnH+ZutwumY2ka9Z1m1Xi1xcRAMq/j9xJospCVgK1FR7kz2R9ORo+duUwamVSQ85QvYRABAwgHiIF94dPuDrgbjOzMVoywIYIhbvMRzlI6DyOf5blprLC0c+QP76LyPJdSIqkMAGKoQQEA00+j0HuA9hAfb1YOYPChCt0vlus0BzkrGkkszrtJ5FHYtiIoTLeZUFGOpuX/SIFQM9dbYydAqYPVWq5TPFJ3EmeMZXbEuSaw6FtOUq/V2Rrc+zHeYqTkGMigiZ3HPCk3t3aAqtXKQgokochgMPCzIpCbzwV7iKsquXvt+FkyrVjIqD4aASKRDQf4Q600J/gJr+O3XoA94wgGgB3HQPqAPYHTXFfFPCN2zBaVFWxZRavRwI1eptHSoJElbzdZNRjUqVDlMPdxJPG5DCG0m84gUXnNfnJn+syXJmz1B/RWhYeSeNMb4/i7GpGupul47i10mk/lG4Sp2Dcj6YdNm7RqgUSotm6IKvFs2/MQ+XlUJuZislSr+/WfFmRb6L2YyLYHXvy9iwtcbQ79BKDLlRFX8vrvE2UcJPSR7oSA3ZlnMaZgx7dMX5CrTszGfpF/rUxUrVEOiiIeU/gp1oykUN4BqQwp7DlEDFESiA9aajprqJR8NQ7dyj21DrwJ/wyB/aBdehHuI+0R7/ZqIj4dUPkhn+jStP4LY7sLCzyUpZ49zHH5GykC9I6aY5x+2c+Q5lKY7kW5SWCcTL6JNoRVm2VUeKD5CLZsik3bt0k0UEEEyooIopEBNJFFIgARJFJMoFKUA0KUAAOwfSpUnlPgDGGcYBoVcsUW+VhnJTFeM6KJHC9VtCINbTU3apR7rRr1qrroOuoB0w+XHU3eTMI8eYzJ6dupa1SsqdqtNcnFadN5IGPbzeSWdrcPoB3Oyj8gouDKLgkYCEWLtAQAzvmDyiXabgEyLeCxE1cCnr3KV0pWnaZTiX/AFvKHv7PZ1GSt0pWYOSUrGuSPSDm7KLosCo5THcmRep4tiscQ0ixKOmrd6DtNTwOByjp1G8a+DGDKE7tiCgxdYxpiCnRtdxrW5lYfTiZ+wpjJkSwzpnCWqrVoIuFFCn9Q5TUDaZbLnzCssV7NucYdsznY/jT+a4V7HY3ilhI8jC22oRkiYyEaUzgh04xs2RjTGHVdRz5h0gmMWUG/Yzk7Nj5oixn8d1G11N7O0hi0AjJuzmKfCSKsjWGrYAKkRNdsgQnYoAHYOoc3J/E2AM60B4Zizq1lyBGVOdRarWJ8nExpaVfhWSlIZ9NSTtNs2NFSKKq7g5CJ7jiUOnbwMiZO4iLh6OQFjCci6qWCQbTT52wjTnjs9Rl2kEWb6RaqoNRI9TKqqiZMgmMUwARtUfmD5tvqR3z1klFUq78b5mVO6jWjeSfsPUQ9WmhUeMY1yRZYhWwHSSUIoYpSiAjIt6fU6jyuy/iwyY2dLOeX65mqWp75u6D/qLZiGvqw+P4Vyk6T2kGSr4ikYNA0P36qDmDsNNa1OwDEwVDXi5eCQr00LpqqMFD1FVm5JGSXqGTM/pG7ET70kjeWUSlHSwQ9UudTssvU33wy0xdfskLNSNbktTl+Hz7GMfOnUM+1TMHlOSJKe6PbsP0zCSFUqEu1mcVTTZIxwAzhCRf2SmuFClEex/SnVIbTTUpQ8ddOhkpt6DZETlQQTIks6evnRimMRnHMGqaz2QeHKQxgSRIc+0pjCAFKYQd4/oiLuo1reRGcFJ56ZylHOEwOCl1sTIrpGOI7bqFOnER51l3JDAJhdNjqGRB3DR6Mvc3SIJSlzetUyyJyKbfOYw6G9YkHECYNBSSOZZYoF89VYSlEM1Yk4Y0n/MPPGaLNz9GKyRnjgdkvCPLHhhdswY3zPLwWb23P91FoYtzNhd/k1eMhYBs4V+Mu4GZjE2rxckYokn8sXGXCzh5k/jvzH46ZmwrYuRtunuLt9w1NYIxLTqy/i+XVZzlnWwUeDrebz55jlHkK2aMZ6zGuEzJt5shzlbC+S438Q6XibkjL8meMyXFjNt/w0+4rcianJOYHijyvxvl3LVZp9uumL6/ji135vRK+7cw0Sxl13c+4TK3jyruDlJ1yzz9DYQsWTONsB8uupYEr03njjtcajF3TkBHZNzVlYGGPMf51oletVgfY+hZ2PBxKpRRW7WUkCNW6x3BFypfKkqvFDCamFOQc58p7mjCTlpqmNSYyf1flFeOCuDalRpnLNhjImAGq5KlLm2WYoSc2qnIIv0znHeZBRPr5cNT4GcOsmccuQfHfINemOS9kmeKt9wU+wrx+hMO22tZ/wAO5syhZqNW4LN9kzNOvGUYxjY+UtBpyaKWwgv5TT1xvksYrQoWX7zxivnIDiNyJsEHIxVkcZJ4PZyhsUZPPnOlTcU6jC2Ou4Xyq9s55uCUdC1TptuTfMVTkQko8idfwvinE8TkTG0FxutMNcORl3+X5kbhBy0wu+r1ypTinYU5N5AtsVH0XlBb8hHfPnbiRgSoSBZOBcSjxNZJ8Rwf6XEdjjztihNwLBw3TkfUDGOXuO8hxs0DN4DVZFfY7RsoJaFMQxhOAAbXo9zyP66oNJxt5YJvWYsLs4jjiU5WENFOCnJjmBUEA/fKMqtt3qETcFTenRioSPbRzBATmIg2Jt3qqmFRdy4VMJlnT10qYTrLqmOssoYTqGMYREfvD+8OsTTGAcs3PKc/jPPHz0bvZuN1rtLp/BcnsU8c+auFMc1vADN2+XO2q1vp2Obq8Tx5JGKZtDyzdBirsYvHIhj2g5E5Y5/xPxC5CcrvmdW2lzrLJNywLkW/2HEdzwazwRw+PkUjqu5GxDFU7H10s86pVIp/FSEk4hVEEznasXKasPiTGnKaS5ILsHuTH8TM5Cz1CZyymvGVi9mgblEOrYm7Vs1niMT2mVQryzp+Z69jlfIav3ajo24+ga9/rMYR/EREeg8e3bxH+36+tQ1+8xhAP2AIiBfu6Dx7faP9vfv121+8RHT9mojp9301Tu1hq8RNWmiFlgp0zJNgeOa4pNiwGTdRJFhO2av3ARiIA5AnnpFKJUzkA5wN/S1sNdxrQICfZOby8ZTkLTq7FTDR3k+bj7Lkl02kmMcg9Qc5CscS1kJxQpwNLPWyS7oVVUyGCyY4vWB8N3HH1xtshf7bSLNjKmTdTs18lXgyMneJ+vSMM4ipa5P5AfULSiyR3yi/8wyon79VVTHeIMXUNWi0+Sx5SVabQKpWFafQZmYYWKYo9WVhIlipAVCWsEW2fOo1qKTNw8bpLqJmVTKYP6h//9k=" alt="GS Solutions Inc." class="logo-diamond"
+style="object-fit:contain">
+
+  </div>
+  <div class="nav-right">
+    <a href="https://gsocd.com" class="nav-link">Home</a>
+    <a href="services.html" class="nav-link">Services</a>
+    <a href="#" class="nav-link" onclick="openContact(); return false;">Contact</a>
+  </div>
+</nav>
+
+<div class="portal-header">
+  <p>Welcome back, <strong id="client-name">Client</strong> &nbsp;·&nbsp; <span id="client-num-display"></span></p>
+  <button class="btn-signout" onclick="doSignout()">Sign out</button>
+</div>
+
+<div class="tabs">
+  <a class="tab active" href="customer.html">New Order</a>
+  <a class="tab" href="tracking.html#processing">Processing</a>
+  <a class="tab" href="tracking.html#history">History</a>
+</div>
+
+<div id="new-order" class="tab-panel active">
+  <div class="order-wrap">
+    <div class="order-main">
+
+      <div id="order-form-steps">
+
+        <div id="edit-banner">Editing order <strong id="edit-order-id"></strong> — your changes will be sent to our office for review. The order stays in Processing.</div>
+
+        <div class="step-label">Step 1 of 3</div>
+        <div class="step-title">Select a division</div>
+        <div class="divisions">
+          <div class="div-card active" data-div="Janitorial" onclick="selectDiv('Janitorial', this)">
+            <div class="div-icon">🧹</div>
+            <div class="div-name">Janitorial</div>
+            <div class="div-desc">Residential &amp; commercial Janitorial services</div>
+          </div>
+          <div class="div-card" data-div="renovations" onclick="selectDiv('renovations', this)">
+            <div class="div-icon">🔨</div>
+            <div class="div-name">Renovations</div>
+            <div class="div-desc">Repairs, painting, flooring &amp; more</div>
+          </div>
+          <div class="div-card" data-div="exteriors" onclick="selectDiv('exteriors', this)">
+            <div class="div-icon">🌿</div>
+            <div class="div-name">Exteriors</div>
+            <div class="div-desc">Landscaping, pressure washing &amp; outdoor maintenance</div>
+          </div>
+        </div>
+
+        <div class="step-label">Step 2 of 3</div>
+        <div class="step-title">Select your services</div>
+        <div class="services-section" id="services-container"><p class="flash-empty">Loading services…</p></div>
+
+        <div class="step-label">Step 3 of 3</div>
+        <div class="step-title">Dates &amp; property details</div>
+
+        <div class="property-grid">
+          <div class="field-wrap">
+            <label>Building #</label>
+            <input type="text" id="building-number" placeholder="e.g. 1215" />
+          </div>
+          <div class="field-wrap">
+            <label>Unit #</label>
+            <input type="text" id="unit-number" placeholder="e.g. 205" />
+          </div>
+          <div class="field-wrap">
+            <label>Bedrooms</label>
+            <input type="number" id="bedrooms" placeholder="e.g. 2" min="1" max="5" />
+          </div>
+          <div class="field-wrap">
+            <label>Bathrooms</label>
+            <input type="number" id="bathrooms" placeholder="e.g. 1" min="1" max="3" />
+          </div>
+        </div>
+
+        <div class="dates-grid">
+          <div class="field-wrap">
+            <label>Entry available from</label>
+            <input type="date" id="entry-date">
+          </div>
+          <div class="field-wrap">
+            <label>Entry time</label>
+            <input type="time" id="entry-time" value="08:00">
+          </div>
+          <div class="field-wrap">
+            <label>Service due date</label>
+            <input type="date" id="delivery-date">
+          </div>
+        </div>
+
+        <div class="due-warning" id="due-warning">
+          Heads-up: this order is due less than 24 hours after entry. The office will need to confirm availability.
+        </div>
+
+        <div class="field-wrap" style="margin-bottom:24px">
+          <label>Service location (from your account)</label>
+          <div id="account-details-block" style="border:1.5px solid var(--border);background:var(--off);padding:16px 18px;font-size:13px;line-height:1.9;color:var(--black)">
+            <div><strong id="ad-business">—</strong></div>
+            <div id="ad-address">—</div>
+            <div id="ad-citystatezip">—</div>
+            <div style="margin-top:6px;color:var(--gray);font-size:12px" id="ad-email">—</div>
+          </div>
+        </div>
+
+        <div class="field-wrap" style="margin-bottom:32px">
+          <label>Notes / Building Number / Special Instructions</label>
+          <textarea id="notes" placeholder="Specify building number or details..."></textarea>
+        </div>
+
+        <div class="submit-row">
+          <p class="submit-note" id="submit-note-text">Your order will be reviewed by our team. You'll receive confirmation with full details.</p>
+          <div class="edit-actions" id="edit-actions" style="display:none">
+            <button class="btn-cancel-edit" onclick="cancelEdit()">Cancel</button>
+          </div>
+          <button class="btn-submit" id="submit-btn" onclick="submitOrder()">Submit Order →</button>
+        </div>
+      </div>
+
+      <div id="order-confirmation">
+        <div class="confirm-head">
+          <div class="confirm-check">✓</div>
+          <div class="step-title" id="confirm-title">Order Confirmed</div>
+          <p id="confirm-msg">Our team is reviewing your request and will contact you within 24 hours.<br>
+             If you have any questions, call us at (515) 473-5990 or email orders@gsocd.com.</p>
+          <p style="margin-top:10px">Order Number: <strong id="confirmed-order-num">—</strong></p>
+        </div>
+        <div class="confirm-grid">
+          <div class="confirm-box">
+            <h4>Order Summary</h4>
+            <div id="confirm-summary"></div>
+          </div>
+          <div class="confirm-box">
+            <h4>Order Tracker</h4>
+            <div class="tracker-steps" id="confirm-tracker"></div>
+          </div>
+        </div>
+        <div class="confirm-actions">
+          <button class="btn-gold" onclick="location.href='tracking.html'">View Order Tracker →</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="order-sidebar">
+      <div class="summary-box">
+        <h4>Order Summary</h4>
+        <div id="summary-division" style="font-size:11px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">Janitorial</div>
+        <div id="summary-services"><p class="summary-empty">No services selected yet</p></div>
+      </div>
+      <div class="summary-box">
+        <h4>Your Account</h4>
+        <div class="summary-item">Client # <span id="sidebar-client-num">—</span></div>
+        <div class="summary-item">Orders placed <span id="sidebar-orders-count">0</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 <span>GS Solutions Inc.</span> — Des Moines, Iowa</p>
+  <p>orders@gsocd.com · (515) 473-5990</p>
+</footer>
+
+<!-- FIX: diálogo de draft con botón de cerrar (✕) y wiring por addEventListener -->
+<div class="dialog-overlay" id="draft-dialog">
+  <div class="dialog-panel" style="position:relative">
+    <button class="contact-close" id="draft-close-btn" title="Close — draft stays saved">✕</button>
+    <h3>Unfinished order found</h3>
+    <p>You have an unfinished <strong id="draft-dialog-division">Janitorial</strong> order (<span id="draft-dialog-id"></span>). Would you like to continue where you left off, or start over?</p>
+    <div class="dialog-btns">
+      <button class="btn-ghost" id="draft-startover-btn">Start Over</button>
+      <button class="btn-gold" style="flex:1" id="draft-continue-btn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="contact-overlay" id="contact-overlay" onclick="if(event.target===this) closeContact();">
+  <div class="contact-panel">
+    <button class="contact-close" onclick="closeContact()">✕</button>
+    <div class="contact-logo-slot" id="contact-logo-slot"></div>
+    <h2>Contact Us</h2>
+    <p class="contact-sub">Send us a message and our team will get back to you.</p>
+    <div class="field" style="margin-bottom:14px">
+      <label>Your Name</label>
+      <input type="text" id="contact-name" placeholder="Full name" />
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Email</label>
+      <input type="text" id="contact-email" placeholder="you@email.com" />
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Message</label>
+      <input type="text" id="contact-message" placeholder="How can we help?" />
+    </div>
+    <button class="btn-gold" onclick="sendContact()">Send Message</button>
+    <p id="contact-error" style="font-size:11px;color:#B33A3A;margin-top:10px;text-align:center"></p>
+    <p id="contact-ok" style="font-size:12px;color:#2A7A2A;margin-top:10px;text-align:center;display:none">Message sent. We'll be in touch shortly.</p>
+  </div>
+</div>
+
+<!-- Toast de notificación -->
+<div class="toast" id="toast"></div>
+
+<script src="shared.js"></script>
+<script>
+const client = GS.requireSession();
+if (client) {
+
+  let serviceData = null;
+  let currentDiv = 'Janitorial';
+  let activeCat = null;
+  let openCat = null;
+  let catOrder = [];
+  let selected = {};
+  let locked = {};
+  let escalated = {};
+  let dirtLevel = '';
+  let editOrderId = null;
+  let continueOrderId = null;
+  let draftOrderId = null;
+  let draftPendingData = null;
+  let saveTimer = null;
+
+  const $ = id => document.getElementById(id);
+
+  function placeholderFor(cat) {
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600">' +
+      '<rect width="400" height="600" fill="#EFEDE7"/>' +
+      '<text x="200" y="290" font-family="Arial" font-size="18" fill="#8C6F2A" text-anchor="middle" font-weight="bold">No image for:</text>' +
+      '<text x="200" y="320" font-family="Arial" font-size="20" fill="#111" text-anchor="middle">' + cat + '</text>' +
+      '</svg>'
+    );
+  }
+
+  function levelOf(sub) {
+    const s = (sub || '').toLowerCase();
+    if (/(deep|full|heavy|two|replace|repair)/.test(s)) return 3;
+    if (/(wipe|scrub|disinfect|detail|medium|one|mop|spot)/.test(s)) return 2;
+    return 1;
+  }
+  function deepSubOf(subs) { return subs.find(x => levelOf(x) === 3) || null; }
+  function subForLevel(subs, level) {
+    let best = subs[0], bestDist = 99;
+    for (const s of subs) { const d = Math.abs(levelOf(s) - level); if (d < bestDist) { bestDist = d; best = s; } }
+    return best;
+  }
+
+  function categoryDescription(cat, services) {
+    const names = services.map(s => s.name.toLowerCase());
+    const has = (kw) => names.some(n => n.includes(kw));
+    let what;
+    if (has('kitchen') || has('counter') || has('applian')) what = 'Kitchen surfaces, appliances and fixtures — countertops, sink, cabinets and more.';
+    else if (has('bath') || has('toilet') || has('shower')) what = 'Bathroom surfaces and fixtures — toilet, shower, tub, vanity and mirrors.';
+    else if (has('bed') || has('closet')) what = 'Bedrooms and closets — dusting, wiping and detailed cleaning as needed.';
+    else if (has('living') || has('common') || has('hall')) what = 'Common areas — living spaces, hallways and shared surfaces throughout the unit.';
+    else if (has('window') || has('blind')) what = 'Windows and blinds — glass, frames, tracks and coverings.';
+    else if (has('duct') || has('vent') || has('air')) what = 'Air ducts, vents and grilles for healthier air circulation.';
+    else if (has('floor') || has('carpet')) what = 'Floors — sweeping, mopping and deep treatments depending on condition.';
+    else what = 'Professional cleaning services for ' + cat.toLowerCase() + '.';
+    return what + ' Pick the services you need and choose a level for each — ' +
+           '<b>Dust</b> for light upkeep, <b>Wipe Down</b> for regular cleaning, or <b>Deep Clean</b> for heavy buildup. ' +
+           'Tip: you can set one level for the whole unit with the Overall Condition Level above. ' +
+           'Rooms where a majority of services are set to Deep Clean are automatically deep-cleaned entirely for consistent results.';
+  }
+
+  fillAccount(client);
+  GS.applyLogo();
+  refreshOrdersCount();
+
+  const params = new URLSearchParams(location.search);
+  const editParam = params.get('edit');
+  const continueParam = params.get('continue');
+
+  GS.api('/get-services', { method: 'GET' }).then(data => {
+    serviceData = data;
+    if (editParam) {
+      loadForEdit(editParam);
+    } else if (continueParam) {
+      loadForContinue(continueParam);
+    } else {
+      const divParam = params.get('division');
+      if (divParam && serviceData[divParam]) {
+        const card = document.querySelector('.div-card[data-div="' + divParam + '"]');
+        if (card) selectDiv(divParam, card);
+        else { renderServices('Janitorial'); checkDraftFor('Janitorial'); }
+      } else {
+        renderServices('Janitorial');
+        checkDraftFor('Janitorial');
+      }
+    }
+  }).catch(err => {
+
+
+    $('services-container').innerHTML = '<p class="flash-empty">Could not load services: ' + esc(err.message) + '</p>';
+  });
+
+
+  function fillAccount(c) {
+    $('client-name').textContent = c.businessName || c.clientId;
+    $('client-num-display').textContent = c.clientId;
+    $('sidebar-client-num').textContent = c.clientId;
+    $('ad-business').textContent = c.businessName || c.clientId;
+    $('ad-address').textContent = c.suite ? (c.address + ', ' + c.suite) : (c.address || '—');
+    $('ad-citystatezip').textContent = [c.city, c.zip].filter(Boolean).join(', ') || '—';
+    $('ad-email').textContent = c.contact || '';
+  }
+
+  async function refreshOrdersCount() {
+    try {
+      const data = await GS.api('/get-orders', { method: 'POST', body: { clientId: client.clientId } });
+      $('sidebar-orders-count').textContent = (data.orders || []).length;
+    } catch (e) { $('sidebar-orders-count').textContent = '0'; }
+  }
+
+  function doSignout() {
+    GS.session.clear();
+    location.href = 'index.html';
+  }
+
+  function showToast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 6000);
+  }
+
+  /* ===== División ===== */
+  function selectDiv(div, el) {
+    document.querySelectorAll('.div-card').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    /* Venías de "Continue" y cambiaste de división → borrar el draft original para que no quede huérfano */
+    if (continueOrderId && div !== currentDiv) {
+      const orphan = continueOrderId;
+      continueOrderId = null;
+      GS.api('/delete-draft', { method: 'POST', body: { orderId: orphan } }).then(refreshOrdersCount).catch(() => {});
+      showToast('Draft ' + orphan + ' deleted — you switched to another division.');
+    }
+    currentDiv = div;
+    selected = {}; locked = {}; escalated = {}; dirtLevel = '';
+    activeCat = null; openCat = null; catOrder = [];
+    draftOrderId = null; draftPendingData = null;
+    $('summary-division').textContent = el ? el.querySelector('.div-name').textContent : div;
+    renderServices(div);
+    updateSummary();
+    if (!editParam && !continueParam) checkDraftFor(div);
+  }
+  
+
+  /* ===== Render de acordeones (reemplaza carrusel) ===== */
+  function renderServices(div) {
+    const container = $('services-container');
+    container.innerHTML = '';
+
+    if (!serviceData) { container.innerHTML = '<p class="flash-empty">Loading services…</p>'; return; }
+    const cfg = serviceData[div];
+    if (!cfg || !Object.keys(cfg.categories || {}).length) {
+      container.innerHTML = '<p class="flash-empty">No services available for this division.</p>';
+      return;
+    }
+
+    if (div === 'Janitorial') renderDirtBox(container);
+
+    const grid = document.createElement('div');
+    grid.className = 'cat-grid';
+    container.appendChild(grid);
+
+    catOrder = Object.keys(cfg.categories);
+
+    Object.entries(cfg.categories).forEach(([cat, services], idx) => {
+      const acc = document.createElement('div');
+      acc.className = 'accordion-cat';
+      acc.dataset.cat = cat;
+      acc.style.cssText = 'border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden;';
+
+      /* Header del acordeón */
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;background:var(--white);';
+      header.innerHTML = '<span style="font-weight:600;font-size:14px;letter-spacing:.02em">' + cat + '</span>' +
+        '<span class="flash-badge accordion-badge" data-cat="' + cat + '" style="margin-right:8px"></span>' +
+        '<span class="acc-arrow" style="font-size:12px;color:var(--gray);transition:transform .2s">▼</span>';
+      acc.appendChild(header);
+
+      /* Body del acordeón */
+      const body = document.createElement('div');
+      body.className = 'accordion-body';
+      body.style.cssText = 'display:none;padding:16px 20px;background:var(--off);border-top:1px solid var(--border);';
+
+      /* Esc message */
+      const escm = document.createElement('div');
+      escm.className = 'esc-msg';
+      escm.style.display = 'none';
+      escm.textContent = 'Majority of services in this room are Deep Clean — the whole room is set to Deep Clean and locked for consistent pricing.';
+      body.appendChild(escm);
+
+      /* Servicios */
+      const list = document.createElement('div');
+      list.className = 'flash-services';
+      body.appendChild(list);
+      acc.appendChild(body);
+
+      /* Toggle */
+      header.addEventListener('click', () => {
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : 'block';
+        header.querySelector('.acc-arrow').style.transform = isOpen ? '' : 'rotate(180deg)';
+        if (!isOpen) {
+          activeCat = cat;
+          openCat = cat;
+          populateServices(cat, false);
+        } else {
+          openCat = null;
+        }
+      });
+
+
+      grid.appendChild(acc);
+    });
+
+    refreshBadges();
+    if (openCat) populateServices(openCat, false);
+  }
+
+  function populateServices(cat, animate) {
+    const acc = document.querySelector('.accordion-cat[data-cat="' + CSS.escape(cat) + '"]');
+    if (!acc) return;
+    const card = acc; // compatibilidad con el resto del código
+    const list = card.querySelector('.flash-services');
+    list.innerHTML = '';
+    const services = (serviceData[currentDiv].categories[cat]) || [];
+    services.forEach((svc, i) => {
+      const row = document.createElement('div');
+      row.className = 'svc' + (animate ? ' enter' : '');
+      if (animate) row.style.animationDelay = (i * 70) + 'ms';
+
+      const isLocked = locked[cat] && Object.prototype.hasOwnProperty.call(locked[cat], svc.name);
+      const currentSub = (selected[cat] || {})[svc.name];
+
+      const name = document.createElement('span');
+      name.className = 'svc-name';
+      name.textContent = svc.name;
+      row.appendChild(name);
+
+      if (svc.desc) {
+        const d = document.createElement('span');
+        d.className = 'svc-desc';
+        d.textContent = svc.desc;
+        row.appendChild(d);
+      }
+
+      const chips = document.createElement('div');
+      chips.className = 'svc-chips';
+      svc.subs.forEach(sub => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = sub;
+        chip.dataset.cat = cat;
+        chip.dataset.svc = svc.name;
+        chip.dataset.sub = sub;
+        if (currentSub === sub) chip.classList.add('checked');
+        if (isLocked) chip.classList.add('locked');
+        chips.appendChild(chip);
+      });
+      row.appendChild(chips);
+      list.appendChild(row);
+    });
+  }
+
+  function layoutCarousel(instant) { /* no-op: reemplazado por acordeones */ }
+  function updateDescription() { /* no-op: reemplazado por acordeones */ }
+
+  $('services-container').addEventListener('click', function (e) {
+    const chip = e.target.closest('.chip');
+    if (chip) { toggleSub(chip.dataset.cat, chip.dataset.svc, chip.dataset.sub); return; }
+  });
+
+  function renderDirtBox(container) {
+    const box = document.createElement('div');
+    box.className = 'dirt-level-box';
+    box.innerHTML =
+      '<label>Overall Condition Level</label>' +
+      '<div class="dirt-options">' +
+        '<label class="dirt-option"><input type="radio" name="dirt-level" value="Level 1 (Light)"> Level 1 (Light)</label>' +
+        '<label class="dirt-option"><input type="radio" name="dirt-level" value="Level 2 (Moderate)"> Level 2 (Moderate)</label>' +
+        '<label class="dirt-option"><input type="radio" name="dirt-level" value="Level 3 (Heavy / Deep)"> Level 3 (Heavy / Deep)</label>' +
+      '</div>' +
+      '<div class="dirt-hint">Sets every service to this level as a starting point. Click the selected level again to clear it.</div>';
+    container.appendChild(box);
+    box.querySelectorAll('input[name="dirt-level"]').forEach(r => {
+      r.addEventListener('click', function () {
+        if (this.dataset.wasChecked === '1') {
+          this.checked = false;
+          delete this.dataset.wasChecked;
+          applyLever('');
+        } else {
+          box.querySelectorAll('input[name="dirt-level"]').forEach(x => delete x.dataset.wasChecked);
+          this.dataset.wasChecked = '1';
+          applyLever(this.value);
+        }
+      });
+    });
+  }
+
+  function syncDirtRadios() {
+    document.querySelectorAll('input[name="dirt-level"]').forEach(r => {
+      if (dirtLevel && r.value.indexOf(dirtLevel) === 0) { r.checked = true; r.dataset.wasChecked = '1'; }
+      else { r.checked = false; delete r.dataset.wasChecked; }
+    });
+  }
+
+  function applyLever(label) {
+    dirtLevel = label ? label.split(' ').slice(0, 2).join(' ') : '';
+    selected = {}; locked = {}; escalated = {};
+    if (dirtLevel) {
+      const lvl = parseInt(dirtLevel.replace('Level ', ''), 10);
+      eachService((cat, svc) => {
+        const sub = subForLevel(svc.subs, lvl);
+        if (sub) {
+          selected[cat] = selected[cat] || {};
+          selected[cat][svc.name] = sub;
+        }
+      });
+    }
+    if (openCat) populateServices(openCat, false);
+    refreshBadges();
+    updateSummary();
+    scheduleDraftSave();
+  }
+
+  function eachService(fn) {
+    const cfg = serviceData && serviceData[currentDiv];
+    if (!cfg) return;
+    Object.entries(cfg.categories).forEach(([cat, services]) => services.forEach(svc => fn(cat, svc)));
+  }
+
+  function toggleSub(cat, svcName, sub) {
+    const isLocked = locked[cat] && Object.prototype.hasOwnProperty.call(locked[cat], svcName);
+    if (isLocked) return;
+
+    selected[cat] = selected[cat] || {};
+    if (selected[cat][svcName] === sub) delete selected[cat][svcName];
+    else selected[cat][svcName] = sub;
+
+    if (currentDiv === 'Janitorial') recountEscalation(cat);
+    if (openCat) populateServices(openCat, false);
+    refreshBadges();
+    updateSummary();
+    scheduleDraftSave();
+  }
+
+  function recountEscalation(cat) {
+    const services = (serviceData[currentDiv].categories[cat]) || [];
+    const total = services.length;
+    if (total <= 2) return;
+
+    const threshold = Math.floor(total / 2) + 1;
+    let manualDeep = 0;
+    services.forEach(svc => {
+      const isLocked = locked[cat] && Object.prototype.hasOwnProperty.call(locked[cat], svc.name);
+      const sub = selected[cat] && selected[cat][svc.name];
+      if (sub && levelOf(sub) === 3 && !isLocked) manualDeep++;
+    });
+
+    if (manualDeep >= threshold && !escalated[cat]) escalateRoom(cat, services);
+    else if (escalated[cat] && manualDeep < threshold) rollbackRoom(cat, services);
+  }
+
+  function escalateRoom(cat, services) {
+    escalated[cat] = true;
+    locked[cat] = locked[cat] || {};
+    services.forEach(svc => {
+      const alreadyDeep = selected[cat][svc.name] && levelOf(selected[cat][svc.name]) === 3;
+      const isLocked = Object.prototype.hasOwnProperty.call(locked[cat], svc.name);
+      if (!alreadyDeep && !isLocked) {
+        const deep = deepSubOf(svc.subs);
+        if (deep) {
+          locked[cat][svc.name] = selected[cat][svc.name] || null;
+          selected[cat][svc.name] = deep;
+        }
+      }
+    });
+  }
+
+  function rollbackRoom(cat, services) {
+    escalated[cat] = false;
+    const lk = locked[cat] || {};
+    Object.entries(lk).forEach(([svcName, prev]) => {
+      /* No resucitar servicios que el cliente ya borró desde el resumen */
+      if (!(selected[cat] && Object.prototype.hasOwnProperty.call(selected[cat], svcName))) return;
+      if (prev === null) delete selected[cat][svcName];
+      else selected[cat][svcName] = prev;
+    });
+    delete locked[cat];
+  }
+
+  function updateSummary() {
+    const box = $('summary-services');
+    const lines = [];
+    if (currentDiv === 'Janitorial' && dirtLevel) lines.push({ dirt: dirtLevel });
+    Object.entries(selected).forEach(([cat, svcs]) => {
+      Object.entries(svcs).forEach(([svc, sub]) => lines.push({ cat, svc, sub }));
+    });
+
+    if (!lines.length) {
+      box.innerHTML = '<p class="summary-empty">No services selected yet</p>';
+    } else {
+      box.innerHTML = lines.map((l) => {
+        if (l.dirt) {
+          const isLockedByEsc = Object.values(escalated).some(Boolean);
+          return '<div class="summary-item" style="align-items:center"><span>Dirt Level: ' + esc(l.dirt) + '</span>' +
+                 (isLockedByEsc ? '' : '<button class="summary-remove" data-dirt="1" title="Clear level">✕</button>') + '</div>';
+        }
+        const lv = levelOf(l.sub);
+        return '<div class="summary-item" style="align-items:center"><div style="min-width:0">' +
+               '<span>' + esc(l.cat + ' — ' + l.svc) + '</span><br>' +
+               '<span style="color:var(--gray)">' + esc(l.sub + ' (Level ' + lv + ')') + '</span></div>' +
+               '<button class="summary-remove" data-cat="' + esc(l.cat) + '" data-svc="' + esc(l.svc) + '" title="Remove service">✕</button></div>';
+      }).join('');
+    }
+    refreshBadges();
+  }
+
+  $('summary-services').addEventListener('click', function (e) {
+    const btn = e.target.closest('.summary-remove');
+    if (!btn) return;
+    if (btn.dataset.dirt) {
+      dirtLevel = '';
+      syncDirtRadios();
+    } else {
+      const cat = btn.dataset.cat, svc = btn.dataset.svc;
+      if (selected[cat]) {
+        delete selected[cat][svc];
+        if (currentDiv === 'Janitorial') recountEscalation(cat);
+      }
+    }
+    updateSummary();
+    if (openCat) populateServices(openCat, false);
+    scheduleDraftSave();
+  });
+
+  function refreshBadges() {
+    document.querySelectorAll('.flash-card').forEach(card => {
+      const cat = card.dataset.cat;
+      const count = Object.keys(selected[cat] || {}).length;
+      card.querySelectorAll('.flash-badge').forEach(b => {
+        b.textContent = count;
+        b.classList.toggle('zero', count === 0);
+      });
+      const msg = card.querySelector('.esc-msg');
+      if (msg) msg.classList.toggle('show', !!escalated[cat]);
+    });
+  }
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  function buildServicesString() {
+    const parts = [];
+    if (currentDiv === 'Janitorial' && dirtLevel) {
+      const label = { 'Level 1': 'Level 1 (Light)', 'Level 2': 'Level 2 (Moderate)', 'Level 3': 'Level 3 (Heavy / Deep)' }[dirtLevel] || dirtLevel;
+      parts.push('Dirt Level: ' + label);
+    }
+    Object.entries(selected).forEach(([cat, svcs]) => {
+      Object.entries(svcs).forEach(([svc, sub]) => { if (sub) parts.push(cat + ' > ' + svc + ' – ' + sub); });
+    });
+    return parts.join(' | ');
+  }
+
+  function checkDueWarning() {
+    const ed = $('entry-date').value, et = $('entry-time').value || '08:00', dd = $('delivery-date').value;
+    const w = $('due-warning');
+    if (!ed || !dd) { w.style.display = 'none'; return; }
+    const entry = new Date(ed + 'T' + et);
+    const due = new Date(dd + 'T23:59:59');
+    w.style.display = (due.getTime() - entry.getTime() < 24 * 3600 * 1000) ? 'block' : 'none';
+  }
+  ['entry-date', 'entry-time', 'delivery-date'].forEach(id => $(id).addEventListener('change', () => { checkDueWarning(); scheduleDraftSave(); }));
+
+  /* ===== Drafts ===== */
+  function formSnapshot() {
+    return {
+      division: currentDiv,
+      dirtLevel: dirtLevel,
+      dirtLabel: (document.querySelector('input[name="dirt-level"]:checked') || {}).value || '',
+      selected: selected,
+      fields: {
+        buildingNumber: $('building-number').value,
+        unitNumber: $('unit-number').value,
+        bedrooms: $('bedrooms').value,
+        bathrooms: $('bathrooms').value,
+        entryDate: $('entry-date').value,
+        entryTime: $('entry-time').value,
+        dueDate: $('delivery-date').value,
+        notes: $('notes').value
+      }
+    };
+  }
+
+  /* REGLA CORREGIDA: Evaluamos que por lo menos exista un servicio o nivel de suciedad para empezar a mandar drafts. */
+  function snapshotHasContent(s) {
+    if (s.dirtLevel) return true;
+    if (Object.values(s.selected).some(o => Object.keys(o).length > 0)) return true;
+    return false; /* No mandamos draft si solo escribió en "Notes" sin seleccionar servicios */
+  }
+
+  function scheduleDraftSave() {
+    if (editOrderId || continueOrderId) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraft, 3000);
+  }
+
+  async function saveDraft() {
+    const snap = formSnapshot();
+    if (!snapshotHasContent(snap)) return;
+    
+    /* Construir array de servicios para el backend (1 objeto por servicio) */
+    const servicesArray = [];
+    Object.entries(snap.selected || {}).forEach(([cat, svcs]) => {
+      Object.entries(svcs).forEach(([svcName, subOption]) => {
+        servicesArray.push({
+          Category:    cat,
+          ServiceName: svcName,
+          SubOption:   subOption,
+          Division:    currentDiv
+        });
+      });
+    });
+
+    /* Preparamos el payload a mandar */
+    const payload = {
+      ClientID:       client.clientId,
+      BusinessName:   client.businessName,
+      Requester:      client.contactPerson || client.businessName || client.clientId,
+      Division:       currentDiv,
+      Services:       servicesArray,
+      DirtLevel:      dirtLevel,
+      BuildingNumber: snap.fields.buildingNumber,
+      UnitNumber:     snap.fields.unitNumber,
+      Bedrooms:       snap.fields.bedrooms,
+      Bathrooms:      snap.fields.bathrooms,
+      EntryDate:      snap.fields.entryDate ? new Date(snap.fields.entryDate + 'T' + (snap.fields.entryTime || '08:00')).toISOString() : '',
+      DueDate:        snap.fields.dueDate ? new Date(snap.fields.dueDate + 'T23:59:59').toISOString() : '',
+      Notes:          snap.fields.notes
+    };
+
+    /* Si ya tenemos un ID temporal de esta sesión, lo mandamos para que actualice la fila */
+    if (draftOrderId) {
+      payload.OrderID = draftOrderId;
+    }
+
+    try {
+      const res = await GS.api('/save-draft', {
+        method: 'POST',
+        body: payload
+      });
+      /* Apenas nos responde el servidor con el éxito, guardamos el orderId que generó (o actualizó) */
+      if (res.orderId) {
+        draftOrderId = res.orderId;
+      }
+    } catch (e) { 
+      console.error('Draft save failed:', e); 
+    }
+  }
+
+  ['building-number', 'unit-number', 'bedrooms', 'bathrooms', 'notes'].forEach(id => $(id).addEventListener('input', scheduleDraftSave));
+
+  async function checkDraftFor(div) {
+    try {
+      const data = await GS.api('/get-orders', { method: 'POST', body: { clientId: client.clientId } });
+      const draft = (data.orders || []).find(o => o.Status === 'Incomplete' && o.Division === div);
+      if (draft) {
+        draftPendingData = draft;
+        $('draft-dialog-division').textContent = div;
+        $('draft-dialog-id').textContent = draft.OrderID || '';
+        $('draft-dialog').classList.add('open');
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  /* ===== Continue — cierra el diálogo y carga el draft completo desde el backend ===== */
+  async function draftContinue() {
+    $('draft-dialog').classList.remove('open');
+    if (!draftPendingData) return;
+    const orderId = draftPendingData.OrderID;
+    draftPendingData = null;
+    try {
+      const data = await GS.api('/get-order-detail', {
+        method: 'POST',
+        body: { orderId, clientId: client.clientId }
+      });
+      const o = data.order || {};
+      draftOrderId = orderId;
+
+      /* Restaurar servicios desde las filas individuales */
+      selected = {};
+      (data.services || []).forEach(s => {
+        selected[s.Category] = selected[s.Category] || {};
+        selected[s.Category][s.ServiceName] = s.SubOption;
+      });
+      dirtLevel = o.DirtLevel || '';
+
+      $('building-number').value = o.BuildingNumber || '';
+      $('unit-number').value     = o.UnitNumber     || '';
+      $('bedrooms').value        = o.Bedrooms       || '';
+      $('bathrooms').value       = o.Bathrooms      || '';
+      if (o.EntryDate) {
+        const d = new Date(o.EntryDate);
+        $('entry-date').value  = d.toISOString().slice(0, 10);
+        $('entry-time').value  = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      }
+      if (o.DueDate) $('delivery-date').value = new Date(o.DueDate).toISOString().slice(0, 10);
+      $('notes').value = o.Notes || '';
+      checkDueWarning();
+      syncDirtRadios();
+      updateSummary();
+      if (openCat) populateServices(openCat, false);
+      showToast('Draft ' + orderId + ' loaded — continue where you left off.');
+    } catch (e) {
+      alert('Could not load the draft: ' + e.message);
+    }
+  }
+
+  /* ===== FIX: Start Over — cierra, borra el draft y limpia el form ===== */
+  async function draftStartOver() {
+    $('draft-dialog').classList.remove('open');
+    if (draftPendingData && draftPendingData.OrderID) {
+      try { await GS.api('/delete-draft', { method: 'POST', body: { orderId: draftPendingData.OrderID } }); refreshOrdersCount(); } catch (e) {}
+    }
+    draftPendingData = null; draftOrderId = null;
+    selected = {}; locked = {}; escalated = {}; dirtLevel = '';
+    ['building-number','unit-number','bedrooms','bathrooms','entry-date','delivery-date','notes'].forEach(id => $(id).value = '');
+    $('entry-time').value = '08:00';
+    checkDueWarning();
+    syncDirtRadios();
+    updateSummary();
+  }
+
+  /* ===== FIX: cerrar sin decidir — el draft se queda guardado y se
+     vuelve a ofrecer al volver a hacer clic en la división ===== */
+  function draftDismiss() {
+    $('draft-dialog').classList.remove('open');
+    draftPendingData = null;
+  }
+
+  /* Wiring del diálogo por addEventListener (no depende de onclick global) */
+  $('draft-continue-btn').addEventListener('click', draftContinue);
+  $('draft-startover-btn').addEventListener('click', draftStartOver);
+  $('draft-close-btn').addEventListener('click', draftDismiss);
+
+  /* ===== Continue desde tracking ===== */
+  async function loadForContinue(orderId) {
+    try {
+            const data = await GS.api('/get-order-detail', { method: 'POST', body: { orderId: orderId, clientId: client.clientId } });
+      const o = data.order || {};
+      if ((o.Status || '') !== 'Incomplete') {
+        location.href = 'customer.html';
+        return;
+      }
+      continueOrderId = orderId;
+      draftOrderId = orderId;
+
+      currentDiv = o.Division || 'Janitorial';
+      const card = document.querySelector('.div-card[data-div="' + currentDiv + '"]');
+      document.querySelectorAll('.div-card').forEach(c => c.classList.remove('active'));
+      if (card) card.classList.add('active');
+      $('summary-division').textContent = (card ? card.querySelector('.div-name').textContent : currentDiv);
+
+      /* Restaurar servicios desde las filas individuales */
+      selected = {};
+      (data.services || []).forEach(s => {
+        selected[s.Category] = selected[s.Category] || {};
+        selected[s.Category][s.ServiceName] = s.SubOption;
+      });
+      dirtLevel = o.DirtLevel || '';
+
+      $('building-number').value = o.BuildingNumber || '';
+      $('unit-number').value     = o.UnitNumber     || '';
+      $('bedrooms').value        = o.Bedrooms       || '';
+      $('bathrooms').value       = o.Bathrooms      || '';
+      if (o.EntryDate) {
+        const d = new Date(o.EntryDate);
+        $('entry-date').value = d.toISOString().slice(0, 10);
+        $('entry-time').value = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      }
+      if (o.DueDate) $('delivery-date').value = new Date(o.DueDate).toISOString().slice(0, 10);
+      $('notes').value = o.Notes || '';
+      checkDueWarning();
+
+      renderServices(currentDiv);
+      syncDirtRadios();
+      updateSummary();
+    } catch (e) {
+      alert('Could not load the draft: ' + e.message);
+      location.href = 'tracking.html';
+    }
+  }
+
+  /* ===== Modo edición ===== */
+  async function loadForEdit(orderId) {
+    try {
+            const data = await GS.api('/get-order-detail', { method: 'POST', body: { orderId: orderId, clientId: client.clientId } });
+      const o = data.order;
+        if (!o || (o.Status || 'Received') !== 'Received') {
+        alert('This order can no longer be edited directly.');
+        location.href = 'tracking.html';
+        return;
+      }
+      editOrderId = orderId;
+      $('edit-banner').style.display = 'block';
+      $('edit-order-id').textContent = orderId;
+      $('submit-btn').textContent = 'Save Changes';
+      $('edit-actions').style.display = 'flex';
+      $('submit-note-text').textContent = 'Your changes will be sent to our office for review. You will receive a confirmation email.';
+
+      currentDiv = o.Division || 'Janitorial';
+      const card = document.querySelector('.div-card[data-div="' + currentDiv + '"]');
+      document.querySelectorAll('.div-card').forEach(c => c.classList.remove('active'));
+      if (card) card.classList.add('active');
+      $('summary-division').textContent = (card ? card.querySelector('.div-name').textContent : currentDiv);
+
+      selected = {}; locked = {}; escalated = {};
+      (data.services || []).forEach(r => {
+        selected[r.Category] = selected[r.Category] || {};
+        selected[r.Category][r.ServiceName] = r.SubOption;
+      });
+      dirtLevel = o.DirtLevel || '';
+
+      $('building-number').value = o.BuildingNumber || '';
+      $('unit-number').value = o.UnitNumber || '';
+      $('bedrooms').value = o.Bedrooms || '';
+      $('bathrooms').value = o.Bathrooms || '';
+      if (o.EntryDate) {
+        const d = new Date(o.EntryDate);
+        $('entry-date').value = d.toISOString().slice(0, 10);
+        $('entry-time').value = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      }
+      if (o.DueDate) $('delivery-date').value = new Date(o.DueDate).toISOString().slice(0, 10);
+      $('notes').value = o.Notes || '';
+      checkDueWarning();
+
+      renderServices(currentDiv);
+      syncDirtRadios();
+      updateSummary();
+    } catch (e) {
+      alert('Could not load the order: ' + e.message);
+      location.href = 'tracking.html';
+    }
+  }
+
+  function cancelEdit() {
+    location.href = 'tracking.html';
+  }
+
+  /* ===== Submit / Save ===== */
+  async function submitOrder() {
+    const svcCount = Object.values(selected).reduce((n, o) => n + Object.keys(o).length, 0);
+    if (svcCount === 0) { alert('Please select at least one service.'); return; }
+    if (!$('entry-date').value) { alert('Please enter the entry date.'); return; }
+    if (!$('delivery-date').value) { alert('Please enter your delivery deadline.'); return; }
+    const buildingNumber = $('building-number').value.trim();
+    const unitNumber = $('unit-number').value.trim();
+    const bedrooms = $('bedrooms').value.trim();
+    const bathrooms = $('bathrooms').value.trim();
+    if (!buildingNumber) { alert('Please enter the Building Number.'); return; }
+    if (!unitNumber) { alert('Please enter the Unit Number.'); return; }
+    if (!bedrooms || parseInt(bedrooms) < 1) { alert('Please enter a valid number of Bedrooms (1-5).'); return; }
+    if (!bathrooms || parseInt(bathrooms) < 1) { alert('Please enter a valid number of Bathrooms (1-3).'); return; }
+
+    const btn = $('submit-btn');
+    const originalText = btn.textContent;
+    btn.disabled = true; btn.textContent = editOrderId ? 'Saving…' : 'Submitting…';
+
+    const entryDateTime = new Date($('entry-date').value + 'T' + ($('entry-time').value || '08:00')).toISOString();
+    const dueDateTime = new Date($('delivery-date').value + 'T23:59:59').toISOString();
+
+    const order = {
+      ClientID: client.clientId,
+      BusinessName: client.businessName,
+      Requester: client.contactPerson || client.businessName || client.clientId,
+      Division: currentDiv,
+      Services: buildServicesString(),
+      DirtLevel: currentDiv === 'Janitorial' ? dirtLevel : '',
+      EntryDate: entryDateTime,
+      DueDate: dueDateTime,
+      Address: client.address,
+      Suite: client.suite || '',
+      City: client.city,
+      Zip: client.zip,
+      Contact: client.contact || '',
+      Notes: $('notes').value.trim(),
+      Status: editOrderId ? 'Change Requested' : 'Received',
+      BuildingNumber: buildingNumber,
+      UnitNumber: unitNumber,
+      Bedrooms: bedrooms,
+      Bathrooms: bathrooms
+    };
+    if (editOrderId) order.OrderID = editOrderId;
+    else if (draftOrderId) order.OrderID = draftOrderId;
+
+    try {
+      const result = await GS.api('/submit-order', { method: 'POST', body: order });
+      if (editOrderId) {
+        // Notificación de cambios enviados
+        showToast('Your changes were sent to our office for review. You will receive a confirmation email shortly.');
+        setTimeout(() => { location.href = 'tracking.html'; }, 2500);
+      } else {
+        showConfirmation(result.orderId || order.OrderID, order);
+      }
+      draftOrderId = null;
+      refreshOrdersCount();
+    } catch (err) {
+      console.error(err);
+      alert('Error submitting order: ' + err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = originalText;
+    }
+  }
+
+  function showConfirmation(orderId, order) {
+    $('order-form-steps').style.display = 'none';
+    $('confirmed-order-num').textContent = orderId;
+
+    const lines = [];
+    if (order.DirtLevel) lines.push(['Dirt Level', order.DirtLevel, false]);
+    Object.entries(selected).forEach(([cat, svcs]) => {
+      Object.entries(svcs).forEach(([svc, sub]) => lines.push([cat + ' — ' + svc, sub, true]));
+    });
+    $('confirm-summary').innerHTML =
+      '<div class="summary-item">Order # <span>' + esc(orderId) + '</span></div>' +
+      '<div class="summary-item">Entry <span>' + new Date(order.EntryDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</span></div>' +
+      '<div class="summary-item">Due <span>' + new Date(order.DueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</span></div>' +
+      '<div class="summary-item">Building/Unit <span>' + esc(order.BuildingNumber) + ' / ' + esc(order.UnitNumber) + '</span></div>' +
+      '<div class="summary-item">Bed/Bath <span>' + esc(order.Bedrooms) + ' / ' + esc(order.Bathrooms) + '</span></div>' +
+      lines.map(l => '<div class="summary-item"><span>' + esc(l[0]) + ':</span> ' +
+        esc(l[2] ? (l[1] + ' (Level ' + levelOf(l[1]) + ')') : l[1]) + '</div>').join('');
+
+    const steps = [
+      { name: 'Order received', detail: 'Just now', done: true },
+      { name: 'Under review', detail: 'Pending', done: false },
+      { name: 'Assigned', detail: 'Pending', done: false },
+      { name: 'In progress', detail: 'Pending', done: false },
+      { name: 'Completed', detail: 'Pending', done: false }
+    ];
+    $('confirm-tracker').innerHTML = steps.map(s =>
+      '<div class="t-step ' + (s.done ? 'done' : '') + '"><div class="t-dot"></div><div><div class="t-name">' + s.name + '</div><div class="t-detail">' + s.detail + '</div></div></div>'
+    ).join('');
+
+    $('order-confirmation').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  /* Exponer al scope global las funciones que usan los onclick del HTML.
+     Las async function declaradas dentro de este bloque NO son visibles
+     para los atributos onclick (mismo patrón que tracking.html). */
+  window.selectDiv = selectDiv;
+  window.submitOrder = submitOrder;
+  window.cancelEdit = cancelEdit;
+  window.doSignout = doSignout;
+}
+</script>
+</body>
+</html>
