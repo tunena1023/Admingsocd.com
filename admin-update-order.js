@@ -1,20 +1,25 @@
 /* admin-update-order.js — actualizar la orden desde el panel del admin.
 
+   DOS MODOS:
+
+   1) DIRECTO (requestOnly ausente o false) — se aplica de una vez.
+      Se usa SOLO desde Approvals, para guardar Supervisor/Service Window/
+      Dispatch Date justo antes de la primera aprobacion de una orden nueva
+      (todavia no hay nada que "revertir": la orden ni siquiera esta activa).
+
+   2) SOLICITUD (requestOnly: true) — se usa desde Active cuando la oficina
+      edita una orden YA aprobada. No se aplica directo: se guarda un
+      snapshot de antes/despues en el historial, el Status pasa a
+      'Change Requested' y la orden se va a Review. Los cambios de
+      verdad SI se escriben ya (igual que las solicitudes del cliente),
+      pero si el director rechaza, admin-approve-order.js los revierte
+      leyendo este mismo snapshot.
+
    REGLA DEL PROYECTO: nada se sobreescribe sin quedar registrado.
-   Cada campo de control que cambia genera su propio renglon en OrderHistory
-   con FieldChanged, OldValue y NewValue.
 
-   Campos que acepta:
-     orderId (requerido), changedBy (quien hace el cambio),
-     status, supervisor, notes,
-     entryDate, dueDate, serviceWindow,
-     delayReasonType, delayReasonNotes,
-     services[] (con Category, ServiceName, SubOption, NotCompleted,
-                 NotCompletedReason)
-
-   PDF: se regenera cuando cambian DATOS DE CONTROL (fechas, ventana,
-   servicios, motivo de retraso) y la orden YA fue aprobada (ya tiene PDF).
-   Un cambio de solo estatus, supervisor o notas NO genera PDF.
+   PDF: se regenera cuando cambian DATOS DE CONTROL y la orden YA fue
+   aprobada antes (ya tiene PDF). En modo requestOnly no se genera PDF
+   aqui: se genera cuando el director aprueba el cambio, no antes.
 */
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST,
@@ -22,6 +27,8 @@ const {
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf, latestOrderPdf } = require('./lib/orderpdf');
+
+const LIVE_STATUSES = ['Received', 'Assigned', 'Updated'];
 
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
@@ -87,13 +94,25 @@ function servicesDiffer(oldList, newList) {
   return false;
 }
 
+function snapshotServices(svcRows, division) {
+  return svcRows.filter(it => it.fields).map(it => ({
+    Category:           it.fields.Category    || '',
+    ServiceName:        it.fields.ServiceName || '',
+    SubOption:          it.fields.SubOption   || '',
+    Division:           it.fields.Division    || division,
+    NotCompleted:       truthy(it.fields.NotCompleted),
+    NotCompletedReason: it.fields.NotCompletedReason || ''
+  }));
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
     const body = JSON.parse(event.body || '{}');
     const {
-      orderId, status, supervisor, notes, services, changedBy,
-      entryDate, dueDate, serviceWindow, delayReasonType, delayReasonNotes
+      orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason,
+      entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
+      delayReasonType, delayReasonNotes
     } = body;
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
@@ -108,6 +127,100 @@ exports.handler = async (event) => {
     if (!item) return jsonResponse(404, { error: 'Order not found.' });
 
     const f = item.fields;
+
+    /* ================================================================
+       MODO SOLICITUD — la oficina edita una orden activa. Se aplica ya
+       (igual que un cambio del cliente), pero el Status pasa a
+       'Change Requested' y queda esperando al director en Review.
+    ================================================================ */
+    if (requestOnly) {
+      if (LIVE_STATUSES.indexOf(f.Status || '') === -1) {
+        return jsonResponse(400, {
+          error: 'This order is not in a state that can be edited right now (status: ' + (f.Status || '') + ').'
+        });
+      }
+
+      const division = f.Division || '';
+      const oldFieldsSnap = {
+        supervisor: f.Supervisor || '', notes: f.Notes || '',
+        entryDate: dayOf(f.EntryDate), dueDate: dayOf(f.DueDate),
+        serviceWindow: f.ServiceWindow || '',
+        dispatchDate: dayOf(f.DispatchDate), inspectionDate: dayOf(f.InspectionDate),
+        delayReasonType: f.DelayReasonType || '', delayReasonNotes: f.DelayReasonNotes || ''
+      };
+      const newFieldsSnap = {
+        supervisor:       supervisor       !== undefined ? supervisor       : oldFieldsSnap.supervisor,
+        notes:            notes            !== undefined ? notes            : oldFieldsSnap.notes,
+        entryDate:        entryDate        !== undefined ? dayOf(entryDate) : oldFieldsSnap.entryDate,
+        dueDate:          dueDate          !== undefined ? dayOf(dueDate)   : oldFieldsSnap.dueDate,
+        serviceWindow:    serviceWindow    !== undefined ? serviceWindow    : oldFieldsSnap.serviceWindow,
+        dispatchDate:     dispatchDate     !== undefined ? dayOf(dispatchDate) : oldFieldsSnap.dispatchDate,
+        inspectionDate:   inspectionDate   !== undefined ? dayOf(inspectionDate) : oldFieldsSnap.inspectionDate,
+        delayReasonType:  delayReasonType  !== undefined ? delayReasonType  : oldFieldsSnap.delayReasonType,
+        delayReasonNotes: delayReasonNotes !== undefined ? delayReasonNotes : oldFieldsSnap.delayReasonNotes
+      };
+
+      const oldServices = snapshotServices(svcRows, division);
+      const newServices = (services && services.length) ? services : oldServices;
+
+      /* Aplicar de una vez los campos de control propuestos */
+      await updateListItemByItemId(ORDERS_LIST, item.id, {
+        Status:           'Change Requested',
+        Supervisor:       newFieldsSnap.supervisor,
+        Notes:            newFieldsSnap.notes,
+        EntryDate:        newFieldsSnap.entryDate ? toIsoDate(newFieldsSnap.entryDate) : null,
+        DueDate:          newFieldsSnap.dueDate ? toIsoDate(newFieldsSnap.dueDate) : null,
+        ServiceWindow:    newFieldsSnap.serviceWindow,
+        DispatchDate:     newFieldsSnap.dispatchDate ? toIsoDate(newFieldsSnap.dispatchDate) : null,
+        InspectionDate:   newFieldsSnap.inspectionDate ? toIsoDate(newFieldsSnap.inspectionDate) : null,
+        DelayReasonType:  newFieldsSnap.delayReasonType,
+        DelayReasonNotes: newFieldsSnap.delayReasonNotes
+      });
+
+      /* Aplicar de una vez los servicios propuestos, si vinieron */
+      if (services && services.length) {
+        if (svcRows.length) {
+          await Promise.all(svcRows.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
+        }
+        await Promise.all(newServices.map(s =>
+          createListItem(ORDER_SERVICES_LIST, {
+            Title:              s.ServiceName || '',
+            OrderID:            orderId,
+            Category:           s.Category    || '',
+            ServiceName:        s.ServiceName || '',
+            SubOption:          s.SubOption   || '',
+            Division:           s.Division    || division,
+            NotCompleted:       truthy(s.NotCompleted),
+            NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
+          })
+        ));
+      }
+
+      const histRows = await fetchByOrderId(ORDER_HISTORY_LIST, orderId);
+      const admPrefix = orderId + '-adm';
+      let admCount = histRows.filter(it =>
+        String(it.fields?.Title || '').indexOf(admPrefix) === 0
+      ).length;
+
+      await createListItem(ORDER_HISTORY_LIST, {
+        OrderID:      orderId,
+        ChangedBy:    actor,
+        ChangeDate:   new Date().toISOString(),
+        Title:        admPrefix + (++admCount),
+        ChangeType:   'Change Requested',
+        FieldChanged: 'Office Change',
+        Notes:        (requestReason && String(requestReason).trim()) || ('Change requested by ' + actor + '.'),
+        OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap }),
+        NewValue:     'SERVICES:' + JSON.stringify({ services: newServices, dirtLevel: f.DirtLevel || '', fields: newFieldsSnap })
+      });
+
+      return jsonResponse(200, { success: true, status: 'Change Requested' });
+    }
+
+    /* ================================================================
+       MODO DIRECTO — se aplica de una vez (uso: guardar datos de
+       control desde Approvals antes de la primera aprobacion).
+    ================================================================ */
     const oldStatus = f.Status || '';
 
     /* Cada entrada: [clave en SharePoint, valor nuevo, etiqueta, tipo] */
@@ -117,6 +230,8 @@ exports.handler = async (event) => {
       { key: 'EntryDate',       incoming: entryDate,        label: 'Entry Date',        type: 'date' },
       { key: 'DueDate',         incoming: dueDate,          label: 'Due Date',          type: 'date' },
       { key: 'ServiceWindow',   incoming: serviceWindow,    label: 'Service Window',    type: 'text' },
+      { key: 'DispatchDate',    incoming: dispatchDate,     label: 'Dispatch Date',     type: 'date' },
+      { key: 'InspectionDate',  incoming: inspectionDate,   label: 'Inspection Date',   type: 'date' },
       { key: 'DelayReasonType', incoming: delayReasonType,  label: 'Delay Reason',      type: 'text' },
       { key: 'DelayReasonNotes', incoming: delayReasonNotes, label: 'Delay Reason Notes', type: 'text' }
     ];
@@ -193,14 +308,7 @@ exports.handler = async (event) => {
       const division = f.Division || '';
 
       /* Snapshot antes de borrar */
-      const oldServices = svcRows.filter(it => it.fields).map(it => ({
-        Category:          it.fields.Category    || '',
-        ServiceName:       it.fields.ServiceName || '',
-        SubOption:         it.fields.SubOption   || '',
-        Division:          it.fields.Division    || division,
-        NotCompleted:      truthy(it.fields.NotCompleted),
-        NotCompletedReason: it.fields.NotCompletedReason || ''
-      }));
+      const oldServices = snapshotServices(svcRows, division);
 
       /* Borrar viejos */
       if (svcRows.length) {
@@ -221,12 +329,6 @@ exports.handler = async (event) => {
         })
       ));
 
-      /* Registrar evento en historial con comparación.
-
-         FALLA #3: esto estaba dentro de `if (status !== oldStatus)`, así que un
-         cambio de servicios sin cambio de estatus borraba y recreaba las filas
-         SIN dejar registro — pérdida silenciosa, y Undo se quedaba sin nada que
-         leer. Ahora se registra siempre que los servicios cambien de verdad. */
       if (servicesDiffer(oldServices, services)) {
         servicesChanged = true;
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
@@ -238,7 +340,6 @@ exports.handler = async (event) => {
           NewValue:     'SERVICES:' + JSON.stringify({ services: services, dirtLevel: f.DirtLevel || '' })
         }));
       } else if (statusChanged) {
-        /* Los servicios llegaron pero son idénticos: solo cambió el estatus */
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   status,
@@ -249,7 +350,6 @@ exports.handler = async (event) => {
         }));
       }
     } else if (statusChanged) {
-      /* Solo cambio de estatus sin servicios */
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   status,
@@ -279,7 +379,6 @@ exports.handler = async (event) => {
           history: freshHist.filter(r => r.fields).map(r => r.fields)
             .sort((a, b) => new Date(a.ChangeDate || 0) - new Date(b.ChangeDate || 0))
         });
-        /* Que quede registro tanto del exito como del fallo */
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   pdf.ok ? 'Document Generated' : 'Document Failed',

@@ -1,25 +1,44 @@
-/* admin-approve-order.js — aprobar o rechazar desde la pestaña Approvals.
+/* admin-approve-order.js — decisiones desde las pestañas Approvals y Review.
 
-   Tres cosas se aprueban aqui:
-     1) Orden nueva            (Status = Pending)
-     2) Solicitud de cambio    (Status = Updated / Change Requested)
-     3) Solicitud de cancelacion (Status = Cancellation Requested)
+   ESTATUS REALES QUE SE GUARDAN EN SHAREPOINT (todos ya existían antes,
+   no se inventa ningun valor nuevo para la columna Status):
+     Received              -> orden nueva, esperando primera aprobacion
+     Assigned              -> orden aprobada, activa (nunca se escribe "Working":
+                               eso es solo un calculo visual del admin segun
+                               DispatchDate, aqui nunca se toca)
+     Updated               -> orden activa que ya tuvo un cambio aprobado
+     Change Requested      -> esperando decision sobre un cambio (cliente u
+                               oficina; el origen queda en el historial, no
+                               en el Status)
+     Cancellation Requested-> esperando decision sobre una cancelacion
+     Cancelled             -> cancelada. Si Archived=false todavia se ve en
+                               Review con botones Archive / Mark as Active.
+                               Solo con Archived=true pasa a History.
+     Completed             -> terminada, solo se pone desde el boton directo
+                               en Active, nunca por aqui.
 
-   APROBAR:
-     - Orden nueva  -> Received
-     - Cambio       -> regresa al estatus que tenia antes de la solicitud,
-                       leido del historial (si no hay, Received)
-     - Cancelacion  -> Cancelled
-     En los tres casos se genera y guarda el PDF de la orden. Power Automate
-     detecta el archivo nuevo en la carpeta y manda el correo al cliente.
+   ACCIONES que maneja este archivo (campo "decision"):
+     approve         -> aprobar lo que esta esperando (Received, Change
+                        Requested o Cancellation Requested)
+     reject          -> rechazar un Change Requested o Cancellation Requested
+                        (ya NO aplica a Received: una orden nueva no se
+                        rechaza aqui, se le pide su cancelacion)
+     request-cancel  -> crea una Cancellation Requested a partir de una orden
+                        activa (Received/Assigned/Updated). Lo usa tanto
+                        "Reject" en Approvals como "Cancel" en Active.
+     archive         -> Cancelled + Archived=false -> Archived=true
+     reactivate      -> "Mark as Active": deshace una cancelacion ya
+                        aprobada (Cancelled, Archived=false) y regresa al
+                        estatus que tenia antes
 
-   RECHAZAR:
-     - Regresa el estatus anterior y RESTAURA los servicios desde el snapshot
-       'SERVICES:' del historial (misma logica que undo-request del portal).
-     - No genera PDF ni correo.
+   El password del director (si aplica) se valida en el FRONTEND antes de
+   llamar esta funcion; aqui solo se recibe el nombre ya resuelto en
+   "approvedBy" (el del staff logueado, o "Daniel Aguilar (Operations
+   Director)" si se valido el password).
 
-   Quien aprueba se escribe a mano cada vez y queda en ChangedBy.
-   Todo, aprobado o rechazado, queda registrado en OrderHistory.
+   PDF: se genera al aprobar una orden nueva (Received->Assigned) y al
+   aprobar un Change Requested. Nunca al rechazar, cancelar, archivar
+   ni reactivar.
 */
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST,
@@ -28,11 +47,10 @@ const {
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
 
-/* Estatus que representan una solicitud esperando decision.
-   'Change Requested' se conserva por las ordenes viejas que ya lo tienen. */
-const CHANGE_STATUSES = ['Updated', 'Change Requested'];
+const NEW_STATUSES    = ['Received'];
+const CHANGE_STATUSES = ['Change Requested'];
 const CANCEL_STATUSES = ['Cancellation Requested'];
-const NEW_STATUSES    = ['Pending'];
+const LIVE_STATUSES   = ['Received', 'Assigned', 'Updated'];
 
 /* Estatus que nunca deben quedar como "estatus anterior" al revertir */
 const REQUEST_STATUSES = CHANGE_STATUSES.concat(CANCEL_STATUSES).concat(['Draft']);
@@ -144,12 +162,14 @@ exports.handler = async (event) => {
   try {
     const { orderId, decision, approvedBy, notes } = JSON.parse(event.body || '{}');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
-    if (decision !== 'approve' && decision !== 'reject') {
-      return jsonResponse(400, { error: "decision must be 'approve' or 'reject'" });
+
+    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate'];
+    if (validDecisions.indexOf(decision) === -1) {
+      return jsonResponse(400, { error: "decision must be one of: " + validDecisions.join(', ') });
     }
     const actor = String(approvedBy || '').trim();
     if (!actor) {
-      return jsonResponse(400, { error: 'Please type the name of the person approving.' });
+      return jsonResponse(400, { error: 'Missing the name of the person making this decision.' });
     }
 
     const [orderRows, svcRows, histRows] = await Promise.all([
@@ -164,16 +184,7 @@ exports.handler = async (event) => {
     const f = item.fields;
     const current = String(f.Status || '');
     const history = sortHistory(histRows);
-
-    const isNew    = NEW_STATUSES.indexOf(current) !== -1;
-    const isChange = CHANGE_STATUSES.indexOf(current) !== -1;
-    const isCancel = CANCEL_STATUSES.indexOf(current) !== -1;
-
-    if (!isNew && !isChange && !isCancel) {
-      return jsonResponse(400, {
-        error: 'This order has nothing waiting for approval (status: ' + current + ').'
-      });
-    }
+    const archived = truthy(f.Archived);
 
     /* Etiqueta propia para los renglones que escribe el admin */
     const admPrefix = orderId + '-adm';
@@ -188,22 +199,88 @@ exports.handler = async (event) => {
       ChangeDate: new Date().toISOString()
     });
 
+    /* ================================================================
+       ARCHIVE / REACTIVATE — solo aplican a una orden ya Cancelled que
+       sigue esperando en Review (Archived=false).
+    ================================================================ */
+    if (decision === 'archive' || decision === 'reactivate') {
+      if (current !== 'Cancelled' || archived) {
+        return jsonResponse(400, { error: 'This order is not a pending cancellation waiting to be archived.' });
+      }
+      if (decision === 'archive') {
+        await updateListItemByItemId(ORDERS_LIST, item.id, { Archived: true });
+        await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+          Title: nextAdminLabel(), ChangeType: 'Archived', FieldChanged: 'Archived',
+          Notes: notes || '', OldValue: 'false', NewValue: 'true'
+        }));
+        return jsonResponse(200, { success: true, status: current, archived: true });
+      }
+      /* reactivate: regresa al estatus que tenia antes de la cancelacion */
+      const restoredStatus = previousStatus(history, 'Assigned');
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus, Archived: false });
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title: nextAdminLabel(), ChangeType: 'Cancellation Reversed', FieldChanged: 'Status',
+        Notes: notes || ('Reactivated by ' + actor + '.'), OldValue: 'Cancelled', NewValue: restoredStatus
+      }));
+      return jsonResponse(200, { success: true, status: restoredStatus, archived: false });
+    }
+
+    /* ================================================================
+       REQUEST-CANCEL — la oficina pide cancelar una orden viva
+       (nueva sin aprobar todavia, o ya activa). No aplica si la orden
+       ya esta esperando otra decision, o ya termino.
+    ================================================================ */
+    if (decision === 'request-cancel') {
+      if (LIVE_STATUSES.indexOf(current) === -1) {
+        return jsonResponse(400, {
+          error: 'This order cannot be cancelled from its current status (' + current + ').'
+        });
+      }
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: 'Cancellation Requested' });
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title: nextAdminLabel(), ChangeType: 'Cancellation Requested', FieldChanged: 'Status',
+        Notes: (notes && String(notes).trim()) || ('Cancellation requested by ' + actor + '.'),
+        OldValue: current, NewValue: 'Cancellation Requested'
+      }));
+      return jsonResponse(200, { success: true, status: 'Cancellation Requested' });
+    }
+
+    /* ================================================================
+       APPROVE / REJECT — decision sobre lo que esta esperando.
+    ================================================================ */
+    const isNew    = NEW_STATUSES.indexOf(current) !== -1;
+    const isChange = CHANGE_STATUSES.indexOf(current) !== -1;
+    const isCancel = CANCEL_STATUSES.indexOf(current) !== -1;
+
+    if (!isNew && !isChange && !isCancel) {
+      return jsonResponse(400, {
+        error: 'This order has nothing waiting for a decision (status: ' + current + ').'
+      });
+    }
+    if (decision === 'reject' && isNew) {
+      return jsonResponse(400, {
+        error: "A new order can't be rejected directly — request its cancellation instead."
+      });
+    }
+    if (decision === 'reject' && isCancel && !String(notes || '').trim()) {
+      return jsonResponse(400, { error: 'Please explain why the cancellation is not approved.' });
+    }
+
     let newStatus = current;
     let changeType = '';
     let restored = 0;
 
     if (decision === 'approve') {
-      if (isNew)         { newStatus = 'Received';  changeType = 'Order Approved'; }
+      if (isNew)         { newStatus = 'Assigned'; changeType = 'Order Approved'; }
       else if (isCancel) { newStatus = 'Cancelled'; changeType = 'Cancellation Approved'; }
-      else               { newStatus = previousStatus(history, 'Received');
+      else               { newStatus = previousStatus(history, 'Assigned');
                            changeType = 'Change Approved'; }
     } else {
-      /* Rechazo: volver al estatus previo. Una orden nueva rechazada se cancela. */
-      if (isNew)         { newStatus = 'Cancelled'; changeType = 'Order Rejected'; }
-      else if (isCancel) { newStatus = previousStatus(history, 'Received');
-                           changeType = 'Cancellation Rejected'; }
-      else               { newStatus = previousStatus(history, 'Received');
-                           changeType = 'Change Rejected'; }
+      /* Rechazo: siempre vuelve al estatus que tenia antes de la solicitud */
+      if (isCancel) { newStatus = previousStatus(history, 'Assigned');
+                      changeType = 'Cancellation Rejected'; }
+      else          { newStatus = previousStatus(history, 'Assigned');
+                      changeType = 'Change Rejected'; }
     }
 
     /* --- Rechazo de un cambio: restaurar los servicios del snapshot --- */
@@ -231,21 +308,37 @@ exports.handler = async (event) => {
       if (snapshot && snapshot.dirtLevel) {
         await updateListItemByItemId(ORDERS_LIST, item.id, { DirtLevel: snapshot.dirtLevel });
       }
-      /* Fechas propuestas por el cliente que no se aprobaron: dejar constancia */
+      /* Si el snapshot trae campos de control (solicitudes de la oficina),
+         restaurarlos tambien, no solo los servicios. */
+      if (snapshot && snapshot.fields) {
+        const flds = snapshot.fields;
+        const fieldPatch = {};
+        if (flds.supervisor !== undefined) fieldPatch.Supervisor = flds.supervisor;
+        if (flds.notes !== undefined) fieldPatch.Notes = flds.notes;
+        if (flds.entryDate !== undefined) fieldPatch.EntryDate = flds.entryDate ? toIsoDate(flds.entryDate) : null;
+        if (flds.dueDate !== undefined) fieldPatch.DueDate = flds.dueDate ? toIsoDate(flds.dueDate) : null;
+        if (flds.serviceWindow !== undefined) fieldPatch.ServiceWindow = flds.serviceWindow;
+        if (flds.delayReasonType !== undefined) fieldPatch.DelayReasonType = flds.delayReasonType;
+        if (flds.delayReasonNotes !== undefined) fieldPatch.DelayReasonNotes = flds.delayReasonNotes;
+        if (Object.keys(fieldPatch).length) {
+          await updateListItemByItemId(ORDERS_LIST, item.id, fieldPatch);
+        }
+      }
+      /* Fechas propuestas que no se aprobaron: dejar constancia */
       const req = lastRequestRow(history);
       if (req && String(req.FieldChanged || '') === 'Requested Dates') {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   'Requested Dates Rejected',
           FieldChanged: 'Requested Dates',
-          Notes:        'The dates requested by the client were not approved.',
+          Notes:        'The dates requested were not approved.',
           OldValue:     String(req.NewValue || ''),
           NewValue:     ''
         }));
       }
     }
 
-    /* --- Aprobar un cambio con fechas: aqui se confirman --- */
+    /* --- Aprobar un cambio con fechas propuestas: aqui se confirman --- */
     const datePatch = {};
     const dateLogs = [];
     if (decision === 'approve' && isChange) {
@@ -269,16 +362,15 @@ exports.handler = async (event) => {
 
     /* --- Guardar el estatus (y las fechas confirmadas, si hubo) --- */
     const patch = Object.assign({ Status: newStatus }, datePatch);
+    if (decision === 'approve' && isCancel) patch.Archived = false;
     await updateListItemByItemId(ORDERS_LIST, item.id, patch);
 
-    /* Un renglon por cada fecha confirmada: el correo del cliente sale del
-       PDF, y el PDF ya lleva estas fechas. */
     for (const [field, oldVal, newVal] of dateLogs) {
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   'Dates Confirmed',
         FieldChanged: field,
-        Notes:        'Confirmed by ' + actor + ' when approving the client request.',
+        Notes:        'Confirmed by ' + actor + ' when approving the request.',
         OldValue:     oldVal,
         NewValue:     newVal
       }));
@@ -300,18 +392,14 @@ exports.handler = async (event) => {
       NewValue:     newStatus
     }));
 
-    /* --- PDF: solo al aprobar --- */
+    /* --- PDF: solo al aprobar (orden nueva o cambio). Nunca en cancelacion --- */
     let pdf = null;
-    if (decision === 'approve') {
+    if (decision === 'approve' && !isCancel) {
       const merged = Object.assign({}, f, patch, { OrderID: orderId });
       const [freshSvc, freshHist] = await Promise.all([
-      fetchByOrderId(ORDER_SERVICES_LIST, orderId),
-      fetchByOrderId(ORDER_HISTORY_LIST, orderId)
-    ]);
-
-
-
-
+        fetchByOrderId(ORDER_SERVICES_LIST, orderId),
+        fetchByOrderId(ORDER_HISTORY_LIST, orderId)
+      ]);
       pdf = await generateAndSaveOrderPdf({
         order: merged,
         services: freshSvc.filter(r => r.fields).map(r => r.fields),

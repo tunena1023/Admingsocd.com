@@ -131,7 +131,14 @@ exports.handler = async (event) => {
       City:            f.City || '',
       Zip:             f.Zip || '',
       Contact:         f.Contact || '',
-      Notes:           f.Notes || ''
+      Notes:           f.Notes || '',
+      Supervisor:       f.Supervisor || '',
+      ServiceWindow:    f.ServiceWindow || '',
+      DispatchDate:     f.DispatchDate || '',
+      InspectionDate:   f.InspectionDate || '',
+      DelayReasonType:  f.DelayReasonType || '',
+      DelayReasonNotes: f.DelayReasonNotes || '',
+      Archived:         f.Archived === true || f.Archived === 'true'
     };
 
     const services = svcRows

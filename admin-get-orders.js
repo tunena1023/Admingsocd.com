@@ -17,7 +17,7 @@ exports.handler = async (event) => {
   try {
     const rows = await fetchAll(ORDERS_LIST);
     const orders = rows
-      .filter(it => it.fields && it.fields.Status !== 'Cancelled')
+      .filter(it => it.fields)
       .map(it => {
         const f = it.fields;
         return {
@@ -45,6 +45,9 @@ exports.handler = async (event) => {
           /* Columnas nuevas (28/08/2026): la pestana Approvals y el editor
              del admin las necesitan en la lista, no solo en el detalle. */
           ServiceWindow: f.ServiceWindow || '',
+          DispatchDate: f.DispatchDate || '',
+          InspectionDate: f.InspectionDate || '',
+          Archived: f.Archived === true || f.Archived === 'true',
           DelayReasonType: f.DelayReasonType || '',
           DelayReasonNotes: f.DelayReasonNotes || ''
         };

@@ -1,5 +1,10 @@
 /* ============================================================
-   submit-order.js
+   submit-order.js — enviar orden nueva o convertir draft en orden.
+
+   Flujos:
+   A) OrderID contiene "-TEMP-" → viene de Drafts
+   B) OrderID real existe en Orders → edición de orden existente
+   C) Sin OrderID → orden nueva directa
 ============================================================ */
 
 const {
@@ -11,6 +16,17 @@ const {
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out;
+}
+
+async function fetchAllOrderIds() {
+  let url = siteListPath(ORDERS_LIST) + '?$expand=fields($select=OrderID,Title,Status)&$top=500';
   const out = [];
   while (url) {
     const data = await graphFetch(url);
@@ -32,17 +48,6 @@ async function fetchByOrderId(listName, orderId) {
   return out;
 }
 
-async function fetchAllOrderIds() {
-  let url = siteListPath(ORDERS_LIST) + '?$expand=fields($select=OrderID,Title,Status)&$top=500';
-  const out = [];
-  while (url) {
-    const data = await graphFetch(url);
-    out.push(...(data.value || []));
-    url = data['@odata.nextLink'] || null;
-  }
-  return out;
-}
-
 function nextGlobalSuffix(allOrderRows) {
   const nums = allOrderRows
     .map(it => {
@@ -53,6 +58,7 @@ function nextGlobalSuffix(allOrderRows) {
       return isNaN(n) ? null : n;
     })
     .filter(n => n !== null);
+
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1001;
   return String(next).padStart(4, '0');
 }
@@ -76,6 +82,7 @@ function parseServicesString(str, division) {
 }
 
 function dateField(v) { return v ? v : null; }
+
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -115,14 +122,10 @@ exports.handler = async (event) => {
 
     /* ===== FLUJO A: Draft temporal → Orden real ===== */
     if (isTempDraft) {
-      const [draftRows, allOrderRows] = await Promise.all([
-        fetchAll(DRAFTS_LIST),
+            const [myDraftRows, allOrderRows] = await Promise.all([
+        fetchByOrderId(DRAFTS_LIST, requestedId),
         fetchAllOrderIds()
       ]);
-
-      const myDraftRows = draftRows.filter(it =>
-        it.fields && String(it.fields.OrderID || '') === requestedId
-      );
 
       const draftHeader = myDraftRows.find(it => !it.fields.ServiceName);
       if (!draftHeader) return jsonResponse(404, { error: 'Draft not found.' });
@@ -131,40 +134,47 @@ exports.handler = async (event) => {
 
       const suffix = nextGlobalSuffix(allOrderRows);
       const orderId = String(b.ClientID).trim() + '-' + suffix;
-      const newStatus = b.Status || 'Pending';
+      const newStatus = b.Status || 'Received';
 
       const result = await createListItem(ORDERS_LIST,
         Object.assign({}, orderFields, { OrderID: orderId, Status: newStatus })
       );
 
-      await Promise.all([
-        ...draftServiceRows.map(row =>
-          createListItem(ORDER_SERVICES_LIST, {
-            Title:       row.fields.ServiceName || '',
-            OrderID:     orderId,
-            Category:    row.fields.Category    || '',
-            ServiceName: row.fields.ServiceName || '',
-            SubOption:   row.fields.SubOption   || '',
-            Division:    row.fields.Division    || b.Division
-          })
-        ),
-        createListItem(ORDER_HISTORY_LIST, {
-          Title:      orderId,
-          OrderID:    orderId,
-          ChangeType: 'Created',
-          ChangedBy:  b.ClientID,
-          ChangeDate: new Date().toISOString(),
-          Notes:      'Submitted from draft.',
-          OldValue:   'Draft',
-          NewValue:   newStatus
-        }),
-        updateListItemByItemId(DRAFTS_LIST, draftHeader.id, {
+      try {
+        await updateListItemByItemId(DRAFTS_LIST, draftHeader.id, {
           Status:  'Order',
           OrderID: orderId
-        })
-      ]);
+        });
+      } catch (e) { console.error('Draft header update failed:', e.message); }
 
-      await Promise.all(draftServiceRows.map(row => deleteListItem(DRAFTS_LIST, row.id)));
+      try {
+        await Promise.all([
+          ...draftServiceRows.map(row =>
+            createListItem(ORDER_SERVICES_LIST, {
+              Title:       row.fields.ServiceName || '',
+              OrderID:     orderId,
+              Category:    row.fields.Category    || '',
+              ServiceName: row.fields.ServiceName || '',
+              SubOption:   row.fields.SubOption   || '',
+              Division:    row.fields.Division    || b.Division
+            })
+          ),
+          createListItem(ORDER_HISTORY_LIST, {
+            Title:      orderId,
+            OrderID:    orderId,
+            ChangeType: 'Created',
+            ChangedBy:  b.ClientID,
+            ChangeDate: new Date().toISOString(),
+            Notes:      'Submitted from draft.',
+            OldValue:   'Draft',
+            NewValue:   newStatus
+          })
+        ]);
+      } catch (e) { console.error('Post-order write failed:', e.message); }
+
+      try {
+        await Promise.all(draftServiceRows.map(row => deleteListItem(DRAFTS_LIST, row.id)));
+      } catch (e) { console.error('Draft cleanup failed:', e.message); }
 
       return jsonResponse(200, { success: true, orderId, id: result.id });
     }
@@ -172,21 +182,24 @@ exports.handler = async (event) => {
     /* ===== FLUJO B: Orden existente → edicion ===== */
     if (requestedId) {
       if (!b.Services) return jsonResponse(400, { error: 'Services are required' });
-const rawServices = Array.isArray(b.Services)
-  ? b.Services
-  : parseServicesString(b.Services, b.Division);
 
-      /* Usar fetchByOrderId — filtra directo en Graph, no descarga todo */
       const [orderRows, svcRows, histRows] = await Promise.all([
-        fetchByOrderId(ORDERS_LIST,        requestedId),
-        fetchByOrderId(ORDER_SERVICES_LIST, requestedId),
-        fetchByOrderId(ORDER_HISTORY_LIST,  requestedId)
+        fetchByOrderId(ORDERS_LIST,         requestedId),
+        fetchByOrderId(ORDER_SERVICES_LIST,  requestedId),
+        fetchByOrderId(ORDER_HISTORY_LIST,   requestedId)
       ]);
 
-      const orderItem = orderRows.find(it => it.fields);
+      const orderItem = orderRows.find(it =>
+        it.fields &&
+        (it.fields.OrderID || it.fields.Title) === requestedId &&
+        String(it.fields.ClientID || '').trim().toLowerCase() ===
+        String(b.ClientID).trim().toLowerCase()
+      );
       if (!orderItem) return jsonResponse(404, { error: 'Order not found.' });
 
-      const stale = svcRows.filter(it => it.fields);
+      const stale = svcRows.filter(it =>
+        it.fields && it.fields.OrderID === requestedId
+      );
 
       const existing = {
         itemId:    orderItem.id,
@@ -229,9 +242,14 @@ const rawServices = Array.isArray(b.Services)
 
       const revCount = histRows.filter(it =>
         it.fields &&
-        (it.fields.ChangeType === 'Change Requested' ||
-         it.fields.ChangeType === 'Cancellation Requested')
+        it.fields.OrderID === existing.OrderID &&
+        (it.fields.ChangeType === 'Change Requested' || it.fields.ChangeType === 'Cancellation Requested')
       ).length;
+
+      /* Servicios nuevos que el cliente seleccionó */
+      const newServices = parseServicesString(b.Services, b.Division).map(s => ({
+        Category: s.Category, ServiceName: s.ServiceName, SubOption: s.SubOption, Division: s.Division
+      }));
 
       await createListItem(ORDER_HISTORY_LIST, {
         Title:      existing.OrderID + '-' + (revCount + 1),
@@ -240,8 +258,13 @@ const rawServices = Array.isArray(b.Services)
         ChangedBy:  b.ClientID,
         ChangeDate: new Date().toISOString(),
         Notes:      '',
-        OldValue:   existing.Status,
-        NewValue:   snapshot
+        OldValue:   JSON.stringify(stale.map(it => ({
+          Category:    it.fields.Category    || '',
+          ServiceName: it.fields.ServiceName || '',
+          SubOption:   it.fields.SubOption   || '',
+          Division:    it.fields.Division    || existing.Division
+        }))),
+        NewValue:   JSON.stringify(newServices)
       });
 
       return jsonResponse(200, { success: true, orderId: existing.OrderID });
@@ -249,26 +272,27 @@ const rawServices = Array.isArray(b.Services)
 
     /* ===== FLUJO C: Orden nueva directa ===== */
     if (!b.Services) return jsonResponse(400, { error: 'Services are required' });
-    const rawServices = Array.isArray(b.Services) ? b.Services : parseServicesString(b.Services, b.Division);
 
     const allOrderRows = await fetchAllOrderIds();
     const suffix = nextGlobalSuffix(allOrderRows);
     const orderId = String(b.ClientID).trim() + '-' + suffix;
 
     const result = await createListItem(ORDERS_LIST,
-      Object.assign({}, orderFields, { OrderID: orderId, Status: b.Status || 'Pending' })
+      Object.assign({}, orderFields, { OrderID: orderId, Status: b.Status || 'Received' })
     );
 
-   for (const s of rawServices) {
-      await createListItem(ORDER_SERVICES_LIST, {
+    try {
+    const parsedServices = parseServicesString(b.Services, b.Division);
+    await Promise.all(parsedServices.map(s =>
+      createListItem(ORDER_SERVICES_LIST, {
         Title:       s.ServiceName || '',
         OrderID:     orderId,
         Category:    s.Category,
         ServiceName: s.ServiceName,
         SubOption:   s.SubOption,
         Division:    s.Division
-      });
-    }
+      })
+    ));
 
     await createListItem(ORDER_HISTORY_LIST, {
       Title:      orderId,
@@ -278,9 +302,9 @@ const rawServices = Array.isArray(b.Services)
       ChangeDate: new Date().toISOString(),
       Notes:      '',
       OldValue:   '',
-      NewValue:   b.Status || 'Pending'
+      NewValue:   b.Status || 'Received'
     });
-
+} catch (e) { console.error('Post-order write failed:', e.message); }
     return jsonResponse(200, { success: true, orderId, id: result.id });
 
   } catch (err) {

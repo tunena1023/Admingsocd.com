@@ -232,7 +232,7 @@
 
 <nav>
   <div class="nav-logo">
-    <img id="nav-logo" src="/api/site-image?name=Logo.png" alt="GS Solutions"
+    <img id="nav-logo" src="/.netlify/functions/site-image?name=Logo.png" alt="GS Solutions"
          onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
     <span id="nav-logo-text" class="nav-logo-text" style="display:none">GS Solutions</span>
   </div>
@@ -437,7 +437,7 @@ function signOut() {
    API
 ============================================================ */
 async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
+  const res = await fetch('/.netlify/functions' + path, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -579,15 +579,52 @@ function optionsHtml(values, selected) {
    de la orden y el cliente lo recibe por correo. Rechazar restaura los
    servicios y el estatus anteriores. Las dos cosas quedan en el historial.
 ============================================================ */
-const NEW_ORDER_STATUSES = ['Pending'];
-const REVIEW_STATUSES = ['Updated', 'Change Requested', 'Cancellation Requested'];
-const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested', 'Updated',
+const NEW_ORDER_STATUSES = ['Received'];
+const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
+const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
                        'Reschedule Requested', 'Change Requested by Client'];
+const DIRECTOR_PASSWORD = '080922';
+const DIRECTOR_NAME = 'Daniel Aguilar (Operations Director)';
+
+/* Nombre de quien esta usando el admin ahorita, sacado de la sesion de
+   365 (adminUser ya existe globalmente desde initAuth()). Ya no se le
+   pide a nadie que escriba su nombre a mano. */
+function getActorName() {
+  return (adminUser && (adminUser.name || adminUser.email)) || 'Admin';
+}
+
+/* Pide el password del director. Si es correcto, la accion queda
+   registrada a nombre de el, sin importar quien este logueado. */
+function promptDirectorPassword() {
+  const pass = window.prompt('Operations Director password to confirm this action:');
+  if (pass === null) return null;
+  if (pass !== DIRECTOR_PASSWORD) {
+    showToast('Incorrect password.');
+    return null;
+  }
+  return DIRECTOR_NAME;
+}
+
+/* De donde vino una solicitud (cliente u oficina). Las que crea la
+   oficina (admin-update-order.js modo requestOnly, o request-cancel en
+   admin-approve-order.js) marcan FieldChanged con un prefijo "Office ";
+   cualquier otra cosa se asume que vino del cliente. */
+function requestOrigin(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    const type = String(h.ChangeType || '');
+    if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested') {
+      return String(h.FieldChanged || '').indexOf('Office') === 0 ? 'office' : 'client';
+    }
+  }
+  return 'client';
+}
 
 function approvalKind(o) {
   const s = o.Status || '';
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
-  if (s === 'Updated' || s === 'Change Requested') return { label: 'Change Request', cls: 'status-updated' };
+  if (s === 'Change Requested') return { label: 'Change Request', cls: 'status-updated' };
+  if (s === 'Cancelled') return { label: 'Cancelled — pending archive', cls: 'status-cancel' };
   return { label: 'New Order', cls: 'status-pending' };
 }
 
@@ -657,24 +694,24 @@ function newOrderApprovalCard(o) {
             <select id="${dom}-window" onchange="checkApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
           </div>
           <div class="field-group">
-            <label>Entry Date</label>
-            <input type="date" id="${dom}-entry" onchange="checkApprovalReady('${dom}')">
+            <label>Dispatch Date</label>
+            <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}')">
+          </div>
+          <div class="field-group">
+            <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
+            <input type="date" id="${dom}-inspection">
           </div>
         </div>
         <div class="appr-bar">
-          <div class="field-group">
-            <label>Approved / rejected by</label>
-            <input type="text" id="${dom}-by" oninput="checkApprovalReady('${dom}')" placeholder="Type the name" autocomplete="off">
-          </div>
           <button class="btn btn-green" id="${dom}-ok" disabled
-                  onclick="decideApproval('${esc(o.OrderID)}','approve',true)">Approve</button>
+                  onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
           <button class="btn btn-danger" id="${dom}-no"
-                  onclick="decideApproval('${esc(o.OrderID)}','reject',true)">Reject</button>
+                  onclick="decideNewOrder('${esc(o.OrderID)}','request-cancel')">Request Cancellation</button>
         </div>
         <p class="appr-hint">
-          Supervisor, service window and entry date must be set before approving.
+          Supervisor, service window and dispatch date must be set before approving.
           Approving saves the order document and the client receives it by email.
-          Rejecting cancels this order. Either way the decision is recorded in the order history.
+          Requesting a cancellation needs the Operations Director's password and sends it to Review.
         </p>
       </div>
     </div>`;
@@ -682,9 +719,60 @@ function newOrderApprovalCard(o) {
 
 function checkApprovalReady(dom) {
   const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
-  const ready = !!(val('by').trim() && val('supervisor').trim() && val('window') && val('entry'));
+  const ready = !!(val('supervisor').trim() && val('window') && val('dispatch'));
   const ok = document.getElementById(dom + '-ok');
   if (ok) ok.disabled = !ready;
+}
+
+async function decideNewOrder(orderId, action) {
+  const dom = apprDomId(orderId);
+  const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
+
+  if (action === 'request-cancel') {
+    const actor = promptDirectorPassword();
+    if (!actor) return;
+    const no = document.getElementById(dom + '-no');
+    if (no) { no.disabled = true; no.textContent = 'Requesting…'; }
+    try {
+      await api('/admin-approve-order', {
+        body: { orderId, decision: 'request-cancel', approvedBy: actor }
+      });
+      showToast('Order ' + orderId + ' sent to Review for cancellation.');
+      await loadAll();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      if (no) { no.disabled = false; no.textContent = 'Request Cancellation'; }
+    }
+    return;
+  }
+
+  const supervisor = val('supervisor').trim();
+  const serviceWindow = val('window');
+  const dispatchDate = val('dispatch');
+  const inspectionDate = val('inspection');
+  if (!supervisor || !serviceWindow || !dispatchDate) {
+    showToast('Set supervisor, service window and dispatch date before approving.');
+    return;
+  }
+  const actor = getActorName();
+  const ok = document.getElementById(dom + '-ok');
+  if (ok) { ok.disabled = true; ok.textContent = 'Approving…'; }
+  try {
+    await api('/admin-update-order', {
+      body: { orderId, supervisor, serviceWindow, dispatchDate, inspectionDate: inspectionDate || undefined, changedBy: actor }
+    });
+    const res = await api('/admin-approve-order', {
+      body: { orderId, decision: 'approve', approvedBy: actor }
+    });
+    let msg = 'Order ' + orderId + ' approved. Status: ' + res.status + '.';
+    if (res.document) msg += ' Document ' + res.document.name + ' saved.';
+    if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
+    showToast(msg);
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+    if (ok) { ok.disabled = false; ok.textContent = 'Approve'; }
+  }
 }
 
 function approvalCard(o) {
@@ -701,47 +789,127 @@ function approvalCard(o) {
       </div>
       <div class="appr-body">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
-        <div class="appr-bar">
-          <div class="field-group">
-            <label>Approved / rejected by</label>
-            <input type="text" id="${dom}-by" placeholder="Type the name" autocomplete="off">
-          </div>
-          <button class="btn btn-green" id="${dom}-ok"
-                  onclick="decideApproval('${esc(o.OrderID)}','approve')">Approve</button>
-          <button class="btn btn-danger" id="${dom}-no"
-                  onclick="decideApproval('${esc(o.OrderID)}','reject')">Reject</button>
-        </div>
-        <p class="appr-hint">
-          Approving saves the order document and the client receives it by email.
-          Rejecting puts the order back to its previous services and status.
-          Either way the decision and the name above are recorded in the order history.
-        </p>
+        <div id="${dom}-decision"><p class="empty-note">Loading…</p></div>
       </div>
     </div>`;
 }
 
 async function loadApprovalDetail(o) {
   const box = document.getElementById(apprDomId(o.OrderID) + '-detail');
+  const decisionBox = document.getElementById(apprDomId(o.OrderID) + '-decision');
   if (!box) return;
   try {
     const data = await api('/get-order-detail', { body: { orderId: o.OrderID } });
-    box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], data.history || []);
+    const history = data.history || [];
+    box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
+    if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load the request detail: ' + esc(e.message) + '</p>';
+    if (decisionBox) decisionBox.innerHTML = '';
   }
+}
+
+/* Los botones cambian segun el estatus: una orden ya Cancelled solo
+   necesita Archive / Mark as Active. Una Cancellation Requested
+   siempre pide password del director y nota obligatoria al rechazar.
+   Un Change Requested pide password solo si lo inicio la oficina. */
+function decisionAreaHtml(o, history) {
+  const dom = apprDomId(o.OrderID);
+  const status = o.Status || '';
+
+  if (status === 'Cancelled') {
+    return `<div class="appr-bar">
+      <button class="btn btn-outline" onclick="archiveOrder('${esc(o.OrderID)}')">Archive</button>
+      <button class="btn btn-gold" onclick="reactivateOrder('${esc(o.OrderID)}')">Mark as Active</button>
+    </div>
+    <p class="appr-hint">This order was cancelled. Archive moves it to History; Mark as Active undoes the cancellation and returns it to Active.</p>`;
+  }
+
+  const isCancel = status === 'Cancellation Requested';
+  const origin = requestOrigin(history);
+  const needsPassword = isCancel || origin === 'office';
+  const notesId = dom + '-notes';
+
+  return `
+    <div class="field-group" style="margin-top:12px">
+      <label>Notes ${isCancel ? '(required if rejecting)' : '(optional)'}</label>
+      <input type="text" id="${notesId}" placeholder="Reason…">
+    </div>
+    <div class="appr-bar">
+      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Approve</button>
+      <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
+    </div>
+    <p class="appr-hint">
+      ${needsPassword ? "This decision needs the Operations Director's password. " : ''}
+      Approving ${isCancel ? 'cancels the order.' : 'applies the change.'} Rejecting keeps the order as it was before this request.
+    </p>`;
+}
+
+async function decideReview(orderId, decision, needsPassword) {
+  const dom = apprDomId(orderId);
+  const notesInput = document.getElementById(dom + '-notes');
+  const notes = notesInput ? notesInput.value.trim() : '';
+
+  const order = allOrders.find(o => o.OrderID === orderId) || {};
+  const isCancel = order.Status === 'Cancellation Requested';
+  if (isCancel && decision === 'reject' && !notes) {
+    showToast('Please explain why the cancellation is not approved.');
+    if (notesInput) notesInput.focus();
+    return;
+  }
+
+  let actor;
+  if (needsPassword) {
+    actor = promptDirectorPassword();
+    if (!actor) return;
+  } else {
+    actor = getActorName();
+  }
+
+  try {
+    const res = await api('/admin-approve-order', {
+      body: { orderId, decision, approvedBy: actor, notes: notes || undefined }
+    });
+    let msg = 'Order ' + orderId + ' ' + (decision === 'approve' ? 'approved' : 'rejected')
+      + ' by ' + actor + '. Status: ' + res.status + '.';
+    if (res.document) msg += ' Document ' + res.document.name + ' saved.';
+    if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
+    showToast(msg);
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function archiveOrder(orderId) {
+  try {
+    await api('/admin-approve-order', { body: { orderId, decision: 'archive', approvedBy: getActorName() } });
+    showToast('Order ' + orderId + ' archived.');
+    await loadAll();
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+async function reactivateOrder(orderId) {
+  try {
+    const res = await api('/admin-approve-order', { body: { orderId, decision: 'reactivate', approvedBy: getActorName() } });
+    showToast('Order ' + orderId + ' reactivated. Status: ' + res.status + '.');
+    await loadAll();
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 function approvalDetailHtml(card, o, services, history) {
   const kind = approvalKind(card);
   const rows = [];
 
-  /* --- Lo que pidio el cliente --- */
+  /* --- Lo que se pidio --- */
   if (kind.label !== 'New Order') {
     let req = null;
     for (let i = history.length - 1; i >= 0; i--) {
-      if (REQUEST_TYPES.includes(String(history[i].ChangeType || ''))) { req = history[i]; break; }
+      if (REQUEST_TYPES.includes(String(history[i].ChangeType || '')) ||
+          String(history[i].ChangeType || '') === 'Cancellation Requested') { req = history[i]; break; }
     }
-    rows.push('<p class="appr-h">Requested by the client</p>');
+    const origin = requestOrigin(history);
+    rows.push('<p class="appr-h">Requested by the ' + (origin === 'office' ? 'office' : 'client') + '</p>');
     if (req) {
       rows.push('<p>' + fmtDateTime(req.ChangeDate) +
         (req.ChangedBy ? ' · ' + esc(req.ChangedBy) : '') + '</p>');
@@ -757,8 +925,9 @@ function approvalDetailHtml(card, o, services, history) {
 
   /* --- Datos que se van a confirmar --- */
   rows.push('<p class="appr-h">Order as it stands now</p>');
-  rows.push('<p>Entry ' + fmtDate(o.EntryDate) + ' · Due ' + fmtDate(o.DueDate) +
+  rows.push('<p>Dispatch ' + fmtDate(o.DispatchDate) + ' · Due ' + fmtDate(o.DueDate) +
     ' · ' + esc(o.ServiceWindow || 'no service window') + '</p>');
+  if (o.InspectionDate) rows.push('<p>Inspection: ' + fmtDate(o.InspectionDate) + '</p>');
   rows.push('<p>' + esc([o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ')) + '</p>');
 
   rows.push('<p class="appr-h">Services</p>');
@@ -780,57 +949,6 @@ function approvalDetailHtml(card, o, services, history) {
   return rows.join('');
 }
 
-async function decideApproval(orderId, decision, isNewOrder) {
-  const dom = apprDomId(orderId);
-  const input = document.getElementById(dom + '-by');
-  const name = input ? input.value.trim() : '';
-  if (!name) {
-    showToast('Type the name of the person making this decision.');
-    if (input) input.focus();
-    return;
-  }
-
-  if (isNewOrder && decision === 'approve') {
-    const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
-    const supervisor = val('supervisor').trim();
-    const serviceWindow = val('window');
-    const entryDate = val('entry');
-    if (!supervisor || !serviceWindow || !entryDate) {
-      showToast('Set supervisor, service window and entry date before approving.');
-      return;
-    }
-    try {
-      await api('/admin-update-order', {
-        body: { orderId, supervisor, serviceWindow, entryDate, changedBy: name }
-      });
-    } catch (e) {
-      showToast('Could not save the control details: ' + e.message);
-      return;
-    }
-  }
-
-  const ok = document.getElementById(dom + '-ok');
-  const no = document.getElementById(dom + '-no');
-  if (ok) { ok.disabled = true; ok.textContent = decision === 'approve' ? 'Approving…' : 'Approve'; }
-  if (no) { no.disabled = true; no.textContent = decision === 'reject' ? 'Rejecting…' : 'Reject'; }
-  try {
-    const res = await api('/admin-approve-order', {
-      body: { orderId: orderId, decision: decision, approvedBy: name }
-    });
-    let msg = decision === 'approve'
-      ? 'Order ' + orderId + ' approved by ' + name + '. Status: ' + res.status + '.'
-      : 'Order ' + orderId + ' rejected by ' + name + '. Status: ' + res.status + '.';
-    if (res.document) msg += ' Document ' + res.document.name + ' saved.';
-    if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
-    showToast(msg);
-    await loadAll();
-  } catch (e) {
-    showToast('Error: ' + e.message);
-    if (ok) { ok.disabled = false; ok.textContent = 'Approve'; }
-    if (no) { no.disabled = false; no.textContent = 'Reject'; }
-  }
-}
-
 /* ============================================================
    REVIEW
    Solicitudes de cambio o cancelacion que el cliente ya mando.
@@ -839,7 +957,7 @@ async function decideApproval(orderId, decision, isNewOrder) {
 ============================================================ */
 function reviewOf(q) {
   const list = allOrders
-    .filter(o => REVIEW_STATUSES.includes(o.Status))
+    .filter(o => REVIEW_STATUSES.includes(o.Status) || (o.Status === 'Cancelled' && !o.Archived))
     .sort((a, b) => String(a.createdDateTime).localeCompare(String(b.createdDateTime)));
   if (!q) return list;
   return list.filter(o =>
@@ -875,18 +993,23 @@ function filterReview() {
 
 /* ============================================================
    ACTIVE
-   Ordenes ya aprobadas en curso. El estatus solo avanza en
-   secuencia (o se cancela), nunca salta a lo pendejo.
+   Ordenes ya aprobadas en curso. El unico estatus real guardado es
+   'Assigned' o 'Updated' — "Working" NUNCA se escribe: es solo lo que
+   se MUESTRA cuando la fecha de despacho ya llego o paso, calculado
+   cada vez que se carga la lista.
 ============================================================ */
-const ACTIVE_STATUSES = ['Received', 'Assigned', 'Working'];
-const ACTIVE_SEQUENCE = ['Received', 'Assigned', 'Working', 'Completed'];
+const ACTIVE_STATUSES = ['Assigned', 'Updated'];
 
-function nextStatusChoices(current) {
-  const idx = ACTIVE_SEQUENCE.indexOf(current);
-  const choices = [current];
-  if (idx !== -1 && idx < ACTIVE_SEQUENCE.length - 1) choices.push(ACTIVE_SEQUENCE[idx + 1]);
-  if (current !== 'Completed') choices.push('Cancelled');
-  return [...new Set(choices)];
+/* Etiqueta visual, no el estatus real. Si no hay DispatchDate todavia
+   se muestra el estatus real tal cual (Assigned/Updated). */
+function displayStatus(o) {
+  if (ACTIVE_STATUSES.indexOf(o.Status) === -1) return o.Status;
+  if (!o.DispatchDate) return o.Status;
+  const dispatch = new Date(o.DispatchDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dispatch.setHours(0, 0, 0, 0);
+  return dispatch <= today ? 'Working' : o.Status;
 }
 
 function activeOf(q) {
@@ -918,7 +1041,7 @@ function filterActive() {
    Ordenes completadas o canceladas. Solo lectura.
 ============================================================ */
 function historyOf(q) {
-  const list = allOrders.filter(o => o.Status === 'Completed' || o.Status === 'Cancelled')
+  const list = allOrders.filter(o => o.Status === 'Completed' || (o.Status === 'Cancelled' && o.Archived))
     .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));
   if (!q) return list;
   return list.filter(o => String(o.OrderID||'').toLowerCase().includes(q));
@@ -950,7 +1073,7 @@ function orderCard(o, context) {
           <div class="order-id">#${esc(o.OrderID)}</div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
         </div>
-        <span class="status-badge ${statusClass(o.Status)}">${esc(o.Status)}</span>
+        <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
       </div>
       <div class="order-body" id="${id}"></div>
     </div>`;
@@ -1162,14 +1285,17 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
 
   const editForm = (context === 'active') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
-      <p class="detail-label" style="margin-bottom:16px">Update Order</p>
+      <p class="detail-label" style="margin-bottom:4px">Order Status</p>
+      <p class="meta-line" style="margin-bottom:16px">
+        Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' (dispatch date has arrived)' : ''}.
+        Use the buttons below to mark it done or cancel it — nothing else changes the status directly.
+      </p>
+      <div class="btn-actions" style="margin-bottom:20px">
+        <button class="btn btn-green" onclick="markCompleted('${esc(o.OrderID)}')">Mark Completed</button>
+        <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancel Order</button>
+      </div>
+      <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
       <div class="edit-grid">
-        <div class="field-group">
-          <label>Status</label>
-          <select id="edit-status-${esc(o.OrderID)}">
-            ${nextStatusChoices(o.Status).map(s => '<option' + (s===o.Status?' selected':'') + '>' + esc(s) + '</option>').join('')}
-          </select>
-        </div>
         <div class="field-group">
           <label>Supervisor</label>
           <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}">
@@ -1179,12 +1305,20 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}">
         </div>
         <div class="field-group">
-          <label>Entry Date</label>
-          <input type="date" id="edit-entry-${esc(o.OrderID)}" value="${dateInputValue(o.EntryDate)}">
+          <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
+          <input type="date" id="edit-entry-${esc(o.OrderID)}" value="${dateInputValue(o.EntryDate)}" disabled>
         </div>
         <div class="field-group">
           <label>Due Date</label>
           <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}">
+        </div>
+        <div class="field-group">
+          <label>Dispatch Date</label>
+          <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}">
+        </div>
+        <div class="field-group">
+          <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
+          <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}">
         </div>
         <div class="field-group">
           <label>Service Window</label>
@@ -1198,10 +1332,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           <label>Delay Notes</label>
           <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}">
         </div>
-        <div class="field-group">
-          <label>Changed by</label>
-          <input type="text" id="edit-by-${esc(o.OrderID)}" placeholder="Type the name" autocomplete="off">
-        </div>
       </div>
       <div style="margin-top:20px">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
@@ -1213,7 +1343,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         </div>
       </div>
       <div class="btn-actions">
-        <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes</button>
+        <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
       </div>
     </div>` : '';
 
@@ -1454,29 +1584,20 @@ function setNotCompletedReason(orderId, cat, svc, value) {
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
 function openOrderDocument(orderId) {
-  window.open('/api/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
+  window.open('/.netlify/functions/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
 }
 
 async function saveOrderUpdate(orderId) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
 
-  const status     = val('edit-status');
   const supervisor = val('edit-supervisor');
   const notes      = val('edit-notes');
-  const entryDate  = val('edit-entry');
   const dueDate    = val('edit-due');
+  const dispatchDate   = val('edit-dispatch');
+  const inspectionDate = val('edit-inspection');
   const serviceWindow    = val('edit-window');
   const delayReasonType  = val('edit-delaytype');
   const delayReasonNotes = val('edit-delaynotes');
-  const changedBy  = val('edit-by').trim();
-
-  /* Quien hace el cambio se escribe cada vez: sin nombre no se guarda,
-     porque despues nadie puede saber quien lo hizo. */
-  if (!changedBy) {
-    showToast('Type your name in "Changed by" before saving.');
-    document.getElementById('edit-by-' + orderId)?.focus();
-    return;
-  }
 
   /* Un motivo de retraso sin explicacion no sirve para nada */
   if (delayReasonType === 'Other' && !delayReasonNotes.trim()) {
@@ -1503,19 +1624,48 @@ async function saveOrderUpdate(orderId) {
     });
   });
 
+  const changedBy = getActorName();
   try {
     const res = await api('/admin-update-order', {
       body: {
-        orderId, status, supervisor, notes, services, changedBy,
-        entryDate, dueDate, serviceWindow, delayReasonType, delayReasonNotes
+        orderId, supervisor, notes, services, changedBy, requestOnly: true,
+        dueDate, dispatchDate, inspectionDate, serviceWindow, delayReasonType, delayReasonNotes
       }
     });
-    let msg = 'Order updated.';
-    if (res.changesLogged) msg += ' ' + res.changesLogged + ' change(s) recorded in the history.';
-    if (res.document) msg += ' New document ' + res.document.name + ' saved.';
-    showToast(msg);
+    showToast('Change sent to Review — waiting for approval before it takes effect.');
     await loadAll();
   } catch(e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Marcar Completed es directo, sin aprobacion: la orden puede terminar
+   antes de la fecha de despacho seleccionada. */
+async function markCompleted(orderId) {
+  if (!confirm('Mark order ' + orderId + ' as Completed?')) return;
+  try {
+    await api('/admin-update-order', {
+      body: { orderId, status: 'Completed', changedBy: getActorName() }
+    });
+    showToast('Order ' + orderId + ' marked as Completed.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Cancelar desde Active manda a Review, igual que rechazar una orden
+   nueva: necesita el password del director. */
+async function requestCancelActive(orderId) {
+  const actor = promptDirectorPassword();
+  if (!actor) return;
+  try {
+    await api('/admin-approve-order', {
+      body: { orderId, decision: 'request-cancel', approvedBy: actor }
+    });
+    showToast('Order ' + orderId + ' sent to Review for cancellation.');
+    await loadAll();
+  } catch (e) {
     showToast('Error: ' + e.message);
   }
 }
