@@ -1968,7 +1968,8 @@ async function submitCreateOrder() {
     City:           createSelectedClient.city || '',
     Zip:            createSelectedClient.zip || '',
     Contact:        createSelectedClient.contact || '',
-    Status:         'Pending'
+    Status:         'Received',
+    OfficeCreated:  true
   };
 
   try {
