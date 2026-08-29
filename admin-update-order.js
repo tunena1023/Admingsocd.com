@@ -110,7 +110,7 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || '{}');
     const {
-      orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason,
+      orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason, sendToClient,
       entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
       delayReasonType, delayReasonNotes
     } = body;
@@ -219,7 +219,8 @@ exports.handler = async (event) => {
         ChangeDate:   new Date().toISOString(),
         Title:        admPrefix + (++admCount),
         ChangeType:   'Change Requested',
-        FieldChanged: isClientVisible ? 'Office Change' : 'Office Change (Internal)',
+        FieldChanged: sendToClient ? 'Client Confirmation'
+          : (isClientVisible ? 'Office Change' : 'Office Change (Internal)'),
         Notes:        (requestReason && String(requestReason).trim()) || ('Change requested by ' + actor + '.'),
         OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap }),
         NewValue:     'SERVICES:' + JSON.stringify({ services: newServices, dirtLevel: f.DirtLevel || '', fields: newFieldsSnap })
