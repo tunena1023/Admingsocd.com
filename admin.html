@@ -437,7 +437,7 @@ function signOut() {
    API
 ============================================================ */
 async function api(path, opts = {}) {
-  const res = await fetch('/.netlify/functions' + path, {
+  const res = await fetch('/api' + path, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined
