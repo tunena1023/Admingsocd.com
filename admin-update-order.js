@@ -202,13 +202,24 @@ exports.handler = async (event) => {
         String(it.fields?.Title || '').indexOf(admPrefix) === 0
       ).length;
 
+      /* El cliente solo debe ver esto si de verdad afecta el servicio real:
+         cambian los servicios, la fecha de despacho, la fecha limite o la
+         ventana. Un cambio de Supervisor o de fecha de inspeccion es
+         puramente interno y nunca debe llegarle al cliente. */
+      const servicesChangedNow = !!(services && services.length && servicesDiffer(oldServices, services));
+      const clientVisibleFieldChanged =
+        oldFieldsSnap.dispatchDate !== newFieldsSnap.dispatchDate ||
+        oldFieldsSnap.dueDate !== newFieldsSnap.dueDate ||
+        oldFieldsSnap.serviceWindow !== newFieldsSnap.serviceWindow;
+      const isClientVisible = servicesChangedNow || clientVisibleFieldChanged;
+
       await createListItem(ORDER_HISTORY_LIST, {
         OrderID:      orderId,
         ChangedBy:    actor,
         ChangeDate:   new Date().toISOString(),
         Title:        admPrefix + (++admCount),
         ChangeType:   'Change Requested',
-        FieldChanged: 'Office Change',
+        FieldChanged: isClientVisible ? 'Office Change' : 'Office Change (Internal)',
         Notes:        (requestReason && String(requestReason).trim()) || ('Change requested by ' + actor + '.'),
         OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap }),
         NewValue:     'SERVICES:' + JSON.stringify({ services: newServices, dirtLevel: f.DirtLevel || '', fields: newFieldsSnap })

@@ -395,10 +395,17 @@ exports.handler = async (event) => {
         : 'Rejected by ' + actor + '.'
           + (restored ? ' Previous services were restored.' : ''));
 
+    /* Si la solicitud que se esta decidiendo era un cambio interno de la
+       oficina (Supervisor, Inspection Date), la decision tambien debe
+       quedar oculta para el cliente: el no vio la solicitud, tampoco
+       debe ver que se aprobo o rechazo algo que no sabe que existio. */
+    const originRow = isChange ? lastRequestRow(history) : null;
+    const wasInternal = originRow && String(originRow.FieldChanged || '') === 'Office Change (Internal)';
+
     await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
       Title:        nextAdminLabel(),
       ChangeType:   changeType,
-      FieldChanged: 'Status',
+      FieldChanged: wasInternal ? 'Office Change (Internal)' : 'Status',
       Notes:        decisionNote,
       OldValue:     current,
       NewValue:     newStatus
