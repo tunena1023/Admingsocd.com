@@ -9,7 +9,7 @@
    Ojo con el mapeo historico de columnas (se conserva tal cual para no
    romper los datos que ya existen):
      Title        <- businessName
-     BusinessName <- contactPerson
+     ClientName   <- contactPerson
 */
 const {
   CLIENTS_LIST, CLIENT_HISTORY_LIST,
@@ -52,7 +52,7 @@ exports.handler = async (event) => {
     /* [columna, valor entrante, etiqueta que ve el humano] */
     const map = [
       ['Title',        b.businessName,  'Business Name'],
-      ['BusinessName', b.contactPerson, 'Contact Person'],
+      ['ClientName',   b.contactPerson, 'Contact Person'],
       ['Contact',      b.contact,       'Contact Email'],
       ['Phone',        b.phone,         'Phone'],
       ['Address',      b.address,       'Address'],

@@ -55,6 +55,17 @@ const LIVE_STATUSES   = ['Received', 'Assigned', 'Updated'];
 /* Estatus que nunca deben quedar como "estatus anterior" al revertir */
 const REQUEST_STATUSES = CHANGE_STATUSES.concat(CANCEL_STATUSES).concat(['Draft']);
 
+/* Un OldValue nunca es un estatus real si es un snapshot de servicios.
+   Las solicitudes viejas del portal cliente guardan ese snapshot como
+   JSON crudo SIN el prefijo "SERVICES:" (solo "[...]"), mientras que las
+   solicitudes nuevas de la oficina si llevan el prefijo. Cualquiera de
+   los dos formatos debe descartarse aqui, o su texto completo terminaria
+   escribiendose como si fuera el valor de Status. */
+function looksLikeServiceSnapshot(v) {
+  const s = String(v || '').trim();
+  return s.indexOf('SERVICES:') === 0 || s.charAt(0) === '[' || s.charAt(0) === '{';
+}
+
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
   let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
@@ -111,18 +122,19 @@ function lastServicesSnapshot(history) {
 }
 
 /* Estatus al que hay que volver: el OldValue de la solicitud, siempre que
-   sea un estatus real y no otra solicitud. */
+   sea un estatus real y no otra solicitud ni un snapshot de servicios
+   (con o sin el prefijo "SERVICES:"). */
 function previousStatus(history, fallback) {
   const row = lastRequestRow(history);
   const candidate = String((row && row.OldValue) || '').trim();
-  if (candidate && candidate.indexOf('SERVICES:') !== 0
+  if (candidate && !looksLikeServiceSnapshot(candidate)
       && REQUEST_STATUSES.indexOf(candidate) === -1) {
     return candidate;
   }
   /* Recorrer el historial buscando el ultimo estatus valido */
   for (let i = history.length - 1; i >= 0; i--) {
     const v = String(history[i].OldValue || '').trim();
-    if (v && v.indexOf('SERVICES:') !== 0 && REQUEST_STATUSES.indexOf(v) === -1) return v;
+    if (v && !looksLikeServiceSnapshot(v) && REQUEST_STATUSES.indexOf(v) === -1) return v;
   }
   return fallback;
 }

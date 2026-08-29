@@ -1,6 +1,6 @@
 /* ============================================================
    register-client.js — registro de cliente nuevo.
-   - Negocio en Title · persona de contacto en BusinessName
+   - Negocio en Title · persona de contacto en ClientName
    - ClientID secuencial GS-1001, GS-1002...
    - Validación de email duplicado antes de crear
    - Content-Type OBLIGATORIO en el POST (sin él Graph
@@ -56,7 +56,7 @@ exports.handler = async (event) => {
         existing: true,
         clientId: f.ClientID,
         businessName: f.Title,
-        contactPerson: f.BusinessName || '',
+        contactPerson: f.ClientName || '',
         address: f.Address || '',
         suite: f.Suite || '',
         city: f.City || '',

@@ -24,7 +24,7 @@ exports.handler = async (event) => {
           id: it.id,
           clientId: f.ClientID || '',
           businessName: f.Title || '',
-          contactPerson: f.BusinessName || '',
+          contactPerson: f.ClientName || '',
           address: f.Address || '',
           suite: f.Suite || '',
           city: f.City || '',
