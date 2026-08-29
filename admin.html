@@ -630,6 +630,19 @@ function requestOrigin(history) {
   return 'client';
 }
 
+/* Un cambio de fechas/servicios que la oficina mando directo al cliente
+   (boton "Request Confirmation") no espera al director: espera a que el
+   cliente le de click a Confirm en su propio portal. Mientras eso pasa,
+   el director solo ve un aviso, sin botones de decision. */
+function isWaitingForClient(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (String(h.ChangeType || '') === 'Change Requested' &&
+        String(h.FieldChanged || '') === 'Client Confirmation') return true;
+  }
+  return false;
+}
+
 function approvalKind(o) {
   const s = o.Status || '';
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
@@ -873,6 +886,10 @@ function decisionAreaHtml(o, history) {
       <button class="btn btn-gold" onclick="reactivateOrder('${esc(o.OrderID)}')">Mark as Active</button>
     </div>
     <p class="appr-hint">This order was cancelled. Archive moves it to History; Mark as Active undoes the cancellation and returns it to Active.</p>`;
+  }
+
+  if (isWaitingForClient(history)) {
+    return `<p class="appr-hint">This change was sent directly to the client for confirmation. No action is needed here — it will move forward once the client confirms it on their own portal.</p>`;
   }
 
   const isCancel = status === 'Cancellation Requested';
@@ -1543,6 +1560,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
       <div class="btn-actions">
         <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
+        <button class="btn btn-outline" onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
       </div>
     </div>` : '';
 
@@ -1786,7 +1804,7 @@ function openOrderDocument(orderId) {
   window.open('/api/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
 }
 
-async function saveOrderUpdate(orderId) {
+async function saveOrderUpdate(orderId, sendToClient) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
 
   const supervisor = val('edit-supervisor');
@@ -1827,11 +1845,13 @@ async function saveOrderUpdate(orderId) {
   try {
     const res = await api('/admin-update-order', {
       body: {
-        orderId, supervisor, notes, services, changedBy, requestOnly: true,
+        orderId, supervisor, notes, services, changedBy, requestOnly: true, sendToClient: !!sendToClient,
         dueDate, dispatchDate, inspectionDate, serviceWindow, delayReasonType, delayReasonNotes
       }
     });
-    showToast('Change sent to Review — waiting for approval before it takes effect.');
+    showToast(sendToClient
+      ? 'Change sent to the client for confirmation.'
+      : 'Change sent to Review — waiting for approval before it takes effect.');
     await loadAll();
   } catch(e) {
     showToast('Error: ' + e.message);
