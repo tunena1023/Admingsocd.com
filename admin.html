@@ -232,7 +232,7 @@
 
 <nav>
   <div class="nav-logo">
-    <img id="nav-logo" src="/.netlify/functions/site-image?name=Logo.png" alt="GS Solutions"
+    <img id="nav-logo" src="/api/site-image?name=Logo.png" alt="GS Solutions"
          onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
     <span id="nav-logo-text" class="nav-logo-text" style="display:none">GS Solutions</span>
   </div>
@@ -437,7 +437,7 @@ function signOut() {
    API
 ============================================================ */
 async function api(path, opts = {}) {
-  const res = await fetch('/.netlify/functions' + path, {
+  const res = await fetch('/api' + path, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -1584,7 +1584,7 @@ function setNotCompletedReason(orderId, cat, svc, value) {
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
 function openOrderDocument(orderId) {
-  window.open('/.netlify/functions/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
+  window.open('/api/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
 }
 
 async function saveOrderUpdate(orderId) {
