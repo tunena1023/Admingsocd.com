@@ -301,14 +301,15 @@ exports.handler = async (event) => {
 
     /* Control fields are overwritten on the order itself, so the previous value
        only survives if we record it here. Un renglon por campo. */
-    for (const ch of changes) {
+    if (changes.length) {
+      const summary = changes.map(ch => ch.label + ': ' + (ch.next || '(empty)')).join('  ·  ');
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
-        ChangeType:   ch.label + ' Changed',
-        FieldChanged: ch.label,
-        Notes:        '',
-        OldValue:     ch.old,
-        NewValue:     ch.next
+        ChangeType:   'Order Details Set',
+        FieldChanged: '',
+        Notes:        summary,
+        OldValue:     '',
+        NewValue:     ''
       }));
     }
 
