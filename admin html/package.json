@@ -1,8 +1,0 @@
-{
-  "name": "gs-solutions-admin-portal",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "xlsx": "0.18.5"
-  }
-}
