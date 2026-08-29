@@ -301,6 +301,7 @@ exports.handler = async (event) => {
       ChangedBy:  b.ClientID,
       ChangeDate: new Date().toISOString(),
       Notes:      '',
+      FieldChanged: b.OfficeCreated ? 'Office Order' : '',
       OldValue:   '',
       NewValue:   b.Status || 'Received'
     });
