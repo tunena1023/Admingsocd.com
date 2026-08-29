@@ -106,16 +106,25 @@
       font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
       padding: 4px 10px; border-radius: 20px; white-space: nowrap;
     }
+    /* Badge de password del director, visible en la tarjeta antes de expandir */
+    .pw-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+      letter-spacing: .02em; color: var(--black); background: rgba(201,168,76,0.25);
+      border: 1px solid var(--gold); padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .pw-badge:empty { display: none; }
     .appr-detail {
       background: var(--bg); border-left: 3px solid var(--gold); border-radius: 3px;
-      padding: 12px 14px; margin: 18px 0; font-size: 13px;
+      padding: 18px 20px; margin: 18px 0; font-size: 13px;
     }
-    .appr-detail p { margin: 3px 0; }
+    .appr-detail p { margin: 5px 0; line-height: 1.6; }
     .appr-detail .appr-h {
       font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-      color: var(--gray); margin: 10px 0 4px;
+      color: var(--gray); margin: 0 0 10px;
     }
-    .appr-detail .appr-h:first-child { margin-top: 0; }
+    .appr-section + .appr-section {
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
     .appr-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
     .appr-bar .field-group { margin-bottom: 0; min-width: 240px; }
     .appr-hint { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
@@ -199,19 +208,20 @@
     .empty-note { color: var(--gray); font-size: 14px; padding: 40px 0; text-align: center; }
 
     /* HISTORY */
-    .hist-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .hist-item { padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .hist-date { color: var(--gray); font-size: 12px; margin-right: 12px; }
     .hist-type { font-weight: 600; }
     .hist-rev { color: var(--gold); font-weight: 600; }
     .hist-by { color: var(--gray); font-size: 12px; margin-left: 8px; }
     .hist-item.has-detail { cursor: pointer; }
     .hist-head { display: flex; align-items: baseline; gap: 8px; }
-    .hist-head-main { flex: 1; min-width: 0; }
+    .hist-head-main { flex: 1; min-width: 0; line-height: 1.6; }
     .hist-toggle { font-size: 10px; color: var(--gold); white-space: nowrap; flex-shrink: 0; }
-    .hist-detail { display: none; margin-top: 8px; padding: 10px 12px; background: var(--bg);
+    .hist-note { font-size: 12px; color: var(--gray); margin-top: 5px; line-height: 1.5; }
+    .hist-detail { display: none; margin-top: 10px; padding: 12px 14px; background: var(--bg);
                    border-radius: 4px; border-left: 3px solid var(--gold); }
     .hist-detail.open { display: block; }
-    .hist-detail-line { font-size: 12px; margin: 3px 0; }
+    .hist-detail-line { font-size: 12px; margin: 5px 0; line-height: 1.5; }
 
     /* SECTION TITLE */
     .section-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; margin-bottom: 6px; }
@@ -769,8 +779,12 @@ async function decideNewOrder(orderId, action) {
   const ok = document.getElementById(dom + '-ok');
   if (ok) { ok.disabled = true; ok.textContent = 'Approving…'; }
   try {
+    /* Si el detalle (y por tanto el editor de servicios) ya cargo, se manda
+       la lista editada; si por alguna razon todavia no carga, no se manda
+       el campo y el backend deja los servicios como estaban. */
+    const services = window['apprSvc_' + orderId] ? apprServicesArray(orderId) : undefined;
     await api('/admin-update-order', {
-      body: { orderId, supervisor, serviceWindow, dispatchDate, inspectionDate: inspectionDate || undefined, changedBy: actor }
+      body: { orderId, supervisor, serviceWindow, dispatchDate, inspectionDate: inspectionDate || undefined, services, changedBy: actor }
     });
     const res = await api('/admin-approve-order', {
       body: { orderId, decision: 'approve', approvedBy: actor }
@@ -786,9 +800,29 @@ async function decideNewOrder(orderId, action) {
   }
 }
 
+/* Si esta decision va a necesitar el password del director. Cancelled
+   (archive/reactivate) nunca lo necesita; Cancellation Requested siempre;
+   un Change Requested solo si lo origino la oficina. Se calcula una sola
+   vez y se usa tanto para el badge en la tarjeta como para los botones. */
+function passwordNeeded(o, history) {
+  const status = o.Status || '';
+  if (status === 'Cancelled') return false;
+  if (status === 'Cancellation Requested') return true;
+  return requestOrigin(history) === 'office';
+}
+
+function passwordBadgeHtml() {
+  return '&#128274; Director';
+}
+
 function approvalCard(o) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
+  /* El badge aparece de inmediato para cancelaciones (se sabe por el
+     Status, sin esperar la carga async); para "office origin" se llena
+     un poco despues, cuando loadApprovalDetail trae el historial — pero
+     sigue siendo visible en la tarjeta cerrada, antes de expandir. */
+  const isCancelSync = (o.Status === 'Cancellation Requested');
   return `
     <div class="order-card">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none'">
@@ -796,7 +830,10 @@ function approvalCard(o) {
           <div class="order-id">#${esc(o.OrderID)}</div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
-        <span class="appr-kind ${kind.cls}">${kind.label}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
+          <span class="appr-kind ${kind.cls}">${kind.label}</span>
+        </div>
       </div>
       <div class="appr-body">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
@@ -808,12 +845,14 @@ function approvalCard(o) {
 async function loadApprovalDetail(o) {
   const box = document.getElementById(apprDomId(o.OrderID) + '-detail');
   const decisionBox = document.getElementById(apprDomId(o.OrderID) + '-decision');
+  const badgeBox = document.getElementById(apprDomId(o.OrderID) + '-pwbadge');
   if (!box) return;
   try {
     const data = await api('/get-order-detail', { body: { orderId: o.OrderID } });
     const history = data.history || [];
     box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
     if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
+    if (badgeBox) badgeBox.innerHTML = passwordNeeded(o, history) ? passwordBadgeHtml() : '';
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load the request detail: ' + esc(e.message) + '</p>';
     if (decisionBox) decisionBox.innerHTML = '';
@@ -837,8 +876,7 @@ function decisionAreaHtml(o, history) {
   }
 
   const isCancel = status === 'Cancellation Requested';
-  const origin = requestOrigin(history);
-  const needsPassword = isCancel || origin === 'office';
+  const needsPassword = passwordNeeded(o, history);
   const notesId = dom + '-notes';
 
   return `
@@ -910,10 +948,16 @@ async function reactivateOrder(orderId) {
 
 function approvalDetailHtml(card, o, services, history) {
   const kind = approvalKind(card);
+  const dom = apprDomId(card.OrderID);
+  /* Los servicios solo se pueden editar/quitar aqui para una orden nueva
+     (Approvals). Una solicitud de cambio o cancelacion en Review se
+     aprueba o se rechaza tal cual llego — no se edita en ese paso. */
+  const editable = kind.label === 'New Order';
   const rows = [];
 
   /* --- Lo que se pidio --- */
-  if (kind.label !== 'New Order') {
+  if (!editable) {
+    rows.push('<div class="appr-section">');
     let req = null;
     for (let i = history.length - 1; i >= 0; i--) {
       if (REQUEST_TYPES.includes(String(history[i].ChangeType || '')) ||
@@ -932,17 +976,37 @@ function approvalDetailHtml(card, o, services, history) {
     } else {
       rows.push('<p>The original request row is missing from the history.</p>');
     }
+    rows.push('</div>');
   }
 
   /* --- Datos que se van a confirmar --- */
+  rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Order as it stands now</p>');
   rows.push('<p>Dispatch ' + fmtDate(o.DispatchDate) + ' · Due ' + fmtDate(o.DueDate) +
     ' · ' + esc(o.ServiceWindow || 'no service window') + '</p>');
   if (o.InspectionDate) rows.push('<p>Inspection: ' + fmtDate(o.InspectionDate) + '</p>');
   rows.push('<p>' + esc([o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ')) + '</p>');
+  rows.push('</div>');
 
-  rows.push('<p class="appr-h">Services</p>');
-  if (!services.length) {
+  rows.push('<div class="appr-section">');
+  rows.push('<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+    + '<p class="appr-h" style="margin:0">Services</p>'
+    + (editable ? '<button type="button" class="btn btn-outline" style="padding:4px 12px;font-size:12px" '
+        + 'onclick="openApprServiceEditor(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Edit</button>' : '')
+    + '</div>');
+
+  if (editable) {
+    /* Estado editable: arranca con lo que ya tiene la orden. */
+    const sel = {};
+    services.forEach(s => {
+      if (!sel[s.Category]) sel[s.Category] = {};
+      sel[s.Category][s.ServiceName] = s.SubOption;
+    });
+    window['apprSvc_' + card.OrderID] = sel;
+    window['apprDiv_' + card.OrderID] = o.Division || '';
+    rows.push('<div id="' + dom + '-svclist" style="margin-top:10px">' + apprServiceListHtml(card.OrderID) + '</div>');
+    rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
+  } else if (!services.length) {
     rows.push('<p>No services on this order.</p>');
   } else {
     services.forEach(s => {
@@ -953,11 +1017,119 @@ function approvalDetailHtml(card, o, services, history) {
         (s.SubOption ? ' — ' + esc(s.SubOption) : '') + nc + '</p>');
     });
   }
+  rows.push('</div>');
 
   if (o.Notes) {
-    rows.push('<p class="appr-h">Notes</p><p>' + esc(o.Notes) + '</p>');
+    rows.push('<div class="appr-section"><p class="appr-h">Notes</p><p>' + esc(o.Notes) + '</p></div>');
   }
   return rows.join('');
+}
+
+/* ============================================================
+   SERVICIOS EDITABLES EN APPROVALS (New Order)
+   window['apprSvc_'+orderId] guarda { Categoria: { Servicio: SubOpcion } }
+   mientras se decide la orden. Se manda en decideNewOrder junto con
+   supervisor/ventana/fechas (admin-update-order.js ya lo soporta).
+============================================================ */
+function apprServicesArray(orderId) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const out = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      out.push({ Category: cat, ServiceName: svcName, SubOption: sub });
+    });
+  });
+  return out;
+}
+
+function apprServiceListHtml(orderId) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      rows.push('<p class="svc-line" style="display:flex;align-items:center;justify-content:space-between;gap:10px">'
+        + '<span>' + esc(cat) + ': <b>' + esc(svcName) + '</b>' + (sub ? ' — ' + esc(sub) : '') + '</span>'
+        + '<button type="button" class="svc-remove-btn" title="Remove" '
+        + 'onclick="removeApprSvc(\'' + esc(orderId) + '\',\'' + esc(cat) + '\',\'' + esc(svcName) + '\')">&times;</button>'
+        + '</p>');
+    });
+  });
+  return rows.join('') || '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
+}
+
+function removeApprSvc(orderId, cat, svcName) {
+  const sel = window['apprSvc_' + orderId] || {};
+  if (sel[cat]) {
+    delete sel[cat][svcName];
+    if (!Object.keys(sel[cat]).length) delete sel[cat];
+  }
+  const box = document.getElementById(apprDomId(orderId) + '-svclist');
+  if (box) box.innerHTML = apprServiceListHtml(orderId);
+}
+
+async function openApprServiceEditor(orderId, division) {
+  const box = document.getElementById(apprDomId(orderId) + '-svceditor');
+  if (!box) return;
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  if (!allServices) {
+    try { allServices = await api('/get-services', { method: 'GET' }); }
+    catch (e) { showToast('Could not load the service catalog.'); return; }
+  }
+  const divData = allServices[division];
+  if (!divData) { showToast('No service catalog for this division.'); return; }
+  box.innerHTML = apprServiceEditorHtml(orderId, divData);
+  box.style.display = 'block';
+}
+
+/* Mismo estilo que usa el cliente: categorias en acordeon, opciones tipo
+   pill. La pill activa refleja lo que ya esta elegido para ese servicio. */
+function apprServiceEditorHtml(orderId, divData) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const cats = divData.categories || {};
+  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
+  return Object.entries(cats).map(([cat, svcs]) => {
+    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
+    const bodyId = 'appr-svc-cat-body-' + safe + '-' + catSafe;
+    const body = svcs.map(svc => {
+      const current = (sel[cat] || {})[svc.name] || '';
+      return `<div style="margin-bottom:10px">
+        <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+          ${(svc.subs || []).map(sub => {
+            const active = sub === current;
+            return `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
+              style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
+              onclick="toggleApprChip('${esc(orderId)}','${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="svc-cat-group">
+      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
+        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">(${svcs.length})</span></span>
+        <span class="svc-cat-arrow">▼</span>
+      </div>
+      <div class="svc-cat-body" id="${bodyId}">${body}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleApprChip(orderId, cat, svcName, sub) {
+  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
+  if (!sel[cat]) sel[cat] = {};
+  if (sel[cat][svcName] === sub) {
+    delete sel[cat][svcName];
+    if (!Object.keys(sel[cat]).length) delete sel[cat];
+  } else {
+    sel[cat][svcName] = sub;
+  }
+  const division = window['apprDiv_' + orderId] || '';
+  const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
+  if (editorBox && allServices && allServices[division]) {
+    editorBox.innerHTML = apprServiceEditorHtml(orderId, allServices[division]);
+  }
+  const listBox = document.getElementById(apprDomId(orderId) + '-svclist');
+  if (listBox) listBox.innerHTML = apprServiceListHtml(orderId);
 }
 
 /* ============================================================
@@ -1148,32 +1320,37 @@ function parseDatesPayload(value) {
   } catch(e) { return null; }
 }
 
-function datesPayloadText(o) {
-  if (!o) return '';
-  const parts = [];
-  if (o.entryDate) parts.push('Entry ' + fmtDate(o.entryDate));
-  if (o.dueDate) parts.push('Due ' + fmtDate(o.dueDate));
-  if (o.serviceWindow) parts.push(o.serviceWindow);
-  return parts.join(' · ');
-}
-
 function historyChangeLines(h) {
   const oldPay = parseSvcPayload(h.OldValue);
   const newPay = parseSvcPayload(h.NewValue);
   const oldSvcs = oldPay ? oldPay.services : null;
   const newSvcs = newPay ? newPay.services : null;
 
-  /* Fechas propuestas: mostrarlas legibles, no el JSON crudo */
+  /* Fechas propuestas: comparar campo por campo (Entry/Due/Service Window)
+     y solo mostrar el que de verdad cambio, en vez de todo junto en una
+     sola linea aunque solo uno haya cambiado. */
   const oldDates = parseDatesPayload(h.OldValue);
   const newDates = parseDatesPayload(h.NewValue);
   if (oldDates || newDates) {
-    const from = datesPayloadText(oldDates);
-    const to   = datesPayloadText(newDates);
-    if (from || to) {
-      return ['&#128197; Requested dates: ' +
-              (from ? esc(from) : '<i>(none)</i>') + ' &rarr; ' +
-              (to ? esc(to) : '<i>(none)</i>')];
+    const old = oldDates || {};
+    const neu = newDates || {};
+    const lines = [];
+    if ((old.entryDate || '') !== (neu.entryDate || '')) {
+      lines.push('&#128197; Entry Date: ' +
+        (old.entryDate ? esc(fmtDate(old.entryDate)) : '<i>(none)</i>') + ' &rarr; ' +
+        (neu.entryDate ? esc(fmtDate(neu.entryDate)) : '<i>(none)</i>'));
     }
+    if ((old.dueDate || '') !== (neu.dueDate || '')) {
+      lines.push('&#128197; Due Date: ' +
+        (old.dueDate ? esc(fmtDate(old.dueDate)) : '<i>(none)</i>') + ' &rarr; ' +
+        (neu.dueDate ? esc(fmtDate(neu.dueDate)) : '<i>(none)</i>'));
+    }
+    if ((old.serviceWindow || '') !== (neu.serviceWindow || '')) {
+      lines.push('&#128197; Service Window: ' +
+        (old.serviceWindow ? esc(old.serviceWindow) : '<i>(none)</i>') + ' &rarr; ' +
+        (neu.serviceWindow ? esc(neu.serviceWindow) : '<i>(none)</i>'));
+    }
+    if (lines.length) return lines;
   }
 
   /* Not a service snapshot: report a plain field change when there is one */
@@ -1239,10 +1416,20 @@ function toggleHistDetail(id) {
   if (el) el.classList.toggle('open');
 }
 
-/* Notes sometimes carry a "SERVICES:..." payload that is not meant for display */
+/* Notes sometimes carry a "SERVICES:..." payload that is not meant for
+   display, and the generic "Submitted from draft." note doesn't add
+   anything the rest of the row doesn't already say. */
 function histNoteText(h) {
-  return (h.Notes && h.Notes.indexOf('SERVICES:') !== 0) ? h.Notes : '';
+  if (!h.Notes) return '';
+  if (h.Notes.indexOf('SERVICES:') === 0) return '';
+  if (h.Notes === 'Submitted from draft.') return '';
+  return h.Notes;
 }
+
+/* Estos tipos de evento son ruido operativo (confirman que el documento
+   se genero o fallo, no un cambio de la orden en si) y solo se ocultan
+   aqui, en Active/History — Review no los usa. */
+const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed'];
 
 function renderOrderDetail(o, services, history, context, storedDoc) {
   const byCat = {};
@@ -1251,7 +1438,8 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     `<div class="svc-line"><b>${esc(cat)}:</b> ${list.map(s=>esc(s.ServiceName)+' — '+esc(s.SubOption)).join(' · ')}</div>`
   ).join('') || '<p class="empty-note">No services.</p>';
 
-  const histHtml = history.map((h, idx) => {
+  const visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
+  const histHtml = visibleHistory.map((h, idx) => {
     const detailId = 'hd-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
     const lines     = historyChangeLines(h);
     const hasDetail = lines.length > 0;
@@ -1264,10 +1452,10 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           ${h.Title ? `<span class="hist-rev">${esc(h.Title)}</span> — ` : ''}
           <span class="hist-type">${esc(h.ChangeType || '')}</span>
           ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
-          ${noteTxt ? ' — ' + esc(noteTxt) : ''}
         </div>
         ${hasDetail ? '<span class="hist-toggle">&#9660; details</span>' : ''}
       </div>
+      ${noteTxt ? `<div class="hist-note">${esc(noteTxt)}</div>` : ''}
       ${hasDetail ? `<div id="${detailId}" class="hist-detail">${
           lines.map(l => `<div class="hist-detail-line">${l}</div>`).join('')
         }</div>` : ''}
@@ -1665,11 +1853,12 @@ async function markCompleted(orderId) {
   }
 }
 
-/* Cancelar desde Active manda a Review, igual que rechazar una orden
-   nueva: necesita el password del director. */
+/* Cancelar desde Active manda la orden a Review para que se decida ahi.
+   Cualquiera del staff puede iniciarla, sin password — el password del
+   director se pide al decidir en Review, no aqui. */
 async function requestCancelActive(orderId) {
-  const actor = promptDirectorPassword();
-  if (!actor) return;
+  if (!confirm('Send order ' + orderId + ' to Review for cancellation?')) return;
+  const actor = getActorName();
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'request-cancel', approvedBy: actor }
@@ -1898,23 +2087,33 @@ async function loadCreateServices() {
   createSelected = {};
   const cats = divData.categories || {};
   wrap.style.display = 'block';
-  document.getElementById('create-services-list').innerHTML = Object.entries(cats).map(([cat, svcs]) =>
-    `<div style="margin-bottom:16px">
-      <p style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${esc(cat)}</p>
-      ${svcs.map(svc =>
-        `<div style="margin-bottom:8px">
-          <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-            ${(svc.subs||[]).map(sub =>
-              `<button class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
-                style="padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--white);font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
-                onclick="toggleCreateChip(this,'${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`
-            ).join('')}
-          </div>
-        </div>`
-      ).join('')}
-    </div>`
-  ).join('');
+  /* Mismo acordeon colapsable por categoria que usa el editor de Active
+     (.svc-cat-group / .svc-cat-header / .svc-cat-body), con las opciones
+     como pills en vez de filas con dropdown, porque aqui no hay servicios
+     ya guardados que editar — solo se estan eligiendo. */
+  document.getElementById('create-services-list').innerHTML = Object.entries(cats).map(([cat, svcs]) => {
+    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
+    const bodyId = 'create-svc-cat-body-' + catSafe;
+    const body = svcs.map(svc =>
+      `<div style="margin-bottom:10px">
+        <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+          ${(svc.subs||[]).map(sub =>
+            `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
+              style="padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--white);font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
+              onclick="toggleCreateChip(this,'${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`
+          ).join('')}
+        </div>
+      </div>`
+    ).join('');
+    return `<div class="svc-cat-group">
+      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
+        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">(${svcs.length})</span></span>
+        <span class="svc-cat-arrow">▼</span>
+      </div>
+      <div class="svc-cat-body" id="${bodyId}">${body}</div>
+    </div>`;
+  }).join('');
 }
 
 function toggleCreateChip(btn, cat, svc, sub) {
