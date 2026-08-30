@@ -265,6 +265,8 @@
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="showTab('create')">Create Order</button>
+  <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
+  <button class="tab" onclick="location.href='schedule.html'">Schedule</button>
 </div>
 
 <!-- APPROVALS -->
@@ -730,8 +732,11 @@ function newOrderApprovalCard(o) {
             <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}')">
           </div>
           <div class="field-group">
-            <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
-            <input type="date" id="${dom}-inspection">
+            <label style="text-transform:none;font-weight:400;color:var(--black);display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
+              <input type="checkbox" id="${dom}-inspection-toggle" onchange="toggleInspectionDate('${dom}')" style="width:auto">
+              Inspection needed?
+            </label>
+            <input type="date" id="${dom}-inspection" style="display:none;margin-top:8px">
           </div>
         </div>
         <div class="appr-bar">
@@ -754,6 +759,18 @@ function checkApprovalReady(dom) {
   const ready = !!(val('supervisor').trim() && val('window') && val('dispatch'));
   const ok = document.getElementById(dom + '-ok');
   if (ok) ok.disabled = !ready;
+}
+
+/* No siempre se inspecciona una orden nueva; tener Dispatch Date e
+   Inspection Date como dos campos de fecha fijos, uno junto al otro,
+   generaba confusion sobre si la inspeccion era obligatoria. Ahora
+   Inspection Date solo aparece si el admin marca que si aplica. */
+function toggleInspectionDate(dom) {
+  const chk = document.getElementById(dom + '-inspection-toggle');
+  const inp = document.getElementById(dom + '-inspection');
+  if (!chk || !inp) return;
+  inp.style.display = chk.checked ? 'block' : 'none';
+  if (!chk.checked) inp.value = '';
 }
 
 async function decideNewOrder(orderId, action) {
