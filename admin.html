@@ -1939,6 +1939,16 @@ async function saveOrderUpdate(orderId, sendToClient) {
   });
 
   const changedBy = getActorName();
+
+  /* Confirmacion antes de mandar a Review: una vez enviado, la orden
+     queda en 'Change Requested' esperando al director (o se deshace
+     con el boton Cancel de Review). Solo aplica a este camino -- el
+     de "Request Confirmation (send to client)" no pasa por el
+     director, asi que no necesita esta alerta. */
+  if (!sendToClient && !confirm('Updates will need approval. Continue?')) {
+    return;
+  }
+
   try {
     const res = await api('/admin-update-order', {
       body: {
