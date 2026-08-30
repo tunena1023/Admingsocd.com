@@ -629,7 +629,7 @@ function requestOrigin(history) {
   for (let i = (history || []).length - 1; i >= 0; i--) {
     const h = history[i];
     const type = String(h.ChangeType || '');
-    if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested') {
+    if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested' || type === 'Created') {
       return String(h.FieldChanged || '').indexOf('Office') === 0 ? 'office' : 'client';
     }
   }
@@ -992,16 +992,22 @@ function approvalDetailHtml(card, o, services, history) {
   const editable = kind.label === 'New Order';
   const rows = [];
 
-  /* --- Lo que se pidio --- */
-  if (!editable) {
+  /* --- Lo que se pidio ---
+     Se muestra para cualquier solicitud de cambio/cancelacion (Review),
+     y tambien para una orden nueva creada desde admin (Approvals) --
+     ahi lo que "se pidio" es la creacion misma, por eso 'Created' se
+     busca igual que cualquier otro tipo de solicitud. Una sola funcion,
+     un solo camino, en vez de un bloque aparte para cada caso. */
+  if (!editable || isOfficeCreatedOrder(history)) {
     rows.push('<div class="appr-section">');
     let req = null;
     for (let i = history.length - 1; i >= 0; i--) {
-      if (REQUEST_TYPES.includes(String(history[i].ChangeType || '')) ||
-          String(history[i].ChangeType || '') === 'Cancellation Requested') { req = history[i]; break; }
+      const t = String(history[i].ChangeType || '');
+      if (REQUEST_TYPES.includes(t) || t === 'Cancellation Requested' || t === 'Created') { req = history[i]; break; }
     }
     const origin = requestOrigin(history);
-    rows.push('<p class="appr-h">Requested by the ' + (origin === 'office' ? 'office' : 'client') + '</p>');
+    const verb = (req && String(req.ChangeType || '') === 'Created') ? 'Created' : 'Requested';
+    rows.push('<p class="appr-h">' + verb + ' by the ' + (origin === 'office' ? 'office' : 'client') + '</p>');
     if (req) {
       rows.push('<p>' + fmtDateTime(req.ChangeDate) +
         (req.ChangedBy ? ' · ' + esc(req.ChangedBy) : '') + '</p>');
@@ -1009,32 +1015,11 @@ function approvalDetailHtml(card, o, services, history) {
       if (note) rows.push('<p><b>' + esc(note) + '</b></p>');
       const lines = historyChangeLines(req);
       lines.forEach(l => rows.push('<p>' + l + '</p>'));
-      if (!note && !lines.length) rows.push('<p>No description was recorded with the request.</p>');
+      if (!note && !lines.length && verb === 'Requested') rows.push('<p>No description was recorded with the request.</p>');
     } else {
       rows.push('<p>The original request row is missing from the history.</p>');
     }
     rows.push('</div>');
-  }
-
-  /* --- Por que esta orden necesita al director (solo si aplica) ---
-     Antes el candadito aparecia sin ninguna explicacion. En vez de
-     inventar una frase generica, se muestra el evento real de creacion
-     tal cual se ve en el historial de cualquier orden (mismo formato
-     que usan Active/History): fecha, codigo, tipo, quien lo hizo. */
-  if (editable && isOfficeCreatedOrder(history)) {
-    const created = history.find(h => String(h.ChangeType || '') === 'Created');
-    if (created) {
-      rows.push('<div class="appr-section">');
-      rows.push('<p class="appr-h">Why this needs approval</p>');
-      rows.push('<div class="hist-item">'
-        + '<div class="hist-head"><div class="hist-head-main">'
-        + '<span class="hist-date">' + fmtDateTime(created.ChangeDate) + '</span>'
-        + (created.Title ? '<span class="hist-rev">' + esc(created.Title) + '</span> — ' : '')
-        + '<span class="hist-type">Order Created (from admin)</span>'
-        + (created.ChangedBy ? '<span class="hist-by">by ' + esc(created.ChangedBy) + '</span>' : '')
-        + '</div></div></div>');
-      rows.push('</div>');
-    }
   }
 
   /* --- Datos que se van a confirmar --- */
@@ -1379,6 +1364,13 @@ function parseDatesPayload(value) {
 }
 
 function historyChangeLines(h) {
+  /* 'Created' es el nacimiento de la orden, no un cambio -- no hay
+     antes/despues que comparar. Sin esto, el marcador interno
+     FieldChanged='Office Order' se leia como si fuera un campo que
+     cambio de valor (una linea sin sentido tipo "Office Order: (empty)
+     -> Received"). */
+  if (String(h.ChangeType || '') === 'Created') return [];
+
   const oldPay = parseSvcPayload(h.OldValue);
   const newPay = parseSvcPayload(h.NewValue);
   const oldSvcs = oldPay ? oldPay.services : null;
