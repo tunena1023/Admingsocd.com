@@ -370,7 +370,12 @@ exports.handler = async (event) => {
           FieldChanged: 'Services',
           Notes:        notes || '',
           OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '' }),
-          NewValue:     'SERVICES:' + JSON.stringify({ services: services, dirtLevel: f.DirtLevel || '' })
+          NewValue:     'SERVICES:' + JSON.stringify({ services: services, dirtLevel: f.DirtLevel || '' }),
+          /* El tracker del cliente muestra la fecha de ESTE evento; si se
+             marco Completed con una fecha de completado distinta a "hoy"
+             (el tecnico termino un dia y se captura despues en el
+             sistema), se usa esa fecha real en vez de "ahora". */
+          ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
         }));
       } else if (statusChanged) {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
@@ -379,7 +384,8 @@ exports.handler = async (event) => {
           FieldChanged: 'Status',
           Notes:        notes || '',
           OldValue:     oldStatus,
-          NewValue:     status
+          NewValue:     status,
+          ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
         }));
       }
     } else if (statusChanged) {
@@ -389,7 +395,8 @@ exports.handler = async (event) => {
         FieldChanged: 'Status',
         Notes:        notes || '',
         OldValue:     oldStatus,
-        NewValue:     status
+        NewValue:     status,
+        ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
       }));
     }
 
