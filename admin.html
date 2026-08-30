@@ -199,6 +199,7 @@
     /* Formulario de edicion de la orden: tres columnas en pantalla grande,
        una sola en celular para que ningun campo se corte. */
     .edit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .svc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
     .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
     /* TOAST */
@@ -240,6 +241,7 @@
       .detail-grid { grid-template-columns: 1fr; }
       .client-grid { grid-template-columns: 1fr; }
       .edit-grid { grid-template-columns: 1fr; }
+      .svc-cols { grid-template-columns: 1fr; }
       .svc-grid { grid-template-columns: 1fr; }
     }
   </style>
@@ -1592,69 +1594,74 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   });
   window['adminNC_' + o.OrderID] = ncState;
 
+  const editSectionId = 'actedit-' + String(o.OrderID).replace(/[^a-z0-9]/gi, '_');
+
   const editForm = (context === 'active') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
         Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' (dispatch date has arrived)' : ''}.
-        Use the buttons below to mark it done or cancel it — nothing else changes the status directly.
+        Use the buttons below to mark it done, cancel it, or edit its details.
       </p>
       <div class="btn-actions" style="margin-bottom:20px">
-        <button class="btn btn-green" onclick="markCompleted('${esc(o.OrderID)}')">Mark Completed</button>
-        <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancel Order</button>
+        <button class="btn btn-green" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>
+        <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
+        <button class="btn btn-outline" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
-      <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
-      <div class="edit-grid">
-        <div class="field-group">
-          <label>Supervisor</label>
-          <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}">
+      <div id="${editSectionId}" style="display:none">
+        <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
+        <div class="edit-grid">
+          <div class="field-group">
+            <label>Supervisor</label>
+            <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}">
+          </div>
+          <div class="field-group">
+            <label>Notes for client</label>
+            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}">
+          </div>
+          <div class="field-group">
+            <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
+            <input type="date" id="edit-entry-${esc(o.OrderID)}" value="${dateInputValue(o.EntryDate)}" disabled>
+          </div>
+          <div class="field-group">
+            <label>Due Date</label>
+            <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}">
+          </div>
+          <div class="field-group">
+            <label>Dispatch Date</label>
+            <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}">
+          </div>
+          <div class="field-group">
+            <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
+            <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}">
+          </div>
+          <div class="field-group">
+            <label>Service Window</label>
+            <select id="edit-window-${esc(o.OrderID)}">${optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '')}</select>
+          </div>
+          <div class="field-group">
+            <label>Delay Reason</label>
+            <select id="edit-delaytype-${esc(o.OrderID)}">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
+          </div>
+          <div class="field-group">
+            <label>Delay Notes</label>
+            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}">
+          </div>
         </div>
-        <div class="field-group">
-          <label>Notes for client</label>
-          <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}">
+        <div style="margin-top:20px">
+          <p class="detail-label" style="margin-bottom:10px">Services</p>
+          <div id="edit-svc-${esc(o.OrderID)}" class="svc-cols">
+            ${buildServiceRows(o.OrderID, o.Division, services)}
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+            ${buildAddServiceRow(o.OrderID, o.Division)}
+          </div>
         </div>
-        <div class="field-group">
-          <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
-          <input type="date" id="edit-entry-${esc(o.OrderID)}" value="${dateInputValue(o.EntryDate)}" disabled>
+        <div class="btn-actions">
+          <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
+          <button id="confirm-btn-${esc(o.OrderID)}" class="btn btn-gold-outline" style="display:none"
+            onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
         </div>
-        <div class="field-group">
-          <label>Due Date</label>
-          <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}">
-        </div>
-        <div class="field-group">
-          <label>Dispatch Date</label>
-          <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}">
-        </div>
-        <div class="field-group">
-          <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
-          <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}">
-        </div>
-        <div class="field-group">
-          <label>Service Window</label>
-          <select id="edit-window-${esc(o.OrderID)}">${optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '')}</select>
-        </div>
-        <div class="field-group">
-          <label>Delay Reason</label>
-          <select id="edit-delaytype-${esc(o.OrderID)}">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
-        </div>
-        <div class="field-group">
-          <label>Delay Notes</label>
-          <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}">
-        </div>
-      </div>
-      <div style="margin-top:20px">
-        <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div id="edit-svc-${esc(o.OrderID)}">
-          ${buildServiceRows(o.OrderID, o.Division, services)}
-        </div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
-          ${buildAddServiceRow(o.OrderID, o.Division)}
-        </div>
-      </div>
-      <div class="btn-actions">
-        <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
-        <button id="confirm-btn-${esc(o.OrderID)}" class="btn btn-gold-outline" style="display:none"
-          onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
       </div>
     </div>` : '';
 
@@ -1995,13 +2002,39 @@ async function saveOrderUpdate(orderId, sendToClient) {
   }
 }
 
+/* Revela/oculta el formulario de edicion de Active detras del boton
+   "Edit" -- el resumen de solo lectura de arriba (servicios, fechas,
+   historial) nunca se mueve, solo esta seccion. */
+function toggleActiveEdit(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 /* Marcar Completed es directo, sin aprobacion: la orden puede terminar
-   antes de la fecha de despacho seleccionada. */
+   antes de la fecha de despacho seleccionada. Pide el tecnico que
+   realizo el servicio y la fecha en que se completo -- se guardan en
+   las columnas Technician / CompletedDate de la lista Orders. */
 async function markCompleted(orderId) {
-  if (!confirm('Mark order ' + orderId + ' as Completed?')) return;
+  const technician = window.prompt('Technician who completed the order:');
+  if (technician === null) return;
+  if (!technician.trim()) {
+    showToast('Technician name is required.');
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const completedDate = window.prompt('Completion date (YYYY-MM-DD):', today);
+  if (completedDate === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(completedDate.trim())) {
+    showToast('Enter the date as YYYY-MM-DD.');
+    return;
+  }
   try {
     await api('/admin-update-order', {
-      body: { orderId, status: 'Completed', changedBy: getActorName() }
+      body: {
+        orderId, status: 'Completed', changedBy: getActorName(),
+        technician: technician.trim(), completedDate: completedDate.trim()
+      }
     });
     showToast('Order ' + orderId + ' marked as Completed.');
     await loadAll();

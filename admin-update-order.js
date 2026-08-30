@@ -112,7 +112,7 @@ exports.handler = async (event) => {
     const {
       orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason, sendToClient,
       entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
-      delayReasonType, delayReasonNotes
+      delayReasonType, delayReasonNotes, technician, completedDate
     } = body;
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
@@ -245,7 +245,9 @@ exports.handler = async (event) => {
       { key: 'DispatchDate',    incoming: dispatchDate,     label: 'Dispatch Date',     type: 'date' },
       { key: 'InspectionDate',  incoming: inspectionDate,   label: 'Inspection Date',   type: 'date' },
       { key: 'DelayReasonType', incoming: delayReasonType,  label: 'Delay Reason',      type: 'text' },
-      { key: 'DelayReasonNotes', incoming: delayReasonNotes, label: 'Delay Reason Notes', type: 'text' }
+      { key: 'DelayReasonNotes', incoming: delayReasonNotes, label: 'Delay Reason Notes', type: 'text' },
+      { key: 'Technician',      incoming: technician,       label: 'Technician',        type: 'text' },
+      { key: 'CompletedDate',   incoming: completedDate,    label: 'Completed Date',    type: 'date' }
     ];
 
     const patch = {};
