@@ -332,7 +332,13 @@ exports.handler = async (event) => {
       Title:      orderId,
       OrderID:    orderId,
       ChangeType: 'Created',
-      ChangedBy:  b.ClientID,
+      /* Si la orden se creo desde admin (Create Order), el "quien lo hizo"
+         debe ser la persona de oficina que la creo, no el numero de
+         cliente -- para eso admin.html manda b.ChangedBy con el nombre
+         del staff logueado. Si la mando el cliente (flujo normal desde
+         customer.html), b.ChangedBy nunca llega y se sigue usando su
+         ClientID como siempre. */
+      ChangedBy:  (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID,
       ChangeDate: new Date().toISOString(),
       Notes:      '',
       FieldChanged: b.OfficeCreated ? 'Office Order' : '',

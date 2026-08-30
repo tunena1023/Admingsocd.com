@@ -1016,6 +1016,27 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('</div>');
   }
 
+  /* --- Por que esta orden necesita al director (solo si aplica) ---
+     Antes el candadito aparecia sin ninguna explicacion. En vez de
+     inventar una frase generica, se muestra el evento real de creacion
+     tal cual se ve en el historial de cualquier orden (mismo formato
+     que usan Active/History): fecha, codigo, tipo, quien lo hizo. */
+  if (editable && isOfficeCreatedOrder(history)) {
+    const created = history.find(h => String(h.ChangeType || '') === 'Created');
+    if (created) {
+      rows.push('<div class="appr-section">');
+      rows.push('<p class="appr-h">Why this needs approval</p>');
+      rows.push('<div class="hist-item">'
+        + '<div class="hist-head"><div class="hist-head-main">'
+        + '<span class="hist-date">' + fmtDateTime(created.ChangeDate) + '</span>'
+        + (created.Title ? '<span class="hist-rev">' + esc(created.Title) + '</span> — ' : '')
+        + '<span class="hist-type">Order Created (from admin)</span>'
+        + (created.ChangedBy ? '<span class="hist-by">by ' + esc(created.ChangedBy) + '</span>' : '')
+        + '</div></div></div>');
+      rows.push('</div>');
+    }
+  }
+
   /* --- Datos que se van a confirmar --- */
   rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Order as it stands now</p>');
@@ -2255,7 +2276,8 @@ async function submitCreateOrder() {
     Zip:            createSelectedClient.zip || '',
     Contact:        createSelectedClient.contact || '',
     Status:         'Received',
-    OfficeCreated:  true
+    OfficeCreated:  true,
+    ChangedBy:      getActorName()
   };
 
   try {
