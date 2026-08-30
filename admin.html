@@ -910,13 +910,6 @@ async function loadApprovalDetail(o) {
     box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
     if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
     if (badgeBox) badgeBox.innerHTML = passwordNeeded(o, history) ? passwordBadgeHtml() : '';
-    /* El acordeon de servicios de una orden nueva (kind editable) se
-       carga solo, sin esperar ningun click de "Edit" -- ver
-       initApprServiceEditor. No hace nada si la tarjeta no es
-       editable (el div -svceditor simplemente no existe en ese caso). */
-    if (approvalKind(o).label === 'New Order') {
-      initApprServiceEditor(o.OrderID, o.Division || '');
-    }
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load the request detail: ' + esc(e.message) + '</p>';
     if (decisionBox) decisionBox.innerHTML = '';
@@ -1096,10 +1089,12 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('<p class="appr-h">Services</p>');
 
   if (editable) {
-    /* Ya no hay lista plana con "×" ni boton "Edit" por separado: el
-       acordeon de categorias (mismo componente que usan Active y el
-       cliente) es ahora la unica forma de ver Y editar los servicios
-       de esta orden, visible directo sin necesidad de un click extra. */
+    /* Por defecto se ve un resumen limpio de solo lectura -- mismo
+       formato exacto que ya usan Active/History (una linea por
+       categoria, sin cajas ni acordeon) -- para poder decidir
+       Approve/Reject sin ruido visual. El acordeon completo del
+       catalogo (con categorias vacias incluidas) solo aparece al
+       darle "Update", para cuando de verdad se va a cambiar algo. */
     const sel = {};
     services.forEach(s => {
       if (!sel[s.Category]) sel[s.Category] = {};
@@ -1107,8 +1102,10 @@ function approvalDetailHtml(card, o, services, history) {
     });
     window['apprSvc_' + card.OrderID] = sel;
     window['apprDiv_' + card.OrderID] = o.Division || '';
-    rows.push('<div id="' + dom + '-svceditor" class="svc-cols">'
-      + '<p style="font-size:12px;color:var(--gray)">Loading catalog…</p></div>');
+    rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
+    rows.push('<button type="button" class="btn btn-outline" style="margin-top:10px;padding:4px 12px;font-size:12px" '
+      + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
+    rows.push('<div id="' + dom + '-svceditor" class="svc-cols" style="display:none;margin-top:12px"></div>');
   } else if (!services.length) {
     rows.push('<p>No services on this order.</p>');
   } else {
@@ -1145,20 +1142,53 @@ function apprServicesArray(orderId) {
   return out;
 }
 
-/* Carga el catalogo (si hace falta) y pinta el acordeon directo, sin
-   esperar ningun click de "Edit" -- reemplaza la lista plana con "x"
-   que existia antes. Se llama una vez al cargar el detalle de la
-   tarjeta (loadApprovalDetail), no por interaccion del usuario. */
-async function initApprServiceEditor(orderId, division) {
-  const box = document.getElementById(apprDomId(orderId) + '-svceditor');
-  if (!box) return;
+/* Resumen de solo lectura de los servicios elegidos, agrupados por
+   categoria -- mismo formato que ya usan Active/History (una linea de
+   texto por categoria, sin cajas). Se reconstruye tambien cuando el
+   admin edita en el acordeon, para que quede al dia si vuelve a cerrar
+   el editor sin recargar la tarjeta completa. */
+function apprReadOnlySvcHtml(orderId) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const byCat = {};
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(svcName + (sub ? ' — ' + sub : ''));
+    });
+  });
+  const lines = Object.entries(byCat).map(([cat, items]) =>
+    '<div class="svc-line"><b>' + esc(cat) + ':</b> ' + esc(items.join(' · ')) + '</div>'
+  ).join('');
+  return lines || '<p class="empty-note">No services on this order yet.</p>';
+}
+
+/* El acordeon completo del catalogo (con categorias vacias incluidas)
+   solo se carga y se muestra al darle "Update" -- por defecto solo se
+   ve el resumen limpio de arriba, para no saturar la tarjeta con
+   categorias que la orden ni siquiera toco. */
+async function toggleApprSvcUpdate(orderId, division) {
+  const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
+  const readonlyBox = document.getElementById(apprDomId(orderId) + '-svcreadonly');
+  if (!editorBox) return;
+
+  if (editorBox.style.display === 'grid') {
+    editorBox.style.display = 'none';
+    if (readonlyBox) {
+      readonlyBox.style.display = '';
+      readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId);
+    }
+    return;
+  }
+
   if (!allServices) {
     try { allServices = await api('/get-services', { method: 'GET' }); }
-    catch (e) { box.innerHTML = '<p class="empty-note">Could not load the service catalog.</p>'; return; }
+    catch (e) { showToast('Could not load the service catalog.'); return; }
   }
   const divData = allServices[division];
-  if (!divData) { box.innerHTML = '<p class="empty-note">No service catalog for this division.</p>'; return; }
-  box.innerHTML = apprServiceEditorHtml(orderId, divData);
+  if (!divData) { showToast('No service catalog for this division.'); return; }
+  editorBox.innerHTML = apprServiceEditorHtml(orderId, divData);
+  editorBox.style.display = 'grid';
+  if (readonlyBox) readonlyBox.style.display = 'none';
 }
 
 /* Mismo estilo que usa el cliente: categorias en acordeon, opciones tipo
