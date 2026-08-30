@@ -910,6 +910,13 @@ async function loadApprovalDetail(o) {
     box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
     if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
     if (badgeBox) badgeBox.innerHTML = passwordNeeded(o, history) ? passwordBadgeHtml() : '';
+    /* El acordeon de servicios de una orden nueva (kind editable) se
+       carga solo, sin esperar ningun click de "Edit" -- ver
+       initApprServiceEditor. No hace nada si la tarjeta no es
+       editable (el div -svceditor simplemente no existe en ese caso). */
+    if (approvalKind(o).label === 'New Order') {
+      initApprServiceEditor(o.OrderID, o.Division || '');
+    }
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load the request detail: ' + esc(e.message) + '</p>';
     if (decisionBox) decisionBox.innerHTML = '';
@@ -1086,14 +1093,13 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('</div>');
 
   rows.push('<div class="appr-section">');
-  rows.push('<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-    + '<p class="appr-h" style="margin:0">Services</p>'
-    + (editable ? '<button type="button" class="btn btn-outline" style="padding:4px 12px;font-size:12px" '
-        + 'onclick="openApprServiceEditor(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Edit</button>' : '')
-    + '</div>');
+  rows.push('<p class="appr-h">Services</p>');
 
   if (editable) {
-    /* Estado editable: arranca con lo que ya tiene la orden. */
+    /* Ya no hay lista plana con "×" ni boton "Edit" por separado: el
+       acordeon de categorias (mismo componente que usan Active y el
+       cliente) es ahora la unica forma de ver Y editar los servicios
+       de esta orden, visible directo sin necesidad de un click extra. */
     const sel = {};
     services.forEach(s => {
       if (!sel[s.Category]) sel[s.Category] = {};
@@ -1101,8 +1107,8 @@ function approvalDetailHtml(card, o, services, history) {
     });
     window['apprSvc_' + card.OrderID] = sel;
     window['apprDiv_' + card.OrderID] = o.Division || '';
-    rows.push('<div id="' + dom + '-svclist" style="margin-top:10px">' + apprServiceListHtml(card.OrderID) + '</div>');
-    rows.push('<div id="' + dom + '-svceditor" class="svc-cols" style="display:none;margin-top:12px"></div>');
+    rows.push('<div id="' + dom + '-svceditor" class="svc-cols">'
+      + '<p style="font-size:12px;color:var(--gray)">Loading catalog…</p></div>');
   } else if (!services.length) {
     rows.push('<p>No services on this order.</p>');
   } else {
@@ -1139,43 +1145,20 @@ function apprServicesArray(orderId) {
   return out;
 }
 
-function apprServiceListHtml(orderId) {
-  const sel = window['apprSvc_' + orderId] || {};
-  const rows = [];
-  Object.entries(sel).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sub]) => {
-      rows.push('<p class="svc-line" style="display:flex;align-items:center;justify-content:space-between;gap:10px">'
-        + '<span>' + esc(cat) + ': <b>' + esc(svcName) + '</b>' + (sub ? ' — ' + esc(sub) : '') + '</span>'
-        + '<button type="button" class="svc-remove-btn" title="Remove" '
-        + 'onclick="removeApprSvc(\'' + esc(orderId) + '\',\'' + esc(cat) + '\',\'' + esc(svcName) + '\')">&times;</button>'
-        + '</p>');
-    });
-  });
-  return rows.join('') || '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
-}
-
-function removeApprSvc(orderId, cat, svcName) {
-  const sel = window['apprSvc_' + orderId] || {};
-  if (sel[cat]) {
-    delete sel[cat][svcName];
-    if (!Object.keys(sel[cat]).length) delete sel[cat];
-  }
-  const box = document.getElementById(apprDomId(orderId) + '-svclist');
-  if (box) box.innerHTML = apprServiceListHtml(orderId);
-}
-
-async function openApprServiceEditor(orderId, division) {
+/* Carga el catalogo (si hace falta) y pinta el acordeon directo, sin
+   esperar ningun click de "Edit" -- reemplaza la lista plana con "x"
+   que existia antes. Se llama una vez al cargar el detalle de la
+   tarjeta (loadApprovalDetail), no por interaccion del usuario. */
+async function initApprServiceEditor(orderId, division) {
   const box = document.getElementById(apprDomId(orderId) + '-svceditor');
   if (!box) return;
-  if (box.style.display === 'grid') { box.style.display = 'none'; return; }
   if (!allServices) {
     try { allServices = await api('/get-services', { method: 'GET' }); }
-    catch (e) { showToast('Could not load the service catalog.'); return; }
+    catch (e) { box.innerHTML = '<p class="empty-note">Could not load the service catalog.</p>'; return; }
   }
   const divData = allServices[division];
-  if (!divData) { showToast('No service catalog for this division.'); return; }
+  if (!divData) { box.innerHTML = '<p class="empty-note">No service catalog for this division.</p>'; return; }
   box.innerHTML = apprServiceEditorHtml(orderId, divData);
-  box.style.display = 'grid';
 }
 
 /* Mismo estilo que usa el cliente: categorias en acordeon, opciones tipo
@@ -1226,8 +1209,6 @@ function toggleApprChip(orderId, cat, svcName, sub) {
   if (editorBox && allServices && allServices[division]) {
     editorBox.innerHTML = apprServiceEditorHtml(orderId, allServices[division]);
   }
-  const listBox = document.getElementById(apprDomId(orderId) + '-svclist');
-  if (listBox) listBox.innerHTML = apprServiceListHtml(orderId);
 }
 
 /* ============================================================
