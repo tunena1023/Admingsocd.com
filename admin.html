@@ -1637,6 +1637,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       <div class="hist-head">
         <div class="hist-head-main">
           <span class="hist-date">${fmtDateTime(h.ChangeDate)}</span>
+          <span class="hist-rev">${esc(o.OrderID || '')}</span> —
           <span class="hist-type">${esc(h.ChangeType || '')}</span>
           ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
         </div>
