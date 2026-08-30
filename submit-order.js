@@ -81,6 +81,25 @@ function parseServicesString(str, division) {
   return out;
 }
 
+/* BUG FIX (2026-08-30): admin.html manda Services como arreglo de objetos
+   { Category, ServiceName, SubOption, Division }, no como el string
+   "Categoria > Servicio – Opcion | ..." que parseServicesString espera.
+   Antes, un arreglo se convertia con String() a "[object Object],..." y
+   parseServicesString no encontraba nada que parsear, guardando la orden
+   sin ningun servicio. resolveServices acepta ambos formatos para que
+   ningun llamador (actual o futuro) pierda servicios silenciosamente. */
+function resolveServices(raw, division) {
+  if (Array.isArray(raw)) {
+    return raw.map(s => ({
+      Category:    s.Category    || '',
+      ServiceName: s.ServiceName || '',
+      SubOption:   s.SubOption   || '',
+      Division:    s.Division    || division
+    })).filter(s => s.Category || s.ServiceName);
+  }
+  return parseServicesString(raw, division);
+}
+
 function dateField(v) { return v ? v : null; }
 
 
@@ -132,6 +151,21 @@ exports.handler = async (event) => {
 
       const draftServiceRows = myDraftRows.filter(it => it.fields.ServiceName);
 
+      /* Red de seguridad: si el draft no trae ninguna fila de servicio
+         guardada (por ejemplo, una carrera con el autosave, una limpieza
+         de borrador huerfano que corrio en paralelo, o un retraso de
+         replicacion de SharePoint), no dejar la orden sin servicios.
+         El cliente ya mando su seleccion actual en este mismo envio
+         (b.Services); usarla como respaldo en vez de perderla. */
+      const svcSource = draftServiceRows.length
+        ? draftServiceRows.map(row => ({
+            Category:    row.fields.Category    || '',
+            ServiceName: row.fields.ServiceName || '',
+            SubOption:   row.fields.SubOption   || '',
+            Division:    row.fields.Division    || b.Division
+          }))
+        : resolveServices(b.Services, b.Division);
+
       const suffix = nextGlobalSuffix(allOrderRows);
       const orderId = String(b.ClientID).trim() + '-' + suffix;
       const newStatus = b.Status || 'Received';
@@ -149,14 +183,14 @@ exports.handler = async (event) => {
 
       try {
         await Promise.all([
-          ...draftServiceRows.map(row =>
+          ...svcSource.map(s =>
             createListItem(ORDER_SERVICES_LIST, {
-              Title:       row.fields.ServiceName || '',
+              Title:       s.ServiceName || '',
               OrderID:     orderId,
-              Category:    row.fields.Category    || '',
-              ServiceName: row.fields.ServiceName || '',
-              SubOption:   row.fields.SubOption   || '',
-              Division:    row.fields.Division    || b.Division
+              Category:    s.Category    || '',
+              ServiceName: s.ServiceName || '',
+              SubOption:   s.SubOption   || '',
+              Division:    s.Division    || b.Division
             })
           ),
           createListItem(ORDER_HISTORY_LIST, {
@@ -229,7 +263,7 @@ exports.handler = async (event) => {
         await Promise.all(stale.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
       }
 
-      for (const s of parseServicesString(b.Services, b.Division)) {
+      for (const s of resolveServices(b.Services, b.Division)) {
         await createListItem(ORDER_SERVICES_LIST, {
           Title:       s.ServiceName || '',
           OrderID:     existing.OrderID,
@@ -247,7 +281,7 @@ exports.handler = async (event) => {
       ).length;
 
       /* Servicios nuevos que el cliente seleccionó */
-      const newServices = parseServicesString(b.Services, b.Division).map(s => ({
+      const newServices = resolveServices(b.Services, b.Division).map(s => ({
         Category: s.Category, ServiceName: s.ServiceName, SubOption: s.SubOption, Division: s.Division
       }));
 
@@ -282,7 +316,7 @@ exports.handler = async (event) => {
     );
 
     try {
-    const parsedServices = parseServicesString(b.Services, b.Division);
+    const parsedServices = resolveServices(b.Services, b.Division);
     await Promise.all(parsedServices.map(s =>
       createListItem(ORDER_SERVICES_LIST, {
         Title:       s.ServiceName || '',
