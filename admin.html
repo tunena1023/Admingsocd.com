@@ -1539,9 +1539,39 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   ).join('') || '<p class="empty-note">No services.</p>';
 
   const visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
-  const histHtml = visibleHistory.map((h, idx) => {
+
+  /* BUG FIX: aprobar un cambio que toco varios campos de fecha a la vez
+     (Entry/Due/Service Window) escribe un renglon de historial POR CADA
+     campo (ver admin-approve-order.js, 'Dates Confirmed'), aunque sea
+     una sola decision de aprobacion. Sin agrupar, se veian 2 o 3
+     eventos identicos seguidos ("Dates Confirmed by Esmeralda Amezcua")
+     cada uno con un solo campo, en vez de uno solo con todos los campos
+     que en realidad cambiaron juntos. Se agrupan renglones consecutivos
+     del mismo tipo/autor dentro de una ventana corta de tiempo (los
+     timestamps no son identicos al ms por ser escrituras secuenciales),
+     igual que ya se hizo para el tracker del cliente. */
+  const GROUP_WINDOW_MS = 60000;
+  const GROUPABLE_TYPES = ['Dates Confirmed'];
+  const groupedHistory = [];
+  visibleHistory.forEach(h => {
+    const last = groupedHistory[groupedHistory.length - 1];
+    const type = String(h.ChangeType || '');
+    const groupable = GROUPABLE_TYPES.indexOf(type) !== -1;
+    const matchesLast = last && groupable &&
+      String(last.rep.ChangeType || '') === type &&
+      String(last.rep.ChangedBy || '') === String(h.ChangedBy || '') &&
+      Math.abs(new Date(h.ChangeDate) - new Date(last.rep.ChangeDate)) < GROUP_WINDOW_MS;
+    if (matchesLast) {
+      last.rows.push(h);
+    } else {
+      groupedHistory.push({ rep: h, rows: [h] });
+    }
+  });
+
+  const histHtml = groupedHistory.map((g, idx) => {
+    const h = g.rep;
     const detailId = 'hd-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
-    const lines     = historyChangeLines(h);
+    const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
     const hasDetail = lines.length > 0;
     const noteTxt   = histNoteText(h);
     return `<div class="hist-item${hasDetail ? ' has-detail' : ''}"${
