@@ -1575,9 +1575,6 @@ const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed'];
 function renderOrderDetail(o, services, history, context, storedDoc) {
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
-  const svcHtml = Object.entries(byCat).map(([cat,list]) =>
-    `<div class="svc-line"><b>${esc(cat)}:</b> ${list.map(s=>esc(s.ServiceName)+' — '+esc(s.SubOption)).join(' · ')}</div>`
-  ).join('') || '<p class="empty-note">No services.</p>';
 
   const visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
 
@@ -1778,18 +1775,39 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
+  /* Acordeon de solo lectura para "Services Requested": antes era una
+     lista plana siempre expandida, con todas las categorias visibles
+     de un jalon. Ahora usa el mismo componente colapsable (flechita +
+     circulo de conteo) que ya usan Active/Approvals/Create Order, pero
+     en modo lectura -- sin pastillas que tocar, solo el texto. Empieza
+     siempre cerrado. */
+  const svcAccordionHtml = Object.entries(byCat).map(([cat, list]) => {
+    const catSafe = (String(o.OrderID) + cat).replace(/[^a-z0-9]/gi, '_');
+    const bodyId = 'ro-svc-body-' + catSafe;
+    return `<div class="svc-cat-group">
+      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
+        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">${list.length}</span></span>
+        <span class="svc-cat-arrow">▼</span>
+      </div>
+      <div class="svc-cat-body" id="${bodyId}">
+        ${list.map(s => '<p class="svc-line">' + esc(s.ServiceName) + ' — ' + esc(s.SubOption) + '</p>').join('')}
+      </div>
+    </div>`;
+  }).join('') || '<p class="empty-note">No services.</p>';
+
   return `
     <div class="detail-grid">
       <div>
-        <p class="detail-label">Services</p>
-        ${svcHtml}
-        <p class="meta-line" style="margin-top:12px">
+        <p class="detail-label">Order Details</p>
+        <p class="meta-line">
           Entry: ${fmtDateTime(o.EntryDate)}<br>
           Due: ${fmtDate(o.DueDate)}<br>
           Building/Unit: ${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')} · Bed/Bath: ${esc(o.Bedrooms||'—')} / ${esc(o.Bathrooms||'—')}<br>
           ${o.Supervisor ? 'Supervisor: ' + esc(o.Supervisor) : ''}
         </p>
         ${o.Notes ? `<p class="meta-line" style="margin-top:8px">Notes: ${esc(o.Notes)}</p>` : ''}
+        <p class="detail-label" style="margin-top:16px">Services Requested</p>
+        ${svcAccordionHtml}
       </div>
       <div>
         <p class="detail-label">Client</p>
