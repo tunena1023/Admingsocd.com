@@ -276,7 +276,25 @@ exports.handler = async (event) => {
       }
     }
 
-    await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+    try {
+      await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+    } catch (patchErr) {
+      /* Graph rechaza el PATCH completo si alguna columna del body no
+         existe todavia en la lista (por ejemplo Technician/CompletedDate,
+         que se agregan a mano en SharePoint aparte). Sin esto, marcar
+         Completed dejaria de funcionar por completo hasta que esas
+         columnas existan, en vez de solo esos 2 datos puntuales. */
+      if (('Technician' in patch) || ('CompletedDate' in patch)) {
+        const fallbackPatch = Object.assign({}, patch);
+        delete fallbackPatch.Technician;
+        delete fallbackPatch.CompletedDate;
+        await updateListItemByItemId(ORDERS_LIST, item.id, fallbackPatch);
+        changes.splice(0, changes.length, ...changes.filter(c =>
+          c.label !== 'Technician' && c.label !== 'Completed Date'));
+      } else {
+        throw patchErr;
+      }
+    }
 
     const statusChanged = !!status && status !== oldStatus;
 
