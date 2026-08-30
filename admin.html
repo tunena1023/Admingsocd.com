@@ -1102,7 +1102,7 @@ function approvalDetailHtml(card, o, services, history) {
     window['apprSvc_' + card.OrderID] = sel;
     window['apprDiv_' + card.OrderID] = o.Division || '';
     rows.push('<div id="' + dom + '-svclist" style="margin-top:10px">' + apprServiceListHtml(card.OrderID) + '</div>');
-    rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
+    rows.push('<div id="' + dom + '-svceditor" class="svc-cols" style="display:none;margin-top:12px"></div>');
   } else if (!services.length) {
     rows.push('<p>No services on this order.</p>');
   } else {
@@ -1167,7 +1167,7 @@ function removeApprSvc(orderId, cat, svcName) {
 async function openApprServiceEditor(orderId, division) {
   const box = document.getElementById(apprDomId(orderId) + '-svceditor');
   if (!box) return;
-  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  if (box.style.display === 'grid') { box.style.display = 'none'; return; }
   if (!allServices) {
     try { allServices = await api('/get-services', { method: 'GET' }); }
     catch (e) { showToast('Could not load the service catalog.'); return; }
@@ -1175,7 +1175,7 @@ async function openApprServiceEditor(orderId, division) {
   const divData = allServices[division];
   if (!divData) { showToast('No service catalog for this division.'); return; }
   box.innerHTML = apprServiceEditorHtml(orderId, divData);
-  box.style.display = 'block';
+  box.style.display = 'grid';
 }
 
 /* Mismo estilo que usa el cliente: categorias en acordeon, opciones tipo
