@@ -268,7 +268,7 @@
 <div class="tab-bar">
   <button class="tab active" onclick="showTab('approvals')">Approvals<span class="tab-count zero" id="appr-count">0</span></button>
   <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span></button>
-  <button class="tab" onclick="showTab('active')">Active</button>
+  <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="showTab('create')">Create Order</button>
@@ -1306,6 +1306,11 @@ function activeOf(q) {
 function renderActive() {
   const box = document.getElementById('active-list');
   const list = activeOf('');
+  const badge = document.getElementById('active-count');
+  if (badge) {
+    badge.textContent = list.length;
+    badge.classList.toggle('zero', list.length === 0);
+  }
   if (!box) return;
   box.innerHTML = list.length ? list.map(o => orderCard(o, 'active')).join('') : '<p class="empty-note">No active orders.</p>';
 }
