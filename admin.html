@@ -1637,7 +1637,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       <div class="hist-head">
         <div class="hist-head-main">
           <span class="hist-date">${fmtDateTime(h.ChangeDate)}</span>
-          ${h.Title ? `<span class="hist-rev">${esc(h.Title)}</span> — ` : ''}
           <span class="hist-type">${esc(h.ChangeType || '')}</span>
           ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
         </div>
@@ -2081,7 +2080,6 @@ async function printOrder(orderId) {
       : '';
     return `<tr>` +
       `<td>${fmtDateTime(h.ChangeDate)}</td>` +
-      `<td>${esc(h.Title || '')}</td>` +
       `<td>${esc(h.ChangeType || '')}</td>` +
       `<td>${esc(h.ChangedBy || '')}</td>` +
       `<td>${noteTxt ? esc(noteTxt) : ''}${detail}</td>` +
@@ -2104,7 +2102,7 @@ async function printOrder(orderId) {
   ${o.Notes?'Notes: '+o.Notes:''}</p>
   <h2>Services</h2><table>${svcHtml}</table>
   <h2>History</h2><table>
-  <tr><td><b>Date</b></td><td><b>Ref</b></td><td><b>Event</b></td><td><b>By</b></td><td><b>Notes / Changes</b></td></tr>
+  <tr><td><b>Date</b></td><td><b>Event</b></td><td><b>By</b></td><td><b>Notes / Changes</b></td></tr>
   ${histHtml}</table></body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 400);
