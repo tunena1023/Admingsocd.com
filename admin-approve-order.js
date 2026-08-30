@@ -175,7 +175,7 @@ exports.handler = async (event) => {
     const { orderId, decision, approvedBy, notes } = JSON.parse(event.body || '{}');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
-    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate'];
+    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update'];
     if (validDecisions.indexOf(decision) === -1) {
       return jsonResponse(400, { error: "decision must be one of: " + validDecisions.join(', ') });
     }
@@ -255,6 +255,66 @@ exports.handler = async (event) => {
         OldValue: current, NewValue: 'Cancellation Requested'
       }));
       return jsonResponse(200, { success: true, status: 'Cancellation Requested' });
+    }
+
+    /* ================================================================
+       CANCEL-UPDATE — el staff deshace su propio Update (el que manda
+       "Save Changes (send to Review)") antes de que el director
+       decida. Solo aplica a un Change Requested que la propia oficina
+       origino -- nunca a uno que pidio el cliente, ni a una
+       Cancellation Requested (esa sigue su propio camino). Sin
+       password: es deshacer tu propia accion, no una decision que
+       necesite al director. Y a diferencia de reject, no deja NINGUN
+       renglon en el historial -- ni para el cliente ni para el staff
+       viendo admin.html. El Update queda como si nunca hubiera
+       pasado.
+    ================================================================ */
+    if (decision === 'cancel-update') {
+      if (CHANGE_STATUSES.indexOf(current) === -1) {
+        return jsonResponse(400, { error: 'This order has no pending update to cancel.' });
+      }
+      const lastReq = lastRequestRow(history);
+      const originatedByOffice = lastReq && String(lastReq.FieldChanged || '').indexOf('Office') === 0;
+      if (!originatedByOffice) {
+        return jsonResponse(400, { error: 'Only an office-initiated update can be cancelled this way.' });
+      }
+
+      const restoredStatus = previousStatus(history, 'Assigned');
+      const snapshot = lastServicesSnapshot(history);
+
+      if (snapshot && snapshot.services && snapshot.services.length) {
+        if (svcRows.length) {
+          await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
+        }
+        await Promise.all(snapshot.services.map(s =>
+          createListItem(ORDER_SERVICES_LIST, {
+            Title:              s.ServiceName || s.service || '',
+            OrderID:            orderId,
+            Category:           s.Category    || s.category || '',
+            ServiceName:        s.ServiceName || s.service  || '',
+            SubOption:          s.SubOption   || s.subOption || '',
+            Division:           s.Division    || (f.Division || ''),
+            NotCompleted:       truthy(s.NotCompleted),
+            NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
+          })
+        ));
+      }
+
+      const patch = { Status: restoredStatus };
+      if (snapshot && snapshot.dirtLevel) patch.DirtLevel = snapshot.dirtLevel;
+      if (snapshot && snapshot.fields) {
+        const flds = snapshot.fields;
+        if (flds.supervisor !== undefined) patch.Supervisor = flds.supervisor;
+        if (flds.notes !== undefined) patch.Notes = flds.notes;
+        if (flds.entryDate !== undefined) patch.EntryDate = flds.entryDate ? toIsoDate(flds.entryDate) : null;
+        if (flds.dueDate !== undefined) patch.DueDate = flds.dueDate ? toIsoDate(flds.dueDate) : null;
+        if (flds.serviceWindow !== undefined) patch.ServiceWindow = flds.serviceWindow;
+        if (flds.delayReasonType !== undefined) patch.DelayReasonType = flds.delayReasonType;
+        if (flds.delayReasonNotes !== undefined) patch.DelayReasonNotes = flds.delayReasonNotes;
+      }
+      await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+
+      return jsonResponse(200, { success: true, status: restoredStatus });
     }
 
     /* ================================================================

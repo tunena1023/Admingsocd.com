@@ -933,6 +933,14 @@ function decisionAreaHtml(o, history) {
   const needsPassword = passwordNeeded(o, history);
   const notesId = dom + '-notes';
 
+  /* El boton Cancel solo tiene sentido para un Update que la propia
+     oficina mando a Review (no para un cambio que pidio el cliente,
+     ni para una Cancellation Requested, que sigue su propio camino
+     via Reject). Deshace la solicitud sin password y sin dejar
+     ningun rastro en el historial -- distinto de Reject, que si
+     queda registrado. */
+  const isOfficeUpdate = status === 'Change Requested' && requestOrigin(history) === 'office';
+
   return `
     <div class="field-group" style="margin-top:12px">
       <label>Notes ${isCancel ? '(required if rejecting)' : '(optional)'}</label>
@@ -941,10 +949,12 @@ function decisionAreaHtml(o, history) {
     <div class="appr-bar">
       <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Approve</button>
       <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
+      ${isOfficeUpdate ? `<button class="btn btn-outline" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel</button>` : ''}
     </div>
     <p class="appr-hint">
       ${needsPassword ? "This decision needs the Operations Director's password. " : ''}
       Approving ${isCancel ? 'cancels the order.' : 'applies the change.'} Rejecting keeps the order as it was before this request.
+      ${isOfficeUpdate ? ' Cancel discards this update with no approval needed and leaves no record — use it if you changed your mind before the director decides.' : ''}
     </p>`;
 }
 
@@ -978,6 +988,26 @@ async function decideReview(orderId, decision, needsPassword) {
     if (res.document) msg += ' Document ' + res.document.name + ' saved.';
     if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
     showToast(msg);
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Deshace un Update que la propia oficina mando a Review, antes de que
+   el director decida. Sin password (es deshacer tu propia accion) y
+   sin dejar ningun rastro en el historial -- a proposito, distinto de
+   Reject. Se confirma una vez porque no hay forma de deshacerlo despues:
+   si ya se descarto, el cambio que tenia adentro se pierde de verdad. */
+async function cancelOfficeUpdate(orderId) {
+  if (!confirm("Discard this pending update and return the order to Active? This can't be undone and won't be recorded anywhere.")) {
+    return;
+  }
+  try {
+    await api('/admin-approve-order', {
+      body: { orderId, decision: 'cancel-update', approvedBy: getActorName() }
+    });
+    showToast('Update cancelled. Order ' + orderId + ' returned to Active.');
     await loadAll();
   } catch (e) {
     showToast('Error: ' + e.message);
