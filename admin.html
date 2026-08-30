@@ -1598,7 +1598,35 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     }
   });
 
-  const histHtml = groupedHistory.map((g, idx) => {
+  /* Segunda pasada: al aprobar un cambio de fechas, el 'Dates Confirmed'
+     (ya agrupado arriba) queda seguido, en la MISMA accion, de un evento
+     de decision generico ('Change Approved'/'Change Rejected'/etc.) sin
+     ningun detalle propio -- el Grupo 1 ya le quita "Status: X->Y" y la
+     nota automatica "Approved by X.", dejandolo vacio y redundante (dos
+     burbujas para una sola decision). Se fusionan en una sola: se usa
+     el evento de decision como encabezado (mas claro: dice "Approved",
+     no "Dates Confirmed"), conservando el detalle de que campos
+     cambiaron. */
+  const DECISION_TYPES = ['Change Approved', 'Change Rejected', 'Cancellation Approved', 'Cancellation Rejected'];
+  const DETAIL_TYPES = ['Dates Confirmed'];
+  const mergedHistory = [];
+  groupedHistory.forEach(g => {
+    const prev = mergedHistory[mergedHistory.length - 1];
+    const type = String(g.rep.ChangeType || '');
+    const isDecision = DECISION_TYPES.indexOf(type) !== -1;
+    const prevIsDetail = prev && DETAIL_TYPES.indexOf(String(prev.rep.ChangeType || '')) !== -1;
+    const sameActor = prev && String(prev.rep.ChangedBy || '') === String(g.rep.ChangedBy || '');
+    const closeInTime = prev &&
+      Math.abs(new Date(g.rep.ChangeDate) - new Date(prev.rep.ChangeDate)) < GROUP_WINDOW_MS;
+    if (isDecision && prevIsDetail && sameActor && closeInTime) {
+      prev.rep = g.rep;
+      prev.rows = prev.rows.concat(g.rows);
+    } else {
+      mergedHistory.push(g);
+    }
+  });
+
+  const histHtml = mergedHistory.map((g, idx) => {
     const h = g.rep;
     const detailId = 'hd-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
     const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
