@@ -20,7 +20,12 @@
     .svc-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--white); }
     .svc-cat-header:hover { background: var(--bg); }
     .svc-cat-header .svc-cat-name { font-size: 14px; font-weight: 600; }
-    .svc-cat-header .svc-cat-count { font-size: 12px; color: var(--gray); margin-left: 8px; }
+    .svc-cat-header .svc-cat-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px;
+      border-radius: 10px; background: var(--gold); color: var(--white);
+      font-size: 11px; font-weight: 700;
+    }
     .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
     .svc-cat-body { display: none; padding: 4px 16px 12px; background: var(--bg); }
     .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -1182,6 +1187,7 @@ function apprServiceEditorHtml(orderId, divData) {
   return Object.entries(cats).map(([cat, svcs]) => {
     const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
     const bodyId = 'appr-svc-cat-body-' + safe + '-' + catSafe;
+    const selectedCount = Object.keys(sel[cat] || {}).length;
     const body = svcs.map(svc => {
       const current = (sel[cat] || {})[svc.name] || '';
       return `<div style="margin-bottom:10px">
@@ -1198,7 +1204,7 @@ function apprServiceEditorHtml(orderId, divData) {
     }).join('');
     return `<div class="svc-cat-group">
       <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">(${svcs.length})</span></span>
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
         <span class="svc-cat-arrow">▼</span>
       </div>
       <div class="svc-cat-body" id="${bodyId}">${body}</div>
@@ -1653,9 +1659,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           <div id="edit-svc-${esc(o.OrderID)}" class="svc-cols">
             ${buildServiceRows(o.OrderID, o.Division, services)}
           </div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
-            ${buildAddServiceRow(o.OrderID, o.Division)}
-          </div>
         </div>
         <div class="btn-actions">
           <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
@@ -1702,79 +1705,90 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
 
 function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
 
-/* ============================================================
-   SERVICE ROWS — una fila por servicio guardado en la orden, con
-   dropdown de opcion y "no completado" en la misma fila. Reemplaza
-   los dos bloques separados (chips + lista de resultados) que
-   obligaban a bajar hasta el fondo para ver algo relacionado.
-============================================================ */
-function subsFor(division, cat, svcName, fallback) {
-  const divData = allServices && allServices[division];
-  if (divData && divData.categories && divData.categories[cat]) {
-    const found = divData.categories[cat].find(s => s.name === svcName);
-    if (found && found.subs && found.subs.length) return found.subs;
-  }
-  return fallback ? [fallback] : [];
-}
-
+/* Acordeon completo del catalogo de la division -- ya no solo lo que
+   la orden trae asignado. Cada servicio se ve como pastillas de
+   sub-opcion (igual que Approvals y el cliente); tocar la pastilla ya
+   activa la quita, tocar otra la cambia. El checkbox de "no completado"
+   y su motivo solo aparecen para un servicio que SI esta seleccionado
+   -- no tiene sentido marcarlo en algo que ni siquiera esta en la
+   orden. Reemplaza el bloque viejo de 3 selects + "+ Add Service",
+   que solo dejaba ver/agregar de un jalon sin catalogo visible. */
 function buildServiceRows(orderId, division, services) {
-  if (!services || !services.length) {
-    return '<p style="font-size:13px;color:var(--gray)">No services on this order yet.</p>';
-  }
+  const divData = allServices && allServices[division];
+  if (!divData) return '<p style="font-size:13px;color:var(--gray)">Loading catalog…</p>';
+
+  const sel = window['adminSvc_' + orderId] || {};
   const ncState = window['adminNC_' + orderId] || {};
+  const cats = divData.categories || {};
   const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
 
-  const byCat = {};
-  services.forEach(s => {
-    const cat = s.Category || '';
-    if (!byCat[cat]) byCat[cat] = [];
-    byCat[cat].push(s);
-  });
-
-  return Object.entries(byCat).map(([cat, svcs]) => {
+  return Object.entries(cats).map(([cat, svcs]) => {
     const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
     const bodyId = 'svc-cat-body-' + safe + '-' + catSafe;
-    const rows = svcs.map((s) => {
-      const i = services.indexOf(s);
-      const svcName = s.ServiceName || '';
+    const selectedCount = Object.keys(sel[cat] || {}).length;
+
+    const rows = svcs.map(svc => {
+      const svcName = svc.name;
+      const current = (sel[cat] || {})[svcName] || '';
+      const isSelected = !!current;
       const st = ncState[ncKey(cat, svcName)] || { nc: false, reason: '' };
-      const subs = subsFor(division, cat, svcName, s.SubOption);
-      const selId = 'svc-sub-' + safe + '-' + i;
-      const rid = 'nc-reason-' + safe + '-' + i;
+      const svcSafe = svcName.replace(/[^a-z0-9]/gi, '_');
+      const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
+
+      const pills = (svc.subs || []).map(sub => {
+        const active = sub === current;
+        return `<button type="button"
+          style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
+          onclick="toggleAdminSvcChip('${esc(orderId)}','${esc(cat)}','${esc(svcName)}','${esc(sub)}')">${esc(sub)}</button>`;
+      }).join('');
+
       return `<div class="svc-row" data-cat="${esc(cat)}" data-svc="${esc(svcName)}">
-        <div class="svc-row-main">
+        <div class="svc-row-main" style="align-items:flex-start">
           <div class="svc-row-name"><b>${esc(svcName)}</b></div>
-          <div class="svc-row-controls">
-            <select id="${selId}"
-              onchange="setAdminSvcSub('${esc(orderId)}','${esc(cat)}','${esc(svcName)}',this.value)">
-              ${subs.map(sub => '<option value="' + esc(sub) + '"'
-                + (sub === s.SubOption ? ' selected' : '') + '>' + esc(sub) + '</option>').join('')}
-            </select>
-            <button class="svc-remove-btn"
-              onclick="removeAdminSvcRow(this,'${esc(orderId)}','${esc(cat)}','${esc(svcName)}')">Remove</button>
-          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${pills}</div>
         </div>
+        ${isSelected ? `
         <div class="svc-row-nc">
-          <input type="checkbox" id="nc-chk-${safe}-${i}" ${st.nc ? 'checked' : ''}
+          <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
             onchange="toggleNotCompleted('${esc(orderId)}','${esc(cat)}','${esc(svcName)}',this,'${rid}')">
-          <label for="nc-chk-${safe}-${i}">Not completed</label>
+          <label for="nc-chk-${safe}-${catSafe}-${svcSafe}">Not completed</label>
         </div>
         <div class="svc-row-reason${st.nc ? ' show' : ''}" id="${rid}-wrap">
           <input type="text" id="${rid}" placeholder="Why was it not completed?"
             value="${esc(st.reason)}"
             oninput="setNotCompletedReason('${esc(orderId)}','${esc(cat)}','${esc(svcName)}',this.value)">
-        </div>
+        </div>` : ''}
       </div>`;
     }).join('');
 
     return `<div class="svc-cat-group">
       <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">(${svcs.length})</span></span>
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
         <span class="svc-cat-arrow">▼</span>
       </div>
       <div class="svc-cat-body" id="${bodyId}">${rows}</div>
     </div>`;
   }).join('');
+}
+
+function toggleAdminSvcChip(orderId, cat, svcName, sub) {
+  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+  if (!sel[cat]) sel[cat] = {};
+  if (sel[cat][svcName] === sub) {
+    delete sel[cat][svcName];
+    if (!Object.keys(sel[cat]).length) delete sel[cat];
+    /* Se quito de la orden: su estado de "no completado" ya no aplica */
+    const ncState = window['adminNC_' + orderId] || {};
+    delete ncState[ncKey(cat, svcName)];
+  } else {
+    sel[cat][svcName] = sub;
+  }
+  const division = window['adminDiv_' + orderId] || '';
+  const box = document.getElementById('edit-svc-' + orderId);
+  if (box && allServices && allServices[division]) {
+    box.innerHTML = buildServiceRows(orderId, division, rebuildServicesFromSelection(orderId));
+  }
+  refreshConfirmBtn(orderId);
 }
 
 /* Muestra/oculta "Request Confirmation" segun si los servicios
@@ -1807,71 +1821,13 @@ function refreshConfirmBtn(orderId) {
   btn.style.display = svcSelectionChanged(orderId) ? '' : 'none';
 }
 
-function setAdminSvcSub(orderId, cat, svc, sub) {
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  if (!sel[cat]) sel[cat] = {};
-  sel[cat][svc] = sub;
-  refreshConfirmBtn(orderId);
-}
-
-function removeAdminSvcRow(btn, orderId, cat, svc) {
-  const sel = window['adminSvc_' + orderId] || {};
-  if (sel[cat]) delete sel[cat][svc];
-  const state = window['adminNC_' + orderId] || {};
-  delete state[ncKey(cat, svc)];
-  const row = btn.closest('.svc-row');
-  const group = btn.closest('.svc-cat-group');
-  if (row) row.remove();
-  if (group && !group.querySelector('.svc-row')) group.remove();
-  refreshConfirmBtn(orderId);
-}
-
 /* ============================================================
-   AGREGAR SERVICIO — el cliente puede llamar para pedir algo que
-   no incluyo en la orden original; el admin lo agrega desde aqui.
+   AGREGAR SERVICIO — ya no hace falta un bloque aparte: el acordeon
+   de arriba (buildServiceRows) ya muestra el catalogo completo, y
+   tocar una pastilla agrega o quita directo. rebuildServicesFromSelection
+   sigue sirviendo para convertir la seleccion en el arreglo que
+   espera el backend.
 ============================================================ */
-function buildAddServiceRow(orderId, division) {
-  const divData = allServices && allServices[division];
-  if (!divData) return '<p style="font-size:12px;color:var(--gray)">Loading catalog…</p>';
-  const cats = Object.keys(divData.categories || {});
-  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <select id="add-svc-cat-${safe}" style="font-size:12px" onchange="refreshAddSvcOptions('${esc(orderId)}','${esc(division)}')">
-      <option value="">Category…</option>
-      ${cats.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('')}
-    </select>
-    <select id="add-svc-name-${safe}" style="font-size:12px" onchange="refreshAddSvcOptions('${esc(orderId)}','${esc(division)}')">
-      <option value="">Service…</option>
-    </select>
-    <select id="add-svc-sub-${safe}" style="font-size:12px">
-      <option value="">Option…</option>
-    </select>
-    <button class="btn btn-outline" style="padding:4px 12px;font-size:12px"
-      onclick="addAdminSvcRow('${esc(orderId)}','${esc(division)}')">+ Add Service</button>
-  </div>`;
-}
-
-function refreshAddSvcOptions(orderId, division) {
-  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
-  const divData = allServices && allServices[division];
-  if (!divData) return;
-  const catSel = document.getElementById('add-svc-cat-' + safe);
-  const svcSel = document.getElementById('add-svc-name-' + safe);
-  const subSel = document.getElementById('add-svc-sub-' + safe);
-  const cat = catSel ? catSel.value : '';
-  const svcs = (divData.categories && divData.categories[cat]) || [];
-  if (svcSel) {
-    svcSel.innerHTML = '<option value="">Service…</option>' +
-      svcs.map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join('');
-  }
-  const svcName = svcSel ? svcSel.value : '';
-  const found = svcs.find(s => s.name === svcName);
-  if (subSel) {
-    subSel.innerHTML = '<option value="">Option…</option>' +
-      ((found && found.subs) || []).map(sub => '<option value="' + esc(sub) + '">' + esc(sub) + '</option>').join('');
-  }
-}
-
 function rebuildServicesFromSelection(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const out = [];
@@ -1881,34 +1837,6 @@ function rebuildServicesFromSelection(orderId) {
     });
   });
   return out;
-}
-
-function addAdminSvcRow(orderId, division) {
-  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
-  const cat = (document.getElementById('add-svc-cat-' + safe) || {}).value || '';
-  const svcName = (document.getElementById('add-svc-name-' + safe) || {}).value || '';
-  const sub = (document.getElementById('add-svc-sub-' + safe) || {}).value || '';
-  if (!cat || !svcName || !sub) { showToast('Pick a category, service and option first.'); return; }
-
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  if (!sel[cat]) sel[cat] = {};
-  if (sel[cat][svcName]) { showToast('That service is already on the order.'); return; }
-  sel[cat][svcName] = sub;
-
-  const box = document.getElementById('edit-svc-' + orderId);
-  if (box) {
-    box.innerHTML = buildServiceRows(orderId, division, rebuildServicesFromSelection(orderId));
-    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
-    const body = document.getElementById('svc-cat-body-' + safe + '-' + catSafe);
-    if (body) {
-      body.style.display = 'block';
-      const header = body.previousElementSibling;
-      const arrow = header && header.querySelector('.svc-cat-arrow');
-      if (arrow) arrow.style.transform = 'rotate(180deg)';
-    }
-  }
-  showToast('Service added. Remember to Save Changes.');
-  refreshConfirmBtn(orderId);
 }
 
 function toggleNotCompleted(orderId, cat, svc, chk, reasonId) {
