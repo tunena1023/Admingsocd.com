@@ -709,7 +709,10 @@ function newOrderApprovalCard(o) {
           <div class="order-id">#${esc(o.OrderID)}</div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
-        <span class="appr-kind ${kind.cls}">${kind.label}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password"></span>
+          <span class="appr-kind ${kind.cls}">${kind.label}</span>
+        </div>
       </div>
       <div class="appr-body">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
@@ -787,8 +790,7 @@ async function decideNewOrder(orderId, action) {
   let actor = getActorName();
   try {
     const detail = await api('/get-order-detail', { body: { orderId } });
-    const isOfficeOrder = (detail.history || []).some(h => h.FieldChanged === 'Office Order');
-    if (isOfficeOrder) {
+    if (isOfficeCreatedOrder(detail.history || [])) {
       const directorActor = promptDirectorPassword();
       if (!directorActor) return;
       actor = directorActor;
@@ -819,14 +821,26 @@ async function decideNewOrder(orderId, action) {
   }
 }
 
+/* Si el historial trae el marcador de que la orden se creo desde el
+   portal de admin (Create Order), no desde el cliente. Fuente unica de
+   verdad: tanto decideNewOrder (que de verdad exige el password) como
+   passwordNeeded (que solo pinta el candadito) usan esta misma funcion,
+   para que nunca queden desincronizados como antes -- el candadito no
+   aparecia nunca para estas ordenes aunque el password si se pedia. */
+function isOfficeCreatedOrder(history) {
+  return (history || []).some(h => String(h.FieldChanged || '') === 'Office Order');
+}
+
 /* Si esta decision va a necesitar el password del director. Cancelled
    (archive/reactivate) nunca lo necesita; Cancellation Requested siempre;
+   una orden nueva (Received) solo si se creo desde admin (Create Order);
    un Change Requested solo si lo origino la oficina. Se calcula una sola
    vez y se usa tanto para el badge en la tarjeta como para los botones. */
 function passwordNeeded(o, history) {
   const status = o.Status || '';
   if (status === 'Cancelled') return false;
   if (status === 'Cancellation Requested') return true;
+  if (status === 'Received') return isOfficeCreatedOrder(history);
   return requestOrigin(history) === 'office';
 }
 
