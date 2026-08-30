@@ -1663,16 +1663,40 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
+  const adminNCInit = {};
   services.forEach(s => {
     if (!adminSvcSelected[s.Category]) adminSvcSelected[s.Category] = {};
     adminSvcSelected[s.Category][s.ServiceName] = s.SubOption;
+    /* BUG FIX: el checkbox "Not completed" nunca reflejaba el valor real
+       guardado -- siempre arrancaba sin marcar, sin importar si ya
+       estaba marcado en SharePoint de una sesion anterior. Se
+       inicializa aqui con lo que la orden YA trae. */
+    const isNC = s.NotCompleted === true || String(s.NotCompleted) === 'true';
+    if (isNC || s.NotCompletedReason) {
+      adminNCInit[ncKey(s.Category, s.ServiceName)] = { nc: isNC, reason: s.NotCompletedReason || '' };
+    }
   });
   window['adminSvc_' + o.OrderID] = adminSvcSelected;
+  window['adminNC_' + o.OrderID] = adminNCInit;
   /* Snapshot congelado de como estaban los servicios al abrir el editor.
      Se compara contra esto (nunca contra las fechas, que no aplican aqui)
      para decidir si el boton "Request Confirmation" debe verse. */
   window['adminSvcOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminSvcSelected));
+  /* Snapshot congelado del estado de "Not completed" al abrir el editor,
+     para saber si de verdad cambio algo ahi (Save Changes) sin contar
+     eso como algo que el cliente deba confirmar (Request Confirmation
+     sigue dependiendo solo de adminSvcOriginal_, sin tocar). */
+  window['adminNCOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminNCInit));
   window['adminDiv_' + o.OrderID] = o.Division || '';
+  /* Snapshot de TODOS los campos editables (no solo servicios), para que
+     "Save Changes" solo aparezca cuando de verdad hay algo que guardar
+     -- antes se veia siempre, sin importar si se habia tocado algo. */
+  window['adminFieldsOriginal_' + o.OrderID] = {
+    supervisor: o.Supervisor || '', notes: o.Notes || '',
+    due: dateInputValue(o.DueDate), dispatch: dateInputValue(o.DispatchDate),
+    inspection: dateInputValue(o.InspectionDate), window: o.ServiceWindow || '',
+    delaytype: o.DelayReasonType || '', delaynotes: o.DelayReasonNotes || ''
+  };
 
   /* Estado de "servicio no realizado" por servicio guardado.
      Clave Categoria|Servicio, igual que en el resto del sistema. */
@@ -1704,11 +1728,11 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <div class="edit-grid">
           <div class="field-group">
             <label>Supervisor</label>
-            <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}">
+            <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
             <label>Notes for client</label>
-            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}">
+            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
             <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
@@ -1716,27 +1740,27 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           </div>
           <div class="field-group">
             <label>Due Date</label>
-            <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}">
+            <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
             <label>Dispatch Date</label>
-            <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}">
+            <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
             <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
-            <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}">
+            <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
             <label>Service Window</label>
-            <select id="edit-window-${esc(o.OrderID)}">${optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '')}</select>
+            <select id="edit-window-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '')}</select>
           </div>
           <div class="field-group">
             <label>Delay Reason</label>
-            <select id="edit-delaytype-${esc(o.OrderID)}">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
+            <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
           </div>
           <div class="field-group">
             <label>Delay Notes</label>
-            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}">
+            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
         </div>
         <div style="margin-top:20px">
@@ -1746,7 +1770,8 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           </div>
         </div>
         <div class="btn-actions">
-          <button class="btn btn-gold" onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
+          <button id="save-btn-${esc(o.OrderID)}" class="btn btn-gold" style="display:none"
+            onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
           <button id="confirm-btn-${esc(o.OrderID)}" class="btn btn-gold-outline" style="display:none"
             onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
         </div>
@@ -1874,6 +1899,7 @@ function toggleAdminSvcChip(orderId, cat, svcName, sub) {
     box.innerHTML = buildServiceRows(orderId, division, rebuildServicesFromSelection(orderId));
   }
   refreshConfirmBtn(orderId);
+  refreshSaveBtn(orderId);
 }
 
 /* Muestra/oculta "Request Confirmation" segun si los servicios
@@ -1906,6 +1932,34 @@ function refreshConfirmBtn(orderId) {
   btn.style.display = svcSelectionChanged(orderId) ? '' : 'none';
 }
 
+/* "Save Changes" solo aparece cuando de verdad hay algo pendiente de
+   guardar: cualquier campo del formulario, los servicios elegidos, o el
+   estado de "Not completed" -- comparado contra como estaba todo al
+   abrir el editor. Antes el boton se veia siempre, sin importar si se
+   habia tocado algo. */
+function refreshSaveBtn(orderId) {
+  const btn = document.getElementById('save-btn-' + orderId);
+  if (!btn) return;
+
+  const val = id => (document.getElementById(id + '-' + orderId) || {}).value ?? '';
+  const orig = window['adminFieldsOriginal_' + orderId] || {};
+  const fieldsChanged =
+    val('edit-supervisor') !== (orig.supervisor || '') ||
+    val('edit-notes')      !== (orig.notes || '') ||
+    val('edit-due')        !== (orig.due || '') ||
+    val('edit-dispatch')   !== (orig.dispatch || '') ||
+    val('edit-inspection') !== (orig.inspection || '') ||
+    val('edit-window')     !== (orig.window || '') ||
+    val('edit-delaytype')  !== (orig.delaytype || '') ||
+    val('edit-delaynotes') !== (orig.delaynotes || '');
+
+  const ncNow  = window['adminNC_' + orderId] || {};
+  const ncOrig = window['adminNCOriginal_' + orderId] || {};
+  const ncChanged = JSON.stringify(ncNow) !== JSON.stringify(ncOrig);
+
+  btn.style.display = (fieldsChanged || svcSelectionChanged(orderId) || ncChanged) ? '' : 'none';
+}
+
 /* ============================================================
    AGREGAR SERVICIO — ya no hace falta un bloque aparte: el acordeon
    de arriba (buildServiceRows) ya muestra el catalogo completo, y
@@ -1936,6 +1990,7 @@ function toggleNotCompleted(orderId, cat, svc, chk, reasonId) {
     if (!chk.checked) { box.value = ''; state[k].reason = ''; }
     else box.focus();
   }
+  refreshSaveBtn(orderId);
 }
 
 function setNotCompletedReason(orderId, cat, svc, value) {
@@ -1943,12 +1998,38 @@ function setNotCompletedReason(orderId, cat, svc, value) {
   const k = ncKey(cat, svc);
   if (!state[k]) state[k] = { nc: true, reason: '' };
   state[k].reason = value;
+  refreshSaveBtn(orderId);
 }
 
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
 function openOrderDocument(orderId) {
   window.open('/api/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
+}
+
+/* Arma el arreglo de servicios (con su estado de "Not completed") a
+   partir de lo que el admin tiene seleccionado en el acordeon de Edit.
+   Devuelve null si el editor nunca se abrio en esta sesion -- asi
+   markCompleted() sabe que no debe mandar 'services' en absoluto
+   (mandar un arreglo vacio se leeria como "borrar todos los servicios
+   de la orden", que no es la intencion si el admin nunca toco Edit). */
+function buildServicesPayload(orderId) {
+  const sel = window['adminSvc_' + orderId];
+  if (!sel) return null;
+  const division = window['adminDiv_' + orderId] || '';
+  const ncState = window['adminNC_' + orderId] || {};
+  const services = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, subOption]) => {
+      const st = ncState[ncKey(cat, svcName)] || { nc: false, reason: '' };
+      services.push({
+        Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
+        NotCompleted: !!st.nc,
+        NotCompletedReason: st.nc ? (st.reason || '') : ''
+      });
+    });
+  });
+  return services;
 }
 
 async function saveOrderUpdate(orderId, sendToClient) {
@@ -1970,23 +2051,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
     return;
   }
 
-  /* Construir array de servicios desde la selección del admin.
-     La division sale de la orden cargada, no del DOM: el selector viejo
-     buscaba un [data-division] que no existe y siempre devolvia ''. */
-  const sel = window['adminSvc_' + orderId] || {};
-  const division = window['adminDiv_' + orderId] || '';
-  const ncState = window['adminNC_' + orderId] || {};
-  const services = [];
-  Object.entries(sel).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, subOption]) => {
-      const st = ncState[ncKey(cat, svcName)] || { nc: false, reason: '' };
-      services.push({
-        Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
-        NotCompleted: !!st.nc,
-        NotCompletedReason: st.nc ? (st.reason || '') : ''
-      });
-    });
-  });
+  const services = buildServicesPayload(orderId) || [];
 
   const changedBy = getActorName();
 
@@ -2027,7 +2092,13 @@ function toggleActiveEdit(id) {
 /* Marcar Completed es directo, sin aprobacion: la orden puede terminar
    antes de la fecha de despacho seleccionada. Pide el tecnico que
    realizo el servicio y la fecha en que se completo -- se guardan en
-   las columnas Technician / CompletedDate de la lista Orders. */
+   las columnas Technician / CompletedDate de la lista Orders.
+
+   Si el editor de Active estuvo abierto y el admin marco algun servicio
+   como "no completado", eso se manda junto con el cierre, DIRECTO (sin
+   pasar por Review) -- no es un cambio de que servicios lleva la orden,
+   solo un detalle de que tan completa quedo, y perderlo en silencio
+   (como pasaba antes) dejaria a SharePoint pensando que todo se hizo. */
 async function markCompleted(orderId) {
   const technician = window.prompt('Technician who completed the order:');
   if (technician === null) return;
@@ -2042,13 +2113,14 @@ async function markCompleted(orderId) {
     showToast('Enter the date as YYYY-MM-DD.');
     return;
   }
+  const services = buildServicesPayload(orderId);
+  const body = {
+    orderId, status: 'Completed', changedBy: getActorName(),
+    technician: technician.trim(), completedDate: completedDate.trim()
+  };
+  if (services) body.services = services;
   try {
-    await api('/admin-update-order', {
-      body: {
-        orderId, status: 'Completed', changedBy: getActorName(),
-        technician: technician.trim(), completedDate: completedDate.trim()
-      }
-    });
+    await api('/admin-update-order', { body });
     showToast('Order ' + orderId + ' marked as Completed.');
     await loadAll();
   } catch (e) {
