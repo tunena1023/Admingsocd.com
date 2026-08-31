@@ -679,6 +679,23 @@ function isWaitingForClient(history) {
   return false;
 }
 
+/* Una orden Cancelled+Archived que se mando a reactivar (boton
+   "Reactivate" en History) tiene un camino doble: el director la
+   aprueba aqui en Review, o el cliente la confirma el mismo en su
+   portal. Mismo patron de "revisar solo la solicitud abierta mas
+   reciente" que ya usan requestOrigin/isWaitingForClient, para no
+   confundirse con una reactivacion vieja ya resuelta. */
+function isReactivationPending(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    const type = String(h.ChangeType || '');
+    if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested') {
+      return type === 'Change Requested' && String(h.FieldChanged || '') === 'Reactivation Pending';
+    }
+  }
+  return false;
+}
+
 function approvalKind(o) {
   const s = o.Status || '';
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
@@ -939,6 +956,7 @@ function passwordNeeded(o, history) {
   if (status === 'Cancelled') return false;
   if (status === 'Cancellation Requested') return true;
   if (status === 'Received') return isOfficeCreatedOrder(history);
+  if (isReactivationPending(history)) return true;
   return requestOrigin(history) === 'office';
 }
 
@@ -1010,6 +1028,13 @@ function decisionAreaHtml(o, history) {
     return `<p class="appr-hint">This change was sent directly to the client for confirmation. No action is needed here — it will move forward once the client confirms it on their own portal.</p>`;
   }
 
+  if (isReactivationPending(history)) {
+    return `<div class="appr-bar">
+      <button class="btn btn-gold" onclick="decideReactivation('${esc(o.OrderID)}')">Approve Reactivation</button>
+    </div>
+    <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to Active immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
+  }
+
   const isCancel = status === 'Cancellation Requested';
   const needsPassword = passwordNeeded(o, history);
   const notesId = dom + '-notes';
@@ -1069,6 +1094,24 @@ async function decideReview(orderId, decision, needsPassword) {
     if (res.document) msg += ' Document ' + res.document.name + ' saved.';
     if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
     showToast(msg);
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Aprueba una reactivacion pendiente (boton "Reactivate" en History).
+   Siempre pide password del director -- a diferencia de Approve/Reject
+   normal, aqui no hay caso donde no lo necesite, ya que reactivar una
+   orden vieja y archivada siempre merece ese nivel de decision. */
+async function decideReactivation(orderId) {
+  const actor = promptDirectorPassword();
+  if (!actor) return;
+  try {
+    const res = await api('/admin-approve-order', {
+      body: { orderId, decision: 'reactivate-confirm', approvedBy: actor }
+    });
+    showToast('Order ' + orderId + ' reactivated by ' + actor + '. Status: ' + res.status + '.');
     await loadAll();
   } catch (e) {
     showToast('Error: ' + e.message);
@@ -1918,6 +1961,26 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
 
   const editSectionId = 'actedit-' + String(o.OrderID).replace(/[^a-z0-9]/gi, '_');
 
+  /* En History, una orden Cancelled+Archived puede pedirse de vuelta.
+     A diferencia del "Mark as Active" que ya existe en Review (justo
+     despues de cancelar, instantaneo, sin password), esta orden ya
+     esta archivada -- puede llevar tiempo fria. Reactivate abre un
+     camino doble: el director la aprueba con password desde Review, O
+     el cliente la confirma el mismo desde su portal -- el que actue
+     primero gana, sin necesidad de coordinarse entre ellos. */
+  const historyReactivate = (context === 'history' && o.Status === 'Cancelled') ? `
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+      <p class="detail-label" style="margin-bottom:4px">Order Status</p>
+      <p class="meta-line" style="margin-bottom:16px">
+        This order was cancelled and archived. Reactivate sends a request that either
+        the Operations Director can approve (in Review) or the client can confirm
+        themselves (from their own portal) -- whichever happens first.
+      </p>
+      <div class="btn-actions">
+        <button class="btn btn-gold" onclick="requestReactivate('${esc(o.OrderID)}')">Reactivate</button>
+      </div>
+    </div>` : '';
+
   const editForm = (context === 'active') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
@@ -2047,7 +2110,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
       </span>
     </div>
-    ${editForm}`;
+    ${editForm}${historyReactivate}`;
 }
 
 /* ============================================================
@@ -2495,6 +2558,23 @@ async function requestCancelActive(orderId) {
       body: { orderId, decision: 'request-cancel', approvedBy: actor }
     });
     showToast('Order ' + orderId + ' sent to Review for cancellation.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Manda una orden Cancelled+Archived al camino doble de reactivacion:
+   el director la aprueba en Review (con password), o el cliente la
+   confirma el mismo desde su portal -- el que actue primero gana. */
+async function requestReactivate(orderId) {
+  if (!confirm('Send order ' + orderId + ' for reactivation? Either the Director or the client can confirm it, whichever happens first.')) return;
+  const actor = getActorName();
+  try {
+    await api('/admin-approve-order', {
+      body: { orderId, decision: 'request-reactivate', approvedBy: actor }
+    });
+    showToast('Order ' + orderId + ' sent for reactivation — waiting for the Director or the client.');
     await loadAll();
   } catch (e) {
     showToast('Error: ' + e.message);

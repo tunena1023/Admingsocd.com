@@ -131,8 +131,24 @@ function previousStatus(history, fallback) {
       && REQUEST_STATUSES.indexOf(candidate) === -1) {
     return candidate;
   }
-  /* Recorrer el historial buscando el ultimo estatus valido */
+  /* Recorrer el historial buscando el ultimo estatus valido.
+     BUG FIX: antes se aceptaba el OldValue de CUALQUIER renglon, sin
+     importar de que campo era -- un renglon 'Archived' (OldValue:
+     'false'/'true', nada que ver con el Status de la orden) se colaba
+     como si 'false' fuera un estatus real. Nunca se habia manifestado
+     porque el 'reactivate' instantaneo solo aplica a ordenes SIN
+     archivar (nunca hay un renglon 'Archived' de por medio); con
+     'reactivate-confirm' (ordenes YA archivadas) si aparece, y sin este
+     filtro el estatus restaurado hubiera quedado mal.
+
+     Se excluye especificamente 'Archived' (el unico FieldChanged que
+     guarda algo que NO es un estatus real, ademas de los ya excluidos
+     por looksLikeServiceSnapshot/REQUEST_STATUSES) -- NO se exige
+     FieldChanged==='Status' a secas, porque 'Office Change (Internal)'
+     tambien guarda el estatus real valido en su OldValue y se
+     romperia ese caso legitimo. */
   for (let i = history.length - 1; i >= 0; i--) {
+    if (String(history[i].FieldChanged || '') === 'Archived') continue;
     const v = String(history[i].OldValue || '').trim();
     if (v && !looksLikeServiceSnapshot(v) && REQUEST_STATUSES.indexOf(v) === -1) return v;
   }
@@ -235,6 +251,81 @@ exports.handler = async (event) => {
         Notes: notes || ('Reactivated by ' + actor + '.'), OldValue: 'Cancelled', NewValue: restoredStatus
       }));
       return jsonResponse(200, { success: true, status: restoredStatus, archived: false });
+    }
+
+    /* ================================================================
+       REQUEST-REACTIVATE — la oficina pide reactivar una orden ya
+       Cancelled Y archivada (boton "Reactivate" en History). A
+       diferencia de 'reactivate' (arriba), que es instantaneo para
+       una cancelacion fresca sin archivar, esta abre un camino DOBLE:
+       el Status pasa a 'Change Requested', lo que automaticamente hace
+       que la orden aparezca tanto en Review (para el director) como en
+       Active Orders del cliente (para que el mismo la confirme) -- sin
+       necesitar codigo nuevo para "que aparezca ahi", ya que ambos ya
+       filtran por ese Status. El que decida primero gana: en cuanto
+       cualquiera de los 2 caminos cambia el Status, la orden deja de
+       cumplir la condicion "pendiente" del otro camino.
+
+       OldValue: '{"reactivation":true}' -- a proposito con forma de
+       snapshot (arranca con '{', que looksLikeServiceSnapshot excluye),
+       para que previousStatus() NUNCA lo tome como si fuera un estatus
+       real al que volver. Sin este cuidado, un futuro previousStatus()
+       encontraria este renglon y devolveria literalmente 'Cancelled'
+       (que si pasa el filtro, ya que 'Cancelled' no esta en
+       REQUEST_STATUSES) -- un bug silencioso que hubiera dejado la
+       orden en el mismo estatus del que se esta intentando sacar.
+    ================================================================ */
+    if (decision === 'request-reactivate') {
+      if (current !== 'Cancelled' || !archived) {
+        return jsonResponse(400, { error: 'This order is not an archived, cancelled order that can be reactivated.' });
+      }
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: 'Change Requested' });
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title:        nextAdminLabel(),
+        ChangeType:   'Change Requested',
+        FieldChanged: 'Reactivation Pending',
+        Notes:        (notes && String(notes).trim()) || ('Reactivation requested by ' + actor + '.'),
+        OldValue:     '{"reactivation":true}',
+        NewValue:     'Change Requested'
+      }));
+      return jsonResponse(200, { success: true, status: 'Change Requested' });
+    }
+
+    /* ================================================================
+       REACTIVATE-CONFIRM — el director aprueba la reactivacion (boton
+       "Approve Reactivation" en Review). Regresa el Status al que tenia
+       la orden ANTES de cancelarse, usando el mismo previousStatus()
+       que ya usa el 'reactivate' instantaneo -- busca hacia atras y
+       salta correctamente el renglon de 'Reactivation Pending' (gracias
+       al OldValue con forma de snapshot) hasta encontrar el estatus
+       real (normalmente 'Assigned', del evento de cancelacion original).
+
+       Si el cliente confirma primero desde su portal (via el endpoint
+       equivalente del lado cliente), el Status ya no sera 'Change
+       Requested' para cuando el director intente aprobar aqui -- este
+       chequeo lo bloquea con un mensaje claro, sin necesitar ninguna
+       logica extra de "cancelar la otra opcion".
+    ================================================================ */
+    if (decision === 'reactivate-confirm') {
+      if (current !== 'Change Requested') {
+        return jsonResponse(400, { error: 'This order has no pending reactivation to confirm — it may have already been resolved.' });
+      }
+      const lastReq = lastRequestRow(history);
+      const isReactivation = lastReq && String(lastReq.FieldChanged || '') === 'Reactivation Pending';
+      if (!isReactivation) {
+        return jsonResponse(400, { error: 'This order does not have a pending reactivation request.' });
+      }
+      const restoredStatus = previousStatus(history, 'Assigned');
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus });
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title:        nextAdminLabel(),
+        ChangeType:   'Order Reactivated',
+        FieldChanged: 'Status',
+        Notes:        (notes && String(notes).trim()) || ('Reactivated by ' + actor + '.'),
+        OldValue:     'Change Requested',
+        NewValue:     restoredStatus
+      }));
+      return jsonResponse(200, { success: true, status: restoredStatus });
     }
 
     /* ================================================================
