@@ -2484,25 +2484,39 @@ async function loadCreateServices() {
   /* Mismo acordeon colapsable por categoria que usa el editor de Active
      (.svc-cat-group / .svc-cat-header / .svc-cat-body), con las opciones
      como pills en vez de filas con dropdown, porque aqui no hay servicios
-     ya guardados que editar — solo se estan eligiendo. */
-  document.getElementById('create-services-list').innerHTML = Object.entries(cats).map(([cat, svcs]) => {
+     ya guardados que editar — solo se estan eligiendo. En 2 columnas
+     (.svc-cols), igual que Active/Approvals/Review. */
+  document.getElementById('create-services-list').className = 'svc-cols';
+  document.getElementById('create-services-list').innerHTML = buildCreateServicesHtml(cats);
+}
+
+/* Reconstruye el HTML del acordeon de Create Order. Se llama al elegir
+   division, y de nuevo cada vez que se toca una pastilla, para que el
+   circulo dorado de conteo refleje lo que de verdad esta seleccionado
+   -- antes se calculaba una sola vez con el total del catalogo y nunca
+   se volvia a actualizar. */
+function buildCreateServicesHtml(cats) {
+  return Object.entries(cats).map(([cat, svcs]) => {
     const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
     const bodyId = 'create-svc-cat-body-' + catSafe;
-    const body = svcs.map(svc =>
-      `<div style="margin-bottom:10px">
+    const selectedCount = Object.keys(createSelected[cat] || {}).length;
+    const body = svcs.map(svc => {
+      const current = (createSelected[cat] || {})[svc.name] || '';
+      return `<div style="margin-bottom:10px">
         <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-          ${(svc.subs||[]).map(sub =>
-            `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
-              style="padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--white);font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
-              onclick="toggleCreateChip(this,'${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`
-          ).join('')}
+          ${(svc.subs||[]).map(sub => {
+            const active = sub === current;
+            return `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
+              style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
+              onclick="toggleCreateChip('${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`;
+          }).join('')}
         </div>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
     return `<div class="svc-cat-group">
       <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">(${svcs.length})</span></span>
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
         <span class="svc-cat-arrow">▼</span>
       </div>
       <div class="svc-cat-body" id="${bodyId}">${body}</div>
@@ -2510,24 +2524,18 @@ async function loadCreateServices() {
   }).join('');
 }
 
-function toggleCreateChip(btn, cat, svc, sub) {
+function toggleCreateChip(cat, svc, sub) {
   if (!createSelected[cat]) createSelected[cat] = {};
   if (createSelected[cat][svc] === sub) {
     delete createSelected[cat][svc];
-    btn.style.background = 'var(--white)';
-    btn.style.borderColor = 'var(--border)';
-    btn.style.color = 'var(--black)';
+    if (!Object.keys(createSelected[cat]).length) delete createSelected[cat];
   } else {
-    // deselect other subs for same svc
-    document.querySelectorAll(`.create-chip[data-cat="${cat}"][data-svc="${svc}"]`).forEach(b => {
-      b.style.background = 'var(--white)';
-      b.style.borderColor = 'var(--border)';
-      b.style.color = 'var(--black)';
-    });
     createSelected[cat][svc] = sub;
-    btn.style.background = 'var(--gold)';
-    btn.style.borderColor = 'var(--gold)';
-    btn.style.color = 'var(--white)';
+  }
+  const div = document.getElementById('create-division').value;
+  const divData = allServices && allServices[div];
+  if (divData) {
+    document.getElementById('create-services-list').innerHTML = buildCreateServicesHtml(divData.categories || {});
   }
 }
 
