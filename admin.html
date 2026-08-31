@@ -162,11 +162,11 @@
     .client-body { display: none; padding: 0 24px 24px; border-top: 1px solid var(--border); }
     .client-body.open { display: block; }
 
-    .client-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    .client-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 980px; }
     .client-col-left { border-right: 1px solid var(--border); padding-right: 32px; }
     .client-col-right { min-width: 0; }
     @media (max-width: 860px) {
-      .client-two-col { grid-template-columns: 1fr; }
+      .client-two-col { grid-template-columns: 1fr; max-width: none; }
       .client-col-left { border-right: none; padding-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
     }
 
@@ -2748,7 +2748,7 @@ function clientCard(c) {
         <div class="client-two-col">
           <div class="client-col-left">
             <p style="font-size:12px;color:var(--gray);margin:20px 0 12px">This is the client's <strong>primary address</strong> — used by default unless a different building is selected when placing an order.</p>
-            <div style="display:grid;grid-template-columns:1fr;gap:16px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
               <div class="field-group"><label>Business Name</label><input type="text" id="${cid}-bname" value="${esc(c.businessName||'')}"></div>
               <div class="field-group"><label>Contact Person</label><input type="text" id="${cid}-cperson" value="${esc(c.contactPerson||'')}"></div>
               <div class="field-group"><label>Email</label><input type="text" id="${cid}-email" value="${esc(c.contact||'')}"></div>
