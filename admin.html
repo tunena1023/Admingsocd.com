@@ -162,6 +162,8 @@
     .detail-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin-bottom: 10px; }
     .svc-line { font-size: 13px; margin: 3px 0; }
     .meta-line { font-size: 13px; color: var(--gray); line-height: 1.7; }
+    .field-caption { font-size: 11px; color: var(--gray); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+    .field-value { font-size: 14px; color: var(--black); }
 
     /* FORMS */
     .field-group { margin-bottom: 16px; }
@@ -1775,38 +1777,48 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
-  /* "Services Requested": mismo estilo visual que el detalle del
-     historial (caja color hueso con borde dorado a la izquierda) y el
-     mismo mecanismo de "▼ details" que ya usan los eventos -- una sola
-     flechita para todo el bloque, no un acordeon por categoria. Lineas
-     simples: categoria en negrita, servicios de esa categoria despues,
-     sin iconos de Changed/Added (eso es solo para diffs del historial,
-     aqui es nomas la lista de lo que la orden tiene ahorita). */
+  /* "Services Requested": caja colapsable (fondo tenue + cursor que
+     invita a abrir, mismo mecanismo que ya usan los eventos del
+     historial) que revela una tabla de 3 columnas (Categoria / Servicio
+     / Opcion) -- mas facil de leer que una linea de texto corrido con
+     todo junto. La categoria solo se repite en la primera fila de cada
+     grupo; si no hay sub-opcion, se ve un guion gris en vez de quedar
+     vacio. */
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
-  const svcHasContent = Object.keys(byCat).length > 0;
-  const svcAccordionHtml = svcHasContent
-    ? Object.entries(byCat).map(([cat, list]) =>
-        '<div class="hist-detail-line"><b>' + esc(cat) + ':</b> ' +
-        list.map(s => esc(s.ServiceName) + ' — ' + esc(s.SubOption)).join(' · ') + '</div>'
-      ).join('')
-    : '<div class="hist-detail-line">No services.</div>';
+  const svcRows = [];
+  Object.entries(byCat).forEach(([cat, list]) => {
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: s.SubOption || '' }));
+  });
+  const svcTableHtml = svcRows.length
+    ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+      svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+        '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+        '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
+        '</tr>').join('') +
+      '</table>'
+    : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
   return `
     <div class="detail-grid">
       <div>
         <p class="detail-label">Order Details</p>
-        <p class="meta-line">
-          Entry: ${fmtDateTime(o.EntryDate)}<br>
-          Due: ${fmtDate(o.DueDate)}<br>
-          Building/Unit: ${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')} · Bed/Bath: ${esc(o.Bedrooms||'—')} / ${esc(o.Bathrooms||'—')}<br>
-          ${o.Supervisor ? 'Supervisor: ' + esc(o.Supervisor) : ''}
-        </p>
-        ${o.Notes ? `<p class="meta-line" style="margin-top:8px">Notes: ${esc(o.Notes)}</p>` : ''}
-        <div class="hist-head" style="margin-top:16px;cursor:pointer" onclick="toggleHistDetail('${svcDetailId}')">
-          <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
-          <span class="hist-toggle">&#9660; details</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
+          <div><div class="field-caption">Entry</div><div class="field-value">${fmtDateTime(o.EntryDate)}</div></div>
+          <div><div class="field-caption">Due</div><div class="field-value">${fmtDate(o.DueDate)}</div></div>
+          <div><div class="field-caption">Supervisor</div><div class="field-value">${o.Supervisor ? esc(o.Supervisor) : '—'}</div></div>
+          <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')}</div></div>
+          <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms||'—')} / ${esc(o.Bathrooms||'—')}</div></div>
+          <div><div class="field-caption">Service window</div><div class="field-value">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</div></div>
         </div>
-        <div id="${svcDetailId}" class="hist-detail">${svcAccordionHtml}</div>
+        ${o.Notes ? `<p class="meta-line" style="margin-bottom:14px">Notes: ${esc(o.Notes)}</p>` : ''}
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <div class="hist-head" style="padding:10px 14px;background:var(--bg);cursor:pointer;margin:0" onclick="toggleHistDetail('${svcDetailId}')">
+            <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
+            <span class="hist-toggle">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
+          </div>
+          <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
+        </div>
       </div>
       <div>
         <p class="detail-label">Client</p>
