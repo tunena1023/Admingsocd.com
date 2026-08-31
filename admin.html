@@ -1775,25 +1775,21 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
-  /* Acordeon de solo lectura para "Services Requested": antes era una
-     lista plana siempre expandida, con todas las categorias visibles
-     de un jalon. Ahora usa el mismo componente colapsable (flechita +
-     circulo de conteo) que ya usan Active/Approvals/Create Order, pero
-     en modo lectura -- sin pastillas que tocar, solo el texto. Empieza
-     siempre cerrado. */
-  const svcAccordionHtml = Object.entries(byCat).map(([cat, list]) => {
-    const catSafe = (String(o.OrderID) + cat).replace(/[^a-z0-9]/gi, '_');
-    const bodyId = 'ro-svc-body-' + catSafe;
-    return `<div class="svc-cat-group">
-      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">${list.length}</span></span>
-        <span class="svc-cat-arrow">▼</span>
-      </div>
-      <div class="svc-cat-body" id="${bodyId}">
-        ${list.map(s => '<p class="svc-line">' + esc(s.ServiceName) + ' — ' + esc(s.SubOption) + '</p>').join('')}
-      </div>
-    </div>`;
-  }).join('') || '<p class="empty-note">No services.</p>';
+  /* "Services Requested": mismo estilo visual que el detalle del
+     historial (caja color hueso con borde dorado a la izquierda) y el
+     mismo mecanismo de "▼ details" que ya usan los eventos -- una sola
+     flechita para todo el bloque, no un acordeon por categoria. Lineas
+     simples: categoria en negrita, servicios de esa categoria despues,
+     sin iconos de Changed/Added (eso es solo para diffs del historial,
+     aqui es nomas la lista de lo que la orden tiene ahorita). */
+  const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
+  const svcHasContent = Object.keys(byCat).length > 0;
+  const svcAccordionHtml = svcHasContent
+    ? Object.entries(byCat).map(([cat, list]) =>
+        '<div class="hist-detail-line"><b>' + esc(cat) + ':</b> ' +
+        list.map(s => esc(s.ServiceName) + ' — ' + esc(s.SubOption)).join(' · ') + '</div>'
+      ).join('')
+    : '<div class="hist-detail-line">No services.</div>';
 
   return `
     <div class="detail-grid">
@@ -1806,8 +1802,11 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           ${o.Supervisor ? 'Supervisor: ' + esc(o.Supervisor) : ''}
         </p>
         ${o.Notes ? `<p class="meta-line" style="margin-top:8px">Notes: ${esc(o.Notes)}</p>` : ''}
-        <p class="detail-label" style="margin-top:16px">Services Requested</p>
-        ${svcAccordionHtml}
+        <div class="hist-head" style="margin-top:16px;cursor:pointer" onclick="toggleHistDetail('${svcDetailId}')">
+          <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
+          <span class="hist-toggle">&#9660; details</span>
+        </div>
+        <div id="${svcDetailId}" class="hist-detail">${svcAccordionHtml}</div>
       </div>
       <div>
         <p class="detail-label">Client</p>
