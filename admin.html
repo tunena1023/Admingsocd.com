@@ -696,6 +696,25 @@ function isReactivationPending(history) {
   return false;
 }
 
+/* Lee el estatus al que va a regresar la orden si se aprueba la
+   reactivacion -- calculado UNA SOLA VEZ por el backend al pedirla
+   (request-reactivate), guardado en el marcador para que tanto esta
+   pantalla como el endpoint que de verdad aplica el cambio lean el
+   mismo valor exacto, sin que cada quien lo adivine por separado. */
+function reactivationRestoreTo(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (String(h.ChangeType || '') === 'Change Requested' && String(h.FieldChanged || '') === 'Reactivation Pending') {
+      try {
+        const payload = JSON.parse(h.OldValue || '{}');
+        if (payload && payload.restoreTo) return payload.restoreTo;
+      } catch (e) { /* deja el fallback de abajo */ }
+      return 'Assigned';
+    }
+  }
+  return 'Assigned';
+}
+
 function approvalKind(o) {
   const s = o.Status || '';
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
@@ -1029,10 +1048,11 @@ function decisionAreaHtml(o, history) {
   }
 
   if (isReactivationPending(history)) {
+    const restoreTo = reactivationRestoreTo(history);
     return `<div class="appr-bar">
       <button class="btn btn-gold" onclick="decideReactivation('${esc(o.OrderID)}')">Approve Reactivation</button>
     </div>
-    <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to Active immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
+    <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to <b>${esc(restoreTo)}</b> immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
   }
 
   const isCancel = status === 'Cancellation Requested';

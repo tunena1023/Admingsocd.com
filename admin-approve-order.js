@@ -266,26 +266,36 @@ exports.handler = async (event) => {
        cualquiera de los 2 caminos cambia el Status, la orden deja de
        cumplir la condicion "pendiente" del otro camino.
 
-       OldValue: '{"reactivation":true}' -- a proposito con forma de
-       snapshot (arranca con '{', que looksLikeServiceSnapshot excluye),
-       para que previousStatus() NUNCA lo tome como si fuera un estatus
-       real al que volver. Sin este cuidado, un futuro previousStatus()
-       encontraria este renglon y devolveria literalmente 'Cancelled'
-       (que si pasa el filtro, ya que 'Cancelled' no esta en
-       REQUEST_STATUSES) -- un bug silencioso que hubiera dejado la
-       orden en el mismo estatus del que se esta intentando sacar.
+       OldValue: JSON.stringify({ reactivation: true, restoreTo: <estatus> }) --
+       el estatus al que hay que regresar se calcula AQUI, una sola vez,
+       con el historial mas completo y claro que se va a tener (justo
+       antes de que empiece la carrera). Se guarda explicito para que
+       reactivate-confirm Y el endpoint del lado cliente lo LEAN
+       directo, en vez de cada uno adivinarlo por su cuenta con su
+       propia busqueda hacia atras en el historial.
+
+       BUG FIX: la primera version de esto hacia que cada camino
+       (director aqui, cliente en confirm-reactivation.js) recalculara
+       el estatus previo por separado, buscando hacia atras en un
+       historial que para entonces ya podia traer mucho ruido de otras
+       pruebas -- y SharePoint no valida que el texto que se guarda en
+       Status sea un valor real, asi que un calculo equivocado se
+       guardaba sin ningun error, dejando la orden atorada. Calcularlo
+       una sola vez aqui y compartirlo elimina esa ambiguedad por
+       completo: los 2 caminos ya no tienen que "adivinar" nada.
     ================================================================ */
     if (decision === 'request-reactivate') {
       if (current !== 'Cancelled' || !archived) {
         return jsonResponse(400, { error: 'This order is not an archived, cancelled order that can be reactivated.' });
       }
+      const restoreTo = previousStatus(history, 'Assigned');
       await updateListItemByItemId(ORDERS_LIST, item.id, { Status: 'Change Requested' });
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   'Change Requested',
         FieldChanged: 'Reactivation Pending',
         Notes:        (notes && String(notes).trim()) || ('Reactivation requested by ' + actor + '.'),
-        OldValue:     '{"reactivation":true}',
+        OldValue:     JSON.stringify({ reactivation: true, restoreTo: restoreTo }),
         NewValue:     'Change Requested'
       }));
       return jsonResponse(200, { success: true, status: 'Change Requested' });
@@ -293,12 +303,9 @@ exports.handler = async (event) => {
 
     /* ================================================================
        REACTIVATE-CONFIRM — el director aprueba la reactivacion (boton
-       "Approve Reactivation" en Review). Regresa el Status al que tenia
-       la orden ANTES de cancelarse, usando el mismo previousStatus()
-       que ya usa el 'reactivate' instantaneo -- busca hacia atras y
-       salta correctamente el renglon de 'Reactivation Pending' (gracias
-       al OldValue con forma de snapshot) hasta encontrar el estatus
-       real (normalmente 'Assigned', del evento de cancelacion original).
+       "Approve Reactivation" en Review). Lee el estatus destino
+       directo del marcador 'Reactivation Pending' (calculado una sola
+       vez en request-reactivate) -- no vuelve a adivinarlo.
 
        Si el cliente confirma primero desde su portal (via el endpoint
        equivalente del lado cliente), el Status ya no sera 'Change
@@ -315,7 +322,11 @@ exports.handler = async (event) => {
       if (!isReactivation) {
         return jsonResponse(400, { error: 'This order does not have a pending reactivation request.' });
       }
-      const restoredStatus = previousStatus(history, 'Assigned');
+      let restoredStatus = 'Assigned';
+      try {
+        const payload = JSON.parse(lastReq.OldValue || '{}');
+        if (payload && payload.restoreTo) restoredStatus = payload.restoreTo;
+      } catch (e) { /* deja el fallback 'Assigned' */ }
       await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus });
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
