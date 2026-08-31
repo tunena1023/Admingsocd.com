@@ -27,6 +27,7 @@
       font-size: 11px; font-weight: 700;
     }
     .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
+    .svc-cat-pin { font-size: 11px; margin-left: 4px; }
     .svc-cat-body { display: none; padding: 4px 16px 12px; background: var(--bg); }
     .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
     .svc-row:last-child { border-bottom: none; }
@@ -1284,12 +1285,12 @@ function apprServiceEditorHtml(orderId, divData) {
         </div>
       </div>`;
     }).join('');
-    return `<div class="svc-cat-group">
-      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
-        <span class="svc-cat-arrow">▼</span>
+    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
+      <div class="svc-cat-header" onclick="accToggleCategory('${apprDomId(orderId)}-svceditor','appr-${esc(orderId)}','${esc(cat)}',this)" ondblclick="accPinCategory('appr-${esc(orderId)}','${esc(cat)}',this)">
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('appr-' + orderId, cat).pinIcon}</span></span>
+        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('appr-' + orderId, cat).rotate}">▼</span>
       </div>
-      <div class="svc-cat-body" id="${bodyId}">${body}</div>
+      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('appr-' + orderId, cat).display}">${body}</div>
     </div>`;
   }).join('');
 }
@@ -1923,6 +1924,108 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     ${editForm}`;
 }
 
+/* ============================================================
+   ACORDEON DE CATEGORIAS — comportamiento compartido por los 3
+   lugares que usan .svc-cat-group en admin.html (Active, el editor
+   "Update" de Approvals/Review, y Create Order):
+
+   - Un solo clic en una categoria la abre y CIERRA la que estuviera
+     abierta antes (nunca mas de una abierta a la vez, salvo que este
+     fijada).
+   - Doble clic la "fija" abierta permanentemente (no se cierra al
+     abrir otra) -- se marca con un candadito. Doble clic de nuevo la
+     desfija.
+   - El estado (cual esta abierta, cuales estan fijadas) se guarda
+     aparte del HTML, para que sobreviva cuando el acordeon se vuelve
+     a construir entero (por ejemplo al tocar una pastilla, que
+     recalcula los circulos de conteo) -- antes, reconstruir el HTML
+     resembla resembraba resembradas TODO como cerrado, aunque
+     estuviera abierta la categoria en la que el usuario seguia
+     trabajando.
+
+   "key" identifica el acordeon (por ejemplo 'active-GS-1234' o
+   'create'); dos acordeones con distinto key nunca comparten estado.
+============================================================ */
+function accState(key) {
+  const store = window['__accState'] || (window['__accState'] = {});
+  return store[key] || (store[key] = { open: null, pinned: {} });
+}
+
+/* Un solo clic: abre esta categoria, cierra la que estuviera abierta
+   antes (salvo que este fijada). Si esta categoria ya estaba abierta
+   y no esta fijada, la cierra. Si esta fijada, un clic sencillo no
+   hace nada (para eso esta el doble clic, que la desfija). */
+function accToggleCategory(wrapId, key, cat, headerEl) {
+  const wrap = document.getElementById(wrapId);
+  const group = headerEl.closest('.svc-cat-group');
+  if (!wrap || !group) return;
+  const st = accState(key);
+  const body = group.querySelector('.svc-cat-body');
+  const arrow = headerEl.querySelector('.svc-cat-arrow');
+  const isOpen = body.style.display === 'block';
+  const isPinned = !!st.pinned[cat];
+
+  if (isPinned) return; // fijada: solo el doble clic la mueve
+
+  if (isOpen) {
+    body.style.display = 'none';
+    if (arrow) arrow.style.transform = '';
+    if (st.open === cat) st.open = null;
+    return;
+  }
+
+  wrap.querySelectorAll('.svc-cat-group').forEach(g => {
+    if (g === group) return;
+    const gCat = g.dataset.cat;
+    if (st.pinned[gCat]) return;
+    const b = g.querySelector('.svc-cat-body');
+    const a = g.querySelector('.svc-cat-arrow');
+    if (b) b.style.display = 'none';
+    if (a) a.style.transform = '';
+  });
+
+  body.style.display = 'block';
+  if (arrow) arrow.style.transform = 'rotate(180deg)';
+  st.open = cat;
+}
+
+/* Doble clic: fija o desfija la categoria. Fijada, se queda abierta
+   aunque se abra otra -- se marca con un candadito en el encabezado. */
+function accPinCategory(key, cat, headerEl) {
+  const group = headerEl.closest('.svc-cat-group');
+  if (!group) return;
+  const st = accState(key);
+  const body = group.querySelector('.svc-cat-body');
+  const arrow = headerEl.querySelector('.svc-cat-arrow');
+  const pinEl = headerEl.querySelector('.svc-cat-pin');
+
+  st.pinned[cat] = !st.pinned[cat];
+
+  if (st.pinned[cat]) {
+    body.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    st.open = cat;
+    if (pinEl) pinEl.innerHTML = '&#128274;';
+  } else {
+    if (pinEl) pinEl.innerHTML = '';
+  }
+}
+
+/* Atributos iniciales (display/rotacion/candadito) para una categoria
+   al CONSTRUIR el HTML del acordeon, respetando el estado guardado en
+   vez de arrancar siempre cerrado -- para que sobreviva reconstruir
+   el HTML tras elegir un servicio. */
+function accInitialAttrs(key, cat) {
+  const st = accState(key);
+  const isPinned = !!st.pinned[cat];
+  const isOpen = isPinned || st.open === cat;
+  return {
+    display: isOpen ? 'block' : 'none',
+    rotate: isOpen ? 'rotate(180deg)' : '',
+    pinIcon: isPinned ? '&#128274;' : ''
+  };
+}
+
 function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
 
 /* Acordeon completo del catalogo de la division -- ya no solo lo que
@@ -1981,12 +2084,12 @@ function buildServiceRows(orderId, division, services) {
       </div>`;
     }).join('');
 
-    return `<div class="svc-cat-group">
-      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
-        <span class="svc-cat-arrow">▼</span>
+    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
+      <div class="svc-cat-header" onclick="accToggleCategory('edit-svc-${esc(orderId)}','active-${esc(orderId)}','${esc(cat)}',this)" ondblclick="accPinCategory('active-${esc(orderId)}','${esc(cat)}',this)">
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('active-' + orderId, cat).pinIcon}</span></span>
+        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('active-' + orderId, cat).rotate}">▼</span>
       </div>
-      <div class="svc-cat-body" id="${bodyId}">${rows}</div>
+      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('active-' + orderId, cat).display}">${rows}</div>
     </div>`;
   }).join('');
 }
@@ -2486,6 +2589,9 @@ async function loadCreateServices() {
   const divData = allServices[div];
   if (!divData) { wrap.style.display = 'none'; return; }
   createSelected = {};
+  /* Cambiar de division es un catalogo completamente distinto -- el
+     estado de que categoria estaba abierta/fijada ya no aplica. */
+  if (window['__accState']) delete window['__accState']['create'];
   const cats = divData.categories || {};
   wrap.style.display = 'block';
   /* Mismo acordeon colapsable por categoria que usa el editor de Active
@@ -2521,12 +2627,12 @@ function buildCreateServicesHtml(cats) {
         </div>
       </div>`;
     }).join('');
-    return `<div class="svc-cat-group">
-      <div class="svc-cat-header" onclick="const b=document.getElementById('${bodyId}');const open=b.style.display==='block';b.style.display=open?'none':'block';this.querySelector('.svc-cat-arrow').style.transform=open?'':'rotate(180deg)'">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}</span>
-        <span class="svc-cat-arrow">▼</span>
+    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
+      <div class="svc-cat-header" onclick="accToggleCategory('create-services-list','create','${esc(cat)}',this)" ondblclick="accPinCategory('create','${esc(cat)}',this)">
+        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('create', cat).pinIcon}</span></span>
+        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('create', cat).rotate}">▼</span>
       </div>
-      <div class="svc-cat-body" id="${bodyId}">${body}</div>
+      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('create', cat).display}">${body}</div>
     </div>`;
   }).join('');
 }
