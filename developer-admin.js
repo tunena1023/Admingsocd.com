@@ -70,6 +70,23 @@ exports.handler = async (event) => {
     const { action, email } = body;
     if (!action) return jsonResponse(400, { error: 'action is required' });
 
+    /* ---- Validar el password del director: se hace ANTES del gate de
+       rol (Staff/Director/Developer), porque cualquier persona del
+       staff -- tenga o no un rol asignado en la lista Staff -- puede
+       necesitar confirmar una accion con este password (aprobar en
+       Review, reactivar una orden, etc.). Nunca se manda el password
+       guardado de vuelta al navegador -- solo true/false, para que no
+       quede expuesto viendo el trafico de red. Si Settings no existe
+       o no tiene el renglon todavia, usa el valor de respaldo actual,
+       para no romper nada mientras se termina de configurar. */
+    if (action === 'verify-director-password') {
+      const rows = await fetchAll(SETTINGS_LIST);
+      const row = rows.find(it => it.fields && it.fields.Key === 'DirectorPassword');
+      const real = (row && row.fields.Value) || '080922';
+      const valid = String(body.password || '') === String(real);
+      return jsonResponse(200, { valid });
+    }
+
     const role = await getRole(email);
     const canView = role === 'Staff' || role === 'Director' || role === 'Developer';
     const canEditCatalog = role === 'Director' || role === 'Developer';

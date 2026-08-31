@@ -278,6 +278,7 @@
   <button class="tab" onclick="showTab('create')">Create Order</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
   <button class="tab" onclick="location.href='schedule.html'">Schedule</button>
+  <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
 </div>
 
 <!-- APPROVALS -->
@@ -441,6 +442,7 @@ async function initAuth() {
   if (stored) {
     adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+    checkDeveloperAccess();
     loadAll();
     return;
   }
@@ -452,7 +454,24 @@ async function initAuth() {
   }
   adminUser = { name: accounts[0].name, email: accounts[0].username };
   document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+  checkDeveloperAccess();
   loadAll();
+}
+
+/* Muestra el tab "Developer" solo si el correo logueado tiene un rol
+   asignado en la lista Staff (Staff/Director/Developer -- cualquiera
+   de los 3 entra al tab, adentro varia que puede ver/editar). Si Staff
+   no existe todavia o el correo no esta ahi, el tab simplemente no
+   aparece -- no truena nada. */
+async function checkDeveloperAccess() {
+  if (!adminUser || !adminUser.email) return;
+  try {
+    const res = await api('/developer-admin', { body: { action: 'whoami', email: adminUser.email } });
+    if (res.role) {
+      const btn = document.getElementById('developer-tab-btn');
+      if (btn) btn.style.display = '';
+    }
+  } catch (e) { /* si falla, el tab simplemente no se muestra */ }
 }
 
 function signOut() {
@@ -618,7 +637,9 @@ const NEW_ORDER_STATUSES = ['Received'];
 const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
 const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
                        'Reschedule Requested', 'Change Requested by Client'];
-const DIRECTOR_PASSWORD = '080922';
+/* El password del director ya no vive aqui -- ver promptDirectorPassword(),
+   que lo valida contra el backend (lista Settings, con respaldo seguro
+   mientras se termina de configurar). */
 const DIRECTOR_NAME = 'Daniel Aguilar (Operations Director)';
 
 /* Nombre de quien esta usando el admin ahorita, sacado de la sesion de
@@ -629,15 +650,28 @@ function getActorName() {
 }
 
 /* Pide el password del director. Si es correcto, la accion queda
-   registrada a nombre de el, sin importar quien este logueado. */
-function promptDirectorPassword() {
+   registrada a nombre de el, sin importar quien este logueado.
+
+   Ya no compara contra un valor fijo en el codigo -- lo valida el
+   backend (developer-admin.js, accion verify-director-password) contra
+   lo guardado en la lista Settings, sin importar quien este logueado ni
+   que rol tenga en Staff (cualquiera puede necesitar confirmar una
+   accion asi). Si Settings no existe todavia, el backend usa el mismo
+   valor de respaldo de siempre -- nada se rompe mientras se configura. */
+async function promptDirectorPassword() {
   const pass = window.prompt('Operations Director password to confirm this action:');
   if (pass === null) return null;
-  if (pass !== DIRECTOR_PASSWORD) {
-    showToast('Incorrect password.');
+  try {
+    const res = await api('/developer-admin', { body: { action: 'verify-director-password', password: pass } });
+    if (!res.valid) {
+      showToast('Incorrect password.');
+      return null;
+    }
+    return DIRECTOR_NAME;
+  } catch (e) {
+    showToast('Could not verify the password right now: ' + e.message);
     return null;
   }
-  return DIRECTOR_NAME;
 }
 
 /* De donde vino una solicitud (cliente u oficina). Las que crea la
@@ -895,7 +929,7 @@ async function decideNewOrder(orderId, action) {
   const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
 
   if (action === 'request-cancel') {
-    const actor = promptDirectorPassword();
+    const actor = await promptDirectorPassword();
     if (!actor) return;
     const no = document.getElementById(dom + '-no');
     if (no) { no.disabled = true; no.textContent = 'Requesting…'; }
@@ -925,7 +959,7 @@ async function decideNewOrder(orderId, action) {
   try {
     const detail = await api('/get-order-detail', { body: { orderId } });
     if (isOfficeCreatedOrder(detail.history || [])) {
-      const directorActor = promptDirectorPassword();
+      const directorActor = await promptDirectorPassword();
       if (!directorActor) return;
       actor = directorActor;
     }
@@ -1099,7 +1133,7 @@ async function decideReview(orderId, decision, needsPassword) {
 
   let actor;
   if (needsPassword) {
-    actor = promptDirectorPassword();
+    actor = await promptDirectorPassword();
     if (!actor) return;
   } else {
     actor = getActorName();
@@ -1125,7 +1159,7 @@ async function decideReview(orderId, decision, needsPassword) {
    normal, aqui no hay caso donde no lo necesite, ya que reactivar una
    orden vieja y archivada siempre merece ese nivel de decision. */
 async function decideReactivation(orderId) {
-  const actor = promptDirectorPassword();
+  const actor = await promptDirectorPassword();
   if (!actor) return;
   try {
     const res = await api('/admin-approve-order', {
