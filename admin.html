@@ -159,6 +159,24 @@
     .order-body { display: none; padding: 0 24px 24px; border-top: 1px solid var(--border); }
     .order-body.open { display: block; }
 
+    .client-body { display: none; padding: 0 24px 24px; border-top: 1px solid var(--border); }
+    .client-body.open { display: block; }
+
+    .building-card { border: 1px solid var(--border); border-radius: 3px; margin-bottom: 10px; background: var(--bg); }
+    .building-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; cursor: pointer;
+    }
+    .building-card-header:hover { background: var(--white); }
+    .building-card.archived .building-card-header { opacity: .55; }
+    .building-body { display: none; padding: 4px 16px 16px; }
+    .building-body.open { display: block; }
+    .building-badge {
+      display: inline-block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--gray); background: var(--white); border: 1px solid var(--border);
+      padding: 2px 8px; margin-left: 8px; font-weight: 700; vertical-align: middle;
+    }
+
     /* DETAIL GRID */
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 20px 0; }
     .detail-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin-bottom: 10px; }
@@ -200,11 +218,6 @@
     .search-bar input { flex: 1; padding: 10px 16px; border: 1px solid var(--border); border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 14px; }
     .search-bar input:focus { outline: none; border-color: var(--gold); }
 
-    /* CLIENT CARD */
-    .client-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 24px; margin-bottom: 12px; }
-    .client-name { font-size: 18px; font-weight: 600; font-family: 'Cormorant Garamond', serif; }
-    .client-id { font-size: 12px; color: var(--gold); font-weight: 600; margin-top: 2px; }
-    .client-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 16px; }
     /* Formulario de edicion de la orden: tres columnas en pantalla grande,
        una sola en celular para que ningun campo se corte. */
     .edit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
@@ -248,7 +261,6 @@
       .tab-bar { padding: 0 16px; overflow-x: auto; }
       .panel { padding: 24px 16px; }
       .detail-grid { grid-template-columns: 1fr; }
-      .client-grid { grid-template-columns: 1fr; }
       .edit-grid { grid-template-columns: 1fr; }
       .svc-cols { grid-template-columns: 1fr; }
       .svc-grid { grid-template-columns: 1fr; }
@@ -2703,29 +2715,29 @@ function filterClients() {
   renderClients(filtered);
 }
 
+/* Estado de "mostrar archivados" / "agregando building nuevo", por cliente.
+   No usa cardOpenState porque aqui solo hay un nivel de anidamiento simple,
+   no hace falta el mecanismo de pin de las ordenes. */
+const clientBuildingState = {};
+function bldState(clientId) {
+  return clientBuildingState[clientId] || (clientBuildingState[clientId] = { showArchived: false, adding: false });
+}
+
 function clientCard(c) {
   const cid = 'client-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');
   return `
-    <div class="client-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div class="order-card" data-client-id="${esc(c.clientId)}">
+      <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}')">
         <div>
-          <div class="client-name">${esc(c.businessName)}</div>
-          <div class="client-id">${esc(c.clientId)}</div>
+          <div class="order-id">${esc(c.businessName)}</div>
+          <div class="order-meta">${esc(c.clientId)} · ${esc(c.contactPerson||'—')}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:14px">
-          <span style="font-size:11px;color:${c.notificationsEnabled!==false ? 'var(--gray)' : 'var(--red)'};text-transform:uppercase;letter-spacing:.05em">
-            Notifications ${c.notificationsEnabled!==false ? 'On' : 'Off'}
-          </span>
-          <button class="btn btn-outline" onclick="toggleClientEdit('${esc(c.clientId)}')">Edit</button>
-        </div>
+        <span style="font-size:11px;color:${c.notificationsEnabled!==false ? 'var(--gray)' : '#B33A3A'};text-transform:uppercase;letter-spacing:.05em">
+          Notifications ${c.notificationsEnabled!==false ? 'On' : 'Off'}
+        </span>
       </div>
-      <div class="client-grid">
-        <div><span style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">Contact</span><br><span style="font-size:13px">${esc(c.contactPerson||'—')}</span></div>
-        <div><span style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">Email</span><br><span style="font-size:13px">${esc(c.contact||'—')}</span></div>
-        <div><span style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">Phone</span><br><span style="font-size:13px">${esc(c.phone||'—')}</span></div>
-        <div><span style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">Address</span><br><span style="font-size:13px">${esc(c.address||'—')} ${esc(c.suite||'')} ${esc(c.city||'')} ${esc(c.zip||'')}</span></div>
-      </div>
-      <div id="${cid}-edit" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <div class="client-body" id="${cid}-body">
+        <p style="font-size:12px;color:var(--gray);margin:20px 0 12px">This is the client's <strong>primary address</strong> — used by default unless a different building is selected when placing an order.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="field-group"><label>Business Name</label><input type="text" id="${cid}-bname" value="${esc(c.businessName||'')}"></div>
           <div class="field-group"><label>Contact Person</label><input type="text" id="${cid}-cperson" value="${esc(c.contactPerson||'')}"></div>
@@ -2755,10 +2767,190 @@ function clientCard(c) {
         </div>
         <div class="btn-actions">
           <button class="btn btn-gold" onclick="saveClient('${esc(c.clientId)}')">Save</button>
-          <button class="btn btn-outline" onclick="toggleClientEdit('${esc(c.clientId)}')">Cancel</button>
+        </div>
+
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Secondary Addresses (Buildings)</div>
+          <p style="font-size:12px;color:var(--gray);margin-bottom:14px">Other buildings this client works with, besides their primary address above. Unit number, bedrooms and bathrooms are entered per order.</p>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <button class="btn btn-outline" style="font-size:11px;padding:6px 14px" onclick="toggleShowArchivedBuildings('${esc(c.clientId)}')" id="${cid}-archtoggle">Show archived</button>
+            <button class="btn btn-outline" style="font-size:11px;padding:6px 14px" onclick="startAddBuilding('${esc(c.clientId)}')">+ Add Building</button>
+          </div>
+          <div id="${cid}-buildings"></div>
         </div>
       </div>
     </div>`;
+}
+
+function renderClientBuildings(clientId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const container = document.getElementById(cid + '-buildings');
+  if (!container) return;
+  const c = allClients.find(x => x.clientId === clientId);
+  if (!c) return;
+  const st = bldState(clientId);
+
+  document.getElementById(cid + '-archtoggle').textContent = st.showArchived ? 'Hide archived' : 'Show archived';
+
+  const list = (c.buildings || []).filter(b => st.showArchived || !b.archived);
+  const items = st.adding ? [{ id: 'new', label: '', buildingNumber: '', address: '', suite: '', city: '', zip: '', archived: false, isNew: true }].concat(list) : list;
+
+  if (!items.length) {
+    container.innerHTML = '<p class="empty-note" style="padding:8px 0;font-size:12px">No buildings saved yet.</p>';
+    return;
+  }
+  container.innerHTML = items.map(b => buildingCard(clientId, cid, b)).join('');
+
+  if (st.adding) {
+    const labelInput = document.getElementById(cid + '-bld-new-label');
+    if (labelInput) labelInput.focus();
+  }
+}
+
+function buildingCard(clientId, cid, b) {
+  const addrParts = [b.address, b.suite, b.city, b.zip].filter(Boolean).join(', ');
+  const bid = cid + '-bld-' + b.id;
+  return `
+    <div class="building-card${b.archived ? ' archived' : ''}" data-bld-id="${esc(b.id)}">
+      <div class="building-card-header" onclick="toggleBuildingCard('${bid}', '${clientId}')">
+        <div>
+          <div style="font-size:13px;font-weight:600">${b.isNew ? '+ New Building' : esc(b.label || 'Untitled building') +
+            (b.buildingNumber ? ' <span style="color:var(--gray);font-weight:400">#' + esc(b.buildingNumber) + '</span>' : '') +
+            (b.archived ? '<span class="building-badge">Archived</span>' : '')}</div>
+          ${!b.isNew && addrParts ? '<div style="font-size:12px;color:var(--gray);margin-top:2px">' + esc(addrParts) + '</div>' : ''}
+        </div>
+      </div>
+      <div class="building-body" id="${bid}-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+          <div class="field-group"><label>Label</label><input type="text" id="${bid}-label" value="${esc(b.label)}" placeholder="e.g. Building A"></div>
+          <div class="field-group"><label>Building #</label><input type="text" id="${bid}-building" value="${esc(b.buildingNumber)}" placeholder="e.g. 5824"></div>
+          <div class="field-group" style="grid-column:1/-1"><label>Address</label><input type="text" id="${bid}-address" value="${esc(b.address)}"></div>
+          <div class="field-group"><label>Suite</label><input type="text" id="${bid}-suite" value="${esc(b.suite)}"></div>
+          <div class="field-group"><label>City</label><input type="text" id="${bid}-city" value="${esc(b.city)}"></div>
+          <div class="field-group"><label>Zip</label><input type="text" id="${bid}-zip" value="${esc(b.zip)}"></div>
+        </div>
+        <div class="btn-actions" style="margin-top:8px">
+          <button class="btn btn-gold" style="font-size:11px;padding:8px 16px" onclick="event.stopPropagation(); saveBuilding('${clientId}','${esc(b.id)}')">${b.isNew ? 'Save Building' : 'Save Changes'}</button>
+          ${b.isNew
+            ? '<button class="btn btn-outline" style="font-size:11px;padding:8px 16px" onclick="event.stopPropagation(); cancelAddBuilding(\'' + clientId + '\')">Cancel</button>'
+            : (b.archived
+                ? '<button class="btn btn-outline" style="font-size:11px;padding:8px 16px" onclick="event.stopPropagation(); unarchiveBuilding(\'' + clientId + '\',\'' + esc(b.id) + '\')">Unarchive</button>'
+                : '<button class="btn btn-outline" style="font-size:11px;padding:8px 16px" onclick="event.stopPropagation(); archiveBuilding(\'' + clientId + '\',\'' + esc(b.id) + '\')">Archive</button>')
+          }
+        </div>
+        <p class="dialog-error" id="${bid}-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>
+      </div>
+    </div>`;
+}
+
+function toggleBuildingCard(bid, clientId) {
+  const body = document.getElementById(bid + '-body');
+  if (!body) return;
+  const willOpen = !body.classList.contains('open');
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  document.querySelectorAll('#' + cid + '-buildings .building-body.open').forEach(el => el.classList.remove('open'));
+  if (willOpen) {
+    body.classList.add('open');
+  } else if (bid.endsWith('-bld-new')) {
+    bldState(clientId).adding = false;
+    renderClientBuildings(clientId);
+  }
+}
+
+function toggleShowArchivedBuildings(clientId) {
+  const st = bldState(clientId);
+  st.showArchived = !st.showArchived;
+  renderClientBuildings(clientId);
+}
+
+function startAddBuilding(clientId) {
+  bldState(clientId).adding = true;
+  renderClientBuildings(clientId);
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-bld-new-body');
+  if (body) body.classList.add('open');
+}
+
+function cancelAddBuilding(clientId) {
+  bldState(clientId).adding = false;
+  renderClientBuildings(clientId);
+}
+
+async function saveBuilding(clientId, buildingId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const bid = cid + '-bld-' + buildingId;
+  const $f = f => document.getElementById(bid + '-' + f);
+  const errEl = document.getElementById(bid + '-error');
+  const label = $f('label').value.trim();
+  if (!label) { errEl.textContent = 'Please enter a label for this building.'; return; }
+
+  const isNew = buildingId === 'new';
+  const building = {
+    action: 'save',
+    label: label,
+    buildingNumber: $f('building').value.trim(),
+    address: $f('address').value.trim(),
+    suite: $f('suite').value.trim(),
+    city: $f('city').value.trim(),
+    zip: $f('zip').value.trim()
+  };
+  if (!isNew) building.addressId = buildingId;
+
+  try {
+    await api('/admin-update-client', { body: { clientId, building } });
+    bldState(clientId).adding = false;
+    showToast(isNew ? 'Building saved.' : 'Building updated.');
+    await loadAll();
+    reopenClientCard(clientId);
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function archiveBuilding(clientId, buildingId) {
+  try {
+    await api('/admin-update-client', { body: { clientId, building: { action: 'archive', addressId: buildingId } } });
+    showToast('Building archived.');
+    await loadAll();
+    reopenClientCard(clientId);
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function unarchiveBuilding(clientId, buildingId) {
+  try {
+    await api('/admin-update-client', { body: { clientId, building: { action: 'unarchive', addressId: buildingId } } });
+    showToast('Building restored.');
+    await loadAll();
+    reopenClientCard(clientId);
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* loadAll() vuelve a pintar toda la lista de clientes desde cero, lo que
+   colapsa cualquier tarjeta que estuviera abierta. Como las acciones de
+   arriba pasan por loadAll() para refrescar los datos, se vuelve a abrir
+   la tarjeta del cliente en cuestion despues, para no perder el lugar. */
+function reopenClientCard(clientId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-body');
+  if (body) body.classList.add('open');
+  renderClientBuildings(clientId);
+}
+
+function toggleClientCard(clientId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-body');
+  if (!body) return;
+  const willOpen = !body.classList.contains('open');
+  if (willOpen) {
+    body.classList.add('open');
+    renderClientBuildings(clientId);
+  } else {
+    body.classList.remove('open');
+  }
 }
 
 function toggleNotifSubgroup(cid) {
@@ -2767,12 +2959,6 @@ function toggleNotifSubgroup(cid) {
   if (!sub) return;
   sub.style.opacity = master ? '1' : '.4';
   sub.style.pointerEvents = master ? 'auto' : 'none';
-}
-
-function toggleClientEdit(clientId) {
-  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
-  const el = document.getElementById(cid + '-edit');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 async function saveClient(clientId) {
@@ -2796,6 +2982,7 @@ async function saveClient(clientId) {
     await api('/admin-update-client', { body });
     showToast('Client updated.');
     await loadAll();
+    reopenClientCard(clientId);
   } catch(e) {
     showToast('Error: ' + e.message);
   }

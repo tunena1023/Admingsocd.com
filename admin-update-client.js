@@ -12,13 +12,25 @@
      ClientName   <- contactPerson
 */
 const {
-  CLIENTS_LIST, CLIENT_HISTORY_LIST,
+  CLIENTS_LIST, CLIENT_HISTORY_LIST, CLIENT_ADDRESSES_LIST,
   createListItem, updateListItemByItemId,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out;
+}
+
+async function fetchByField(listName, fieldName, value) {
+  const filter = encodeURIComponent(`fields/${fieldName} eq '${value}'`);
+  let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
   const out = [];
   while (url) {
     const data = await graphFetch(url);
@@ -38,11 +50,69 @@ function truthy(v) {
   return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
 }
 
+/* Buildings (ClientAddresses) del cliente -- se maneja AQUI, reusando
+   este mismo endpoint, porque el repo admin ya esta topado en 12/12
+   funciones de Vercel Hobby y no se puede crear una nueva.
+   Peticion separada de la de info de negocio: si b.building viene,
+   SOLO se procesa eso y se regresa -- no se toca Clients de paso. */
+async function handleBuilding(b) {
+  const bld = b.building;
+
+  if (bld.action === 'archive' || bld.action === 'unarchive') {
+    if (!bld.addressId) return jsonResponse(400, { error: 'addressId is required' });
+    await updateListItemByItemId(CLIENT_ADDRESSES_LIST, bld.addressId, { Archived: bld.action === 'archive' });
+    return jsonResponse(200, { success: true, addressId: bld.addressId });
+  }
+
+  /* action 'save': con addressId edita (patch parcial, solo lo que llego),
+     sin addressId crea una fila nueva. */
+  if (bld.addressId) {
+    const rows = await fetchByField(CLIENT_ADDRESSES_LIST, 'ClientID', b.clientId);
+    const item = rows.find(it => it.id === String(bld.addressId));
+    if (!item) return jsonResponse(404, { error: 'Building not found.' });
+
+    const map = [
+      ['Label',          bld.label,          'Title'],
+      ['BuildingNumber', bld.buildingNumber],
+      ['Address',        bld.address],
+      ['Suite',          bld.suite],
+      ['City',           bld.city],
+      ['Zip',            bld.zip]
+    ];
+    const patch = {};
+    for (const [col, incoming, alsoTitle] of map) {
+      if (incoming === undefined) continue;
+      patch[col] = incoming || '';
+      if (alsoTitle) patch.Title = incoming || '';
+    }
+    await updateListItemByItemId(CLIENT_ADDRESSES_LIST, item.id, patch);
+    return jsonResponse(200, { success: true, addressId: item.id });
+  }
+
+  if (!bld.label || !String(bld.label).trim()) {
+    return jsonResponse(400, { error: 'Label is required for a new building.' });
+  }
+  const result = await createListItem(CLIENT_ADDRESSES_LIST, {
+    Title:          bld.label,
+    ClientID:       b.clientId,
+    Label:          bld.label          || '',
+    BuildingNumber: bld.buildingNumber || '',
+    Address:        bld.address        || '',
+    Suite:          bld.suite          || '',
+    City:           bld.city           || '',
+    Zip:            bld.zip            || '',
+    Archived:       false
+  });
+  return jsonResponse(200, { success: true, addressId: result.id });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
     const b = JSON.parse(event.body || '{}');
     if (!b.clientId) return jsonResponse(400, { error: 'clientId is required' });
+
+    if (b.building) return await handleBuilding(b);
 
     const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
 
