@@ -1089,22 +1089,33 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('</div>');
   }
 
-  /* --- Datos que se van a confirmar --- */
+  /* --- Datos que se van a confirmar ---
+     Mismo grid de etiquetas (field-caption/field-value) que ya se usa
+     en Active/History, para que "cual dato es cual" se vea igual de
+     claro en Approvals y Review. */
   rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Order as it stands now</p>');
-  rows.push('<p>Dispatch ' + fmtDate(o.DispatchDate) + ' · Due ' + fmtDate(o.DueDate) +
-    ' · ' + esc(o.ServiceWindow || 'no service window') + '</p>');
-  if (o.InspectionDate) rows.push('<p>Inspection: ' + fmtDate(o.InspectionDate) + '</p>');
-  rows.push('<p>' + esc([o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ')) + '</p>');
+  rows.push('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px">');
+  rows.push('<div><div class="field-caption">Dispatch</div><div class="field-value">' + fmtDate(o.DispatchDate) + '</div></div>');
+  rows.push('<div><div class="field-caption">Due</div><div class="field-value">' + fmtDate(o.DueDate) + '</div></div>');
+  rows.push('<div><div class="field-caption">Service window</div><div class="field-value">' + esc(o.ServiceWindow || '—') + '</div></div>');
+  if (o.InspectionDate) {
+    rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) + '</div></div>');
+  }
+  rows.push('</div>');
+  const addr = [o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ');
+  if (addr) rows.push('<p class="meta-line" style="margin-top:12px">' + esc(addr) + '</p>');
   rows.push('</div>');
 
+  /* --- Servicios: misma tabla de 3 columnas (Categoria/Servicio/Opcion)
+     colapsable, en los 3 casos -- editable (Approvals, con boton
+     Update), sin servicios, y de solo lectura (Review). */
   rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Services</p>');
 
   if (editable) {
     /* Por defecto se ve un resumen limpio de solo lectura -- mismo
-       formato exacto que ya usan Active/History (una linea por
-       categoria, sin cajas ni acordeon) -- para poder decidir
+       formato exacto que ya usan Active/History -- para poder decidir
        Approve/Reject sin ruido visual. El acordeon completo del
        catalogo (con categorias vacias incluidas) solo aparece al
        darle "Update", para cuando de verdad se va a cambiar algo. */
@@ -1119,16 +1130,8 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<button type="button" class="btn btn-outline" style="margin-top:10px;padding:4px 12px;font-size:12px" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
     rows.push('<div id="' + dom + '-svceditor" class="svc-cols" style="display:none;margin-top:12px"></div>');
-  } else if (!services.length) {
-    rows.push('<p>No services on this order.</p>');
   } else {
-    services.forEach(s => {
-      const nc = (s.NotCompleted === true || String(s.NotCompleted) === 'true')
-        ? ' — <b>not completed</b>' + (s.NotCompletedReason ? ': ' + esc(s.NotCompletedReason) : '')
-        : '';
-      rows.push('<p>' + esc(s.Category || '') + ': ' + esc(s.ServiceName || '') +
-        (s.SubOption ? ' — ' + esc(s.SubOption) : '') + nc + '</p>');
-    });
+    rows.push(reviewSvcTableHtml(services));
   }
   rows.push('</div>');
 
@@ -1136,6 +1139,35 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<div class="appr-section"><p class="appr-h">Notes</p><p>' + esc(o.Notes) + '</p></div>');
   }
   return rows.join('');
+}
+
+/* Tabla de 3 columnas (Categoria/Servicio/Opcion) de solo lectura para
+   Review, sin toggle (Review ya trae pocos servicios y el admin
+   necesita verlos de una vez para decidir, no esconderlos). Mismo
+   formato que Active/History/Approvals para que se lea igual en
+   cualquier pantalla del sistema. */
+function reviewSvcTableHtml(services) {
+  if (!services.length) return '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
+  const byCat = {};
+  services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
+  const svcRows = [];
+  Object.entries(byCat).forEach(([cat, list]) => {
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: s.SubOption || '', nc: s }));
+  });
+  return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    svcRows.map((r, i) => {
+      const nc = (r.nc.NotCompleted === true || String(r.nc.NotCompleted) === 'true');
+      const subTxt = (r.sub ? esc(r.sub) : '—') +
+        (nc ? ' <b style="color:#B06A2A">· not completed' +
+              (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</b>' : '');
+      return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+        '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
+        '</tr>';
+    }).join('') +
+    '</table></div>';
 }
 
 /* ============================================================
@@ -1155,24 +1187,28 @@ function apprServicesArray(orderId) {
   return out;
 }
 
-/* Resumen de solo lectura de los servicios elegidos, agrupados por
-   categoria -- mismo formato que ya usan Active/History (una linea de
-   texto por categoria, sin cajas). Se reconstruye tambien cuando el
-   admin edita en el acordeon, para que quede al dia si vuelve a cerrar
-   el editor sin recargar la tarjeta completa. */
+/* Resumen de solo lectura de los servicios elegidos en Approvals --
+   mismo formato de tabla de 3 columnas que ya usan Active/History/
+   Review. Se reconstruye tambien cuando el admin edita en el
+   acordeon, para que quede al dia si vuelve a cerrar el editor sin
+   recargar la tarjeta completa. */
 function apprReadOnlySvcHtml(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
-  const byCat = {};
+  const svcRows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sub]) => {
-      if (!byCat[cat]) byCat[cat] = [];
-      byCat[cat].push(svcName + (sub ? ' — ' + sub : ''));
+    Object.entries(svcs).forEach(([svcName, sub], i) => {
+      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: sub || '' });
     });
   });
-  const lines = Object.entries(byCat).map(([cat, items]) =>
-    '<div class="svc-line"><b>' + esc(cat) + ':</b> ' + esc(items.join(' · ')) + '</div>'
-  ).join('');
-  return lines || '<p class="empty-note">No services on this order yet.</p>';
+  if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
+  return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+      '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
+      '</tr>').join('') +
+    '</table></div>';
 }
 
 /* El acordeon completo del catalogo (con categorias vacias incluidas)
