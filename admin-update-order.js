@@ -28,7 +28,7 @@ const {
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf, latestOrderPdf } = require('./lib/orderpdf');
 
-const LIVE_STATUSES = ['Received', 'Assigned', 'Updated'];
+const LIVE_STATUSES = ['Received', 'Assigned'];
 
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
