@@ -1,6 +1,11 @@
 /* admin-get-clients.js — todos los clientes */
 const { CLIENTS_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
 
+/* Mismo criterio que admin-update-client.js */
+function truthy(v) {
+  return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
+}
+
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
   const out = [];
@@ -30,7 +35,11 @@ exports.handler = async (event) => {
           city: f.City || '',
           zip: f.Zip || '',
           contact: f.Contact || '',
-          phone: f.Phone || ''
+          phone: f.Phone || '',
+          notificationsEnabled: f.NotificationsEnabled == null ? true : truthy(f.NotificationsEnabled),
+          notifyConfirmations:  f.NotifyConfirmations  == null ? true : truthy(f.NotifyConfirmations),
+          notifyChanges:        f.NotifyChanges        == null ? true : truthy(f.NotifyChanges),
+          notifyUpdates:        f.NotifyUpdates        == null ? true : truthy(f.NotifyUpdates)
         };
       })
       .sort((a,b) => a.businessName.localeCompare(b.businessName));

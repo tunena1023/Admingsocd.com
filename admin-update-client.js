@@ -33,6 +33,11 @@ function sameValue(a, b) {
   return String(a == null ? '' : a) === String(b == null ? '' : b);
 }
 
+/* Mismo criterio que ya se usa en admin-update-order.js para columnas Si/No */
+function truthy(v) {
+  return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
@@ -72,6 +77,29 @@ exports.handler = async (event) => {
       patch[col] = next;
       if (!sameValue(oldValue, next)) {
         changes.push({ label, old: oldValue, next });
+      }
+    }
+
+    /* [columna, valor entrante, etiqueta] — preferencias de notificacion.
+       Solo admin las toca, el cliente no tiene acceso a esto. Maestro
+       (NotificationsEnabled) corta todo; las tres de abajo son
+       independientes entre si y solo importan si el maestro esta en Si. */
+    const boolMap = [
+      ['NotificationsEnabled', b.notificationsEnabled, 'Notifications: Master'],
+      ['NotifyConfirmations',  b.notifyConfirmations,  'Notifications: Confirmations'],
+      ['NotifyChanges',        b.notifyChanges,        'Notifications: Changes'],
+      ['NotifyUpdates',        b.notifyUpdates,        'Notifications: Updates']
+    ];
+
+    for (const [col, incoming, label] of boolMap) {
+      /* Columna nueva: si todavia no existe en SharePoint, f[col] es undefined.
+         Default = Si (true), para no silenciar clientes existentes sin querer. */
+      const oldValue = f[col] == null ? true : truthy(f[col]);
+      if (incoming === undefined) { patch[col] = oldValue; continue; }
+      const next = truthy(incoming);
+      patch[col] = next;
+      if (oldValue !== next) {
+        changes.push({ label, old: oldValue ? 'Yes' : 'No', next: next ? 'Yes' : 'No' });
       }
     }
 

@@ -2731,12 +2731,37 @@ function clientCard(c) {
           <div class="field-group"><label>City</label><input type="text" id="${cid}-city" value="${esc(c.city||'')}"></div>
           <div class="field-group"><label>Zip</label><input type="text" id="${cid}-zip" value="${esc(c.zip||'')}"></div>
         </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600">
+            <input type="checkbox" id="${cid}-notif-master" ${c.notificationsEnabled!==false?'checked':''} onchange="toggleNotifSubgroup('${cid}')">
+            Notifications enabled
+          </label>
+          <div id="${cid}-notif-sub" style="display:flex;gap:20px;margin-top:10px;padding-left:24px;${c.notificationsEnabled!==false?'':'opacity:.4;pointer-events:none'}">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="${cid}-notif-confirm" ${c.notifyConfirmations!==false?'checked':''}> Confirmations
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="${cid}-notif-changes" ${c.notifyChanges!==false?'checked':''}> Changes
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="${cid}-notif-updates" ${c.notifyUpdates!==false?'checked':''}> Updates
+            </label>
+          </div>
+        </div>
         <div class="btn-actions">
           <button class="btn btn-gold" onclick="saveClient('${esc(c.clientId)}')">Save</button>
           <button class="btn btn-outline" onclick="toggleClientEdit('${esc(c.clientId)}')">Cancel</button>
         </div>
       </div>
     </div>`;
+}
+
+function toggleNotifSubgroup(cid) {
+  const master = document.getElementById(cid+'-notif-master')?.checked;
+  const sub = document.getElementById(cid+'-notif-sub');
+  if (!sub) return;
+  sub.style.opacity = master ? '1' : '.4';
+  sub.style.pointerEvents = master ? 'auto' : 'none';
 }
 
 function toggleClientEdit(clientId) {
@@ -2756,7 +2781,11 @@ async function saveClient(clientId) {
     address:       document.getElementById(cid+'-address')?.value || '',
     suite:         document.getElementById(cid+'-suite')?.value || '',
     city:          document.getElementById(cid+'-city')?.value || '',
-    zip:           document.getElementById(cid+'-zip')?.value || ''
+    zip:           document.getElementById(cid+'-zip')?.value || '',
+    notificationsEnabled: document.getElementById(cid+'-notif-master')?.checked ?? true,
+    notifyConfirmations:  document.getElementById(cid+'-notif-confirm')?.checked ?? true,
+    notifyChanges:        document.getElementById(cid+'-notif-changes')?.checked ?? true,
+    notifyUpdates:        document.getElementById(cid+'-notif-updates')?.checked ?? true
   };
   try {
     await api('/admin-update-client', { body });
