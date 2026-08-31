@@ -1,76 +1,69 @@
 /* ============================================================
-   get-services.js — catálogo de servicios desde el Excel de
-   SharePoint (hoja "Services": Division|Location|Service|
-   SubOption|Description). Mismo JSON que el modo demo.
+   get-services.js — catálogo de servicios desde la lista de
+   SharePoint "Services" (Division/Category/ServiceName/SubOption/
+   Description/Active/SortOrder). Mismo JSON de salida que la version
+   vieja basada en Excel (migrada el 30/08/2026 via
+   migrate-services-catalog.js) -- nada mas en el sistema tuvo que
+   cambiar.
 
-   El archivo se resuelve por ENLACE COMPARTIDO (no por ruta),
-   así da igual en qué carpeta viva o si se mueve.
-   Override opcional: variable de entorno SERVICES_EXCEL_URL.
-
-   Requiere dependencia "xlsx" en package.json:
-     npm install xlsx@0.18.5
+   Solo se leen los renglones con Active=true, ordenados por
+   SortOrder, para que "apagar" un servicio (sin borrarlo) y
+   reordenar categorias/servicios se refleje aqui sin tocar codigo.
 ============================================================ */
 
-const XLSX = require('xlsx');
-const { graphFetch, jsonResponse } = require('./lib/graph');
+const { SERVICES_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
 
-const EXCEL_SHARE_URL = process.env.SERVICES_EXCEL_URL ||
-  'https://netorgft10263312.sharepoint.com/:x:/s/Onlineorders/IQAUNmABQk2aSrWjZJbmpjNdAROA07wWvLt2EnU5qKNSfEA?e=CzpjFk';
-
-/* Item resuelto del Excel — se cachea por proceso. Si el archivo se
-   movió y el ID viejo muere, se re-resuelve desde el enlace. */
-let _excelItem = null;
-let _excelItemAt = 0;
-const EXCEL_CACHE_MS = 10 * 60 * 1000;   /* re-resolver el enlace cada 10 min */
-
-async function resolveExcelItem() {
-  if (_excelItem && (Date.now() - _excelItemAt) < EXCEL_CACHE_MS) return _excelItem;
-  const { driveItemByShareLink } = require('./lib/graph');
-  const item = await driveItemByShareLink(EXCEL_SHARE_URL);
-  _excelItem = {
-    driveId: item.parentReference.driveId,
-    itemId: item.id
-  };
-  _excelItemAt = Date.now();
-  return _excelItem;
+async function fetchAllServices() {
+  let url = siteListPath(SERVICES_LIST) + '?$expand=fields&$top=200';
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out;
 }
 
-/* Parser idéntico a DEMO._parseServices (shared.js) */
-function parseServices(wb) {
-  const sheet = wb.Sheets['Services'];
-  if (!sheet) throw new Error('Sheet "Services" not found in the workbook.');
+function truthy(v) {
+  return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
+}
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-  const divisionMap = { 'janitorial': 'Janitorial', 'renovations': 'renovations', 'exteriors': 'exteriors' };
-
+/* Misma forma de salida que la version basada en Excel: un objeto por
+   division, con categories agrupadas y una entrada { name, desc, subs }
+   por servicio -- para que el frontend (Active/Approvals/Create Order/
+   customer.html/services.html) no necesite ningun cambio. */
+function buildCatalog(rows) {
   const out = {
     Janitorial:  { type: 'categorized_rooms',  dirtLevels: true,  categories: {} },
     renovations: { type: 'categorized_trades', dirtLevels: false, categories: {} },
     exteriors:   { type: 'categorized_trades', dirtLevels: false, categories: {} }
   };
 
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || r.length < 4) continue;
+  const items = rows
+    .filter(it => it.fields)
+    .map(it => it.fields)
+    .filter(f => truthy(f.Active === undefined ? true : f.Active))
+    .sort((a, b) => (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0));
 
-    const division = divisionMap[(r[0] || '').toString().trim().toLowerCase()];
-    const location = (r[1] || '').toString().trim();
-    const name = (r[2] || '').toString().trim();
-    const sub = (r[3] || '').toString().trim();
-    const desc = (r[4] || '').toString().trim();
+  items.forEach(f => {
+    const division = String(f.Division || '').trim();
+    const category = String(f.Category || '').trim();
+    const name     = String(f.ServiceName || '').trim();
+    const sub      = String(f.SubOption || '').trim();
+    const desc     = String(f.Description || '').trim();
 
-    if (!division || !location || !name || !sub) continue;
+    if (!out[division] || !category || !name || !sub) return;
 
-    if (!out[division].categories[location]) out[division].categories[location] = [];
+    if (!out[division].categories[category]) out[division].categories[category] = [];
 
-    let entry = out[division].categories[location].find(s => s.name === name);
+    let entry = out[division].categories[category].find(s => s.name === name);
     if (!entry) {
       entry = { name: name, desc: desc, subs: [] };
-      out[division].categories[location].push(entry);
+      out[division].categories[category].push(entry);
     }
     if (!entry.desc && desc) entry.desc = desc;
     if (!entry.subs.includes(sub)) entry.subs.push(sub);
-  }
+  });
 
   return out;
 }
@@ -78,15 +71,8 @@ function parseServices(wb) {
 exports.handler = async () => {
   /* La página lo pide con GET (GS.api('/get-services', { method: 'GET' })) */
   try {
-    const { driveId, itemId } = await resolveExcelItem();
-
-    const res = await graphFetch('/drives/' + driveId + '/items/' + itemId + '/content', {}, true);
-    if (!res.ok) throw new Error('Could not download services file (' + res.status + ')');
-
-    const buf = Buffer.from(await res.arrayBuffer());
-    const wb = XLSX.read(buf, { type: 'buffer' });
-
-    return jsonResponse(200, parseServices(wb));
+    const rows = await fetchAllServices();
+    return jsonResponse(200, buildCatalog(rows));
   } catch (err) {
     return jsonResponse(500, { error: err.message });
   }
