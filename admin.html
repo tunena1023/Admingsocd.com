@@ -85,6 +85,7 @@
     }
     .order-card-header:hover { background: var(--bg); }
     .order-id { font-weight: 600; font-size: 15px; }
+    .order-pin { font-size: 12px; }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
     .status-badge {
       font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
@@ -481,6 +482,11 @@ async function api(path, opts = {}) {
 let allOrders = [];
 let allClients = [];
 let allServices = null;
+/* Cache del HTML ya renderizado de cada orden (Active/History), para
+   que reabrir una que ya se vio antes sea instantaneo, sin volver a
+   pedirle el detalle a la API cada vez. Se invalida entera en cada
+   loadAll() (cualquier accion que cambie datos ya llama a loadAll). */
+let orderDetailCache = {};
 let createSelectedClient = null;
 let createSelected = {};
 
@@ -509,6 +515,7 @@ async function loadAll() {
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
     if (svcRes && !svcRes.error) allServices = svcRes;
+    orderDetailCache = {};
     renderApprovals();
     renderReview();
     renderActive();
@@ -684,6 +691,59 @@ function apprDomId(orderId) {
   return 'appr-' + String(orderId).replace(/[^a-z0-9]/gi, '_');
 }
 
+/* Solo una tarjeta abierta a la vez en Approvals/Review (cada tab con
+   su propio estado -- reusa cardOpenState, la misma que ya usan
+   Active/History). El contenido aqui ya esta precargado (loadApprovalDetail
+   se llama al pintar la lista), asi que abrir/cerrar es solo mostrar
+   u ocultar, sin ningun fetch de por medio. */
+function closeOtherApprCards(context, exceptOrderId) {
+  const st = cardOpenState(context);
+  const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
+  if (!listEl) return;
+  listEl.querySelectorAll('.order-card').forEach(card => {
+    const cid = card.dataset.orderId;
+    if (cid === exceptOrderId || st.pinned[cid]) return;
+    const body = card.querySelector('.appr-body');
+    if (body) body.style.display = 'none';
+  });
+}
+
+function toggleApprCard(orderId, context, headerEl) {
+  const body = headerEl.nextElementSibling;
+  if (!body) return;
+  const st = cardOpenState(context);
+  if (st.pinned[orderId]) return; // fijada: solo el doble clic la mueve
+
+  const isOpen = body.style.display !== 'none';
+  if (isOpen) {
+    body.style.display = 'none';
+    if (st.open === orderId) st.open = null;
+    return;
+  }
+
+  closeOtherApprCards(context, orderId);
+  body.style.display = '';
+  st.open = orderId;
+}
+
+function pinApprCard(orderId, context, headerEl) {
+  const body = headerEl.nextElementSibling;
+  if (!body) return;
+  const st = cardOpenState(context);
+  const pinEl = headerEl.querySelector('.order-pin');
+
+  if (st.pinned[orderId]) {
+    delete st.pinned[orderId];
+    if (pinEl) pinEl.innerHTML = '';
+    return;
+  }
+
+  st.pinned[orderId] = true;
+  if (pinEl) pinEl.innerHTML = ' &#128274;';
+  body.style.display = '';
+  st.open = orderId;
+}
+
 function approvalsOf(q) {
   const list = allOrders
     .filter(o => NEW_ORDER_STATUSES.includes(o.Status))
@@ -726,10 +786,10 @@ function newOrderApprovalCard(o) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
   return `
-    <div class="order-card">
-      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none'">
+    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}</div>
+          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -737,7 +797,7 @@ function newOrderApprovalCard(o) {
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
       </div>
-      <div class="appr-body">
+      <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
         <div class="edit-grid" style="margin-top:16px">
           <div class="field-group">
@@ -895,10 +955,10 @@ function approvalCard(o) {
      sigue siendo visible en la tarjeta cerrada, antes de expandir. */
   const isCancelSync = (o.Status === 'Cancellation Requested');
   return `
-    <div class="order-card">
-      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none'">
+    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}</div>
+          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -906,7 +966,7 @@ function approvalCard(o) {
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
       </div>
-      <div class="appr-body">
+      <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
         <div id="${dom}-decision"><p class="empty-note">Loading…</p></div>
       </div>
@@ -1430,14 +1490,17 @@ function filterHistory() {
 
 /* ============================================================
    ORDER CARD
+   Solo una tarjeta abierta a la vez por tab (Active y History cada
+   uno con su propio estado, independientes entre si). Doble clic
+   fija una abierta con candadito, igual que el acordeon de servicios.
 ============================================================ */
 function orderCard(o, context) {
   const id = 'order-' + o.OrderID.replace(/[^a-z0-9]/gi,'_');
   return `
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}')">
+    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+      <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}</div>
+          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
         </div>
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
@@ -1446,21 +1509,84 @@ function orderCard(o, context) {
     </div>`;
 }
 
-async function toggleOrder(orderId, context) {
-  const id = 'order-' + orderId.replace(/[^a-z0-9]/gi,'_');
-  const body = document.getElementById(id);
-  if (body.classList.contains('open')) { body.classList.remove('open'); return; }
+/* Estado de "cual tarjeta esta abierta/fijada", uno por tab (context) --
+   Active y History nunca se pisan entre si. */
+function cardOpenState(context) {
+  const store = window['__cardOpenState'] || (window['__cardOpenState'] = {});
+  return store[context] || (store[context] = { open: null, pinned: {} });
+}
+
+function closeOtherCards(context, exceptOrderId) {
+  const st = cardOpenState(context);
+  const listEl = document.getElementById(context === 'active' ? 'active-list' : 'history-list');
+  if (!listEl) return;
+  listEl.querySelectorAll('.order-card').forEach(card => {
+    const cid = card.dataset.orderId;
+    if (cid === exceptOrderId || st.pinned[cid]) return;
+    const body = card.querySelector('.order-body');
+    if (body) body.classList.remove('open');
+  });
+}
+
+/* Carga el detalle de una orden (usando el cache si ya se cargo antes)
+   y lo pinta dentro de su .order-body. */
+async function loadOrderBody(orderId, context, body) {
+  if (orderDetailCache[orderId]) {
+    body.innerHTML = orderDetailCache[orderId];
+    return;
+  }
   body.innerHTML = '<p class="empty-note" style="padding:20px">Loading…</p>';
-  body.classList.add('open');
   try {
     const data = await api('/get-order-detail', { body: { orderId } });
     const o = data.order || {};
     const services = data.services || [];
     const history = data.history || [];
-    body.innerHTML = renderOrderDetail(o, services, history, context, data.document || null);
-  } catch(e) {
+    const html = renderOrderDetail(o, services, history, context, data.document || null);
+    orderDetailCache[orderId] = html;
+    body.innerHTML = html;
+  } catch (e) {
     body.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
   }
+}
+
+async function toggleOrder(orderId, context) {
+  const id = 'order-' + orderId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  const st = cardOpenState(context);
+  if (st.pinned[orderId]) return; // fijada: solo el doble clic la mueve
+
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    if (st.open === orderId) st.open = null;
+    return;
+  }
+
+  closeOtherCards(context, orderId);
+  body.classList.add('open');
+  st.open = orderId;
+  await loadOrderBody(orderId, context, body);
+}
+
+async function pinOrder(orderId, context, headerEl) {
+  const id = 'order-' + orderId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  const st = cardOpenState(context);
+  const pinEl = headerEl.querySelector('.order-pin');
+
+  if (st.pinned[orderId]) {
+    delete st.pinned[orderId];
+    if (pinEl) pinEl.innerHTML = '';
+    return;
+  }
+
+  st.pinned[orderId] = true;
+  if (pinEl) pinEl.innerHTML = ' &#128274;';
+  body.classList.add('open');
+  st.open = orderId;
+  await loadOrderBody(orderId, context, body);
 }
 
 /* ============================================================
