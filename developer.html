@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GS Solutions — Developer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #111111; --gold: #C9A84C; --white: #FFFFFF;
+      --bg: #F8F7F4; --gray: #6B6B6B; --border: #E0DDD6; --red: #B33A3A; --green: #3F7D4F;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--black); min-height: 100vh; }
+
+    nav {
+      background: var(--black);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 60px; position: sticky; top: 0; z-index: 100;
+    }
+    .nav-logo img { height: 36px; object-fit: contain; }
+    .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--white); }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-user { font-size: 13px; color: #aaa; }
+    .nav-back, .btn-signout {
+      font-size: 12px; color: var(--gold); background: none; border: none;
+      cursor: pointer; font-family: 'Inter', sans-serif; letter-spacing: .04em;
+      text-decoration: none;
+    }
+
+    .wrap { max-width: 840px; margin: 0 auto; padding: 40px 24px 80px; }
+    .stub-wrap { max-width: 640px; margin: 90px auto; padding: 0 24px; text-align: center; }
+    .stub-icon { font-size: 40px; margin-bottom: 20px; }
+    .stub-wrap h1 { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; }
+    .stub-wrap p { font-size: 14px; color: var(--gray); line-height: 1.7; }
+
+    h1.page-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 4px; }
+    .role-note { font-size: 13px; color: var(--gray); margin-bottom: 32px; }
+
+    section { margin-bottom: 44px; }
+    .section-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gray); margin-bottom: 6px; }
+    .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 18px; }
+
+    .field-group { margin-bottom: 16px; }
+    .field-group label { display: block; font-size: 12px; font-weight: 500; color: var(--gray); margin-bottom: 6px; letter-spacing: .04em; text-transform: uppercase; }
+    .field-group select, .field-group input, .field-group textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px;
+      font-family: 'Inter', sans-serif; font-size: 14px; color: var(--black);
+      background: var(--white); outline: none;
+    }
+    .field-group select:focus, .field-group input:focus, .field-group textarea:focus { border-color: var(--gold); }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .btn { padding: 9px 18px; border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: .04em; cursor: pointer; border: none; }
+    .btn-gold { background: var(--gold); color: var(--white); }
+    .btn-gold:hover { background: #b8943e; }
+    .btn-outline { background: none; border: 1px solid var(--border); color: var(--black); }
+    .btn-outline:hover { border-color: var(--black); }
+    .btn-danger { background: var(--red); color: var(--white); }
+    .btn-sm { padding: 4px 12px; font-size: 12px; }
+    .btn-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+    .empty-note { color: var(--gray); font-size: 14px; padding: 24px 0; text-align: center; }
+
+    .svc-cat-group { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+    .svc-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--white); }
+    .svc-cat-header:hover { background: var(--bg); }
+    .svc-cat-header .svc-cat-name { font-size: 14px; font-weight: 600; }
+    .svc-cat-header .svc-cat-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px;
+      border-radius: 10px; background: var(--gold); color: var(--white);
+      font-size: 11px; font-weight: 700;
+    }
+    .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
+    .svc-cat-pin { font-size: 11px; margin-left: 4px; }
+    .svc-cat-body { display: none; padding: 4px 16px 14px; background: var(--bg); }
+
+    .svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .svc-row:last-child { border-bottom: none; }
+    .svc-row-name { font-size: 13px; }
+    .svc-row-name .svc-row-sub { color: var(--gray); }
+    .svc-row-inactive { opacity: .45; }
+    .svc-row-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .svc-row-actions button { font-size: 11px; padding: 3px 10px; border-radius: 3px; border: 1px solid var(--border); background: var(--white); cursor: pointer; }
+    .svc-row-actions button:hover { border-color: var(--black); }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+    .modal-box { background: var(--white); border-radius: 6px; padding: 28px; max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-box h3 { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; margin-bottom: 18px; }
+
+    table.staff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.staff-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    table.staff-table td.role-cell { color: var(--gray); }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--black); color: var(--white); padding: 12px 22px; border-radius: 4px;
+      font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 300;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img id="nav-logo" src="/api/site-image?name=Logo.png" alt="GS Solutions"
+         onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
+    <span id="nav-logo-text" class="nav-logo-text" style="display:none">GS Solutions</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-back" href="admin.html">&larr; Back to Admin</a>
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<div id="loading-wrap" class="stub-wrap">
+  <p class="empty-note">Loading…</p>
+</div>
+
+<div id="denied-wrap" class="stub-wrap" style="display:none">
+  <div class="stub-icon">&#128274;</div>
+  <h1>No access</h1>
+  <p>Your account doesn't have a role assigned for this page. Ask a Developer to add you in Staff &amp; Roles.</p>
+</div>
+
+<div id="content-wrap" class="wrap" style="display:none">
+  <h1 class="page-title">Developer</h1>
+  <p class="role-note" id="role-note"></p>
+
+  <section id="catalog-section">
+    <p class="section-title">Service Catalog</p>
+    <p class="section-sub">Add, edit or turn off services shown across Create Order, Active and the client portal.</p>
+    <div class="field-group" style="max-width:280px">
+      <label>Division</label>
+      <select id="division-select" onchange="renderCatalog()">
+        <option value="Janitorial">Janitorial</option>
+        <option value="renovations">Renovations</option>
+        <option value="exteriors">Exteriors</option>
+      </select>
+    </div>
+    <div id="catalog-accordion"><p class="empty-note">Loading catalog…</p></div>
+    <div class="btn-actions">
+      <button class="btn btn-gold" id="add-service-btn" style="display:none" onclick="openServiceModal(null)">+ Add Service</button>
+    </div>
+  </section>
+
+  <section id="staff-section" style="display:none">
+    <p class="section-title">Staff &amp; Roles</p>
+    <p class="section-sub">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
+    <table class="staff-table" id="staff-table"><tbody></tbody></table>
+    <div class="btn-actions">
+      <button class="btn btn-gold" onclick="openStaffModal(null)">+ Add Staff</button>
+    </div>
+  </section>
+
+  <section id="password-section" style="display:none">
+    <p class="section-title">Operations Director Password</p>
+    <p class="section-sub">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
+    <div class="field-row" style="max-width:440px">
+      <div class="field-group">
+        <label>New password</label>
+        <input type="text" id="new-director-password" placeholder="Leave blank to keep current">
+      </div>
+      <div class="field-group" style="display:flex;align-items:flex-end">
+        <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="service-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="service-modal-title">Add Service</h3>
+    <input type="hidden" id="svc-id">
+    <div class="field-group">
+      <label>Category</label>
+      <input type="text" id="svc-category" placeholder="e.g. Kitchen, Doors &amp; Hardware">
+    </div>
+    <div class="field-group">
+      <label>Service name</label>
+      <input type="text" id="svc-name" placeholder="e.g. Blinds">
+    </div>
+    <div class="field-group">
+      <label>Sub-option</label>
+      <input type="text" id="svc-sub" placeholder="e.g. Installation">
+    </div>
+    <div class="field-group">
+      <label>Description (optional)</label>
+      <input type="text" id="svc-desc">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Sort order</label>
+        <input type="number" id="svc-sort" value="0">
+      </div>
+      <div class="field-group">
+        <label style="text-transform:none;font-weight:400;color:var(--black);display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px">
+          <input type="checkbox" id="svc-active" checked style="width:auto"> Active
+        </label>
+      </div>
+    </div>
+    <div class="btn-actions">
+      <button class="btn btn-gold" onclick="saveService()">Save</button>
+      <button class="btn btn-outline" onclick="closeServiceModal()">Cancel</button>
+      <button class="btn btn-danger" id="svc-delete-btn" style="display:none;margin-left:auto" onclick="deleteServiceFromModal()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="staff-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="staff-modal-title">Add Staff</h3>
+    <input type="hidden" id="staff-id">
+    <div class="field-group">
+      <label>Email (Microsoft account)</label>
+      <input type="text" id="staff-email" placeholder="name@company.com">
+    </div>
+    <div class="field-group">
+      <label>Role</label>
+      <select id="staff-role">
+        <option value="Staff">Staff — view catalog only</option>
+        <option value="Director">Director — view + edit catalog</option>
+        <option value="Developer">Developer — full access</option>
+      </select>
+    </div>
+    <div class="btn-actions">
+      <button class="btn btn-gold" onclick="saveStaff()">Save</button>
+      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
+      <button class="btn btn-danger" id="staff-delete-btn" style="display:none;margin-left:auto" onclick="deleteStaffFromModal()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let adminUser = null;
+  let myRole = null;
+  let allServicesFlat = [];
+  let allStaff = [];
+
+  const stored = sessionStorage.getItem('admin_account');
+  if (!stored) {
+    window.location.href = 'index.html';
+  } else {
+    adminUser = JSON.parse(stored);
+    document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+    init();
+  }
+
+  function signOut() {
+    sessionStorage.removeItem('admin_account');
+    sessionStorage.removeItem('admin_token');
+    window.location.href = 'index.html';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  async function api(action, extra) {
+    const res = await fetch('/api/developer-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ action, email: adminUser.email }, extra || {}))
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
+  async function init() {
+    try {
+      const res = await api('whoami');
+      myRole = res.role;
+    } catch (e) {
+      myRole = null;
+    }
+    document.getElementById('loading-wrap').style.display = 'none';
+    if (!myRole) {
+      document.getElementById('denied-wrap').style.display = 'block';
+      return;
+    }
+    document.getElementById('content-wrap').style.display = 'block';
+    document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
+
+    const canEdit = myRole === 'Director' || myRole === 'Developer';
+    if (canEdit) document.getElementById('add-service-btn').style.display = '';
+
+    if (myRole === 'Developer') {
+      document.getElementById('staff-section').style.display = 'block';
+      document.getElementById('password-section').style.display = 'block';
+      loadStaff();
+    }
+
+    loadCatalog();
+  }
+
+  /* ============================================================
+     CATALOGO
+  ============================================================ */
+  async function loadCatalog() {
+    try {
+      const res = await api('list-services');
+      allServicesFlat = res.services || [];
+      renderCatalog();
+    } catch (e) {
+      document.getElementById('catalog-accordion').innerHTML =
+        '<p class="empty-note">Could not load the catalog: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  /* Mismo comportamiento de acordeon (single-open + doble clic fija)
+     que ya usan Active/Approvals/Create Order en admin.html -- una
+     sola instancia aqui (key fija por categoria), no una por orden. */
+  function accState() {
+    return window.__accState || (window.__accState = { open: null, pinned: {} });
+  }
+  function accToggleCategory(cat, headerEl) {
+    const wrap = document.getElementById('catalog-accordion');
+    const group = headerEl.closest('.svc-cat-group');
+    if (!wrap || !group) return;
+    const st = accState();
+    const body = group.querySelector('.svc-cat-body');
+    const arrow = headerEl.querySelector('.svc-cat-arrow');
+    const isOpen = body.style.display === 'block';
+    if (st.pinned[cat]) return;
+    if (isOpen) {
+      body.style.display = 'none';
+      if (arrow) arrow.style.transform = '';
+      if (st.open === cat) st.open = null;
+      return;
+    }
+    wrap.querySelectorAll('.svc-cat-group').forEach(g => {
+      if (g === group) return;
+      const gCat = g.dataset.cat;
+      if (st.pinned[gCat]) return;
+      const b = g.querySelector('.svc-cat-body');
+      const a = g.querySelector('.svc-cat-arrow');
+      if (b) b.style.display = 'none';
+      if (a) a.style.transform = '';
+    });
+    body.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    st.open = cat;
+  }
+  function accPinCategory(cat, headerEl) {
+    const group = headerEl.closest('.svc-cat-group');
+    if (!group) return;
+    const st = accState();
+    const body = group.querySelector('.svc-cat-body');
+    const arrow = headerEl.querySelector('.svc-cat-arrow');
+    const pinEl = headerEl.querySelector('.svc-cat-pin');
+    st.pinned[cat] = !st.pinned[cat];
+    if (st.pinned[cat]) {
+      body.style.display = 'block';
+      if (arrow) arrow.style.transform = 'rotate(180deg)';
+      st.open = cat;
+      if (pinEl) pinEl.innerHTML = '&#128274;';
+    } else if (pinEl) pinEl.innerHTML = '';
+  }
+  function accInitialAttrs(cat) {
+    const st = accState();
+    const isPinned = !!st.pinned[cat];
+    const isOpen = isPinned || st.open === cat;
+    return { display: isOpen ? 'block' : 'none', rotate: isOpen ? 'rotate(180deg)' : '', pinIcon: isPinned ? '&#128274;' : '' };
+  }
+
+  function renderCatalog() {
+    const div = document.getElementById('division-select').value;
+    const canEdit = myRole === 'Director' || myRole === 'Developer';
+    const items = allServicesFlat.filter(s => s.Division === div);
+    const byCat = {};
+    items.forEach(s => { if (!byCat[s.Category]) byCat[s.Category] = []; byCat[s.Category].push(s); });
+    Object.keys(byCat).forEach(c => byCat[c].sort((a,b) => a.SortOrder - b.SortOrder));
+
+    const wrap = document.getElementById('catalog-accordion');
+    const cats = Object.keys(byCat).sort();
+    if (!cats.length) { wrap.innerHTML = '<p class="empty-note">No services in this division yet.</p>'; return; }
+
+    wrap.innerHTML = cats.map(cat => {
+      const list = byCat[cat];
+      const bodyId = 'cat-body-' + cat.replace(/[^a-z0-9]/gi, '_');
+      const attrs = accInitialAttrs(cat);
+      const rows = list.map(s => `
+        <div class="svc-row${s.Active ? '' : ' svc-row-inactive'}">
+          <div class="svc-row-name"><b>${esc(s.ServiceName)}</b> <span class="svc-row-sub">— ${esc(s.SubOption)}</span>${s.Active ? '' : ' <span class="svc-row-sub">(inactive)</span>'}</div>
+          ${canEdit ? `<div class="svc-row-actions"><button onclick="openServiceModal('${esc(s.id)}')">Edit</button></div>` : ''}
+        </div>`).join('');
+      return `<div class="svc-cat-group" data-cat="${esc(cat)}">
+        <div class="svc-cat-header" onclick="accToggleCategory('${esc(cat)}',this)" ondblclick="accPinCategory('${esc(cat)}',this)">
+          <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">${list.length}</span><span class="svc-cat-pin">${attrs.pinIcon}</span></span>
+          <span class="svc-cat-arrow" style="transform:${attrs.rotate}">▼</span>
+        </div>
+        <div class="svc-cat-body" id="${bodyId}" style="display:${attrs.display}">${rows}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function openServiceModal(id) {
+    const s = id ? allServicesFlat.find(x => x.id === id) : null;
+    document.getElementById('service-modal-title').textContent = s ? 'Edit Service' : 'Add Service';
+    document.getElementById('svc-id').value = s ? s.id : '';
+    document.getElementById('svc-category').value = s ? s.Category : '';
+    document.getElementById('svc-name').value = s ? s.ServiceName : '';
+    document.getElementById('svc-sub').value = s ? s.SubOption : '';
+    document.getElementById('svc-desc').value = s ? s.Description : '';
+    document.getElementById('svc-sort').value = s ? s.SortOrder : 0;
+    document.getElementById('svc-active').checked = s ? !!s.Active : true;
+    document.getElementById('svc-delete-btn').style.display = s ? '' : 'none';
+    document.getElementById('service-modal-overlay').style.display = 'flex';
+  }
+  function closeServiceModal() {
+    document.getElementById('service-modal-overlay').style.display = 'none';
+  }
+
+  async function saveService() {
+    const id = document.getElementById('svc-id').value || null;
+    const division = document.getElementById('division-select').value;
+    const service = {
+      id: id || undefined,
+      Division: division,
+      Category: document.getElementById('svc-category').value.trim(),
+      ServiceName: document.getElementById('svc-name').value.trim(),
+      SubOption: document.getElementById('svc-sub').value.trim(),
+      Description: document.getElementById('svc-desc').value.trim(),
+      SortOrder: Number(document.getElementById('svc-sort').value) || 0,
+      Active: document.getElementById('svc-active').checked
+    };
+    if (!service.Category || !service.ServiceName || !service.SubOption) {
+      showToast('Category, service name and sub-option are required.');
+      return;
+    }
+    try {
+      await api('save-service', { service });
+      showToast('Service saved.');
+      closeServiceModal();
+      loadCatalog();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  async function deleteServiceFromModal() {
+    const id = document.getElementById('svc-id').value;
+    if (!id) return;
+    if (!confirm('Delete this service option? This cannot be undone.')) return;
+    try {
+      await api('delete-service', { id });
+      showToast('Service deleted.');
+      closeServiceModal();
+      loadCatalog();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  /* ============================================================
+     STAFF & ROLES (solo Developer)
+  ============================================================ */
+  async function loadStaff() {
+    try {
+      const res = await api('list-staff');
+      allStaff = res.staff || [];
+      renderStaff();
+    } catch (e) {
+      document.getElementById('staff-table').innerHTML = '<tr><td class="empty-note">Could not load staff: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderStaff() {
+    const tbody = document.querySelector('#staff-table tbody');
+    if (!allStaff.length) {
+      tbody.innerHTML = '<tr><td class="empty-note">No staff added yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allStaff.map(s => `
+      <tr>
+        <td>${esc(s.Email)}</td>
+        <td class="role-cell">${esc(s.Role)}</td>
+        <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
+      </tr>`).join('');
+  }
+
+  function openStaffModal(id) {
+    const s = id ? allStaff.find(x => x.id === id) : null;
+    document.getElementById('staff-modal-title').textContent = s ? 'Edit Staff' : 'Add Staff';
+    document.getElementById('staff-id').value = s ? s.id : '';
+    document.getElementById('staff-email').value = s ? s.Email : '';
+    document.getElementById('staff-role').value = s ? s.Role : 'Staff';
+    document.getElementById('staff-delete-btn').style.display = s ? '' : 'none';
+    document.getElementById('staff-modal-overlay').style.display = 'flex';
+  }
+  function closeStaffModal() {
+    document.getElementById('staff-modal-overlay').style.display = 'none';
+  }
+
+  async function saveStaff() {
+    const id = document.getElementById('staff-id').value || null;
+    const staff = {
+      id: id || undefined,
+      Email: document.getElementById('staff-email').value.trim(),
+      Role: document.getElementById('staff-role').value
+    };
+    if (!staff.Email) { showToast('Email is required.'); return; }
+    try {
+      await api('save-staff', { staff });
+      showToast('Staff saved.');
+      closeStaffModal();
+      loadStaff();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  async function deleteStaffFromModal() {
+    const id = document.getElementById('staff-id').value;
+    if (!id) return;
+    if (!confirm('Remove this person\'s access?')) return;
+    try {
+      await api('delete-staff', { id });
+      showToast('Staff removed.');
+      closeStaffModal();
+      loadStaff();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  /* ============================================================
+     PASSWORD DEL DIRECTOR (solo Developer)
+  ============================================================ */
+  async function saveDirectorPassword() {
+    const val = document.getElementById('new-director-password').value.trim();
+    if (!val) { showToast('Enter a new password first.'); return; }
+    try {
+      await api('save-setting', { key: 'DirectorPassword', value: val });
+      showToast('Director password updated.');
+      document.getElementById('new-director-password').value = '';
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+</script>
+</body>
+</html>
