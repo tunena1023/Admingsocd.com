@@ -748,7 +748,7 @@ function newOrderApprovalCard(o) {
             <select id="${dom}-window" onchange="checkApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
           </div>
           <div class="field-group">
-            <label>Dispatch Date</label>
+            <label>Service Date</label>
             <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}')">
           </div>
           <div class="field-group">
@@ -766,7 +766,7 @@ function newOrderApprovalCard(o) {
                   onclick="decideNewOrder('${esc(o.OrderID)}','request-cancel')">Request Cancellation</button>
         </div>
         <p class="appr-hint">
-          Supervisor, service window and dispatch date must be set before approving.
+          Supervisor, service window and service date must be set before approving.
           Approving saves the order document and the client receives it by email.
           Requesting a cancellation needs the Operations Director's password and sends it to Review.
         </p>
@@ -820,7 +820,7 @@ async function decideNewOrder(orderId, action) {
   const dispatchDate = val('dispatch');
   const inspectionDate = val('inspection');
   if (!supervisor || !serviceWindow || !dispatchDate) {
-    showToast('Set supervisor, service window and dispatch date before approving.');
+    showToast('Set supervisor, service window and service date before approving.');
     return;
   }
 
@@ -1058,6 +1058,7 @@ function approvalDetailHtml(card, o, services, history) {
      aprueba o se rechaza tal cual llego — no se edita en ese paso. */
   const editable = kind.label === 'New Order';
   const rows = [];
+  let pendingReqDate = null;
 
   /* --- Lo que se pidio ---
      Se muestra para cualquier solicitud de cambio/cancelacion (Review),
@@ -1076,6 +1077,7 @@ function approvalDetailHtml(card, o, services, history) {
     const verb = (req && String(req.ChangeType || '') === 'Created') ? 'Created' : 'Requested';
     rows.push('<p class="appr-h">' + verb + ' by the ' + (origin === 'office' ? 'office' : 'client') + '</p>');
     if (req) {
+      pendingReqDate = req.ChangeDate;
       rows.push('<p>' + fmtDateTime(req.ChangeDate) +
         (req.ChangedBy ? ' · ' + esc(req.ChangedBy) : '') + '</p>');
       const note = histNoteText(req);
@@ -1089,6 +1091,14 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('</div>');
   }
 
+  /* --- Cliente --- */
+  rows.push('<div class="appr-section">');
+  rows.push('<p class="appr-h">Client</p>');
+  rows.push('<p class="meta-line">' + esc(o.BusinessName || '') + ' · ' + esc(o.ClientID || '') + '<br>' +
+    esc([o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ')) +
+    (o.Contact ? '<br>' + esc(o.Contact) : '') + '</p>');
+  rows.push('</div>');
+
   /* --- Datos que se van a confirmar ---
      Mismo grid de etiquetas (field-caption/field-value) que ya se usa
      en Active/History, para que "cual dato es cual" se vea igual de
@@ -1096,15 +1106,13 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Order as it stands now</p>');
   rows.push('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px">');
-  rows.push('<div><div class="field-caption">Dispatch</div><div class="field-value">' + fmtDate(o.DispatchDate) + '</div></div>');
+  rows.push('<div><div class="field-caption">Service date</div><div class="field-value">' + fmtDate(o.DispatchDate) + '</div></div>');
   rows.push('<div><div class="field-caption">Due</div><div class="field-value">' + fmtDate(o.DueDate) + '</div></div>');
   rows.push('<div><div class="field-caption">Service window</div><div class="field-value">' + esc(o.ServiceWindow || '—') + '</div></div>');
   if (o.InspectionDate) {
     rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) + '</div></div>');
   }
   rows.push('</div>');
-  const addr = [o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ');
-  if (addr) rows.push('<p class="meta-line" style="margin-top:12px">' + esc(addr) + '</p>');
   rows.push('</div>');
 
   /* --- Servicios: misma tabla de 3 columnas (Categoria/Servicio/Opcion)
@@ -1138,7 +1146,19 @@ function approvalDetailHtml(card, o, services, history) {
   if (o.Notes) {
     rows.push('<div class="appr-section"><p class="appr-h">Notes</p><p>' + esc(o.Notes) + '</p></div>');
   }
-  return rows.join('');
+
+  /* --- Historial: mismo componente que Active/History, en la columna
+     derecha. En Review (no editable), la solicitud pendiente ya se ve
+     completa arriba en "Requested by..." -- para no repetirla, solo se
+     muestra lo que ya se reviso ANTES de ella (excludeFromDate). En
+     Approvals (orden nueva), se ve todo lo que haya (usualmente solo
+     'Created', pero puede traer mas si es una orden reactivada). */
+  const historyHtml = buildHistoryHtml(card.OrderID, history, editable ? null : pendingReqDate);
+
+  return '<div class="detail-grid">' +
+    '<div>' + rows.join('') + '</div>' +
+    '<div><p class="appr-h">History</p>' + historyHtml + '</div>' +
+    '</div>';
 }
 
 /* Tabla de 3 columnas (Categoria/Servicio/Opcion) de solo lectura para
@@ -1610,11 +1630,22 @@ function histNoteText(h) {
    aqui, en Active/History — Review no los usa. */
 const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed'];
 
-function renderOrderDetail(o, services, history, context, storedDoc) {
-  const byCat = {};
-  services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
+/* Arma el HTML del historial: filtra ruido operativo, agrupa renglones
+   de la misma tanda ('Dates Confirmed' repetido) y fusiona el detalle
+   con el evento de decision que le sigue -- misma logica para
+   Active/History y para el panel derecho de Approvals/Review, en vez
+   de duplicarla en dos lados.
 
-  const visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
+   excludeFromDate (opcional): en Review, la solicitud pendiente actual
+   ya se muestra completa en "Requested by..." arriba -- se le pasa la
+   fecha de esa solicitud para no repetirla aqui abajo, mostrando solo
+   lo que ya se reviso antes. */
+function buildHistoryHtml(orderId, history, excludeFromDate) {
+  let visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
+  if (excludeFromDate) {
+    const cutoff = new Date(excludeFromDate);
+    visibleHistory = visibleHistory.filter(h => new Date(h.ChangeDate) < cutoff);
+  }
 
   /* BUG FIX: aprobar un cambio que toco varios campos de fecha a la vez
      (Entry/Due/Service Window) escribe un renglon de historial POR CADA
@@ -1672,9 +1703,9 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     }
   });
 
-  const histHtml = mergedHistory.map((g, idx) => {
+  return mergedHistory.map((g, idx) => {
     const h = g.rep;
-    const detailId = 'hd-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
+    const detailId = 'hd-' + String(orderId || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
     const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
     const hasDetail = lines.length > 0;
     const noteTxt   = histNoteText(h);
@@ -1683,7 +1714,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       <div class="hist-head">
         <div class="hist-head-main">
           <span class="hist-date">${fmtDateTime(h.ChangeDate)}</span>
-          <span class="hist-rev">${esc(o.OrderID || '')}</span> —
+          <span class="hist-rev">${esc(orderId || '')}</span> —
           <span class="hist-type">${esc(h.ChangeType || '')}</span>
           ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
         </div>
@@ -1695,6 +1726,13 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         }</div>` : ''}
     </div>`;
   }).join('') || '<p class="empty-note">No history.</p>';
+}
+
+function renderOrderDetail(o, services, history, context, storedDoc) {
+  const byCat = {};
+  services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
+
+  const histHtml = buildHistoryHtml(o.OrderID, history);
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
@@ -1750,7 +1788,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
-        Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' (dispatch date has arrived)' : ''}.
+        Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' (service date has arrived)' : ''}.
         Use the buttons below to mark it done, cancel it, or edit its details.
       </p>
       <div class="btn-actions" style="margin-bottom:20px">
@@ -1778,7 +1816,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
             <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
-            <label>Dispatch Date</label>
+            <label>Service Date</label>
             <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
           <div class="field-group">
@@ -1838,6 +1876,12 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   return `
     <div class="detail-grid">
       <div>
+        <p class="detail-label">Client</p>
+        <p class="meta-line" style="margin-bottom:16px">
+          ${esc(o.BusinessName||'')} · ${esc(o.ClientID||'')}<br>
+          ${esc(o.Address||'')} ${esc(o.Suite||'')} ${esc(o.City||'')} ${esc(o.Zip||'')}<br>
+          ${esc(o.Contact||'')}
+        </p>
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDateTime(o.EntryDate)}</div></div>
@@ -1857,13 +1901,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         </div>
       </div>
       <div>
-        <p class="detail-label">Client</p>
-        <p class="meta-line">
-          ${esc(o.BusinessName||'')} · ${esc(o.ClientID||'')}<br>
-          ${esc(o.Address||'')} ${esc(o.Suite||'')} ${esc(o.City||'')} ${esc(o.Zip||'')}<br>
-          ${esc(o.Contact||'')}
-        </p>
-        <p class="detail-label" style="margin-top:20px">History</p>
+        <p class="detail-label">History</p>
         ${histHtml}
       </div>
     </div>
