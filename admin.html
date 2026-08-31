@@ -2138,25 +2138,47 @@ function buildServicesPayload(orderId) {
 async function saveOrderUpdate(orderId, sendToClient) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
 
-  const supervisor = val('edit-supervisor');
-  const notes      = val('edit-notes');
-  const dueDate    = val('edit-due');
-  const dispatchDate   = val('edit-dispatch');
-  const inspectionDate = val('edit-inspection');
-  const serviceWindow    = val('edit-window');
-  const delayReasonType  = val('edit-delaytype');
-  const delayReasonNotes = val('edit-delaynotes');
+  const supervisorVal       = val('edit-supervisor');
+  const notesVal            = val('edit-notes');
+  const dueDateVal          = val('edit-due');
+  const dispatchDateVal     = val('edit-dispatch');
+  const inspectionDateVal   = val('edit-inspection');
+  const serviceWindowVal    = val('edit-window');
+  const delayReasonTypeVal  = val('edit-delaytype');
+  const delayReasonNotesVal = val('edit-delaynotes');
 
   /* Un motivo de retraso sin explicacion no sirve para nada */
-  if (delayReasonType === 'Other' && !delayReasonNotes.trim()) {
+  if (delayReasonTypeVal === 'Other' && !delayReasonNotesVal.trim()) {
     showToast('Delay reason "Other" needs a note explaining it.');
     document.getElementById('edit-delaynotes-' + orderId)?.focus();
     return;
   }
 
-  const services = buildServicesPayload(orderId) || [];
-
-  const changedBy = getActorName();
+  /* BUG FIX: antes se mandaban SIEMPRE los 8 campos del formulario, con
+     lo que estuviera cargado desde que se abrio el editor -- si alguien
+     mas actualizaba uno de esos campos (p. ej. Service Window, al
+     aprobar un reschedule en Review) MIENTRAS el editor seguia abierto
+     en otra pestana/persona, guardar aqui lo pisaba de vuelta al valor
+     viejo, sin ningun aviso, deshaciendo en silencio un cambio ya
+     aprobado en otro lado. Ahora solo se manda un campo si de verdad es
+     distinto al que tenia la orden cuando se abrio el editor -- si no
+     se toco, se omite del body, y el backend usa el valor actual real
+     de la orden en vez de lo que traia el formulario. Mismo criterio
+     para servicios, reusando la comparacion que ya usa el boton
+     "Request Confirmation". */
+  const orig = window['adminFieldsOriginal_' + orderId] || {};
+  const body = { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: !!sendToClient };
+  if (supervisorVal       !== (orig.supervisor  || '')) body.supervisor       = supervisorVal;
+  if (notesVal            !== (orig.notes       || '')) body.notes            = notesVal;
+  if (dueDateVal          !== (orig.due         || '')) body.dueDate          = dueDateVal;
+  if (dispatchDateVal     !== (orig.dispatch    || '')) body.dispatchDate     = dispatchDateVal;
+  if (inspectionDateVal   !== (orig.inspection  || '')) body.inspectionDate   = inspectionDateVal;
+  if (serviceWindowVal    !== (orig.window      || '')) body.serviceWindow    = serviceWindowVal;
+  if (delayReasonTypeVal  !== (orig.delaytype   || '')) body.delayReasonType  = delayReasonTypeVal;
+  if (delayReasonNotesVal !== (orig.delaynotes  || '')) body.delayReasonNotes = delayReasonNotesVal;
+  if (svcSelectionChanged(orderId)) {
+    body.services = buildServicesPayload(orderId) || [];
+  }
 
   /* Confirmacion antes de mandar a Review: una vez enviado, la orden
      queda en 'Change Requested' esperando al director (o se deshace
@@ -2168,12 +2190,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
   }
 
   try {
-    const res = await api('/admin-update-order', {
-      body: {
-        orderId, supervisor, notes, services, changedBy, requestOnly: true, sendToClient: !!sendToClient,
-        dueDate, dispatchDate, inspectionDate, serviceWindow, delayReasonType, delayReasonNotes
-      }
-    });
+    const res = await api('/admin-update-order', { body });
     showToast(sendToClient
       ? 'Change sent to the client for confirmation.'
       : 'Change sent to Review — waiting for approval before it takes effect.');
