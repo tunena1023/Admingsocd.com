@@ -138,6 +138,8 @@ exports.handler = async (event) => {
       InspectionDate:   f.InspectionDate || '',
       DelayReasonType:  f.DelayReasonType || '',
       DelayReasonNotes: f.DelayReasonNotes || '',
+      Technician:       f.Technician || '',
+      CompletedDate:    f.CompletedDate || '',
       Archived:         f.Archived === true || f.Archived === 'true'
     };
 

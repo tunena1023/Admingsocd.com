@@ -50,7 +50,7 @@ const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
 const NEW_STATUSES    = ['Received'];
 const CHANGE_STATUSES = ['Change Requested'];
 const CANCEL_STATUSES = ['Cancellation Requested'];
-const LIVE_STATUSES   = ['Received', 'Assigned', 'Updated'];
+const LIVE_STATUSES   = ['Received', 'Assigned'];
 
 /* Estatus que nunca deben quedar como "estatus anterior" al revertir */
 const REQUEST_STATUSES = CHANGE_STATUSES.concat(CANCEL_STATUSES).concat(['Draft']);

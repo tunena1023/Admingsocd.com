@@ -49,7 +49,9 @@ exports.handler = async (event) => {
           InspectionDate: f.InspectionDate || '',
           Archived: f.Archived === true || f.Archived === 'true',
           DelayReasonType: f.DelayReasonType || '',
-          DelayReasonNotes: f.DelayReasonNotes || ''
+          DelayReasonNotes: f.DelayReasonNotes || '',
+          Technician: f.Technician || '',
+          CompletedDate: f.CompletedDate || ''
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));
