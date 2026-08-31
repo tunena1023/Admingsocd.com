@@ -2712,7 +2712,12 @@ function clientCard(c) {
           <div class="client-name">${esc(c.businessName)}</div>
           <div class="client-id">${esc(c.clientId)}</div>
         </div>
-        <button class="btn btn-outline" onclick="toggleClientEdit('${esc(c.clientId)}')">Edit</button>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:11px;color:${c.notificationsEnabled!==false ? 'var(--gray)' : 'var(--red)'};text-transform:uppercase;letter-spacing:.05em">
+            Notifications ${c.notificationsEnabled!==false ? 'On' : 'Off'}
+          </span>
+          <button class="btn btn-outline" onclick="toggleClientEdit('${esc(c.clientId)}')">Edit</button>
+        </div>
       </div>
       <div class="client-grid">
         <div><span style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">Contact</span><br><span style="font-size:13px">${esc(c.contactPerson||'—')}</span></div>
