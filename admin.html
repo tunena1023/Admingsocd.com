@@ -1709,6 +1709,13 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
     const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
     const hasDetail = lines.length > 0;
     const noteTxt   = histNoteText(h);
+    /* Un evento que no trae ni nota ni detalle es puro tramite -- solo
+       repite en prosa lo que el encabezado ya dice ("Change Approved
+       by Esmeralda Amezcua", sin nada mas abajo). Se filtra: el
+       historial debe mostrar solo lo que de verdad dice algo (que se
+       agrego/cambio/quito un servicio, una nota personalizada, etc.),
+       no cada paso administrativo del tramite. */
+    if (!hasDetail && !noteTxt) return '';
     return `<div class="hist-item${hasDetail ? ' has-detail' : ''}"${
         hasDetail ? ` onclick="toggleHistDetail('${detailId}')"` : ''}>
       <div class="hist-head">
