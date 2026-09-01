@@ -2736,9 +2736,9 @@ function clientCard(c) {
   const cid = 'client-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');
   return `
     <div class="order-card" data-client-id="${esc(c.clientId)}">
-      <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}')">
+      <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}')" ondblclick="pinClientCard('${esc(c.clientId)}',this)">
         <div>
-          <div class="order-id">${esc(c.businessName)}</div>
+          <div class="order-id">${esc(c.businessName)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(c.clientId)} · ${esc(c.contactPerson||'—')}</div>
         </div>
         <span style="font-size:11px;color:${c.notificationsEnabled!==false ? 'var(--gray)' : '#B33A3A'};text-transform:uppercase;letter-spacing:.05em">
@@ -2755,18 +2755,66 @@ function clientCard(c) {
     </div>`;
 }
 
+/* Mismo mecanismo open/pinned que ya usan las ordenes (cardOpenState/
+   closeOtherCards/toggleOrder/pinOrder), replicado para clientes: un
+   solo cliente abierto a la vez, salvo que se fije con doble clic. */
+function clientCardOpenState() {
+  const store = window['__cardOpenState'] || (window['__cardOpenState'] = {});
+  return store['clients'] || (store['clients'] = { open: null, pinned: {} });
+}
+
+function closeOtherClientCards(exceptClientId) {
+  const st = clientCardOpenState();
+  const listEl = document.getElementById('client-list');
+  if (!listEl) return;
+  listEl.querySelectorAll('.order-card').forEach(card => {
+    const cid = card.dataset.clientId;
+    if (cid === exceptClientId || st.pinned[cid]) return;
+    const body = card.querySelector('.client-body');
+    if (body) body.classList.remove('open');
+  });
+}
+
 function toggleClientCard(clientId) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(cid + '-body');
   if (!body) return;
-  const willOpen = !body.classList.contains('open');
-  if (willOpen) {
-    body.classList.add('open');
-    renderClientAddrList(clientId);
-    selectClientAddr(clientId, clientState(clientId).selected || 'primary');
-  } else {
+  const st = clientCardOpenState();
+  if (st.pinned[clientId]) return; // fijada: solo el doble clic la mueve
+
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
     body.classList.remove('open');
+    if (st.open === clientId) st.open = null;
+    return;
   }
+
+  closeOtherClientCards(clientId);
+  body.classList.add('open');
+  st.open = clientId;
+  renderClientAddrList(clientId);
+  selectClientAddr(clientId, clientState(clientId).selected || 'primary');
+}
+
+function pinClientCard(clientId, headerEl) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-body');
+  if (!body) return;
+  const st = clientCardOpenState();
+  const pinEl = headerEl.querySelector('.order-pin');
+
+  if (st.pinned[clientId]) {
+    delete st.pinned[clientId];
+    if (pinEl) pinEl.innerHTML = '';
+    return;
+  }
+
+  st.pinned[clientId] = true;
+  if (pinEl) pinEl.innerHTML = ' &#128274;';
+  body.classList.add('open');
+  st.open = clientId;
+  renderClientAddrList(clientId);
+  selectClientAddr(clientId, clientState(clientId).selected || 'primary');
 }
 
 function renderClientAddrList(clientId) {
