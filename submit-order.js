@@ -53,7 +53,13 @@ function nextGlobalSuffix(allOrderRows) {
     .map(it => {
       const id = String(it.fields?.OrderID || it.fields?.Title || '');
       if (id.includes('-TEMP-')) return null;
-      const s = id.split('-').pop();
+      const parts = id.split('-');
+      const last = parts[parts.length - 1];
+      /* Ordenes de un pedido multi-unidad terminan en "-PONNNN"; el
+         sufijo real (el que hay que contar) es el segmento de ANTES
+         de ese, no el ultimo. Sin esto, esos sufijos quedan invisibles
+         para el contador y se podrian repetir por accidente. */
+      const s = /^PO\d+$/.test(last) ? parts[parts.length - 2] : last;
       const n = parseInt(s, 10);
       return isNaN(n) ? null : n;
     })
