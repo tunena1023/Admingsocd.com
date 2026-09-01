@@ -163,21 +163,24 @@
     .client-body.open { display: block; }
 
     .client-3col {
-      display: grid; grid-template-columns: 210px 1fr 260px; gap: 0;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
       max-width: 1080px; margin-top: 16px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
     }
-    .client-addr-list { border-right: 1px solid var(--border); background: var(--bg); }
+    .client-addr-list { border-right: 1px solid var(--border); background: var(--bg); min-width: 0; }
     .client-addr-row { padding: 12px 14px; cursor: pointer; border-left: 3px solid transparent; transition: background .15s; }
     .client-addr-row:hover { background: var(--white); }
     .client-addr-row.selected { border-left-color: var(--gold); background: var(--white); }
     .client-addr-row.archived-row { opacity: .5; }
+    .client-addr-row.primary-row { padding: 16px 14px; }
+    .client-addr-row.primary-row .client-addr-name { font-size: 15px; }
+    .client-addr-row.primary-row .client-addr-sub { font-size: 12px; }
     .client-addr-name { font-size: 13px; font-weight: 600; }
     .client-addr-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
     .client-addr-list-foot { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
     .client-addr-list-foot a { font-size: 11px; color: var(--gray); cursor: pointer; text-decoration: underline; }
     .client-addr-list-foot a:hover { color: var(--black); }
     .client-detail { padding: 20px; min-width: 0; }
-    .client-control { border-left: 1px solid var(--border); background: var(--bg); padding: 18px; display: none; }
+    .client-control { border-left: 1px solid var(--border); background: var(--bg); padding: 18px; display: none; min-width: 0; }
     .client-control.open { display: block; }
     @media (max-width: 900px) {
       .client-3col { grid-template-columns: 1fr; max-width: none; }
@@ -2774,7 +2777,7 @@ function renderClientAddrList(clientId) {
   const st = clientState(clientId);
   const buildings = (c.buildings || []).filter(b => st.showArchivedBuildings || !b.archived);
 
-  let html = `<div class="client-addr-row${st.selected==='primary'?' selected':''}" data-key="primary" onclick="selectClientAddr('${clientId}','primary')">
+  let html = `<div class="client-addr-row primary-row${st.selected==='primary'?' selected':''}" data-key="primary" onclick="selectClientAddr('${clientId}','primary')">
       <div class="client-addr-name">Primary address</div>
       <div class="client-addr-sub">${esc(c.address||'—')}</div>
     </div>`;
