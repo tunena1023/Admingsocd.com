@@ -1,5 +1,5 @@
 /* admin-get-clients.js — todos los clientes */
-const { CLIENTS_LIST, CLIENT_ADDRESSES_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
+const { CLIENTS_LIST, CLIENT_ADDRESSES_LIST, CLIENT_CONTACTS_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
 
 /* Mismo criterio que admin-update-client.js */
 function truthy(v) {
@@ -20,9 +20,10 @@ async function fetchAll(listName) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const [rows, addrRows] = await Promise.all([
+    const [rows, addrRows, contactRows] = await Promise.all([
       fetchAll(CLIENTS_LIST),
-      fetchAll(CLIENT_ADDRESSES_LIST)
+      fetchAll(CLIENT_ADDRESSES_LIST),
+      fetchAll(CLIENT_CONTACTS_LIST)
     ]);
 
     /* Direcciones agrupadas por ClientID -- se traen TODAS (incluyendo
@@ -41,6 +42,22 @@ exports.handler = async (event) => {
         city:           it.fields.City           || '',
         zip:            it.fields.Zip            || '',
         archived:       truthy(it.fields.Archived)
+      });
+    });
+
+    /* Contactos adicionales del cliente (mas alla del Email/Phone
+       principal que ya vive en Clients), agrupados igual por ClientID. */
+    const contactsByClient = {};
+    contactRows.forEach(it => {
+      if (!it.fields) return;
+      const cid = String(it.fields.ClientID || '').trim().toLowerCase();
+      if (!cid) return;
+      if (truthy(it.fields.Archived)) return; // los archivados no se listan
+      (contactsByClient[cid] = contactsByClient[cid] || []).push({
+        id:    it.id,
+        name:  it.fields.Name        || '',
+        type:  it.fields.ContactType || '',
+        value: it.fields.Value       || ''
       });
     });
 
@@ -64,7 +81,8 @@ exports.handler = async (event) => {
           notifyConfirmations:  f.NotifyConfirmations  == null ? true : truthy(f.NotifyConfirmations),
           notifyChanges:        f.NotifyChanges        == null ? true : truthy(f.NotifyChanges),
           notifyUpdates:        f.NotifyUpdates        == null ? true : truthy(f.NotifyUpdates),
-          buildings: (addrByClient[cid] || []).slice().sort((a, b) => a.label.localeCompare(b.label))
+          buildings: (addrByClient[cid] || []).slice().sort((a, b) => a.label.localeCompare(b.label)),
+          contacts: (contactsByClient[cid] || []).slice().sort((a, b) => a.name.localeCompare(b.name))
         };
       })
       .sort((a,b) => a.businessName.localeCompare(b.businessName));
