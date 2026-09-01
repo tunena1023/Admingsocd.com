@@ -51,7 +51,12 @@ exports.handler = async (event) => {
           DelayReasonType: f.DelayReasonType || '',
           DelayReasonNotes: f.DelayReasonNotes || '',
           Technician: f.Technician || '',
-          CompletedDate: f.CompletedDate || ''
+          CompletedDate: f.CompletedDate || '',
+          OrderNotificationsEnabled: f.OrderNotificationsEnabled || '',
+          OrderNotifyConfirmations:  f.OrderNotifyConfirmations  || '',
+          OrderNotifyChanges:        f.OrderNotifyChanges        || '',
+          OrderNotifyUpdates:        f.OrderNotifyUpdates        || '',
+          OrderContactId:            f.OrderContactId            || ''
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));

@@ -1981,6 +1981,40 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
   }).join('') || '<p class="empty-note">No history.</p>';
 }
 
+/* Solo se ve algo aqui si la orden tiene ALGO distinto al default del
+   cliente en alguno de los 5 campos -- si usa todo el default, no
+   aparece ningun renglon extra. De SOLO LECTURA: cambiar esto es
+   cosa del cliente desde su propio portal (boton Notifications en
+   tracking.html), no del admin. */
+function orderNotificationsLineHtml(o) {
+  const enabled = o.OrderNotificationsEnabled || '';
+  const confirmVal = o.OrderNotifyConfirmations || '';
+  const changesVal = o.OrderNotifyChanges || '';
+  const updatesVal = o.OrderNotifyUpdates || '';
+  const contactId = o.OrderContactId || '';
+
+  if (!enabled && !confirmVal && !changesVal && !updatesVal && !contactId) return '';
+
+  const parts = [];
+  if (enabled)    parts.push('Notifications ' + enabled);
+  if (confirmVal) parts.push('Confirmations ' + confirmVal);
+  if (changesVal) parts.push('Changes ' + changesVal);
+  if (updatesVal) parts.push('Updates ' + updatesVal);
+
+  let contactLabel = '';
+  if (contactId) {
+    const c = allClients.find(x => x.clientId === o.ClientID);
+    const contact = c ? (c.contacts || []).find(ct => ct.id === contactId) : null;
+    contactLabel = contact ? (esc(contact.name) + ' (' + esc(contact.type) + ')') : 'a custom contact';
+  }
+
+  return '<p class="detail-label" style="margin-bottom:4px">Notifications for this order</p>' +
+    '<p class="meta-line" style="margin-bottom:16px;font-size:12px;color:var(--gray)">' +
+    'Custom' + (contactLabel ? ' — goes to ' + contactLabel : '') +
+    (parts.length ? (contactLabel ? '; ' : ' — ') + esc(parts.join(', ')) : '') +
+    '</p>';
+}
+
 function renderOrderDetail(o, services, history, context, storedDoc) {
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
@@ -2155,6 +2189,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           ${esc(o.Address||'')} ${esc(o.Suite||'')} ${esc(o.City||'')} ${esc(o.Zip||'')}<br>
           ${esc(o.Contact||'')}
         </p>
+        ${orderNotificationsLineHtml(o)}
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDateTime(o.EntryDate)}</div></div>
