@@ -126,13 +126,30 @@ async function handleBuilding(b) {
   return jsonResponse(200, { success: true, addressId: result.id });
 }
 
+/* Archivar/desarchivar un contacto puntual (la "X" junto a cada uno).
+   OJO: el nombre del campo es 'contactAction', a proposito distinto de
+   'contact' (que ya es el email principal en el body) y de 'contacts'
+   (el arreglo completo que se manda al guardar primaria/notifications)
+   -- el bug anterior fue justo por reusar un nombre que ya significaba
+   otra cosa. */
+async function handleContactAction(b) {
+  const ca = b.contactAction;
+  if (!ca.contactId) return jsonResponse(400, { error: 'contactId is required' });
+  if (ca.action !== 'archive' && ca.action !== 'unarchive') {
+    return jsonResponse(400, { error: 'Unknown contact action.' });
+  }
+  await updateListItemByItemId(CLIENT_CONTACTS_LIST, ca.contactId, { Archived: ca.action === 'archive' });
+  return jsonResponse(200, { success: true, contactId: ca.contactId });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
     const b = JSON.parse(event.body || '{}');
     if (!b.clientId) return jsonResponse(400, { error: 'clientId is required' });
 
-    if (b.building) return await handleBuilding(b);
+    if (b.building)      return await handleBuilding(b);
+    if (b.contactAction) return await handleContactAction(b);
 
     const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
 

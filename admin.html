@@ -2880,8 +2880,9 @@ function openClientEdit(clientId) {
     const contacts = c.contacts || [];
     let contactsHtml = '';
     contacts.forEach(ct => {
-      contactsHtml += `<div style="font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
-          ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
+      contactsHtml += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
+          <span>${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}</span>
+          <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
         </div>`;
     });
     if (!contacts.length) {
@@ -2937,10 +2938,13 @@ function openClientNotifications(clientId) {
       ${esc(c.contactPerson||c.businessName)} (Email) — ${esc(c.contact||'—')}
     </label>`;
   contacts.forEach(ct => {
-    recipientHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
-        <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto" ${ct.notifyRecipient?'checked':''}>
-        ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
-      </label>`;
+    recipientHtml += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);flex:1;cursor:pointer;min-width:0">
+          <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto;flex-shrink:0" ${ct.notifyRecipient?'checked':''}>
+          <span>${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}</span>
+        </label>
+        <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
+      </div>`;
   });
 
   control.innerHTML = `
@@ -3009,10 +3013,13 @@ function openBuildingNotifications(clientId) {
       Use primary contact (default) — ${esc(c.contactPerson||c.businessName)}
     </label>`;
   contacts.forEach(ct => {
-    html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
-        <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto" ${b.contactId===ct.id?'checked':''}>
-        ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
-      </label>`;
+    html += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);flex:1;cursor:pointer;min-width:0">
+          <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto;flex-shrink:0" ${b.contactId===ct.id?'checked':''}>
+          <span>${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}</span>
+        </label>
+        <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
+      </div>`;
   });
 
   control.innerHTML = `
@@ -3185,6 +3192,16 @@ async function saveBuildingNotifications(clientId) {
   }
 }
 
+async function archiveContact(clientId, contactId) {
+  try {
+    await api('/admin-update-client', { body: { clientId, contactAction: { action: 'archive', contactId } } });
+    showToast('Contact removed.');
+    await reloadAndReopen(clientId);
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
 async function archiveBuilding(clientId, buildingId) {
   try {
     await api('/admin-update-client', { body: { clientId, building: { action: 'archive', addressId: buildingId } } });
@@ -3216,6 +3233,11 @@ async function reloadAndReopen(clientId) {
   if (body) body.classList.add('open');
   renderClientAddrList(clientId);
   renderClientDetail(clientId);
+  /* El panel de control no se auto-actualiza -- cerrarlo evita que se
+     quede mostrando datos viejos (ej. un contacto que se acaba de
+     archivar) hasta que se vuelva a abrir. */
+  const control = document.getElementById(cid + '-control');
+  if (control) { control.classList.remove('open'); control.innerHTML = ''; }
 }
 
 function toggleNotifSubgroup(cid) {
