@@ -439,6 +439,9 @@ exports.handler = async (event) => {
     if (decision === 'reject' && isCancel && !String(notes || '').trim()) {
       return jsonResponse(400, { error: 'Please explain why the cancellation is not approved.' });
     }
+    if (decision === 'reject' && isChange && !String(notes || '').trim()) {
+      return jsonResponse(400, { error: 'Please explain why the requested change is not approved.' });
+    }
 
     let newStatus = current;
     let changeType = '';
@@ -498,14 +501,15 @@ exports.handler = async (event) => {
           await updateListItemByItemId(ORDERS_LIST, item.id, fieldPatch);
         }
       }
-      /* Fechas propuestas que no se aprobaron: dejar constancia */
+      /* Fechas propuestas que no se aprobaron: dejar constancia con el
+         motivo real que escribio el admin (ya es obligatorio arriba) */
       const req = lastRequestRow(history);
       if (req && String(req.FieldChanged || '') === 'Requested Dates') {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   'Requested Dates Rejected',
           FieldChanged: 'Requested Dates',
-          Notes:        'The dates requested were not approved.',
+          Notes:        String(notes).trim(),
           OldValue:     String(req.NewValue || ''),
           NewValue:     ''
         }));

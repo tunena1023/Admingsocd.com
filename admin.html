@@ -1125,7 +1125,7 @@ function decisionAreaHtml(o, history) {
 
   return `
     <div class="field-group" style="margin-top:12px">
-      <label>Notes ${isCancel ? '(required if rejecting)' : '(optional)'}</label>
+      <label>Notes ${isCancel ? '(required if rejecting)' : '(required if rejecting, optional if approving)'}</label>
       <input type="text" id="${notesId}" placeholder="Reason…">
     </div>
     <div class="appr-bar">
@@ -1147,8 +1147,8 @@ async function decideReview(orderId, decision, needsPassword) {
 
   const order = allOrders.find(o => o.OrderID === orderId) || {};
   const isCancel = order.Status === 'Cancellation Requested';
-  if (isCancel && decision === 'reject' && !notes) {
-    showToast('Please explain why the cancellation is not approved.');
+  if (decision === 'reject' && !notes) {
+    showToast(isCancel ? 'Please explain why the cancellation is not approved.' : 'Please explain why the requested change is not approved.');
     if (notesInput) notesInput.focus();
     return;
   }
