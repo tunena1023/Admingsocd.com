@@ -57,7 +57,8 @@ exports.handler = async (event) => {
         id:    it.id,
         name:  it.fields.Name        || '',
         type:  it.fields.ContactType || '',
-        value: it.fields.Value       || ''
+        value: it.fields.Value       || '',
+        notifyRecipient: truthy(it.fields.NotifyRecipient)
       });
     });
 

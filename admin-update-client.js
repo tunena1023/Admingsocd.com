@@ -207,6 +207,35 @@ exports.handler = async (event) => {
 
     await updateListItemByItemId(CLIENTS_LIST, item.id, patch);
 
+    /* Contactos: llegan como un arreglo completo (existentes + filas nuevas
+       que se hayan llenado), cada uno con isRecipient marcando si ese es
+       el que debe recibir notificaciones. Se manda el arreglo COMPLETO
+       (no solo el que cambio) para poder desmarcar al anterior y marcar
+       al nuevo en la misma pasada. Filas nuevas sin nombre/valor llenos
+       se ignoran (fila vacia que el usuario no llego a usar). */
+    let contactsProcessed = 0;
+    if (Array.isArray(b.contacts)) {
+      for (const entry of b.contacts) {
+        if (entry.contactId) {
+          await updateListItemByItemId(CLIENT_CONTACTS_LIST, entry.contactId, {
+            NotifyRecipient: !!entry.isRecipient
+          });
+          contactsProcessed++;
+        } else if (entry.name && String(entry.name).trim() && entry.value && String(entry.value).trim()) {
+          await createListItem(CLIENT_CONTACTS_LIST, {
+            Title:           entry.name,
+            ClientID:        b.clientId,
+            Name:            entry.name           || '',
+            ContactType:     entry.type            || 'Email',
+            Value:           entry.value           || '',
+            Archived:        false,
+            NotifyRecipient: !!entry.isRecipient
+          });
+          contactsProcessed++;
+        }
+      }
+    }
+
     /* El registro se escribe despues del guardado. Si ClientHistory no
        existiera todavia, el cambio ya quedo hecho: se avisa en la respuesta
        en vez de fingir que todo salio bien. */
@@ -235,6 +264,7 @@ exports.handler = async (event) => {
       success: true,
       changesLogged: logged,
       changesDetected: changes.length,
+      contactsProcessed,
       historyError: logError
     });
   } catch(e) {
