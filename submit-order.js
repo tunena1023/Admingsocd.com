@@ -8,7 +8,7 @@
 ============================================================ */
 
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENT_ADDRESSES_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath,
   jsonResponse
@@ -116,7 +116,107 @@ exports.handler = async (event) => {
 
   try {
     const b = JSON.parse(event.body || '{}');
-    if (!b.ClientID || !b.Division) {
+    if (!b.ClientID) {
+      return jsonResponse(400, { error: 'ClientID is required' });
+    }
+
+    /* ===== FLUJO E: agregar UNA unidad a un PO ya existente =====
+       Se checa ANTES que todo lo demas (igual que aprendimos con el
+       bug del draft desviando el lote nuevo) para que nunca se
+       confunda con una orden normal. Copia Division/Servicios/
+       BusinessName/Requester del resto del lote -- solo pide
+       Building, Unit#, Bed/Bath y fechas de la unidad nueva. */
+    if (b.AddUnitToBatch) {
+      const add = b.AddUnitToBatch;
+      if (!add.batchId)    return jsonResponse(400, { error: 'batchId is required' });
+      if (!add.buildingId) return jsonResponse(400, { error: 'Please choose a building.' });
+      if (!add.unitNumber) return jsonResponse(400, { error: 'Please enter the Unit Number.' });
+      if (!add.bedrooms)   return jsonResponse(400, { error: 'Please enter Bedrooms.' });
+      if (!add.bathrooms)  return jsonResponse(400, { error: 'Please enter Bathrooms.' });
+      if (!add.entryDate)  return jsonResponse(400, { error: 'Please enter the entry date.' });
+      if (!add.dueDate)    return jsonResponse(400, { error: 'Please enter the due date.' });
+
+      const [allOrders, allBuildings] = await Promise.all([
+        fetchAll(ORDERS_LIST),
+        fetchAll(CLIENT_ADDRESSES_LIST)
+      ]);
+
+      const clientOrders = allOrders.filter(it =>
+        it.fields && String(it.fields.ClientID || '').trim().toLowerCase() === String(b.ClientID).trim().toLowerCase()
+      );
+      const siblings = clientOrders.filter(it => it.fields.BatchId === add.batchId);
+      if (!siblings.length) return jsonResponse(404, { error: 'That order was not found.' });
+
+      const building = allBuildings.find(it =>
+        it.id === String(add.buildingId) &&
+        it.fields && String(it.fields.ClientID || '').trim().toLowerCase() === String(b.ClientID).trim().toLowerCase()
+      );
+      if (!building) return jsonResponse(403, { error: 'That building does not belong to this client.' });
+      const bf = building.fields;
+
+      const template = siblings[0].fields;
+      const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
+      const suffix = nextGlobalSuffix(allOrders);
+      const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + add.batchId;
+
+      await createListItem(ORDERS_LIST, {
+        Title:          template.BusinessName || '',
+        OrderID:        orderId,
+        ClientID:       b.ClientID,
+        BusinessName:   template.BusinessName || '',
+        Requester:      template.Requester || '',
+        Division:       template.Division || '',
+        DirtLevel:      template.DirtLevel || '',
+        Status:         'Received',
+        BuildingNumber: bf.BuildingNumber || '',
+        UnitNumber:     add.unitNumber,
+        Bedrooms:       add.bedrooms,
+        Bathrooms:      add.bathrooms,
+        Address:        bf.Address || '',
+        Suite:          bf.Suite   || '',
+        City:           bf.City    || '',
+        Zip:            bf.Zip     || '',
+        Email:          template.Email || '',
+        Notes:          template.Notes || '',
+        EntryDate:      add.entryDate,
+        DueDate:        add.dueDate,
+        DraftData:      '',
+        BatchId:        add.batchId,
+        BuildingId:     String(add.buildingId)
+      });
+
+      try {
+        const svcRows = await fetchByOrderId(ORDER_SERVICES_LIST, template.OrderID);
+        await Promise.all(svcRows.map(row => {
+          const f = row.fields;
+          return createListItem(ORDER_SERVICES_LIST, {
+            Title:       f.ServiceName || '',
+            OrderID:     orderId,
+            Category:    f.Category    || '',
+            ServiceName: f.ServiceName || '',
+            SubOption:   f.SubOption   || '',
+            Division:    f.Division    || template.Division
+          });
+        }));
+
+        await createListItem(ORDER_HISTORY_LIST, {
+          Title:      orderId,
+          OrderID:    orderId,
+          ChangeType: 'Created',
+          ChangedBy:  actor,
+          ChangeDate: new Date().toISOString(),
+          Notes:      'Added to existing order ' + template.OrderID + ' by ' + actor + '.',
+          OldValue:   '',
+          NewValue:   'Received'
+        });
+      } catch (e) {
+        console.error('AddUnitToBatch post-create write failed:', e.message);
+      }
+
+      return jsonResponse(200, { success: true, orderId });
+    }
+
+    if (!b.Division) {
       return jsonResponse(400, { error: 'ClientID and Division are required' });
     }
 
