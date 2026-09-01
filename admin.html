@@ -792,9 +792,11 @@ function closeOtherApprCards(context, exceptOrderId) {
   const st = cardOpenState(context);
   const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
   if (!listEl) return;
+  const exceptCard = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(exceptOrderId) + '"]');
   listEl.querySelectorAll('.order-card').forEach(card => {
     const cid = card.dataset.orderId;
     if (cid === exceptOrderId || st.pinned[cid]) return;
+    if (exceptCard && card !== exceptCard && card.contains(exceptCard)) return;
     const body = card.querySelector('.appr-body');
     if (body) body.style.display = 'none';
   });
@@ -849,11 +851,17 @@ function approvalsOf(q) {
 function paintApprovals(list) {
   const box = document.getElementById('approvals-list');
   if (!box) return;
-  box.innerHTML = list.length
-    ? list.map(o => newOrderApprovalCard(o)).join('')
-    : '<p class="empty-note">Nothing waiting for approval.</p>';
+  if (!list.length) {
+    box.innerHTML = '<p class="empty-note">Nothing waiting for approval.</p>';
+    return;
+  }
+  const { standalone, groupsMap, groupOrder } = groupByBatch(list);
+  box.innerHTML =
+    groupOrder.map(bid => batchApprovalGroupCard(bid, groupsMap[bid])).join('') +
+    standalone.map(o => newOrderApprovalCard(o)).join('');
   /* El detalle de cada solicitud se carga aparte para que la lista
-     aparezca de inmediato. */
+     aparezca de inmediato -- incluye las que quedaron dentro de un
+     grupo de PO, loadApprovalDetail no depende del nivel de anidado. */
   list.forEach(o => loadApprovalDetail(o));
 }
 
@@ -872,6 +880,121 @@ function renderApprovals() {
 function filterApprovals() {
   const q = document.getElementById('approvals-search').value.trim().toLowerCase();
   paintApprovals(approvalsOf(q));
+}
+
+/* Tarjeta contenedora para Approvals -- a diferencia de Active/History,
+   esta SI tiene su propia accion: supervisor/ventana/fecha compartidos
+   para las N unidades, y un solo "Approve All" que los aplica a cada
+   una y las aprueba de un jalon. Cada unidad sigue teniendo su propio
+   formulario adentro (newOrderApprovalCard sin cambios) por si alguna
+   necesita algo distinto -- editar esa sola no afecta a las demas. */
+function batchApprovalGroupCard(batchId, units) {
+  const groupOrderId = 'batch-' + batchId;
+  const dom = apprDomId(groupOrderId);
+  const clientId = units[0].ClientID || '';
+  const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
+  return `
+    <div class="order-card" data-order-id="${esc(groupOrderId)}">
+      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
+        <div>
+          <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
+          <div class="order-meta">${units.length} units awaiting approval</div>
+        </div>
+      </div>
+      <div class="appr-body" id="${dom}-body" style="display:none">
+        <div class="edit-grid" style="margin-top:16px">
+          <div class="field-group">
+            <label>Supervisor (applies to all units)</label>
+            <input type="text" id="${dom}-supervisor" oninput="checkBatchApprovalReady('${dom}')">
+          </div>
+          <div class="field-group">
+            <label>Service Window</label>
+            <select id="${dom}-window" onchange="checkBatchApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
+          </div>
+          <div class="field-group">
+            <label>Service Date</label>
+            <input type="date" id="${dom}-dispatch" onchange="checkBatchApprovalReady('${dom}')">
+          </div>
+        </div>
+        <div class="appr-bar">
+          <button class="btn btn-green" id="${dom}-ok" disabled onclick="approveBatchAll('${esc(batchId)}','${dom}')">Approve All ${units.length} Units</button>
+        </div>
+        <p class="appr-hint">
+          Sets the same supervisor, service window and service date for every unit in
+          this order, then approves each one. If a unit can't be approved (missing
+          info, already changed, etc.) it's left pending and you'll see which one.
+        </p>
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units (edit separately if one needs something different)</div>
+          ${innerHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
+function checkBatchApprovalReady(dom) {
+  const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
+  const ready = !!(val('supervisor').trim() && val('window') && val('dispatch'));
+  const ok = document.getElementById(dom + '-ok');
+  if (ok) ok.disabled = !ready;
+}
+
+async function approveBatchAll(batchId, dom) {
+  const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
+  const supervisor = val('supervisor').trim();
+  const serviceWindow = val('window');
+  const dispatchDate = val('dispatch');
+  if (!supervisor || !serviceWindow || !dispatchDate) {
+    showToast('Set supervisor, service window and service date before approving.');
+    return;
+  }
+
+  const units = allOrders.filter(o => o.BatchId === batchId && NEW_ORDER_STATUSES.includes(o.Status));
+  if (!units.length) { showToast('No units left to approve in this order.'); return; }
+
+  const btn = document.getElementById(dom + '-ok');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Approving…'; }
+
+  /* Mismo chequeo de password del director que usa una orden individual
+     (isOfficeCreatedOrder) -- se checa UNA vez contra la primera unidad,
+     ya que las N unidades del mismo pedido se crearon del mismo lado
+     (cliente u oficina) al mismo tiempo. */
+  let actor = getActorName();
+  try {
+    const detail = await api('/get-order-detail', { body: { orderId: units[0].OrderID } });
+    if (isOfficeCreatedOrder(detail.history || [])) {
+      const directorActor = await promptDirectorPassword();
+      if (!directorActor) {
+        if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+        return;
+      }
+      actor = directorActor;
+    }
+  } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
+
+  const succeeded = [];
+  const failed = [];
+  for (const u of units) {
+    try {
+      await api('/admin-update-order', {
+        body: { orderId: u.OrderID, supervisor, serviceWindow, dispatchDate, changedBy: actor }
+      });
+      await api('/admin-approve-order', {
+        body: { orderId: u.OrderID, decision: 'approve', approvedBy: actor }
+      });
+      succeeded.push(u.OrderID);
+    } catch (e) {
+      failed.push({ orderId: u.OrderID, error: e.message });
+    }
+  }
+
+  let msg = 'Approved ' + succeeded.length + ' of ' + units.length + ' units.';
+  if (failed.length) {
+    msg += ' Could not approve: ' + failed.map(f => f.orderId + ' (' + f.error + ')').join('; ');
+  }
+  showToast(msg);
+  await loadAll();
 }
 
 function newOrderApprovalCard(o) {
@@ -1563,6 +1686,60 @@ function activeOf(q) {
     String(o.BusinessName||'').toLowerCase().includes(q));
 }
 
+/* Agrupa por BatchId (PO), reusable en Active/History/Approvals. Solo
+   agrupa DENTRO de la lista que se le pase -- si un PO tiene unidades
+   en Active y otras en History, sale como grupo chico en cada lado. */
+function groupByBatch(orders) {
+  const standalone = [];
+  const groupsMap = {};
+  const groupOrder = [];
+  orders.forEach(o => {
+    const bid = o.BatchId || '';
+    if (!bid) { standalone.push(o); return; }
+    if (!groupsMap[bid]) { groupsMap[bid] = []; groupOrder.push(bid); }
+    groupsMap[bid].push(o);
+  });
+  return { standalone, groupsMap, groupOrder };
+}
+
+/* Tarjeta contenedora para Active/History -- solo agrupa y despliega,
+   sin accion especial de lote (eso solo aplica en Approvals). Cada
+   unidad adentro conserva orderCard() sin cambios, con su propio
+   Edit/Complete/Cancel normal. */
+function batchOrderGroupCard(batchId, units, context) {
+  const groupOrderId = 'batch-' + batchId;
+  const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
+  const clientId = units[0].ClientID || '';
+  const innerHtml = units.map(o => orderCard(o, context)).join('');
+  return `
+    <div class="order-card" data-order-id="${esc(groupOrderId)}">
+      <div class="order-card-header" onclick="toggleBatchCard('${esc(groupOrderId)}','${context}')">
+        <div>
+          <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
+          <div class="order-meta">${units.length} units</div>
+        </div>
+        <span style="font-size:11px;color:var(--gray)">▼</span>
+      </div>
+      <div class="order-body" id="${id}" style="padding:16px">${innerHtml}</div>
+    </div>`;
+}
+
+/* Version simple de toggleOrder para el grupo de PO -- no hace fetch
+   (el contenido ya esta armado inline con las unidades adentro), solo
+   muestra/oculta con la misma exclusividad que las demas tarjetas. */
+function toggleBatchCard(groupOrderId, context) {
+  const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  const st = cardOpenState(context);
+  if (st.pinned[groupOrderId]) return;
+  const isOpen = body.classList.contains('open');
+  if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; return; }
+  closeOtherCards(context, groupOrderId);
+  body.classList.add('open');
+  st.open = groupOrderId;
+}
+
 function renderActive() {
   const box = document.getElementById('active-list');
   const list = activeOf('');
@@ -1572,14 +1749,22 @@ function renderActive() {
     badge.classList.toggle('zero', list.length === 0);
   }
   if (!box) return;
-  box.innerHTML = list.length ? list.map(o => orderCard(o, 'active')).join('') : '<p class="empty-note">No active orders.</p>';
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No active orders.</p>'; return; }
+  const { standalone, groupsMap, groupOrder } = groupByBatch(list);
+  box.innerHTML =
+    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'active')).join('') +
+    standalone.map(o => orderCard(o, 'active')).join('');
 }
 
 function filterActive() {
   const q = document.getElementById('active-search').value.trim().toLowerCase();
   const filtered = activeOf(q);
   const box = document.getElementById('active-list');
-  box.innerHTML = filtered.length ? filtered.map(o => orderCard(o,'active')).join('') : '<p class="empty-note">No orders found.</p>';
+  if (!filtered.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
+  const { standalone, groupsMap, groupOrder } = groupByBatch(filtered);
+  box.innerHTML =
+    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'active')).join('') +
+    standalone.map(o => orderCard(o, 'active')).join('');
 }
 
 /* ============================================================
@@ -1597,14 +1782,22 @@ function renderHistory() {
   const box = document.getElementById('history-list');
   const list = historyOf('');
   if (!box) return;
-  box.innerHTML = list.length ? list.map(o => orderCard(o, 'history')).join('') : '<p class="empty-note">No orders in history.</p>';
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No orders in history.</p>'; return; }
+  const { standalone, groupsMap, groupOrder } = groupByBatch(list);
+  box.innerHTML =
+    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
+    standalone.map(o => orderCard(o, 'history')).join('');
 }
 
 function filterHistory() {
   const q = document.getElementById('history-search').value.trim().toLowerCase();
   const filtered = historyOf(q);
   const box = document.getElementById('history-list');
-  box.innerHTML = filtered.length ? filtered.map(o => orderCard(o,'history')).join('') : '<p class="empty-note">No orders found.</p>';
+  if (!filtered.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
+  const { standalone, groupsMap, groupOrder } = groupByBatch(filtered);
+  box.innerHTML =
+    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
+    standalone.map(o => orderCard(o, 'history')).join('');
 }
 
 /* ============================================================
@@ -1639,9 +1832,11 @@ function closeOtherCards(context, exceptOrderId) {
   const st = cardOpenState(context);
   const listEl = document.getElementById(context === 'active' ? 'active-list' : 'history-list');
   if (!listEl) return;
+  const exceptCard = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(exceptOrderId) + '"]');
   listEl.querySelectorAll('.order-card').forEach(card => {
     const cid = card.dataset.orderId;
     if (cid === exceptOrderId || st.pinned[cid]) return;
+    if (exceptCard && card !== exceptCard && card.contains(exceptCard)) return;
     const body = card.querySelector('.order-body');
     if (body) body.classList.remove('open');
   });

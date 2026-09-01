@@ -56,7 +56,9 @@ exports.handler = async (event) => {
           OrderNotifyConfirmations:  f.OrderNotifyConfirmations  || '',
           OrderNotifyChanges:        f.OrderNotifyChanges        || '',
           OrderNotifyUpdates:        f.OrderNotifyUpdates        || '',
-          OrderContactId:            f.OrderContactId            || ''
+          OrderContactId:            f.OrderContactId            || '',
+          BatchId:    f.BatchId    || '',
+          BuildingId: f.BuildingId || ''
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));
