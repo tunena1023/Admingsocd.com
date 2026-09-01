@@ -47,19 +47,21 @@ exports.handler = async (event) => {
     });
 
     /* Contactos adicionales del cliente (mas alla del Email/Phone
-       principal que ya vive en Clients), agrupados igual por ClientID. */
+       principal que ya vive en Clients), agrupados igual por ClientID.
+       Se traen TODOS (incluyendo archivados) -- igual que buildings,
+       para poder desarchivar uno desde la interfaz. */
     const contactsByClient = {};
     contactRows.forEach(it => {
       if (!it.fields) return;
       const cid = String(it.fields.ClientID || '').trim().toLowerCase();
       if (!cid) return;
-      if (truthy(it.fields.Archived)) return; // los archivados no se listan
       (contactsByClient[cid] = contactsByClient[cid] || []).push({
         id:    it.id,
         name:  it.fields.Name        || '',
         type:  it.fields.ContactType || '',
         value: it.fields.Value       || '',
-        notifyRecipient: truthy(it.fields.NotifyRecipient)
+        notifyRecipient: truthy(it.fields.NotifyRecipient),
+        archived: truthy(it.fields.Archived)
       });
     });
 

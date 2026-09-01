@@ -2726,10 +2726,10 @@ function filterClients() {
 }
 
 /* Estado de UI por cliente: cual direccion esta seleccionada (primary o
-   el id de un building) y si se muestran los buildings archivados. */
+   el id de un building) y si se muestran los buildings/contactos archivados. */
 const clientUIState = {};
 function clientState(clientId) {
-  return clientUIState[clientId] || (clientUIState[clientId] = { selected: 'primary', showArchivedBuildings: false });
+  return clientUIState[clientId] || (clientUIState[clientId] = { selected: 'primary', showArchivedBuildings: false, showArchivedContacts: false });
 }
 
 function clientCard(c) {
@@ -2821,7 +2821,7 @@ function renderClientDetail(clientId) {
   const st = clientState(clientId);
 
   if (st.selected === 'primary') {
-    const contacts = c.contacts || [];
+    const contacts = (c.contacts || []).filter(ct => !ct.archived);
     const recipient = contacts.find(ct => ct.notifyRecipient);
     let html = `<p style="font-size:12px;color:var(--gray);margin-bottom:4px">This is the client's <strong>primary address</strong> — used by default unless a different building is selected when placing an order.</p>
       <div style="font-size:15px;font-weight:600;margin:14px 0 4px">${esc(c.businessName)}</div>
@@ -2848,7 +2848,7 @@ function renderClientDetail(clientId) {
     const b = (c.buildings || []).find(x => x.id === st.selected);
     if (!b) { detail.innerHTML = '<p class="empty-note">Not found.</p>'; return; }
     const addrLine = [b.address, b.suite, b.city, b.zip].filter(Boolean).join(', ');
-    const assigned = (c.contacts || []).find(ct => ct.id === b.contactId);
+    const assigned = (c.contacts || []).find(ct => ct.id === b.contactId && !ct.archived);
     const contactLine = assigned
       ? `${esc(assigned.name)} (${esc(assigned.type)}): ${esc(assigned.value)}`
       : `${esc(c.contactPerson||c.businessName)} (Email) — primary default`;
@@ -2877,17 +2877,19 @@ function openClientEdit(clientId) {
   control.classList.add('open');
 
   if (st.selected === 'primary') {
-    const contacts = c.contacts || [];
+    const allContacts = c.contacts || [];
+    const contacts = allContacts.filter(ct => st.showArchivedContacts || !ct.archived);
     let contactsHtml = '';
     contacts.forEach(ct => {
-      contactsHtml += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
-          <span>${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}</span>
-          <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
+      contactsHtml += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px${ct.archived?';opacity:.55':''}">
+          <span>${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}${ct.archived?' <span style="color:var(--gray);font-size:9px;text-transform:uppercase;font-weight:700;margin-left:4px">Archived</span>':''}</span>
+          <button onclick="${ct.archived?'unarchiveContact':'archiveContact'}('${clientId}','${esc(ct.id)}')" title="${ct.archived?'Restore contact':'Remove contact'}" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:${ct.archived?'10':'16'}px;line-height:1;padding:0 4px;flex-shrink:0">${ct.archived?'Unarchive':'×'}</button>
         </div>`;
     });
     if (!contacts.length) {
       contactsHtml = `<p style="font-size:12px;color:var(--gray);margin-bottom:8px">No additional contacts yet.</p>`;
     }
+    const archivedCount = allContacts.filter(ct => ct.archived).length;
 
     control.innerHTML = `
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Edit primary address</div>
@@ -2903,7 +2905,8 @@ function openClientEdit(clientId) {
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Contacts</div>
       <div id="${cid}-ctl-contacts">${contactsHtml}</div>
       <div id="${cid}-ctl-newcontacts"></div>
-      <a onclick="addContactRow('${clientId}', false)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+      <a onclick="addContactRow('${clientId}', false)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
+      ${archivedCount ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openClientEdit('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedCount})</a>` : ''}
 
       <button class="btn btn-gold" style="width:100%" onclick="savePrimaryEdit('${clientId}')">Save</button>
       <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
@@ -2926,18 +2929,21 @@ function openClientNotifications(clientId) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const control = document.getElementById(cid + '-control');
   const c = allClients.find(x => x.clientId === clientId);
+  const st = clientState(clientId);
   if (!control || !c) return;
   control.classList.add('open');
 
-  const contacts = c.contacts || [];
+  const allContacts = c.contacts || [];
+  const activeContacts = allContacts.filter(ct => !ct.archived);
+  const archivedContacts = allContacts.filter(ct => ct.archived);
   const radioName = cid + '-ctl-notifpick';
-  const anyRecipient = contacts.some(ct => ct.notifyRecipient);
+  const anyRecipient = activeContacts.some(ct => ct.notifyRecipient);
 
   let recipientHtml = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
       <input type="radio" name="${radioName}" value="primary" style="width:auto" ${anyRecipient?'':'checked'}>
       ${esc(c.contactPerson||c.businessName)} (Email) — ${esc(c.contact||'—')}
     </label>`;
-  contacts.forEach(ct => {
+  activeContacts.forEach(ct => {
     recipientHtml += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);flex:1;cursor:pointer;min-width:0">
           <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto;flex-shrink:0" ${ct.notifyRecipient?'checked':''}>
@@ -2946,6 +2952,14 @@ function openClientNotifications(clientId) {
         <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
       </div>`;
   });
+  if (st.showArchivedContacts) {
+    archivedContacts.forEach(ct => {
+      recipientHtml += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px;opacity:.55">
+          <span style="flex:1;font-size:12px">${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)} <span style="color:var(--gray);font-size:9px;text-transform:uppercase;font-weight:700;margin-left:4px">Archived</span></span>
+          <button onclick="unarchiveContact('${clientId}','${esc(ct.id)}')" title="Restore contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:10px;text-transform:uppercase;font-weight:700;padding:0 4px;flex-shrink:0">Unarchive</button>
+        </div>`;
+    });
+  }
 
   control.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications</div>
@@ -2962,7 +2976,8 @@ function openClientNotifications(clientId) {
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Who receives notifications</div>
     <div id="${cid}-ctl-contacts">${recipientHtml}</div>
     <div id="${cid}-ctl-newcontacts"></div>
-    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
+    ${archivedContacts.length ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openClientNotifications('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedContacts.length})</a>` : ''}
 
     <button class="btn btn-gold" style="width:100%" onclick="saveNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
@@ -3005,14 +3020,16 @@ function openBuildingNotifications(clientId) {
   if (!b) return;
   control.classList.add('open');
 
-  const contacts = c.contacts || [];
+  const allContacts = c.contacts || [];
+  const activeContacts = allContacts.filter(ct => !ct.archived);
+  const archivedContacts = allContacts.filter(ct => ct.archived);
   const radioName = cid + '-ctl-notifpick';
 
   let html = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
       <input type="radio" name="${radioName}" value="default" style="width:auto" ${!b.contactId?'checked':''}>
       Use primary contact (default) — ${esc(c.contactPerson||c.businessName)}
     </label>`;
-  contacts.forEach(ct => {
+  activeContacts.forEach(ct => {
     html += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);flex:1;cursor:pointer;min-width:0">
           <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto;flex-shrink:0" ${b.contactId===ct.id?'checked':''}>
@@ -3021,13 +3038,22 @@ function openBuildingNotifications(clientId) {
         <button onclick="archiveContact('${clientId}','${esc(ct.id)}')" title="Remove contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
       </div>`;
   });
+  if (st.showArchivedContacts) {
+    archivedContacts.forEach(ct => {
+      html += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px;opacity:.55">
+          <span style="flex:1;font-size:12px">${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)} <span style="color:var(--gray);font-size:9px;text-transform:uppercase;font-weight:700;margin-left:4px">Archived</span></span>
+          <button onclick="unarchiveContact('${clientId}','${esc(ct.id)}')" title="Restore contact" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:10px;text-transform:uppercase;font-weight:700;padding:0 4px;flex-shrink:0">Unarchive</button>
+        </div>`;
+    });
+  }
 
   control.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications — ${esc(b.label||'building')}</div>
     <p style="font-size:11px;color:var(--gray);margin-bottom:10px">Pick which contact should be notified for orders at this building. Uses the primary contact unless you choose one below.</p>
     <div id="${cid}-ctl-contacts">${html}</div>
     <div id="${cid}-ctl-newcontacts"></div>
-    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
+    ${archivedContacts.length ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openBuildingNotifications('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedContacts.length})</a>` : ''}
 
     <button class="btn btn-gold" style="width:100%" onclick="saveBuildingNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
@@ -3200,6 +3226,21 @@ async function archiveContact(clientId, contactId) {
   } catch (e) {
     showToast('Error: ' + e.message);
   }
+}
+
+async function unarchiveContact(clientId, contactId) {
+  try {
+    await api('/admin-update-client', { body: { clientId, contactAction: { action: 'unarchive', contactId } } });
+    showToast('Contact restored.');
+    await reloadAndReopen(clientId);
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+function toggleShowArchivedContacts(clientId) {
+  const st = clientState(clientId);
+  st.showArchivedContacts = !st.showArchivedContacts;
 }
 
 async function archiveBuilding(clientId, buildingId) {
