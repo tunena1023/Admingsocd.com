@@ -106,37 +106,6 @@ async function handleBuilding(b) {
   return jsonResponse(200, { success: true, addressId: result.id });
 }
 
-/* Contactos adicionales (ClientContacts) -- Nombre + Tipo (Email/Phone) +
-   Valor. El email/telefono principal se queda en Clients (Business Info);
-   esto es para agregar mas de un encargado/correo/telefono por cliente.
-   Igual patron que handleBuilding: se reusa este endpoint, "borrar" en
-   realidad archiva. */
-async function handleContact(b) {
-  const ct = b.contact;
-
-  if (ct.action === 'archive' || ct.action === 'unarchive') {
-    if (!ct.contactId) return jsonResponse(400, { error: 'contactId is required' });
-    await updateListItemByItemId(CLIENT_CONTACTS_LIST, ct.contactId, { Archived: ct.action === 'archive' });
-    return jsonResponse(200, { success: true, contactId: ct.contactId });
-  }
-
-  if (!ct.name || !String(ct.name).trim()) {
-    return jsonResponse(400, { error: 'Name is required for a new contact.' });
-  }
-  if (!ct.value || !String(ct.value).trim()) {
-    return jsonResponse(400, { error: 'Value is required for a new contact.' });
-  }
-  const result = await createListItem(CLIENT_CONTACTS_LIST, {
-    Title:       ct.name,
-    ClientID:    b.clientId,
-    Name:        ct.name  || '',
-    ContactType: ct.type  || 'Email',
-    Value:       ct.value || '',
-    Archived:    false
-  });
-  return jsonResponse(200, { success: true, contactId: result.id });
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
@@ -144,7 +113,6 @@ exports.handler = async (event) => {
     if (!b.clientId) return jsonResponse(400, { error: 'clientId is required' });
 
     if (b.building) return await handleBuilding(b);
-    if (b.contact)  return await handleContact(b);
 
     const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
 
