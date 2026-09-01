@@ -140,7 +140,12 @@ exports.handler = async (event) => {
       DelayReasonNotes: f.DelayReasonNotes || '',
       Technician:       f.Technician || '',
       CompletedDate:    f.CompletedDate || '',
-      Archived:         f.Archived === true || f.Archived === 'true'
+      Archived:         f.Archived === true || f.Archived === 'true',
+      OrderNotificationsEnabled: f.OrderNotificationsEnabled || '',
+      OrderNotifyConfirmations:  f.OrderNotifyConfirmations  || '',
+      OrderNotifyChanges:        f.OrderNotifyChanges        || '',
+      OrderNotifyUpdates:        f.OrderNotifyUpdates        || '',
+      OrderContactId:            f.OrderContactId            || ''
     };
 
     const services = svcRows
