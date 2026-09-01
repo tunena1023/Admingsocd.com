@@ -41,6 +41,7 @@ exports.handler = async (event) => {
         suite:          it.fields.Suite          || '',
         city:           it.fields.City           || '',
         zip:            it.fields.Zip            || '',
+        contactId:      it.fields.ContactId      || '',
         archived:       truthy(it.fields.Archived)
       });
     });

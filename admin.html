@@ -2842,22 +2842,28 @@ function renderClientDetail(clientId) {
     html += `<div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
         <button class="btn btn-outline" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
         <button class="btn btn-outline" style="flex:1" onclick="openClientNotifications('${clientId}')">Notifications</button>
-      </div>
-      <div style="margin-top:8px;max-width:260px">
-        <button class="btn btn-outline" style="width:100%" onclick="openClientEdit('${clientId}')">+ Add contact</button>
       </div>`;
     detail.innerHTML = html;
   } else {
     const b = (c.buildings || []).find(x => x.id === st.selected);
     if (!b) { detail.innerHTML = '<p class="empty-note">Not found.</p>'; return; }
     const addrLine = [b.address, b.suite, b.city, b.zip].filter(Boolean).join(', ');
+    const assigned = (c.contacts || []).find(ct => ct.id === b.contactId);
+    const contactLine = assigned
+      ? `${esc(assigned.name)} (${esc(assigned.type)}): ${esc(assigned.value)}`
+      : `${esc(c.contactPerson||c.businessName)} (Email) — primary default`;
     detail.innerHTML = `
       <div style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">${b.archived?'Secondary · Archived':'Secondary'}</div>
       <div style="font-size:15px;font-weight:600;margin:6px 0 4px">${esc(b.label||'Untitled building')}${b.buildingNumber?' <span style="color:var(--gray);font-weight:400">#'+esc(b.buildingNumber)+'</span>':''}</div>
       <div style="font-size:13px;color:var(--gray)">${esc(addrLine||'—')}</div>
-      <div class="btn-actions" style="margin-top:20px">
-        <button class="btn btn-outline" onclick="openClientEdit('${clientId}')">Edit</button>
-        <button class="btn btn-outline" onclick="${b.archived?'unarchiveBuilding':'archiveBuilding'}('${clientId}','${esc(b.id)}')">${b.archived?'Unarchive':'Archive'}</button>
+      <div style="margin-top:18px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)">Contact for this building</div>
+      <div style="font-size:13px;margin-top:6px">${contactLine}</div>
+      <div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
+        <button class="btn btn-outline" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
+        <button class="btn btn-outline" style="flex:1" onclick="openBuildingNotifications('${clientId}')">Notifications</button>
+      </div>
+      <div style="margin-top:8px;max-width:260px">
+        <button class="btn btn-outline" style="width:100%" onclick="${b.archived?'unarchiveBuilding':'archiveBuilding'}('${clientId}','${esc(b.id)}')">${b.archived?'Unarchive':'Archive'}</button>
       </div>`;
   }
 }
@@ -2872,20 +2878,15 @@ function openClientEdit(clientId) {
 
   if (st.selected === 'primary') {
     const contacts = c.contacts || [];
-    const radioName = cid + '-ctl-notifpick';
-    const anyRecipient = contacts.some(ct => ct.notifyRecipient);
-
-    let contactsHtml = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
-        <input type="radio" name="${radioName}" value="primary" style="width:auto" ${anyRecipient?'':'checked'}>
-        ${esc(c.contactPerson||c.businessName)} (Email) — ${esc(c.contact||'—')}
-      </label>`;
-
+    let contactsHtml = '';
     contacts.forEach(ct => {
-      contactsHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
-          <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto" ${ct.notifyRecipient?'checked':''}>
+      contactsHtml += `<div style="font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
           ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
-        </label>`;
+        </div>`;
     });
+    if (!contacts.length) {
+      contactsHtml = `<p style="font-size:12px;color:var(--gray);margin-bottom:8px">No additional contacts yet.</p>`;
+    }
 
     control.innerHTML = `
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Edit primary address</div>
@@ -2899,10 +2900,9 @@ function openClientEdit(clientId) {
       <div class="field-group"><label>Zip</label><input type="text" id="${cid}-ctl-zip" value="${esc(c.zip||'')}"></div>
 
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Contacts</div>
-      <p style="font-size:11px;color:var(--gray);margin-bottom:8px">Pick which one receives email/SMS notifications.</p>
       <div id="${cid}-ctl-contacts">${contactsHtml}</div>
       <div id="${cid}-ctl-newcontacts"></div>
-      <a onclick="addContactRow('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+      <a onclick="addContactRow('${clientId}', false)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
 
       <button class="btn btn-gold" style="width:100%" onclick="savePrimaryEdit('${clientId}')">Save</button>
       <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
@@ -2927,6 +2927,22 @@ function openClientNotifications(clientId) {
   const c = allClients.find(x => x.clientId === clientId);
   if (!control || !c) return;
   control.classList.add('open');
+
+  const contacts = c.contacts || [];
+  const radioName = cid + '-ctl-notifpick';
+  const anyRecipient = contacts.some(ct => ct.notifyRecipient);
+
+  let recipientHtml = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
+      <input type="radio" name="${radioName}" value="primary" style="width:auto" ${anyRecipient?'':'checked'}>
+      ${esc(c.contactPerson||c.businessName)} (Email) — ${esc(c.contact||'—')}
+    </label>`;
+  contacts.forEach(ct => {
+    recipientHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
+        <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto" ${ct.notifyRecipient?'checked':''}>
+        ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
+      </label>`;
+  });
+
   control.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications</div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:10px">
@@ -2938,12 +2954,18 @@ function openClientNotifications(clientId) {
       <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="${cid}-ctl-notif-changes" ${c.notifyChanges!==false?'checked':''}> Changes</label>
       <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="${cid}-ctl-notif-updates" ${c.notifyUpdates!==false?'checked':''}> Updates</label>
     </div>
-    <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="saveNotifications('${clientId}')">Save</button>
+
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Who receives notifications</div>
+    <div id="${cid}-ctl-contacts">${recipientHtml}</div>
+    <div id="${cid}-ctl-newcontacts"></div>
+    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+
+    <button class="btn btn-gold" style="width:100%" onclick="saveNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
 
 let newContactRowCounters = {};
-function addContactRow(clientId) {
+function addContactRow(clientId, includeRadio) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const container = document.getElementById(cid + '-ctl-newcontacts');
   if (!container) return;
@@ -2955,18 +2977,53 @@ function addContactRow(clientId) {
   row.style.cssText = 'background:var(--white);border:1px dashed var(--border);border-radius:3px;padding:10px;margin-bottom:8px';
   row.innerHTML = `
     <div class="field-group" style="margin-bottom:6px"><input type="text" id="${cid}-ctl-newc-${idx}-name" placeholder="Name"></div>
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+    <div style="display:flex;gap:6px;align-items:center;${includeRadio?'margin-bottom:8px':''}">
       <select id="${cid}-ctl-newc-${idx}-type" style="border:1px solid var(--border);border-radius:3px;padding:8px;font-size:13px">
         <option value="Email">Email</option>
         <option value="Phone">Phone</option>
       </select>
       <input type="text" id="${cid}-ctl-newc-${idx}-value" placeholder="Value" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:3px;padding:8px 10px;font-size:13px">
     </div>
-    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray)">
+    ${includeRadio ? `<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray)">
       <input type="radio" name="${radioName}" value="new-${idx}" style="width:auto">
       Receives notifications
-    </label>`;
+    </label>` : ''}`;
   container.appendChild(row);
+}
+
+function openBuildingNotifications(clientId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const control = document.getElementById(cid + '-control');
+  const c = allClients.find(x => x.clientId === clientId);
+  const st = clientState(clientId);
+  if (!control || !c) return;
+  const b = (c.buildings || []).find(x => x.id === st.selected);
+  if (!b) return;
+  control.classList.add('open');
+
+  const contacts = c.contacts || [];
+  const radioName = cid + '-ctl-notifpick';
+
+  let html = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
+      <input type="radio" name="${radioName}" value="default" style="width:auto" ${!b.contactId?'checked':''}>
+      Use primary contact (default) — ${esc(c.contactPerson||c.businessName)}
+    </label>`;
+  contacts.forEach(ct => {
+    html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
+        <input type="radio" name="${radioName}" value="${esc(ct.id)}" style="width:auto" ${b.contactId===ct.id?'checked':''}>
+        ${esc(ct.name)} (${esc(ct.type)}) — ${esc(ct.value)}
+      </label>`;
+  });
+
+  control.innerHTML = `
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications — ${esc(b.label||'building')}</div>
+    <p style="font-size:11px;color:var(--gray);margin-bottom:10px">Pick which contact should be notified for orders at this building. Uses the primary contact unless you choose one below.</p>
+    <div id="${cid}-ctl-contacts">${html}</div>
+    <div id="${cid}-ctl-newcontacts"></div>
+    <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 14px">+ Add another contact</a>
+
+    <button class="btn btn-gold" style="width:100%" onclick="saveBuildingNotifications('${clientId}')">Save</button>
+    <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
 
 function startAddBuilding(clientId) {
@@ -3001,24 +3058,17 @@ async function savePrimaryEdit(clientId) {
     zip:           $f('zip')?.value || ''
   };
 
-  /* Radio de "quien recibe notificaciones": puede ser 'primary' (el
-     email principal, default), el id de un contacto existente, o
-     'new-N' para una de las filas nuevas que se acaban de llenar. */
-  const radioName = cid + '-ctl-notifpick';
-  const checkedRadio = document.querySelector('input[name="' + radioName + '"]:checked');
-  const checkedValue = checkedRadio ? checkedRadio.value : 'primary';
-
+  /* Aqui solo se agregan contactos nuevos (sin marcar quien recibe
+     notificaciones -- eso vive en el panel de Notifications). Los
+     contactos existentes NO se tocan, para no pisar por accidente al
+     que ya este marcado como receptor. */
   const contacts = [];
-  document.querySelectorAll('#' + cid + '-ctl-contacts [data-contact-id]').forEach(el => {
-    const contactId = el.dataset.contactId;
-    contacts.push({ contactId, isRecipient: checkedValue === contactId });
-  });
   document.querySelectorAll('#' + cid + '-ctl-newcontacts .new-contact-row').forEach(row => {
     const idx = row.dataset.rowIndex;
     const name  = document.getElementById(cid + '-ctl-newc-' + idx + '-name')?.value.trim() || '';
     const type  = document.getElementById(cid + '-ctl-newc-' + idx + '-type')?.value || 'Email';
     const value = document.getElementById(cid + '-ctl-newc-' + idx + '-value')?.value.trim() || '';
-    contacts.push({ name, type, value, isRecipient: checkedValue === ('new-' + idx) });
+    contacts.push({ name, type, value, isRecipient: false });
   });
   body.contacts = contacts;
 
@@ -3070,12 +3120,68 @@ async function saveNotifications(clientId) {
     notifyChanges:        $f('notif-changes')?.checked ?? true,
     notifyUpdates:        $f('notif-updates')?.checked ?? true
   };
+
+  /* Radio de "quien recibe notificaciones": 'primary' (email principal,
+     default), el id de un contacto existente, o 'new-N' para una fila
+     nueva que se acaba de llenar aqui mismo. */
+  const radioName = cid + '-ctl-notifpick';
+  const checkedRadio = document.querySelector('input[name="' + radioName + '"]:checked');
+  const checkedValue = checkedRadio ? checkedRadio.value : 'primary';
+
+  const contacts = [];
+  document.querySelectorAll('#' + cid + '-ctl-contacts [data-contact-id]').forEach(el => {
+    const contactId = el.dataset.contactId;
+    contacts.push({ contactId, isRecipient: checkedValue === contactId });
+  });
+  document.querySelectorAll('#' + cid + '-ctl-newcontacts .new-contact-row').forEach(row => {
+    const idx = row.dataset.rowIndex;
+    const name  = document.getElementById(cid + '-ctl-newc-' + idx + '-name')?.value.trim() || '';
+    const type  = document.getElementById(cid + '-ctl-newc-' + idx + '-type')?.value || 'Email';
+    const value = document.getElementById(cid + '-ctl-newc-' + idx + '-value')?.value.trim() || '';
+    contacts.push({ name, type, value, isRecipient: checkedValue === ('new-' + idx) });
+  });
+  body.contacts = contacts;
+
   try {
     await api('/admin-update-client', { body });
     showToast('Notifications updated.');
     await reloadAndReopen(clientId);
   } catch (e) {
     showToast('Error: ' + e.message);
+  }
+}
+
+async function saveBuildingNotifications(clientId) {
+  const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const st = clientState(clientId);
+  const buildingId = st.selected;
+  const errEl = document.getElementById(cid + '-ctl-error');
+
+  const radioName = cid + '-ctl-notifpick';
+  const checkedRadio = document.querySelector('input[name="' + radioName + '"]:checked');
+  const checkedValue = checkedRadio ? checkedRadio.value : 'default';
+
+  const building = { action: 'save', addressId: buildingId };
+
+  if (checkedValue === 'default') {
+    building.contactId = '';
+  } else if (checkedValue.indexOf('new-') === 0) {
+    const idx = checkedValue.slice(4);
+    const name  = document.getElementById(cid + '-ctl-newc-' + idx + '-name')?.value.trim() || '';
+    const type  = document.getElementById(cid + '-ctl-newc-' + idx + '-type')?.value || 'Email';
+    const value = document.getElementById(cid + '-ctl-newc-' + idx + '-value')?.value.trim() || '';
+    if (!name || !value) { if (errEl) errEl.textContent = 'Enter a name and a value for the new contact.'; return; }
+    building.newContact = { name, type, value };
+  } else {
+    building.contactId = checkedValue;
+  }
+
+  try {
+    await api('/admin-update-client', { body: { clientId, building } });
+    showToast('Building notifications updated.');
+    await reloadAndReopen(clientId);
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message; else showToast('Error: ' + e.message);
   }
 }
 

@@ -71,13 +71,32 @@ async function handleBuilding(b) {
     const item = rows.find(it => it.id === String(bld.addressId));
     if (!item) return jsonResponse(404, { error: 'Building not found.' });
 
+    /* Si viene un contacto nuevo (name+value llenos), se crea primero en
+       ClientContacts (compartida entre primaria y buildings) y su id
+       gana sobre cualquier contactId que haya llegado por separado. */
+    let newContactId = null;
+    if (bld.newContact && bld.newContact.name && String(bld.newContact.name).trim()
+        && bld.newContact.value && String(bld.newContact.value).trim()) {
+      const created = await createListItem(CLIENT_CONTACTS_LIST, {
+        Title:           bld.newContact.name,
+        ClientID:        b.clientId,
+        Name:            bld.newContact.name  || '',
+        ContactType:     bld.newContact.type  || 'Email',
+        Value:           bld.newContact.value || '',
+        Archived:        false,
+        NotifyRecipient: false
+      });
+      newContactId = created.id;
+    }
+
     const map = [
       ['Label',          bld.label,          'Title'],
       ['BuildingNumber', bld.buildingNumber],
       ['Address',        bld.address],
       ['Suite',          bld.suite],
       ['City',           bld.city],
-      ['Zip',            bld.zip]
+      ['Zip',            bld.zip],
+      ['ContactId',      newContactId !== null ? newContactId : bld.contactId]
     ];
     const patch = {};
     for (const [col, incoming, alsoTitle] of map) {
@@ -86,7 +105,7 @@ async function handleBuilding(b) {
       if (alsoTitle) patch.Title = incoming || '';
     }
     await updateListItemByItemId(CLIENT_ADDRESSES_LIST, item.id, patch);
-    return jsonResponse(200, { success: true, addressId: item.id });
+    return jsonResponse(200, { success: true, addressId: item.id, contactId: newContactId });
   }
 
   if (!bld.label || !String(bld.label).trim()) {
@@ -101,6 +120,7 @@ async function handleBuilding(b) {
     Suite:          bld.suite          || '',
     City:           bld.city           || '',
     Zip:            bld.zip            || '',
+    ContactId:      '',
     Archived:       false
   });
   return jsonResponse(200, { success: true, addressId: result.id });
