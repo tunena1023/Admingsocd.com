@@ -379,88 +379,11 @@
 <!-- CREATE -->
 <div class="panel" id="panel-create">
   <h2 class="section-title">Create Order</h2>
-  <p class="section-sub">Search for a client, select services and submit a new order.</p>
+  <p class="section-sub">Find a client, click "+ Add Order" and fill in the new order.</p>
   <div class="search-bar">
     <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="renderCreateClientList()">
   </div>
-  <div id="create-client-result"></div>
-  <div id="create-form" style="display:none">
-    <div style="background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:20px">
-      <p class="detail-label">Selected Client</p>
-      <div id="create-client-info"></div>
-    </div>
-    <div style="background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px">
-      <div class="field-group">
-        <label>Division</label>
-        <select id="create-division" onchange="loadCreateServices()">
-          <option value="">Select division…</option>
-          <option value="Janitorial">Janitorial</option>
-          <option value="renovations">Renovations</option>
-          <option value="exteriors">Exteriors</option>
-        </select>
-      </div>
-      <div id="create-services-wrap" style="display:none">
-        <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div id="create-services-list"></div>
-      </div>
-
-      <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
-        <button type="button" id="create-mode-single-btn" class="active" onclick="setCreateOrderMode('single')" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Single Unit</button>
-        <button type="button" id="create-mode-multi-btn" onclick="setCreateOrderMode('multi')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Multiple Units</button>
-      </div>
-
-      <div id="create-single-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
-        <div class="field-group">
-          <label>Building #</label>
-          <input type="text" id="create-building">
-        </div>
-        <div class="field-group">
-          <label>Unit #</label>
-          <input type="text" id="create-unit">
-        </div>
-        <div class="field-group">
-          <label>Bedrooms</label>
-          <input type="number" id="create-bedrooms" min="1" max="5">
-        </div>
-        <div class="field-group">
-          <label>Bathrooms</label>
-          <input type="number" id="create-bathrooms" min="1" max="3">
-        </div>
-        <div class="field-group">
-          <label>Entry Date</label>
-          <input type="date" id="create-entry-date">
-        </div>
-        <div class="field-group">
-          <label>Due Date</label>
-          <input type="date" id="create-due-date">
-        </div>
-      </div>
-
-      <div id="create-multi-container" style="display:none;margin-top:20px">
-        <div id="create-unit-cards"></div>
-        <button type="button" class="btn btn-outline" onclick="addCreateUnitCard()" style="margin-bottom:16px">+ Add Another Unit</button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-          <div class="field-group">
-            <label>Entry Date (all units)</label>
-            <input type="date" id="create-multi-entry-date">
-          </div>
-          <div class="field-group">
-            <label>Due Date (all units)</label>
-            <input type="date" id="create-multi-due-date">
-          </div>
-        </div>
-      </div>
-
-      <div class="field-group">
-        <label>Notes</label>
-        <textarea id="create-notes" rows="3"></textarea>
-      </div>
-      <div class="btn-actions">
-        <button class="btn btn-gold" onclick="submitCreateOrder()">Submit Order</button>
-        <button class="btn btn-outline" onclick="cancelCreate()">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <div id="create-client-result"><p class="empty-note">Loading…</p></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -3838,16 +3761,71 @@ async function saveNewClient() {
 
 /* ============================================================
    CREATE ORDER
+   Mismo patron de tarjeta que el tab Clients (.order-card, un
+   cliente abierto a la vez). Cada tarjeta trae un boton "+ Add
+   Order" que, al hacer clic, inyecta el formulario de la orden
+   DENTRO de esa misma tarjeta -- el formulario en si sigue usando
+   los mismos IDs fijos de siempre (create-division, etc.) porque
+   solo hay uno abierto a la vez.
 ============================================================ */
+function createClientCard(c) {
+  const cid = 'createcl-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');
+  return `
+    <div class="order-card" data-client-id="${esc(c.clientId)}">
+      <div class="order-card-header" onclick="toggleCreateCard('${esc(c.clientId)}')">
+        <div>
+          <div class="order-id">${esc(c.businessName)}</div>
+          <div class="order-meta">${esc(c.clientId)} · ${esc(c.contactPerson||c.contact||'—')}</div>
+        </div>
+      </div>
+      <div class="client-body" id="${cid}-body">
+        <div id="${cid}-content" style="padding:20px">
+          <button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function createCardOpenState() {
+  const store = window['__cardOpenState'] || (window['__cardOpenState'] = {});
+  return store['create'] || (store['create'] = { open: null, pinned: {} });
+}
+
+function closeOtherCreateCards(exceptClientId) {
+  const st = createCardOpenState();
+  const listEl = document.getElementById('create-client-result');
+  if (!listEl) return;
+  listEl.querySelectorAll('.order-card').forEach(card => {
+    const cid = card.dataset.clientId;
+    if (cid === exceptClientId || st.pinned[cid]) return;
+    const body = card.querySelector('.client-body');
+    if (body) body.classList.remove('open');
+  });
+}
+
+function toggleCreateCard(clientId) {
+  const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-body');
+  if (!body) return;
+  const st = createCardOpenState();
+  if (st.pinned[clientId]) return;
+
+  const isOpen = body.classList.contains('open');
+  if (isOpen) { body.classList.remove('open'); if (st.open === clientId) st.open = null; return; }
+
+  closeOtherCreateCards(clientId);
+  body.classList.add('open');
+  st.open = clientId;
+}
+
 function renderCreateClientList() {
   const box = document.getElementById('create-client-result');
   if (!box) return;
   const searchEl = document.getElementById('create-client-search');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
-  if (!q) { box.innerHTML = ''; return; }
 
   const list = (allClients || [])
-    .filter(c =>
+    .filter(c => !q ||
       String(c.clientId||'').toLowerCase().includes(q) ||
       String(c.businessName||'').toLowerCase().includes(q) ||
       String(c.contact||'').toLowerCase().includes(q))
@@ -3855,26 +3833,69 @@ function renderCreateClientList() {
     .sort((a, b) => String(a.businessName||'').localeCompare(String(b.businessName||'')));
 
   if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
-  box.innerHTML = list.map(c =>
-    `<div style="background:var(--white);border:1px solid var(--border);padding:12px 16px;border-radius:3px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"
-         onclick="selectCreateClient('${esc(c.clientId)}')">
-      <div><b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span></div>
-      <span style="font-size:12px;color:var(--gray)">${esc(c.contact||'')}</span>
-    </div>`
-  ).join('');
+  box.innerHTML = list.map(createClientCard).join('');
 }
 
-function selectCreateClient(clientId) {
+function createOrderFormHtml() {
+  return `
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+      <div class="field-group">
+        <label>Division</label>
+        <select id="create-division" onchange="loadCreateServices()">
+          <option value="">Select division…</option>
+          <option value="Janitorial">Janitorial</option>
+          <option value="renovations">Renovations</option>
+          <option value="exteriors">Exteriors</option>
+        </select>
+      </div>
+      <div id="create-services-wrap" style="display:none">
+        <p class="detail-label" style="margin-bottom:10px">Services</p>
+        <div id="create-services-list"></div>
+      </div>
+
+      <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
+        <button type="button" id="create-mode-single-btn" class="active" onclick="setCreateOrderMode('single')" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Single Unit</button>
+        <button type="button" id="create-mode-multi-btn" onclick="setCreateOrderMode('multi')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Multiple Units</button>
+      </div>
+
+      <div id="create-single-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
+        <div class="field-group"><label>Building #</label><input type="text" id="create-building"></div>
+        <div class="field-group"><label>Unit #</label><input type="text" id="create-unit"></div>
+        <div class="field-group"><label>Bedrooms</label><input type="number" id="create-bedrooms" min="1" max="5"></div>
+        <div class="field-group"><label>Bathrooms</label><input type="number" id="create-bathrooms" min="1" max="3"></div>
+        <div class="field-group"><label>Entry Date</label><input type="date" id="create-entry-date"></div>
+        <div class="field-group"><label>Due Date</label><input type="date" id="create-due-date"></div>
+      </div>
+
+      <div id="create-multi-container" style="display:none;margin-top:20px">
+        <div id="create-unit-cards"></div>
+        <button type="button" class="btn btn-outline" onclick="addCreateUnitCard()" style="margin-bottom:16px">+ Add Another Unit</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="field-group"><label>Entry Date (all units)</label><input type="date" id="create-multi-entry-date"></div>
+          <div class="field-group"><label>Due Date (all units)</label><input type="date" id="create-multi-due-date"></div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Notes</label>
+        <textarea id="create-notes" rows="3"></textarea>
+      </div>
+      <div class="btn-actions">
+        <button class="btn btn-gold" onclick="submitCreateOrder()">Submit Order</button>
+        <button class="btn btn-outline" onclick="cancelCreate()">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function startCreateOrderFor(clientId) {
   const c = allClients.find(x => x.clientId === clientId);
   if (!c) return;
   createSelectedClient = c;
-  document.getElementById('create-client-result').innerHTML = '';
-  document.getElementById('create-client-search').value = '';
-  document.getElementById('create-client-info').innerHTML =
-    `<b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span><br>
-     <span style="font-size:13px;color:var(--gray)">${esc(c.address||'')} ${esc(c.city||'')} — ${esc(c.contact||'')}</span>`;
-  document.getElementById('create-form').style.display = 'block';
   createSelected = {};
+  const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const content = document.getElementById(cid + '-content');
+  if (!content) return;
+  content.innerHTML = createOrderFormHtml();
   setCreateOrderMode('single');
 }
 
@@ -4106,25 +4127,18 @@ async function submitCreateOrder() {
 }
 
 function cancelCreate() {
+  const clientId = createSelectedClient ? createSelectedClient.clientId : null;
   createSelectedClient = null;
   createSelected = {};
   createMultiOn = false;
-  document.getElementById('create-form').style.display = 'none';
-  document.getElementById('create-client-search').value = '';
-  document.getElementById('create-division').value = '';
-  document.getElementById('create-services-wrap').style.display = 'none';
-  document.getElementById('create-building').value = '';
-  document.getElementById('create-unit').value = '';
-  document.getElementById('create-bedrooms').value = '';
-  document.getElementById('create-bathrooms').value = '';
-  document.getElementById('create-entry-date').value = '';
-  document.getElementById('create-due-date').value = '';
-  document.getElementById('create-multi-entry-date').value = '';
-  document.getElementById('create-multi-due-date').value = '';
-  document.getElementById('create-notes').value = '';
-  document.getElementById('create-unit-cards').innerHTML = '';
-  setCreateOrderMode('single');
-  renderCreateClientList();
+  createUnitCardCounter = 0;
+  if (clientId) {
+    const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
+    const content = document.getElementById(cid + '-content');
+    if (content) {
+      content.innerHTML = `<button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
+    }
+  }
 }
 
 /* ============================================================
