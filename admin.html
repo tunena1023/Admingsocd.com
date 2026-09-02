@@ -383,6 +383,7 @@
   <div class="search-bar">
     <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="renderCreateClientList()">
   </div>
+  <div id="create-toolbar"></div>
   <div id="create-client-result"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -3818,11 +3819,27 @@ function toggleCreateCard(clientId) {
   st.open = clientId;
 }
 
+function renderCreateSortToolbar() {
+  const box = document.getElementById('create-toolbar');
+  if (!box) return;
+  const keepSort = (document.getElementById('create-sort') || {}).value || 'name';
+  box.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
+      <select id="create-sort" onchange="renderCreateClientList()" style="font-size:12px;padding:8px 10px;border:1px solid var(--border);background:var(--white)">
+        <option value="name" ${keepSort==='name'?'selected':''}>Sort: Client name (A-Z)</option>
+        <option value="clientId" ${keepSort==='clientId'?'selected':''}>Sort: Client ID</option>
+      </select>
+    </div>`;
+}
+
 function renderCreateClientList() {
   const box = document.getElementById('create-client-result');
   if (!box) return;
+  renderCreateSortToolbar();
+
   const searchEl = document.getElementById('create-client-search');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const sortBy = (document.getElementById('create-sort') || {}).value || 'name';
 
   const list = (allClients || [])
     .filter(c => !q ||
@@ -3830,7 +3847,9 @@ function renderCreateClientList() {
       String(c.businessName||'').toLowerCase().includes(q) ||
       String(c.contact||'').toLowerCase().includes(q))
     .slice()
-    .sort((a, b) => String(a.businessName||'').localeCompare(String(b.businessName||'')));
+    .sort((a, b) => sortBy === 'clientId'
+      ? String(a.clientId||'').localeCompare(String(b.clientId||''), undefined, { numeric: true })
+      : String(a.businessName||'').localeCompare(String(b.businessName||'')));
 
   if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
   box.innerHTML = list.map(createClientCard).join('');
