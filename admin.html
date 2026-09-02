@@ -898,7 +898,7 @@ function batchApprovalGroupCard(batchId, units) {
   const groupOrderId = 'batch-' + batchId;
   const dom = apprDomId(groupOrderId);
   const clientId = units[0].ClientID || '';
-  const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
+  const innerHtml = units.map(o => newOrderApprovalCard(o, dom)).join('');
   return `
     <div class="order-card" data-order-id="${esc(groupOrderId)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
@@ -908,32 +908,36 @@ function batchApprovalGroupCard(batchId, units) {
         </div>
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
-        <div class="edit-grid" style="margin-top:16px">
-          <div class="field-group">
-            <label>Supervisor (applies to all units)</label>
-            <input type="text" id="${dom}-supervisor" oninput="checkBatchApprovalReady('${dom}')">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px">Individual units (edit separately if one needs something different)</div>
+        ${innerHtml}
+
+        <div id="${dom}-general" style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="edit-grid">
+            <div class="field-group">
+              <label>Supervisor (applies to all units)</label>
+              <input type="text" id="${dom}-supervisor" oninput="checkBatchApprovalReady('${dom}')">
+            </div>
+            <div class="field-group">
+              <label>Service Window</label>
+              <select id="${dom}-window" onchange="checkBatchApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
+            </div>
+            <div class="field-group">
+              <label>Service Date</label>
+              <input type="date" id="${dom}-dispatch" onchange="checkBatchApprovalReady('${dom}')">
+            </div>
           </div>
-          <div class="field-group">
-            <label>Service Window</label>
-            <select id="${dom}-window" onchange="checkBatchApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
+          <div class="appr-bar">
+            <button class="btn btn-green" id="${dom}-ok" disabled onclick="approveBatchAll('${esc(batchId)}','${dom}')">Approve All ${units.length} Units</button>
+            ${addUnitButtonHtml(clientId, batchId)}
           </div>
-          <div class="field-group">
-            <label>Service Date</label>
-            <input type="date" id="${dom}-dispatch" onchange="checkBatchApprovalReady('${dom}')">
-          </div>
-        </div>
-        <div class="appr-bar">
-          <button class="btn btn-green" id="${dom}-ok" disabled onclick="approveBatchAll('${esc(batchId)}','${dom}')">Approve All ${units.length} Units</button>
-        </div>
-        <p class="appr-hint">
-          Sets the same supervisor, service window and service date for every unit in
-          this order, then approves each one. If a unit can't be approved (missing
-          info, already changed, etc.) it's left pending and you'll see which one.
-        </p>
-        <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
-          ${addUnitWidgetHtml(clientId, batchId)}
-          <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units (edit separately if one needs something different)</div>
-          ${innerHtml}
+          ${addUnitFormHtml(clientId, batchId)}
+          <p class="appr-hint">
+            Sets the same supervisor, service window and service date for every unit in
+            this order, then approves each one. If a unit can't be approved (missing
+            info, already changed, etc.) it's left pending and you'll see which one.
+            Editing a unit individually above hides this block for this PO — that unit
+            keeps whatever you set on it directly, instead of the shared values here.
+          </p>
         </div>
       </div>
     </div>`;
@@ -984,8 +988,18 @@ async function approveBatchAll(batchId, dom) {
   const failed = [];
   for (const u of units) {
     try {
+      /* Si esta unidad ya se lleno individualmente (el bloque general
+         se hubiera ocultado en ese caso), esos valores ganan sobre los
+         compartidos -- nunca se pisan solos los que el admin puso a
+         proposito en una unidad especifica. */
+      const uDom = apprDomId(u.OrderID);
+      const uVal = id => (document.getElementById(uDom + '-' + id) || {}).value || '';
+      const useSupervisor = uVal('supervisor').trim() || supervisor;
+      const useWindow     = uVal('window')            || serviceWindow;
+      const useDispatch   = uVal('dispatch')           || dispatchDate;
+
       await api('/admin-update-order', {
-        body: { orderId: u.OrderID, supervisor, serviceWindow, dispatchDate, changedBy: actor }
+        body: { orderId: u.OrderID, supervisor: useSupervisor, serviceWindow: useWindow, dispatchDate: useDispatch, changedBy: actor }
       });
       await api('/admin-approve-order', {
         body: { orderId: u.OrderID, decision: 'approve', approvedBy: actor }
@@ -1004,9 +1018,14 @@ async function approveBatchAll(batchId, dom) {
   await loadAll();
 }
 
-function newOrderApprovalCard(o) {
+function newOrderApprovalCard(o, groupDom) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
+  /* Si esta unidad es parte de un PO, tocar cualquiera de sus propios
+     campos oculta el bloque general de "aplica a todas" -- para que
+     nunca quede ambiguo cual dato es el que de verdad se va a guardar
+     si el general y esta unidad dicen cosas distintas. */
+  const onChange = groupDom ? ("hideGroupGeneralBlock('" + groupDom + "');") : '';
   return `
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
@@ -1024,22 +1043,22 @@ function newOrderApprovalCard(o) {
         <div class="edit-grid" style="margin-top:16px">
           <div class="field-group">
             <label>Supervisor</label>
-            <input type="text" id="${dom}-supervisor" oninput="checkApprovalReady('${dom}')">
+            <input type="text" id="${dom}-supervisor" oninput="checkApprovalReady('${dom}');${onChange}">
           </div>
           <div class="field-group">
             <label>Service Window</label>
-            <select id="${dom}-window" onchange="checkApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
+            <select id="${dom}-window" onchange="checkApprovalReady('${dom}');${onChange}">${optionsHtml(SERVICE_WINDOWS, '')}</select>
           </div>
           <div class="field-group">
             <label>Service Date</label>
-            <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}')">
+            <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}');${onChange}">
           </div>
           <div class="field-group">
             <label style="text-transform:none;font-weight:400;color:var(--black);display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
-              <input type="checkbox" id="${dom}-inspection-toggle" onchange="toggleInspectionDate('${dom}')" style="width:auto">
+              <input type="checkbox" id="${dom}-inspection-toggle" onchange="toggleInspectionDate('${dom}');${onChange}" style="width:auto">
               Inspection needed?
             </label>
-            <input type="date" id="${dom}-inspection" style="display:none;margin-top:8px">
+            <input type="date" id="${dom}-inspection" style="display:none;margin-top:8px" onchange="${onChange}">
           </div>
         </div>
         <div class="appr-bar">
@@ -1055,6 +1074,11 @@ function newOrderApprovalCard(o) {
         </p>
       </div>
     </div>`;
+}
+
+function hideGroupGeneralBlock(groupDom) {
+  const el = document.getElementById(groupDom + '-general');
+  if (el) el.style.display = 'none';
 }
 
 function checkApprovalReady(dom) {
@@ -1798,7 +1822,12 @@ function groupByBatch(orders) {
 /* Widget reusable de "+ Add a Unit", usado tanto en Active como en
    Approvals -- copia Division/Servicios del resto del PO
    automaticamente, solo pide Building/Unit#/Bed/Bath/fechas. */
-function addUnitWidgetHtml(clientId, batchId) {
+function addUnitButtonHtml(clientId, batchId) {
+  const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
+  return `<button class="btn btn-outline" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">+ Add a Unit</button>`;
+}
+
+function addUnitFormHtml(clientId, batchId) {
   const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
   const c = allClients.find(x => x.clientId === clientId);
   const buildings = (c && c.buildings) ? c.buildings.filter(b => !b.archived) : [];
@@ -1809,8 +1838,7 @@ function addUnitWidgetHtml(clientId, batchId) {
   if (!bldgOptions) bldgOptions = '<option value="">No saved buildings for this client</option>';
 
   return `
-    <button class="btn btn-outline" style="margin-bottom:16px" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">+ Add a Unit</button>
-    <div id="${dom}-form" style="display:none;border:1px dashed var(--border);padding:16px;margin-bottom:16px">
+    <div id="${dom}-form" style="display:none;border:1px dashed var(--border);padding:16px;margin-top:12px;margin-bottom:16px">
       <div class="edit-grid">
         <div class="field-group"><label>Building</label><select id="${dom}-building">${bldgOptions}</select></div>
         <div class="field-group"><label>Unit #</label><input type="text" id="${dom}-unit-number"></div>
@@ -1825,6 +1853,12 @@ function addUnitWidgetHtml(clientId, batchId) {
       </div>
       <p class="dialog-error" id="${dom}-error"></p>
     </div>`;
+}
+
+/* Se queda como estaba, junta boton+formulario, para batchOrderGroupCard
+   (Active) que no necesita separarlos. */
+function addUnitWidgetHtml(clientId, batchId) {
+  return addUnitButtonHtml(clientId, batchId) + addUnitFormHtml(clientId, batchId);
 }
 
 function toggleAddUnitForm(dom) {
