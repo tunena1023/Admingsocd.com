@@ -69,6 +69,21 @@ function nextGlobalSuffix(allOrderRows) {
   return String(next).padStart(4, '0');
 }
 
+/* PO compartido entre las unidades de un pedido multi-unidad. Mismo
+   criterio que nextGlobalSuffix: global (no por cliente), arranca en
+   5000 para nunca confundirse a simple vista con un sufijo normal. */
+function nextGlobalPO(allOrderRows) {
+  const nums = allOrderRows
+    .map(it => {
+      const id = String(it.fields?.OrderID || it.fields?.Title || '');
+      const m = id.match(/-PO(\d+)$/);
+      return m ? parseInt(m[1], 10) : null;
+    })
+    .filter(n => n !== null);
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 5000;
+  return 'PO' + next;
+}
+
 function parseServicesString(str, division) {
   const out = [];
   String(str || '').split(' | ').forEach(item => {
@@ -408,6 +423,115 @@ exports.handler = async (event) => {
       });
 
       return jsonResponse(200, { success: true, orderId: existing.OrderID });
+    }
+
+    /* ===== FLUJO D: Pedido multi-unidad → N ordenes reales con un PO compartido =====
+       Calcado del Flujo D del repo orders, adaptado al estilo de este
+       archivo (fetchAll + filtro en JS, no fetchByField) y con
+       atribucion de quien lo creo (changedBy) en vez de asumir que
+       fue el propio cliente. */
+    if (Array.isArray(b.Units) && b.Units.length >= 2) {
+      if (!b.Services) return jsonResponse(400, { error: 'Services are required' });
+
+      const buildingIds = b.Units.map(u => String(u.buildingId || '').trim());
+      if (buildingIds.some(id => !id)) {
+        return jsonResponse(400, { error: 'Every unit needs a building selected.' });
+      }
+
+      const [allOrderRows, allBuildingRows] = await Promise.all([
+        fetchAll(ORDERS_LIST),
+        fetchAll(CLIENT_ADDRESSES_LIST)
+      ]);
+      const buildingRows = allBuildingRows.filter(it =>
+        it.fields && String(it.fields.ClientID || '').trim().toLowerCase() === String(b.ClientID).trim().toLowerCase()
+      );
+
+      const buildingsById = {};
+      buildingRows.forEach(it => { if (it.fields) buildingsById[it.id] = it.fields; });
+      for (const id of buildingIds) {
+        if (!buildingsById[id]) return jsonResponse(403, { error: 'One of the selected buildings does not belong to this client.' });
+      }
+
+      const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
+      const poTag = nextGlobalPO(allOrderRows);
+      let nextSuffixNum = parseInt(nextGlobalSuffix(allOrderRows), 10);
+      const parsedServices = resolveServices(b.Services, b.Division);
+
+      const createdOrderIds = [];
+      for (const unit of b.Units) {
+        const bId = String(unit.buildingId).trim();
+        const bf = buildingsById[bId];
+        const suffix = String(nextSuffixNum++).padStart(4, '0');
+        const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + poTag;
+
+        const unitFields = Object.assign({}, orderFields, {
+          OrderID:        orderId,
+          Status:         b.Status || 'Received',
+          BuildingNumber: bf.BuildingNumber || '',
+          UnitNumber:     unit.unitNumber || '',
+          Bedrooms:       unit.bedrooms    || '',
+          Bathrooms:      unit.bathrooms   || '',
+          Address:        bf.Address || '',
+          Suite:          bf.Suite   || '',
+          City:           bf.City    || '',
+          Zip:            bf.Zip     || '',
+          BatchId:        poTag,
+          BuildingId:     bId
+        });
+
+        try {
+          await createListItem(ORDERS_LIST, unitFields);
+        } catch (e) {
+          throw new Error('Could not create unit ' + orderId + ': ' + e.message);
+        }
+
+        try {
+          await Promise.all(parsedServices.map(s =>
+            createListItem(ORDER_SERVICES_LIST, {
+              Title:       s.ServiceName || '',
+              OrderID:     orderId,
+              Category:    s.Category    || '',
+              ServiceName: s.ServiceName || '',
+              SubOption:   s.SubOption   || '',
+              Division:    s.Division    || b.Division
+            })
+          ));
+
+          await createListItem(ORDER_HISTORY_LIST, {
+            Title:      orderId,
+            OrderID:    orderId,
+            ChangeType: 'Created',
+            ChangedBy:  actor,
+            ChangeDate: new Date().toISOString(),
+            Notes:      '',
+            OldValue:   '',
+            NewValue:   b.Status || 'Received'
+          });
+        } catch (e) {
+          /* Mismo criterio que el Flujo C: un problema al escribir
+             servicios/historial no debe tumbar la orden completa. */
+          console.error('Batch unit post-order write failed for ' + orderId + ':', e.message);
+        }
+
+        createdOrderIds.push(orderId);
+      }
+
+      /* Fila resumen del lote, pegada a la ULTIMA unidad creada. */
+      const lastOrderId = createdOrderIds[createdOrderIds.length - 1];
+      try {
+        await createListItem(ORDER_HISTORY_LIST, {
+          Title:      lastOrderId + '-batch',
+          OrderID:    lastOrderId,
+          ChangeType: 'Batch Created',
+          ChangedBy:  actor,
+          ChangeDate: new Date().toISOString(),
+          Notes:      '',
+          OldValue:   poTag,
+          NewValue:   JSON.stringify(createdOrderIds)
+        });
+      } catch (e) { console.error('Batch Created history write failed:', e.message); }
+
+      return jsonResponse(200, { success: true, batchId: poTag, orderIds: createdOrderIds });
     }
 
     /* ===== FLUJO C: Orden nueva directa ===== */

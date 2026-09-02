@@ -381,7 +381,7 @@
   <h2 class="section-title">Create Order</h2>
   <p class="section-sub">Search for a client, select services and submit a new order.</p>
   <div class="search-bar">
-    <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="searchCreateClient()">
+    <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="renderCreateClientList()">
   </div>
   <div id="create-client-result"></div>
   <div id="create-form" style="display:none">
@@ -403,7 +403,13 @@
         <p class="detail-label" style="margin-bottom:10px">Services</p>
         <div id="create-services-list"></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
+
+      <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
+        <button type="button" id="create-mode-single-btn" class="active" onclick="setCreateOrderMode('single')" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Single Unit</button>
+        <button type="button" id="create-mode-multi-btn" onclick="setCreateOrderMode('multi')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Multiple Units</button>
+      </div>
+
+      <div id="create-single-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
         <div class="field-group">
           <label>Building #</label>
           <input type="text" id="create-building">
@@ -429,6 +435,22 @@
           <input type="date" id="create-due-date">
         </div>
       </div>
+
+      <div id="create-multi-container" style="display:none;margin-top:20px">
+        <div id="create-unit-cards"></div>
+        <button type="button" class="btn btn-outline" onclick="addCreateUnitCard()" style="margin-bottom:16px">+ Add Another Unit</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="field-group">
+            <label>Entry Date (all units)</label>
+            <input type="date" id="create-multi-entry-date">
+          </div>
+          <div class="field-group">
+            <label>Due Date (all units)</label>
+            <input type="date" id="create-multi-due-date">
+          </div>
+        </div>
+      </div>
+
       <div class="field-group">
         <label>Notes</label>
         <textarea id="create-notes" rows="3"></textarea>
@@ -534,6 +556,8 @@ let allServices = null;
 let orderDetailCache = {};
 let createSelectedClient = null;
 let createSelected = {};
+let createMultiOn = false;
+let createUnitCardCounter = 0;
 
 /* ============================================================
    TABS
@@ -545,6 +569,7 @@ function showTab(tab) {
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
+  if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
 }
 
 /* ============================================================
@@ -566,6 +591,7 @@ async function loadAll() {
     renderActive();
     renderHistory();
     renderClients();
+    renderCreateClientList();
   } catch (e) {
     showToast('Error loading data: ' + e.message);
   }
@@ -3813,26 +3839,34 @@ async function saveNewClient() {
 /* ============================================================
    CREATE ORDER
 ============================================================ */
-function searchCreateClient() {
-  const q = document.getElementById('create-client-search').value.trim().toLowerCase();
+function renderCreateClientList() {
   const box = document.getElementById('create-client-result');
-  if (!q) { box.innerHTML = ''; return; }
-  const matches = allClients.filter(c =>
-    String(c.clientId||'').toLowerCase().includes(q) ||
-    String(c.businessName||'').toLowerCase().includes(q) ||
-    String(c.contact||'').toLowerCase().includes(q)
-  ).slice(0, 5);
-  if (!matches.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
-  box.innerHTML = matches.map(c =>
-    `<div style="background:var(--white);border:1px solid var(--border);padding:12px 16px;border-radius:3px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"
-         onclick="selectCreateClient(${JSON.stringify(c).replace(/"/g,'&quot;')})">
-      <div><b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span></div>
-      <span style="font-size:12px;color:var(--gray)">${esc(c.contact||'')}</span>
-    </div>`
-  ).join('');
+  if (!box) return;
+  const searchEl = document.getElementById('create-client-search');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+
+  const list = (allClients || [])
+    .filter(c => !q ||
+      String(c.clientId||'').toLowerCase().includes(q) ||
+      String(c.businessName||'').toLowerCase().includes(q) ||
+      String(c.contact||'').toLowerCase().includes(q))
+    .slice()
+    .sort((a, b) => String(a.businessName||'').localeCompare(String(b.businessName||'')));
+
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
+  box.innerHTML = '<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:4px">' +
+    list.map(c =>
+      `<div style="background:var(--white);padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center"
+           onclick="selectCreateClient('${esc(c.clientId)}')">
+        <div><b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span></div>
+        <span style="font-size:12px;color:var(--gray)">${esc(c.contact||'')}</span>
+      </div>`
+    ).join('') + '</div>';
 }
 
-function selectCreateClient(c) {
+function selectCreateClient(clientId) {
+  const c = allClients.find(x => x.clientId === clientId);
+  if (!c) return;
   createSelectedClient = c;
   document.getElementById('create-client-result').innerHTML = '';
   document.getElementById('create-client-search').value = '';
@@ -3841,6 +3875,75 @@ function selectCreateClient(c) {
      <span style="font-size:13px;color:var(--gray)">${esc(c.address||'')} ${esc(c.city||'')} — ${esc(c.contact||'')}</span>`;
   document.getElementById('create-form').style.display = 'block';
   createSelected = {};
+  setCreateOrderMode('single');
+}
+
+/* ===== Multiple Units en Create Order ===== */
+function setCreateOrderMode(mode) {
+  createMultiOn = mode === 'multi';
+  document.getElementById('create-mode-single-btn').classList.toggle('active', !createMultiOn);
+  document.getElementById('create-mode-single-btn').style.background = createMultiOn ? 'var(--white)' : 'var(--gold)';
+  document.getElementById('create-mode-single-btn').style.color = createMultiOn ? 'var(--gray)' : 'var(--black)';
+  document.getElementById('create-mode-multi-btn').classList.toggle('active', createMultiOn);
+  document.getElementById('create-mode-multi-btn').style.background = createMultiOn ? 'var(--gold)' : 'var(--white)';
+  document.getElementById('create-mode-multi-btn').style.color = createMultiOn ? 'var(--black)' : 'var(--gray)';
+
+  document.getElementById('create-single-fields').style.display = createMultiOn ? 'none' : 'grid';
+  document.getElementById('create-multi-container').style.display = createMultiOn ? 'block' : 'none';
+
+  if (createMultiOn && !document.getElementById('create-unit-cards').children.length) {
+    addCreateUnitCard();
+    addCreateUnitCard();
+  }
+}
+
+function createBuildingOptionsHtml() {
+  const buildings = (createSelectedClient && createSelectedClient.buildings) ? createSelectedClient.buildings.filter(b => !b.archived) : [];
+  if (!buildings.length) return '<option value="">No saved buildings for this client</option>';
+  return buildings.map(b =>
+    '<option value="' + esc(b.id) + '">' + esc(b.label || 'Building') + (b.buildingNumber ? ' #' + esc(b.buildingNumber) : '') + '</option>'
+  ).join('');
+}
+
+function createUnitCardHtml(idx) {
+  return '' +
+    '<div class="unit-card-title" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dk);font-weight:700;margin-bottom:14px">Unit</div>' +
+    '<button type="button" onclick="removeCreateUnitCard(' + idx + ')" title="Remove unit" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--gray);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">×</button>' +
+    '<div class="field-group"><label>Building</label><select id="create-unit-' + idx + '-building">' + createBuildingOptionsHtml() + '</select></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">' +
+      '<div class="field-group"><label>Unit #</label><input type="text" id="create-unit-' + idx + '-unit-number"></div>' +
+      '<div class="field-group"><label>Bedrooms</label><input type="number" id="create-unit-' + idx + '-bedrooms" min="1" max="5"></div>' +
+      '<div class="field-group"><label>Bathrooms</label><input type="number" id="create-unit-' + idx + '-bathrooms" min="1" max="3"></div>' +
+    '</div>';
+}
+
+function addCreateUnitCard() {
+  const idx = ++createUnitCardCounter;
+  const div = document.createElement('div');
+  div.className = 'unit-card';
+  div.dataset.unit = idx;
+  div.style.cssText = 'border:1.5px solid var(--border);padding:18px 20px;margin-bottom:14px;background:var(--white);position:relative';
+  div.innerHTML = createUnitCardHtml(idx);
+  document.getElementById('create-unit-cards').appendChild(div);
+  renumberCreateUnitCards();
+}
+
+function removeCreateUnitCard(idx) {
+  const cards = document.querySelectorAll('#create-unit-cards .unit-card');
+  if (cards.length <= 2) {
+    showToast('A multi-unit order needs at least 2 units. Switch to "Single Unit" if you only need one.');
+    return;
+  }
+  const el = document.querySelector('#create-unit-cards .unit-card[data-unit="' + idx + '"]');
+  if (el) el.remove();
+  renumberCreateUnitCards();
+}
+
+function renumberCreateUnitCards() {
+  document.querySelectorAll('#create-unit-cards .unit-card').forEach((card, i) => {
+    const title = card.querySelector('.unit-card-title');
+    if (title) title.textContent = 'Unit ' + (i + 1);
+  });
 }
 
 async function loadCreateServices() {
@@ -3934,12 +4037,6 @@ async function submitCreateOrder() {
     Requester:      createSelectedClient.contactPerson || createSelectedClient.businessName,
     Division:       division,
     Services:       services,
-    BuildingNumber: document.getElementById('create-building').value,
-    UnitNumber:     document.getElementById('create-unit').value,
-    Bedrooms:       document.getElementById('create-bedrooms').value,
-    Bathrooms:      document.getElementById('create-bathrooms').value,
-    EntryDate:      document.getElementById('create-entry-date').value || null,
-    DueDate:        document.getElementById('create-due-date').value || null,
     Notes:          document.getElementById('create-notes').value,
     Address:        createSelectedClient.address || '',
     Suite:          createSelectedClient.suite || '',
@@ -3948,8 +4045,55 @@ async function submitCreateOrder() {
     Contact:        createSelectedClient.contact || '',
     Status:         'Received',
     OfficeCreated:  true,
-    ChangedBy:      getActorName()
+    ChangedBy:      getActorName(),
+    changedBy:      getActorName()
   };
+
+  if (createMultiOn) {
+    if (!createSelectedClient.buildings || !createSelectedClient.buildings.filter(b => !b.archived).length) {
+      showToast('This client has no saved buildings yet — add one in the Clients tab first.');
+      return;
+    }
+    const entryDate = document.getElementById('create-multi-entry-date').value;
+    const dueDate = document.getElementById('create-multi-due-date').value;
+    if (!entryDate) { showToast('Enter the entry date.'); return; }
+    if (!dueDate) { showToast('Enter the due date.'); return; }
+
+    const units = [];
+    const cards = document.querySelectorAll('#create-unit-cards .unit-card');
+    for (const card of cards) {
+      const idx = card.dataset.unit;
+      const buildingId = document.getElementById('create-unit-' + idx + '-building').value;
+      const unitNumber = document.getElementById('create-unit-' + idx + '-unit-number').value.trim();
+      const bedrooms = document.getElementById('create-unit-' + idx + '-bedrooms').value.trim();
+      const bathrooms = document.getElementById('create-unit-' + idx + '-bathrooms').value.trim();
+      if (!buildingId) { showToast('Choose a building for every unit.'); return; }
+      if (!unitNumber) { showToast('Enter the Unit Number for every unit.'); return; }
+      if (!bedrooms || parseInt(bedrooms) < 1) { showToast('Enter valid Bedrooms for every unit.'); return; }
+      if (!bathrooms || parseInt(bathrooms) < 1) { showToast('Enter valid Bathrooms for every unit.'); return; }
+      units.push({ buildingId, unitNumber, bedrooms, bathrooms });
+    }
+    body.Units = units;
+    body.EntryDate = new Date(entryDate + 'T08:00').toISOString();
+    body.DueDate = new Date(dueDate + 'T23:59:59').toISOString();
+
+    try {
+      const res = await api('/submit-order', { body });
+      showToast('Order ' + createSelectedClient.clientId + '-' + res.batchId + ' created with ' + (res.orderIds||[]).length + ' units.');
+      cancelCreate();
+      await loadAll();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+    return;
+  }
+
+  body.BuildingNumber = document.getElementById('create-building').value;
+  body.UnitNumber     = document.getElementById('create-unit').value;
+  body.Bedrooms       = document.getElementById('create-bedrooms').value;
+  body.Bathrooms      = document.getElementById('create-bathrooms').value;
+  body.EntryDate      = document.getElementById('create-entry-date').value || null;
+  body.DueDate        = document.getElementById('create-due-date').value || null;
 
   try {
     const res = await api('/submit-order', { body });
@@ -3964,9 +4108,9 @@ async function submitCreateOrder() {
 function cancelCreate() {
   createSelectedClient = null;
   createSelected = {};
+  createMultiOn = false;
   document.getElementById('create-form').style.display = 'none';
   document.getElementById('create-client-search').value = '';
-  document.getElementById('create-client-result').innerHTML = '';
   document.getElementById('create-division').value = '';
   document.getElementById('create-services-wrap').style.display = 'none';
   document.getElementById('create-building').value = '';
@@ -3975,7 +4119,12 @@ function cancelCreate() {
   document.getElementById('create-bathrooms').value = '';
   document.getElementById('create-entry-date').value = '';
   document.getElementById('create-due-date').value = '';
+  document.getElementById('create-multi-entry-date').value = '';
+  document.getElementById('create-multi-due-date').value = '';
   document.getElementById('create-notes').value = '';
+  document.getElementById('create-unit-cards').innerHTML = '';
+  setCreateOrderMode('single');
+  renderCreateClientList();
 }
 
 /* ============================================================
