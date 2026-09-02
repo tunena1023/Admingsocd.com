@@ -3844,9 +3844,10 @@ function renderCreateClientList() {
   if (!box) return;
   const searchEl = document.getElementById('create-client-search');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  if (!q) { box.innerHTML = ''; return; }
 
   const list = (allClients || [])
-    .filter(c => !q ||
+    .filter(c =>
       String(c.clientId||'').toLowerCase().includes(q) ||
       String(c.businessName||'').toLowerCase().includes(q) ||
       String(c.contact||'').toLowerCase().includes(q))
@@ -3854,14 +3855,13 @@ function renderCreateClientList() {
     .sort((a, b) => String(a.businessName||'').localeCompare(String(b.businessName||'')));
 
   if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
-  box.innerHTML = '<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:4px">' +
-    list.map(c =>
-      `<div style="background:var(--white);padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center"
-           onclick="selectCreateClient('${esc(c.clientId)}')">
-        <div><b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span></div>
-        <span style="font-size:12px;color:var(--gray)">${esc(c.contact||'')}</span>
-      </div>`
-    ).join('') + '</div>';
+  box.innerHTML = list.map(c =>
+    `<div style="background:var(--white);border:1px solid var(--border);padding:12px 16px;border-radius:3px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"
+         onclick="selectCreateClient('${esc(c.clientId)}')">
+      <div><b>${esc(c.businessName)}</b> <span style="color:var(--gold);font-size:12px">${esc(c.clientId)}</span></div>
+      <span style="font-size:12px;color:var(--gray)">${esc(c.contact||'')}</span>
+    </div>`
+  ).join('');
 }
 
 function selectCreateClient(clientId) {
