@@ -3769,6 +3769,29 @@ async function saveNewClient() {
    los mismos IDs fijos de siempre (create-division, etc.) porque
    solo hay uno abierto a la vez.
 ============================================================ */
+function createClientRecentOrdersHtml(clientId) {
+  const orders = (allOrders || [])
+    .filter(o => o.ClientID === clientId && o.Status !== 'Completed' && o.Status !== 'Cancelled')
+    .sort((a, b) => String(b.lastModifiedDateTime || b.createdDateTime || '').localeCompare(String(a.lastModifiedDateTime || a.createdDateTime || '')))
+    .slice(0, 5);
+
+  if (!orders.length) {
+    return '<p class="empty-note" style="margin-bottom:12px">No active or pending orders.</p>';
+  }
+
+  const rows = orders.map(o => {
+    const status = displayStatus(o);
+    const dueLabel = o.DueDate ? fmtDate(o.DueDate) : '—';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border);background:var(--off);font-size:12px;margin-bottom:6px">
+      <span>#${esc(o.OrderID)}</span>
+      <span style="color:var(--gray)">Due ${esc(dueLabel)}</span>
+      <span class="status-badge ${statusClass(status)}">${esc(status)}</span>
+    </div>`;
+  }).join('');
+
+  return '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Recent orders</div>' + rows;
+}
+
 function createClientCard(c) {
   const cid = 'createcl-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');
   return `
@@ -3781,6 +3804,7 @@ function createClientCard(c) {
       </div>
       <div class="client-body" id="${cid}-body">
         <div id="${cid}-content" style="padding:20px">
+          ${createClientRecentOrdersHtml(c.clientId)}
           <button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
         </div>
       </div>
@@ -3914,7 +3938,7 @@ function startCreateOrderFor(clientId) {
   const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const content = document.getElementById(cid + '-content');
   if (!content) return;
-  content.innerHTML = createOrderFormHtml();
+  content.innerHTML = createClientRecentOrdersHtml(clientId) + createOrderFormHtml();
   setCreateOrderMode('single');
 }
 
@@ -4155,7 +4179,8 @@ function cancelCreate() {
     const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
     const content = document.getElementById(cid + '-content');
     if (content) {
-      content.innerHTML = `<button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
+      content.innerHTML = createClientRecentOrdersHtml(clientId) +
+        `<button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
     }
   }
 }
