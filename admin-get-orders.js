@@ -1,5 +1,5 @@
 /* admin-get-orders.js — todas las órdenes (sin filtro de cliente) */
-const { ORDERS_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
+const { ORDERS_LIST, ORDER_SERVICES_LIST, graphFetch, siteListPath, jsonResponse } = require('./lib/graph');
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
@@ -15,7 +15,22 @@ async function fetchAll(listName) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const rows = await fetchAll(ORDERS_LIST);
+    const [rows, svcRows] = await Promise.all([
+      fetchAll(ORDERS_LIST),
+      fetchAll(ORDER_SERVICES_LIST)
+    ]);
+
+    /* Resumen de servicios por orden, para poder filtrar por servicio
+       en la lista sin tener que abrir cada orden. */
+    const servicesByOrder = {};
+    svcRows.forEach(it => {
+      if (!it.fields) return;
+      const oid = it.fields.OrderID;
+      const name = it.fields.ServiceName;
+      if (!oid || !name) return;
+      (servicesByOrder[oid] = servicesByOrder[oid] || []).push(name);
+    });
+
     const orders = rows
       .filter(it => it.fields)
       .map(it => {
@@ -23,6 +38,7 @@ exports.handler = async (event) => {
         return {
           id: it.id,
           createdDateTime: it.createdDateTime || '',
+          lastModifiedDateTime: it.lastModifiedDateTime || it.createdDateTime || '',
           OrderID: f.OrderID || f.Title || '',
           ClientID: f.ClientID || '',
           BusinessName: f.BusinessName || f.Title || '',
@@ -58,7 +74,8 @@ exports.handler = async (event) => {
           OrderNotifyUpdates:        f.OrderNotifyUpdates        || '',
           OrderContactId:            f.OrderContactId            || '',
           BatchId:    f.BatchId    || '',
-          BuildingId: f.BuildingId || ''
+          BuildingId: f.BuildingId || '',
+          Services: servicesByOrder[f.OrderID || f.Title] || []
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));

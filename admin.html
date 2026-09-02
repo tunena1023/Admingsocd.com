@@ -310,6 +310,7 @@
   <div class="search-bar">
     <input type="text" id="approvals-search" placeholder="Search by order number or client…" oninput="filterApprovals()">
   </div>
+  <div id="approvals-toolbar"></div>
   <div id="approvals-list"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -320,6 +321,7 @@
   <div class="search-bar">
     <input type="text" id="review-search" placeholder="Search by order number or client…" oninput="filterReview()">
   </div>
+  <div id="review-toolbar"></div>
   <div id="review-list"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -330,6 +332,7 @@
 <div class="search-bar">
   <input type="text" id="active-search" placeholder="Search by order number or client…" oninput="filterActive()">
 </div>
+  <div id="active-toolbar"></div>
   <div id="active-list"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -340,6 +343,7 @@
   <div class="search-bar">
     <input type="text" id="history-search" placeholder="Search by order number…" oninput="filterHistory()">
   </div>
+  <div id="history-toolbar"></div>
   <div id="history-list"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -872,14 +876,16 @@ function renderApprovals() {
     badge.textContent = all.length;
     badge.classList.toggle('zero', all.length === 0);
   }
-  const search = document.getElementById('approvals-search');
-  const q = search ? search.value.trim().toLowerCase() : '';
-  paintApprovals(q ? approvalsOf(q) : all);
+  renderSortFilterToolbar('approvals', all, 'filterApprovals');
+  filterApprovals();
 }
 
 function filterApprovals() {
   const q = document.getElementById('approvals-search').value.trim().toLowerCase();
-  paintApprovals(approvalsOf(q));
+  let list = approvalsOf(q);
+  list = applyOrderFilters(list, 'approvals');
+  list = sortOrders(list, (document.getElementById('approvals-sort') || {}).value || 'recent');
+  paintApprovals(list);
 }
 
 /* Tarjeta contenedora para Approvals -- a diferencia de Active/History,
@@ -1646,14 +1652,16 @@ function renderReview() {
     badge.textContent = all.length;
     badge.classList.toggle('zero', all.length === 0);
   }
-  const search = document.getElementById('review-search');
-  const q = search ? search.value.trim().toLowerCase() : '';
-  paintReview(q ? reviewOf(q) : all);
+  renderSortFilterToolbar('review', all, 'filterReview');
+  filterReview();
 }
 
 function filterReview() {
   const q = document.getElementById('review-search').value.trim().toLowerCase();
-  paintReview(reviewOf(q));
+  let list = reviewOf(q);
+  list = applyOrderFilters(list, 'review');
+  list = sortOrders(list, (document.getElementById('review-sort') || {}).value || 'recent');
+  paintReview(list);
 }
 
 /* ============================================================
@@ -1690,6 +1698,86 @@ function activeOf(q) {
 /* Agrupa por BatchId (PO), reusable en Active/History/Approvals. Solo
    agrupa DENTRO de la lista que se le pase -- si un PO tiene unidades
    en Active y otras en History, sale como grupo chico en cada lado. */
+/* ============================================================
+   Ordenar y filtrar -- compartido por las 4 pestanas (Approvals,
+   Review, Active, History). "Cambio mas reciente" usa
+   lastModifiedDateTime (metadato nativo de SharePoint, se actualiza
+   solo cuando se toca cualquier campo de la orden) en vez de
+   createdDateTime, para que de verdad refleje actividad reciente y
+   no nomas la fecha en que se creo.
+============================================================ */
+function sortOrders(list, sortBy) {
+  const arr = list.slice();
+  if (sortBy === 'orderNum') {
+    arr.sort((a, b) => String(a.OrderID || '').localeCompare(String(b.OrderID || ''), undefined, { numeric: true }));
+  } else if (sortBy === 'dueDate') {
+    arr.sort((a, b) => String(a.DueDate || '').localeCompare(String(b.DueDate || '')));
+  } else if (sortBy === 'entryDate') {
+    arr.sort((a, b) => String(a.EntryDate || '').localeCompare(String(b.EntryDate || '')));
+  } else if (sortBy === 'client') {
+    arr.sort((a, b) => String(a.BusinessName || '').localeCompare(String(b.BusinessName || '')));
+  } else {
+    arr.sort((a, b) => String(b.lastModifiedDateTime || b.createdDateTime || '').localeCompare(String(a.lastModifiedDateTime || a.createdDateTime || '')));
+  }
+  return arr;
+}
+
+function applyOrderFilters(list, prefix) {
+  const division = (document.getElementById(prefix + '-filter-division') || {}).value || '';
+  const status   = (document.getElementById(prefix + '-filter-status')   || {}).value || '';
+  const service  = (document.getElementById(prefix + '-filter-service')  || {}).value || '';
+  return list.filter(o => {
+    if (division && o.Division !== division) return false;
+    if (status && o.Status !== status) return false;
+    if (service && !(o.Services || []).includes(service)) return false;
+    return true;
+  });
+}
+
+/* Arma (o vuelve a armar) la barra de ordenar/filtrar de una pestana.
+   Las opciones de Division/Status/Servicio salen de la lista COMPLETA
+   sin filtrar de esa pestana (no de lo que ya esta filtrado), para
+   que nunca se "encojan" solas al elegir un filtro. Se preserva lo
+   que ya estaba seleccionado al reconstruir. */
+function renderSortFilterToolbar(prefix, fullList, onChangeFn) {
+  const box = document.getElementById(prefix + '-toolbar');
+  if (!box) return;
+
+  const keep = id => (document.getElementById(prefix + '-' + id) || {}).value || '';
+  const keepSort = keep('sort') || 'recent';
+  const keepDivision = keep('filter-division');
+  const keepStatus = keep('filter-status');
+  const keepService = keep('filter-service');
+
+  const divisions = Array.from(new Set(fullList.map(o => o.Division).filter(Boolean))).sort();
+  const statuses  = Array.from(new Set(fullList.map(o => o.Status).filter(Boolean))).sort();
+  const services  = Array.from(new Set(fullList.flatMap(o => o.Services || []))).sort();
+
+  const optHtml = (values, keepVal, allLabel) =>
+    '<option value="">' + allLabel + '</option>' +
+    values.map(v => '<option value="' + esc(v) + '"' + (keepVal === v ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+
+  box.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
+      <select id="${prefix}-sort" onchange="${onChangeFn}()" style="font-size:12px;padding:8px 10px;border:1px solid var(--border);background:var(--white)">
+        <option value="recent" ${keepSort==='recent'?'selected':''}>Sort: Most recent change</option>
+        <option value="orderNum" ${keepSort==='orderNum'?'selected':''}>Sort: Order number</option>
+        <option value="dueDate" ${keepSort==='dueDate'?'selected':''}>Sort: Due date</option>
+        <option value="entryDate" ${keepSort==='entryDate'?'selected':''}>Sort: Entry date</option>
+        <option value="client" ${keepSort==='client'?'selected':''}>Sort: Client (A-Z)</option>
+      </select>
+      <select id="${prefix}-filter-division" onchange="${onChangeFn}()" style="font-size:12px;padding:8px 10px;border:1px solid var(--border);background:var(--white)">
+        ${optHtml(divisions, keepDivision, 'All divisions')}
+      </select>
+      <select id="${prefix}-filter-status" onchange="${onChangeFn}()" style="font-size:12px;padding:8px 10px;border:1px solid var(--border);background:var(--white)">
+        ${optHtml(statuses, keepStatus, 'All statuses')}
+      </select>
+      <select id="${prefix}-filter-service" onchange="${onChangeFn}()" style="font-size:12px;padding:8px 10px;border:1px solid var(--border);background:var(--white);max-width:220px">
+        ${optHtml(services, keepService, 'All services')}
+      </select>
+    </div>`;
+}
+
 function groupByBatch(orders) {
   const standalone = [];
   const groupsMap = {};
@@ -1818,31 +1906,33 @@ function toggleBatchCard(groupOrderId, context) {
   st.open = groupOrderId;
 }
 
-function renderActive() {
+function paintActive(list) {
   const box = document.getElementById('active-list');
-  const list = activeOf('');
-  const badge = document.getElementById('active-count');
-  if (badge) {
-    badge.textContent = list.length;
-    badge.classList.toggle('zero', list.length === 0);
-  }
   if (!box) return;
-  if (!list.length) { box.innerHTML = '<p class="empty-note">No active orders.</p>'; return; }
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
   const { standalone, groupsMap, groupOrder } = groupByBatch(list);
   box.innerHTML =
     groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'active')).join('') +
     standalone.map(o => orderCard(o, 'active')).join('');
 }
 
+function renderActive() {
+  const all = activeOf('');
+  const badge = document.getElementById('active-count');
+  if (badge) {
+    badge.textContent = all.length;
+    badge.classList.toggle('zero', all.length === 0);
+  }
+  renderSortFilterToolbar('active', all, 'filterActive');
+  filterActive();
+}
+
 function filterActive() {
   const q = document.getElementById('active-search').value.trim().toLowerCase();
-  const filtered = activeOf(q);
-  const box = document.getElementById('active-list');
-  if (!filtered.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
-  const { standalone, groupsMap, groupOrder } = groupByBatch(filtered);
-  box.innerHTML =
-    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'active')).join('') +
-    standalone.map(o => orderCard(o, 'active')).join('');
+  let list = activeOf(q);
+  list = applyOrderFilters(list, 'active');
+  list = sortOrders(list, (document.getElementById('active-sort') || {}).value || 'recent');
+  paintActive(list);
 }
 
 /* ============================================================
@@ -1856,26 +1946,28 @@ function historyOf(q) {
   return list.filter(o => String(o.OrderID||'').toLowerCase().includes(q));
 }
 
-function renderHistory() {
+function paintHistory(list) {
   const box = document.getElementById('history-list');
-  const list = historyOf('');
   if (!box) return;
-  if (!list.length) { box.innerHTML = '<p class="empty-note">No orders in history.</p>'; return; }
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
   const { standalone, groupsMap, groupOrder } = groupByBatch(list);
   box.innerHTML =
     groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
     standalone.map(o => orderCard(o, 'history')).join('');
 }
 
+function renderHistory() {
+  const all = historyOf('');
+  renderSortFilterToolbar('history', all, 'filterHistory');
+  filterHistory();
+}
+
 function filterHistory() {
   const q = document.getElementById('history-search').value.trim().toLowerCase();
-  const filtered = historyOf(q);
-  const box = document.getElementById('history-list');
-  if (!filtered.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
-  const { standalone, groupsMap, groupOrder } = groupByBatch(filtered);
-  box.innerHTML =
-    groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
-    standalone.map(o => orderCard(o, 'history')).join('');
+  let list = historyOf(q);
+  list = applyOrderFilters(list, 'history');
+  list = sortOrders(list, (document.getElementById('history-sort') || {}).value || 'recent');
+  paintHistory(list);
 }
 
 /* ============================================================
