@@ -86,6 +86,14 @@
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .search-bar input { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid var(--border); font-size: 13px; margin-bottom: 12px; font-family: 'Inter', sans-serif; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
+
+    table.calendar-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+    .calendar-table th, .calendar-table td { border: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: top; }
+    .calendar-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
+    .calendar-table th.emp-col { width: 140px; }
+    .cal-order-chip { background: var(--gold); color: var(--black); font-size: 10px; padding: 3px 6px; margin-bottom: 3px; display: block; word-break: break-word; }
+    .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .week-nav b { font-size: 13px; }
   </style>
 </head>
 <body>
@@ -126,7 +134,20 @@
     </div>
     <div id="orders-queue-list"><p class="empty-note">Cargando…</p></div>
   </div>
-  <div class="subpanel" id="subpanel-calendar"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-calendar">
+    <div class="pill-row" id="calendar-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="janitorial">Janitorial</div>
+      <div class="pill" data-division="renovations">Renovations</div>
+      <div class="pill" data-division="exteriors">Exteriors</div>
+    </div>
+    <div class="week-nav">
+      <button class="btn-outline" onclick="moveCalendarWeek(-1)">◀ Semana anterior</button>
+      <b id="calendar-week-label"></b>
+      <button class="btn-outline" onclick="moveCalendarWeek(1)">Semana siguiente ▶</button>
+    </div>
+    <div id="calendar-grid"><p class="empty-note">Cargando…</p></div>
+  </div>
   <div class="subpanel" id="subpanel-hours">
     <div class="pill-row" id="hours-division-pills">
       <div class="pill active" data-division="">All</div>
@@ -205,6 +226,7 @@
     if (tab === 'reports') loadUploadHistory();
     if (tab === 'hours') loadHoursOverview();
     if (tab === 'orders') loadOrdersQueue();
+    if (tab === 'calendar') loadCalendar();
   }
 
   /* ===== Hours ===== */
@@ -631,6 +653,97 @@
       p.classList.add('active');
       ordersDivisionFilter = p.dataset.division;
       renderOrdersQueue();
+    });
+  });
+
+  /* ===== Calendar ===== */
+  let calendarWeekOffset = 0;
+  let calendarDivisionFilter = '';
+  let schedulingCache = [];
+  let ordersCacheForCalendar = [];
+
+  function calendarWeekBounds(offset) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dow = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(monday.getDate() + (dow === 0 ? -6 : 1 - dow) + offset * 7);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  async function loadCalendar() {
+    const box = document.getElementById('calendar-grid');
+    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    try {
+      const [schedRes, ordersRes, hoursRes] = await Promise.all([
+        api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
+        api('/admin-get-orders', { method: 'POST', body: {} }),
+        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
+      ]);
+      schedulingCache = schedRes.items || [];
+      ordersCacheForCalendar = ordersRes.orders || [];
+      hoursOverviewCache = hoursRes.employees || [];
+      renderCalendar();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderCalendar() {
+    const box = document.getElementById('calendar-grid');
+    const days = calendarWeekBounds(calendarWeekOffset);
+    const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+    document.getElementById('calendar-week-label').textContent =
+      days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
+
+    let employees = hoursOverviewCache.slice();
+    if (calendarDivisionFilter) employees = employees.filter(e => e[calendarDivisionFilter]);
+    employees.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!employees.length) { box.innerHTML = '<p class="empty-note">No hay empleados activos en esta división.</p>'; return; }
+
+    const orderById = {};
+    ordersCacheForCalendar.forEach(o => { orderById[o.OrderID] = o; });
+
+    let html = '<table class="calendar-table"><tr><th class="emp-col">Empleado</th>' +
+      days.map((d, i) => '<th>' + dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>').join('') + '</tr>';
+
+    employees.forEach(emp => {
+      html += '<tr><td><b>' + esc(emp.name) + '</b></td>';
+      days.forEach(d => {
+        const dayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const entries = schedulingCache.filter(s => s.PayrollNumber === emp.payrollNumber && String(s.AssignedDate).slice(0, 10) === dayStr);
+        const cell = entries.map(s => {
+          const o = orderById[s.OrderID];
+          const label = o ? (o.BusinessName || o.ClientID) : s.OrderID;
+          return '<span class="cal-order-chip" title="' + esc(s.OrderID) + '">' + esc(label) + '</span>';
+        }).join('');
+        html += '<td>' + cell + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  }
+
+  function moveCalendarWeek(delta) {
+    calendarWeekOffset += delta;
+    renderCalendar();
+  }
+
+  document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      calendarDivisionFilter = p.dataset.division;
+      renderCalendar();
     });
   });
 
