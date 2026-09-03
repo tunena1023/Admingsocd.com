@@ -451,6 +451,7 @@
 
   /* ===== Orders ===== */
   let ordersQueueCache = [];       // ordenes Received sin ninguna fila en Scheduling
+  let directLinkOrder = null;      // orden abierta directo por ?orderId=, sin importar status
   let ordersScheduledCache = [];   // ordenes Received CON fila en Scheduling, esperando Approve
   let ordersDivisionFilter = '';
   let openOrderCard = null;
@@ -472,7 +473,16 @@
       ordersQueueCache = pending.filter(o => !scheduledOrderIds.has(o.OrderID));
       ordersScheduledCache = pending.filter(o => scheduledOrderIds.has(o.OrderID));
 
+      /* Link directo desde otro lado del sistema (ej. "Reassign in
+         Scheduling" en Active) -- abre ESA orden especifica sin
+         importar su status, no solo las que estan en Received. */
+      const linkedId = new URLSearchParams(location.search).get('orderId');
+      directLinkOrder = linkedId ? (ordersRes.orders || []).find(o => o.OrderID === linkedId) || null : null;
+
       renderOrdersQueue();
+      if (directLinkOrder) {
+        setTimeout(() => toggleOrderCard(directLinkOrder.OrderID), 50);
+      }
     } catch (e) {
       box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
     }
@@ -493,6 +503,10 @@
     const scheduled = ordersScheduledCache.filter(filterFn);
 
     let html = '';
+    if (directLinkOrder) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:0 0 8px">Abierta directo (' + esc(directLinkOrder.Status) + ')</div>';
+      html += orderQueueCardHtml(directLinkOrder);
+    }
     if (queue.length) {
       html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Esperando asignación (' + queue.length + ')</div>';
       html += queue.map(orderQueueCardHtml).join('');
@@ -512,12 +526,13 @@
   }
 
   function orderQueueCardHtml(o) {
+    const waitLabel = o.Status === 'Received' ? ('esperando ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · esperando ${daysWaiting(o.createdDateTime)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}</div>
           </div>
           <span style="font-size:11px;color:var(--gray)">▾</span>
         </div>
@@ -552,7 +567,8 @@
       body.classList.remove('open'); body.innerHTML = ''; openOrderCard = null; return;
     }
 
-    const order = ordersQueueCache.find(o => o.OrderID === orderId);
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
     body.innerHTML = assignFormHtml(order);
     body.classList.add('open');
     openOrderCard = orderId;
@@ -800,7 +816,13 @@
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  if (adminUser) loadUploadHistory();
+  if (adminUser) {
+    if (new URLSearchParams(location.search).get('orderId')) {
+      showSubTab('orders');
+    } else {
+      loadUploadHistory();
+    }
+  }
 </script>
 </body>
 </html>

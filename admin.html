@@ -2419,9 +2419,15 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       <div id="${editSectionId}" style="display:none">
         <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
         <div class="edit-grid">
-          <div class="field-group">
-            <label>Supervisor</label>
-            <input type="text" id="edit-supervisor-${esc(o.OrderID)}" value="${esc(o.Supervisor||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
+          <div class="field-group" style="grid-column:1/-1">
+            <label>Who / When <span style="text-transform:none;font-weight:400;color:var(--gray)">(assigned by Scheduling — not editable here)</span></label>
+            <div style="padding:10px 0;font-size:13px;line-height:1.7">
+              Supervisor: <b>${o.Supervisor ? esc(o.Supervisor) : '—'}</b> ·
+              Window: <b>${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</b> ·
+              Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b> ·
+              Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b>
+            </div>
+            <a href="schedule.html?orderId=${encodeURIComponent(o.OrderID)}" target="_blank" class="btn btn-outline" style="display:inline-block;text-decoration:none">Reassign in Scheduling</a>
           </div>
           <div class="field-group">
             <label>Notes for client</label>
@@ -2434,18 +2440,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           <div class="field-group">
             <label>Due Date</label>
             <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-          <div class="field-group">
-            <label>Service Date</label>
-            <input type="date" id="edit-dispatch-${esc(o.OrderID)}" value="${dateInputValue(o.DispatchDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-          <div class="field-group">
-            <label>Inspection Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label>
-            <input type="date" id="edit-inspection-${esc(o.OrderID)}" value="${dateInputValue(o.InspectionDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-          <div class="field-group">
-            <label>Service Window</label>
-            <select id="edit-window-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '')}</select>
           </div>
           <div class="field-group">
             <label>Delay Reason</label>
@@ -2770,12 +2764,8 @@ function refreshSaveBtn(orderId) {
   const val = id => (document.getElementById(id + '-' + orderId) || {}).value ?? '';
   const orig = window['adminFieldsOriginal_' + orderId] || {};
   const fieldsChanged =
-    val('edit-supervisor') !== (orig.supervisor || '') ||
     val('edit-notes')      !== (orig.notes || '') ||
     val('edit-due')        !== (orig.due || '') ||
-    val('edit-dispatch')   !== (orig.dispatch || '') ||
-    val('edit-inspection') !== (orig.inspection || '') ||
-    val('edit-window')     !== (orig.window || '') ||
     val('edit-delaytype')  !== (orig.delaytype || '') ||
     val('edit-delaynotes') !== (orig.delaynotes || '');
 
@@ -2861,12 +2851,8 @@ function buildServicesPayload(orderId) {
 async function saveOrderUpdate(orderId, sendToClient) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
 
-  const supervisorVal       = val('edit-supervisor');
   const notesVal            = val('edit-notes');
   const dueDateVal          = val('edit-due');
-  const dispatchDateVal     = val('edit-dispatch');
-  const inspectionDateVal   = val('edit-inspection');
-  const serviceWindowVal    = val('edit-window');
   const delayReasonTypeVal  = val('edit-delaytype');
   const delayReasonNotesVal = val('edit-delaynotes');
 
@@ -2891,12 +2877,8 @@ async function saveOrderUpdate(orderId, sendToClient) {
      "Request Confirmation". */
   const orig = window['adminFieldsOriginal_' + orderId] || {};
   const body = { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: !!sendToClient };
-  if (supervisorVal       !== (orig.supervisor  || '')) body.supervisor       = supervisorVal;
   if (notesVal            !== (orig.notes       || '')) body.notes            = notesVal;
   if (dueDateVal          !== (orig.due         || '')) body.dueDate          = dueDateVal;
-  if (dispatchDateVal     !== (orig.dispatch    || '')) body.dispatchDate     = dispatchDateVal;
-  if (inspectionDateVal   !== (orig.inspection  || '')) body.inspectionDate   = inspectionDateVal;
-  if (serviceWindowVal    !== (orig.window      || '')) body.serviceWindow    = serviceWindowVal;
   if (delayReasonTypeVal  !== (orig.delaytype   || '')) body.delayReasonType  = delayReasonTypeVal;
   if (delayReasonNotesVal !== (orig.delaynotes  || '')) body.delayReasonNotes = delayReasonNotesVal;
   if (svcSelectionChanged(orderId)) {

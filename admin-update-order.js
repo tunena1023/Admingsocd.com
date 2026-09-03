@@ -148,14 +148,22 @@ exports.handler = async (event) => {
         dispatchDate: dayOf(f.DispatchDate), inspectionDate: dayOf(f.InspectionDate),
         delayReasonType: f.DelayReasonType || '', delayReasonNotes: f.DelayReasonNotes || ''
       };
+      /* Supervisor/ServiceWindow/DispatchDate/InspectionDate NUNCA se
+         aceptan aqui, sin importar lo que llegue en el body -- esos 4
+         campos son exclusivos de Scheduling, punto. Un Change Request
+         es para lo que el cliente ve (fechas visibles, notas,
+         servicios), no para quien va a hacer el trabajo. Antes, si
+         este campo llegaba vacio (el input quedaba en blanco al
+         editar), se guardaba vacio de inmediato -- borrando al
+         supervisor real sin que nadie lo pidiera. */
       const newFieldsSnap = {
-        supervisor:       supervisor       !== undefined ? supervisor       : oldFieldsSnap.supervisor,
+        supervisor:       oldFieldsSnap.supervisor,
         notes:            notes            !== undefined ? notes            : oldFieldsSnap.notes,
         entryDate:        entryDate        !== undefined ? dayOf(entryDate) : oldFieldsSnap.entryDate,
         dueDate:          dueDate          !== undefined ? dayOf(dueDate)   : oldFieldsSnap.dueDate,
-        serviceWindow:    serviceWindow    !== undefined ? serviceWindow    : oldFieldsSnap.serviceWindow,
-        dispatchDate:     dispatchDate     !== undefined ? dayOf(dispatchDate) : oldFieldsSnap.dispatchDate,
-        inspectionDate:   inspectionDate   !== undefined ? dayOf(inspectionDate) : oldFieldsSnap.inspectionDate,
+        serviceWindow:    oldFieldsSnap.serviceWindow,
+        dispatchDate:     oldFieldsSnap.dispatchDate,
+        inspectionDate:   oldFieldsSnap.inspectionDate,
         delayReasonType:  delayReasonType  !== undefined ? delayReasonType  : oldFieldsSnap.delayReasonType,
         delayReasonNotes: delayReasonNotes !== undefined ? delayReasonNotes : oldFieldsSnap.delayReasonNotes
       };
