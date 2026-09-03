@@ -14,7 +14,8 @@
 const {
   CLIENTS_LIST, CLIENT_HISTORY_LIST, CLIENT_ADDRESSES_LIST, CLIENT_CONTACTS_LIST,
   createListItem, updateListItemByItemId,
-  graphFetch, siteListPath, jsonResponse
+  graphFetch, siteListPath, geocodeAddress,
+  jsonResponse
 } = require('./lib/graph');
 
 async function fetchAll(listName) {
@@ -104,6 +105,15 @@ async function handleBuilding(b) {
       patch[col] = incoming || '';
       if (alsoTitle) patch.Title = incoming || '';
     }
+
+    if (patch.Address !== undefined || patch.City !== undefined || patch.Zip !== undefined) {
+      const finalAddress = patch.Address !== undefined ? patch.Address : (item.fields.Address || '');
+      const finalCity    = patch.City    !== undefined ? patch.City    : (item.fields.City    || '');
+      const finalZip     = patch.Zip     !== undefined ? patch.Zip     : (item.fields.Zip      || '');
+      const geo = await geocodeAddress(finalAddress, finalCity, finalZip);
+      if (geo) { patch.Latitude = geo.lat; patch.Longitude = geo.lon; }
+    }
+
     await updateListItemByItemId(CLIENT_ADDRESSES_LIST, item.id, patch);
     return jsonResponse(200, { success: true, addressId: item.id, contactId: newContactId });
   }
@@ -111,7 +121,8 @@ async function handleBuilding(b) {
   if (!bld.label || !String(bld.label).trim()) {
     return jsonResponse(400, { error: 'Label is required for a new building.' });
   }
-  const result = await createListItem(CLIENT_ADDRESSES_LIST, {
+  const geo = await geocodeAddress(bld.address, bld.city, bld.zip);
+  const newFields = {
     Title:          bld.label,
     ClientID:       b.clientId,
     Label:          bld.label          || '',
@@ -122,7 +133,9 @@ async function handleBuilding(b) {
     Zip:            bld.zip            || '',
     ContactId:      '',
     Archived:       false
-  });
+  };
+  if (geo) { newFields.Latitude = geo.lat; newFields.Longitude = geo.lon; }
+  const result = await createListItem(CLIENT_ADDRESSES_LIST, newFields);
   return jsonResponse(200, { success: true, addressId: result.id });
 }
 

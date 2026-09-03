@@ -23,6 +23,7 @@
 const {
   SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
+  CLIENT_ADDRESSES_LIST, geocodeAddress,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -515,6 +516,38 @@ exports.handler = async (event) => {
       if (!body.id) return jsonResponse(400, { error: 'id is required' });
       await deleteListItem(STAFF_LIST, body.id);
       return jsonResponse(200, { success: true });
+    }
+
+    /* Backfill de coordenadas para los Buildings que ya existian antes
+       de que Latitude/Longitude existieran como columnas. Se procesa
+       de a poco (8 por llamada) porque Nominatim pide 1 peticion por
+       segundo -- con muchos edificios pendientes, hacerlo todo de un
+       jalon se pasaria del limite de tiempo de la funcion. El
+       frontend llama esto en bucle hasta que 'remaining' llegue a 0. */
+    if (action === 'geocode-buildings-backfill') {
+      const rows = await fetchAll(CLIENT_ADDRESSES_LIST);
+      const missing = rows.filter(it => it.fields && it.fields.Address &&
+        (it.fields.Latitude === undefined || it.fields.Latitude === null || it.fields.Latitude === '') );
+      const batch = missing.slice(0, 8);
+
+      let geocoded = 0;
+      const failed = [];
+      for (const it of batch) {
+        const f = it.fields;
+        const geo = await geocodeAddress(f.Address, f.City, f.Zip);
+        if (geo) {
+          await updateListItemByItemId(CLIENT_ADDRESSES_LIST, it.id, { Latitude: geo.lat, Longitude: geo.lon });
+          geocoded++;
+        } else {
+          failed.push(f.Label || f.Address || it.id);
+        }
+        await new Promise(r => setTimeout(r, 1100));
+      }
+
+      return jsonResponse(200, {
+        processed: batch.length, geocoded, failed,
+        remaining: Math.max(missing.length - batch.length, 0)
+      });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
