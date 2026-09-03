@@ -572,7 +572,7 @@
     try {
       let remaining = 1; // arranca en 1 nomas para entrar al bucle
       while (remaining > 0) {
-        box.textContent = 'Procesando… (' + totalGeocoded + ' resueltos hasta ahora)';
+        box.textContent = 'Processing… (' + totalGeocoded + ' resolved so far)';
         const res = await api('geocode-buildings-backfill');
         totalGeocoded += res.geocoded;
         totalFailed.push(...(res.failed || []));
@@ -580,7 +580,7 @@
         if (res.processed === 0) break; // nada que procesar, listo desde el inicio
       }
       let msg = totalGeocoded + ' buildings geocoded.';
-      if (totalFailed.length) msg += ' No se pudo ubicar: ' + totalFailed.join(', ');
+      if (totalFailed.length) msg += ' Could not locate: ' + totalFailed.join(', ');
       box.textContent = msg;
     } catch (e) {
       box.textContent = 'Error: ' + e.message;

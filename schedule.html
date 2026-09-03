@@ -113,7 +113,7 @@
 
 <div class="wrap">
   <h1 class="page-title">Scheduling</h1>
-  <p class="page-sub">Asignar personal de campo a órdenes pendientes, según horas disponibles y división.</p>
+  <p class="page-sub">Assign field employees to pending orders, based on available hours and division.</p>
 
   <div class="subtabs">
     <button class="subtab" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
@@ -125,14 +125,14 @@
   </div>
 
   <div class="subpanel" id="subpanel-orders">
-    <div class="search-bar"><input type="text" id="orders-search" placeholder="Buscar por número de orden o cliente…" oninput="renderOrdersQueue()"></div>
+    <div class="search-bar"><input type="text" id="orders-search" placeholder="Search by order number or client…" oninput="renderOrdersQueue()"></div>
     <div class="pill-row" id="orders-division-pills">
       <div class="pill active" data-division="">All</div>
       <div class="pill" data-division="Janitorial">Janitorial</div>
       <div class="pill" data-division="Renovations">Renovations</div>
       <div class="pill" data-division="Exteriors">Exteriors</div>
     </div>
-    <div id="orders-queue-list"><p class="empty-note">Cargando…</p></div>
+    <div id="orders-queue-list"><p class="empty-note">Loading…</p></div>
   </div>
   <div class="subpanel" id="subpanel-calendar">
     <div class="pill-row" id="calendar-division-pills">
@@ -142,11 +142,11 @@
       <div class="pill" data-division="exteriors">Exteriors</div>
     </div>
     <div class="week-nav">
-      <button class="btn-outline" onclick="moveCalendarWeek(-1)">◀ Semana anterior</button>
+      <button class="btn-outline" onclick="moveCalendarWeek(-1)">◀ Previous week</button>
       <b id="calendar-week-label"></b>
-      <button class="btn-outline" onclick="moveCalendarWeek(1)">Semana siguiente ▶</button>
+      <button class="btn-outline" onclick="moveCalendarWeek(1)">Next week ▶</button>
     </div>
-    <div id="calendar-grid"><p class="empty-note">Cargando…</p></div>
+    <div id="calendar-grid"><p class="empty-note">Loading…</p></div>
   </div>
   <div class="subpanel" id="subpanel-hours">
     <div class="pill-row" id="hours-division-pills">
@@ -155,13 +155,13 @@
       <div class="pill" data-division="renovations">Renovations</div>
       <div class="pill" data-division="exteriors">Exteriors</div>
     </div>
-    <div id="hours-list"><p class="empty-note">Cargando…</p></div>
+    <div id="hours-list"><p class="empty-note">Loading…</p></div>
   </div>
 
   <div class="subpanel active" id="subpanel-reports">
     <div class="upload-card">
       <h3>Employee Report</h3>
-      <p>Nombre + División + Payroll Number + Estado. Crea/actualiza el catálogo de personal de campo (FieldEmployees).</p>
+      <p>Name + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees).</p>
       <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
       <button class="btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
       <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
@@ -173,7 +173,7 @@
 
     <div class="upload-card">
       <h3>Hours Report (Average Hours)</h3>
-      <p>Nombre + horas semanales. Se cruza por nombre contra el catálogo para guardar todo con su Payroll Number.</p>
+      <p>Name + weekly hours. Cross-referenced by name against the catalog to save everything with its Payroll Number.</p>
       <input type="file" id="hours-report-file" accept=".csv" style="display:none" onchange="onHoursFileChosen()">
       <button class="btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
       <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
@@ -184,15 +184,15 @@
     </div>
 
     <div class="upload-card">
-      <h3>Historial de reportes subidos</h3>
-      <div id="upload-history"><p class="empty-note">Cargando…</p></div>
+      <h3>Upload History</h3>
+      <div id="upload-history"><p class="empty-note">Loading…</p></div>
     </div>
   </div>
 
-  <div class="subpanel" id="subpanel-routing"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-routing"><p class="empty-note">Coming soon.</p></div>
   <div class="subpanel" id="subpanel-review">
-    <p class="page-sub" style="margin-bottom:16px">Órdenes con alguien asignado que ya quedó inactivo (dejó de aparecer en el Employee Report) — nadie va a ir a hacer ese trabajo si nadie se da cuenta.</p>
-    <div id="review-list"><p class="empty-note">Cargando…</p></div>
+    <p class="page-sub" style="margin-bottom:16px">Orders with someone assigned who has since gone inactive (no longer appears in the Employee Report) — nobody will show up to do that work unless someone catches it.</p>
+    <div id="review-list"><p class="empty-note">Loading…</p></div>
   </div>
 </div>
 
@@ -239,13 +239,13 @@
 
   async function loadHoursOverview() {
     const box = document.getElementById('hours-list');
-    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const res = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
       hoursOverviewCache = res.employees || [];
       renderHoursList();
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
     }
   }
 
@@ -255,22 +255,22 @@
     if (hoursDivisionFilter) list = list.filter(e => e[hoursDivisionFilter]);
     list.sort((a, b) => a.name.localeCompare(b.name));
 
-    if (!list.length) { box.innerHTML = '<p class="empty-note">No hay empleados activos en esta división.</p>'; return; }
+    if (!list.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
 
     box.innerHTML = list.map(e => {
       const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
       if (!e.hasWeekData) {
         return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
-          '<div class="hours-caption">Sin datos de horas para esta semana todavía — sube un Hours Report más reciente.</div></div>';
+          '<div class="hours-caption">No hours data for this week yet — upload a more recent Hours Report.</div></div>';
       }
       const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
       const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
       const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
       const remaining = 40 - e.hoursThisWeek;
       const caption = e.hoursThisWeek >= 40
-        ? '<b>' + e.hoursThisWeek.toFixed(1) + ' horas trabajadas</b> · <b style="color:#B33A3A">ya está en overtime (' + (e.hoursThisWeek - 40).toFixed(1) + ' horas extra)</b>'
-        : '<b>' + e.hoursThisWeek.toFixed(1) + ' horas trabajadas</b> · quedan <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' horas</b> antes de llegar a overtime (40 hrs)' +
-          (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' orden(es) ya asignadas esta semana</span>' : '');
+        ? '<b>' + e.hoursThisWeek.toFixed(1) + ' hours worked</b> · <b style="color:#B33A3A">already in overtime (' + (e.hoursThisWeek - 40).toFixed(1) + ' extra hours)</b>'
+        : '<b>' + e.hoursThisWeek.toFixed(1) + ' hours worked</b> · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hours</b> left before overtime (40 hrs)' +
+          (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' order(s) already assigned this week</span>' : '');
       return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
         '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
         '<div class="hours-caption">' + caption + '</div></div>';
@@ -348,7 +348,7 @@
         }));
         document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
       } catch (e) {
-        alert('No se pudo leer el archivo: ' + e.message);
+        alert('Could not read the file: ' + e.message);
       }
     };
     reader.readAsText(file);
@@ -362,10 +362,10 @@
       const res = await api('/developer-admin', { body: { action: 'upload-employee-report', email: adminUser.email, rows: employeeRows } });
       const box = document.getElementById('employee-result');
       box.style.display = 'block';
-      box.innerHTML = '<b>' + res.created + '</b> agregados · <b>' + res.updated + '</b> actualizados · <b>' + res.deactivated + '</b> desactivados · ' +
-        '<span style="color:var(--gray)">' + res.skippedOffice + ' de oficina ignorados</span>';
+      box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
+        '<span style="color:var(--gray)">' + res.skippedOffice + ' office employees skipped</span>';
       if (res.missingPayroll && res.missingPayroll.length) {
-        box.innerHTML += '<div class="warn-list"><b>Falta Payroll Number en uAttend</b> — agrégalo ahí y vuelve a subir el reporte. Mientras tanto, no están disponibles para asignar:<br>' +
+        box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
           res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
       }
       loadUploadHistory();
@@ -405,7 +405,7 @@
         hoursRows = parsed;
         document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
       } catch (e) {
-        alert('No se pudo leer el archivo: ' + e.message);
+        alert('Could not read the file: ' + e.message);
       }
     };
     reader.readAsText(file);
@@ -419,9 +419,9 @@
       const res = await api('/developer-admin', { body: { action: 'upload-hours-report', email: adminUser.email, rows: hoursRows } });
       const box = document.getElementById('hours-result');
       box.style.display = 'block';
-      box.innerHTML = '<b>' + res.inserted + '</b> semanas guardadas.';
+      box.innerHTML = '<b>' + res.inserted + '</b> weeks saved.';
       if (res.unmatched && res.unmatched.length) {
-        box.innerHTML += '<div class="warn-list"><b>Sin cruce en el catálogo</b> (no están en FieldEmployees):<br>' +
+        box.innerHTML += '<div class="warn-list"><b>No match in the catalog</b> (not in FieldEmployees):<br>' +
           res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
       }
       loadUploadHistory();
@@ -437,12 +437,12 @@
     try {
       const res = await api('/developer-admin', { body: { action: 'list-report-uploads', email: adminUser.email } });
       const uploads = res.uploads || [];
-      if (!uploads.length) { box.innerHTML = '<p class="empty-note">Todavía no se ha subido ningún reporte.</p>'; return; }
-      box.innerHTML = '<table class="grid-table"><tr><th>Tipo</th><th>Fecha</th><th>Resultado</th></tr>' +
+      if (!uploads.length) { box.innerHTML = '<p class="empty-note">No reports uploaded yet.</p>'; return; }
+      box.innerHTML = '<table class="grid-table"><tr><th>Type</th><th>Date</th><th>Result</th></tr>' +
         uploads.map(u => '<tr><td>' + esc(u.ReportType) + '</td><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
         '</table>';
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">No se pudo cargar el historial: ' + esc(e.message) + '</p>';
+      box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
     }
   }
 
@@ -458,7 +458,7 @@
 
   async function loadOrdersQueue() {
     const box = document.getElementById('orders-queue-list');
-    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const [ordersRes, schedulingRes, hoursRes] = await Promise.all([
         api('/admin-get-orders', { method: 'POST', body: {} }),
@@ -484,7 +484,7 @@
         setTimeout(() => toggleOrderCard(directLinkOrder.OrderID), 50);
       }
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
     }
   }
 
@@ -504,29 +504,29 @@
 
     let html = '';
     if (directLinkOrder) {
-      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:0 0 8px">Abierta directo (' + esc(directLinkOrder.Status) + ')</div>';
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:0 0 8px">Opened directly (' + esc(directLinkOrder.Status) + ')</div>';
       html += orderQueueCardHtml(directLinkOrder);
     }
     if (queue.length) {
-      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Esperando asignación (' + queue.length + ')</div>';
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Waiting for assignment (' + queue.length + ')</div>';
       html += queue.map(orderQueueCardHtml).join('');
     }
     if (scheduled.length) {
-      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Ya programadas, esperando Approve (' + scheduled.length + ')</div>';
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Already scheduled, waiting for Approve (' + scheduled.length + ')</div>';
       html += scheduled.map(orderScheduledCardHtml).join('');
     }
-    box.innerHTML = html || '<p class="empty-note">No hay órdenes pendientes.</p>';
+    box.innerHTML = html || '<p class="empty-note">No pending orders.</p>';
   }
 
   function daysWaiting(createdDateTime) {
     if (!createdDateTime) return '';
     const created = new Date(createdDateTime);
     const days = Math.floor((Date.now() - created.getTime()) / 86400000);
-    return days <= 0 ? 'hoy' : days + ' día' + (days === 1 ? '' : 's');
+    return days <= 0 ? 'today' : days + ' day' + (days === 1 ? '' : 's');
   }
 
   function orderQueueCardHtml(o) {
-    const waitLabel = o.Status === 'Received' ? ('esperando ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
+    const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
@@ -546,7 +546,7 @@
         <div class="order-card-header">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · asignado a: ${esc(o.Supervisor || '—')}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}</div>
           </div>
           <button class="btn-outline" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
         </div>
@@ -581,36 +581,36 @@
     }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
 
     if (!candidates.length) {
-      return '<p class="empty-note">No hay empleados activos en ' + esc(o.Division) + ' ahorita mismo. Revisa FieldEmployees o sube un Employee Report más reciente.</p>';
+      return '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>';
     }
 
     const rows = candidates.map(c => `
       <div class="candidate-row">
         <input type="checkbox" value="${escAttr(c.payrollNumber)}" class="cand-check" style="width:auto">
         <span class="candidate-name">${esc(c.name)}</span>
-        <span class="candidate-stat">${c.hasWeekData ? ('Horas esta semana: <b>' + c.hoursThisWeek.toFixed(1) + '</b>') : '<span style="color:var(--gray)">Sin datos de horas esta semana</span>'}</span>
-        <span class="candidate-stat">Órdenes esta semana: <b>${c.assignedOrdersThisWeek}</b></span>
+        <span class="candidate-stat">${c.hasWeekData ? ('Hours this week: <b>' + c.hoursThisWeek.toFixed(1) + '</b>') : '<span style="color:var(--gray)">No hours data this week</span>'}</span>
+        <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
       </div>`).join('');
 
     return `
-      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Candidatos — ${esc(o.Division)}</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Candidates — ${esc(o.Division)}</div>
       ${rows}
       <div class="toggle-row" style="margin-top:14px">
         <input type="checkbox" id="starts-office-${escAttr(o.OrderID)}" style="width:auto">
-        <label for="starts-office-${escAttr(o.OrderID)}">Arranca desde oficina</label>
+        <label for="starts-office-${escAttr(o.OrderID)}">Starts from office</label>
       </div>
       <div class="field-row">
-        <div class="field-group"><label>Fecha asignada</label><input type="date" id="assign-date-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Assigned Date</label><input type="date" id="assign-date-${escAttr(o.OrderID)}"></div>
         <div class="field-group"><label>Service Window</label>
           <select id="assign-window-${escAttr(o.OrderID)}">
-            <option value="">Seleccionar…</option>
+            <option value="">Select…</option>
             <option>5:00 AM - 8:00 AM</option>
             <option>8:00 AM - 11:00 AM</option>
             <option>11:00 AM - 2:00 PM</option>
             <option>2:00 PM - 5:00 PM</option>
           </select>
         </div>
-        <div class="field-group"><label>Inspection Date (opcional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}"></div>
       </div>
       <button class="btn-gold" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
@@ -627,11 +627,12 @@
     const inspectionDate = document.getElementById('assign-inspection-' + orderId).value;
     const startsFromOffice = document.getElementById('starts-office-' + orderId).checked;
 
-    if (!checked.length) { errEl.textContent = 'Selecciona al menos una persona.'; return; }
-    if (!assignedDate) { errEl.textContent = 'Elige la fecha asignada.'; return; }
-    if (!serviceWindow) { errEl.textContent = 'Elige el Service Window.'; return; }
+    if (!checked.length) { errEl.textContent = 'Select at least one person.'; return; }
+    if (!assignedDate) { errEl.textContent = 'Choose the assigned date.'; return; }
+    if (!serviceWindow) { errEl.textContent = 'Choose the Service Window.'; return; }
 
-    const order = ordersQueueCache.find(o => o.OrderID === orderId);
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
     const names = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name).join(', ');
 
     try {
@@ -655,7 +656,7 @@
   }
 
   async function rescheduleOrder(orderId) {
-    if (!confirm('¿Quitar la asignación de esta orden y regresarla a la cola?')) return;
+    if (!confirm('Remove this order\'s assignment and send it back to the queue?')) return;
     try {
       await api('/developer-admin', { body: { action: 'reschedule-order', email: adminUser.email, orderId } });
       await api('/admin-update-order', {
@@ -701,7 +702,7 @@
 
   async function loadCalendar() {
     const box = document.getElementById('calendar-grid');
-    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const [schedRes, ordersRes, hoursRes] = await Promise.all([
         api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
@@ -713,14 +714,14 @@
       hoursOverviewCache = hoursRes.employees || [];
       renderCalendar();
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
     }
   }
 
   function renderCalendar() {
     const box = document.getElementById('calendar-grid');
     const days = calendarWeekBounds(calendarWeekOffset);
-    const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     document.getElementById('calendar-week-label').textContent =
       days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
@@ -729,12 +730,12 @@
     if (calendarDivisionFilter) employees = employees.filter(e => e[calendarDivisionFilter]);
     employees.sort((a, b) => a.name.localeCompare(b.name));
 
-    if (!employees.length) { box.innerHTML = '<p class="empty-note">No hay empleados activos en esta división.</p>'; return; }
+    if (!employees.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
 
     const orderById = {};
     ordersCacheForCalendar.forEach(o => { orderById[o.OrderID] = o; });
 
-    let html = '<table class="calendar-table"><tr><th class="emp-col">Empleado</th>' +
+    let html = '<table class="calendar-table"><tr><th class="emp-col">Employee</th>' +
       days.map((d, i) => '<th>' + dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>').join('') + '</tr>';
 
     employees.forEach(emp => {
@@ -772,7 +773,7 @@
   /* ===== Review ===== */
   async function loadReview() {
     const box = document.getElementById('review-list');
-    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const [reviewRes, ordersRes] = await Promise.all([
         api('/developer-admin', { body: { action: 'list-orphaned-assignments', email: adminUser.email } }),
@@ -782,7 +783,7 @@
       (ordersRes.orders || []).forEach(o => { orderById[o.OrderID] = o; });
 
       const orphaned = reviewRes.orphaned || [];
-      if (!orphaned.length) { box.innerHTML = '<p class="empty-note">No hay nada pendiente de revisar — todo en orden.</p>'; return; }
+      if (!orphaned.length) { box.innerHTML = '<p class="empty-note">Nothing to review — all clear.</p>'; return; }
 
       box.innerHTML = orphaned.map(r => {
         const o = orderById[r.orderId] || {};
@@ -791,14 +792,14 @@
             <div class="order-card-header">
               <div>
                 <div class="order-id">#${esc(r.orderId)}</div>
-                <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · asignado a <b>${esc(r.employeeName)}</b> (ya inactivo) · ${fmtDateShort(r.assignedDate)}</div>
+                <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · assigned to <b>${esc(r.employeeName)}</b> (now inactive) · ${fmtDateShort(r.assignedDate)}</div>
               </div>
               <button class="btn-outline" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
             </div>
           </div>`;
       }).join('');
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
     }
   }
 
