@@ -350,6 +350,48 @@ exports.handler = async (event) => {
       return jsonResponse(200, { items });
     }
 
+    /* Asignaciones huerfanas: filas de Scheduling con AssignedDate de
+       HOY en adelante, cuyo PayrollNumber ya quedo inactivo (se fue
+       de la empresa, desaparecio del ultimo Employee Report) --
+       nadie va a ir a hacer ese trabajo si nadie se da cuenta. */
+    if (action === 'list-orphaned-assignments') {
+      const [scheduling, employees] = await Promise.all([
+        fetchAll(SCHEDULING_LIST),
+        fetchAll(FIELD_EMPLOYEES_LIST)
+      ]);
+
+      const inactiveByPayroll = {};
+      employees.forEach(it => {
+        if (!it.fields) return;
+        const pn = String(it.fields.PayrollNumber || '').trim();
+        if (!pn) return;
+        if (!truthy(it.fields.Active)) {
+          inactiveByPayroll[pn] = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+        }
+      });
+
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+
+      const orphaned = scheduling
+        .filter(it => it.fields)
+        .filter(it => {
+          const pn = String(it.fields.PayrollNumber || '').trim();
+          if (!inactiveByPayroll[pn]) return false;
+          const d = new Date(it.fields.AssignedDate);
+          return !isNaN(d) && d >= today;
+        })
+        .map(it => ({
+          id: it.id,
+          orderId: it.fields.OrderID || '',
+          payrollNumber: it.fields.PayrollNumber || '',
+          employeeName: inactiveByPayroll[String(it.fields.PayrollNumber || '').trim()] || '',
+          assignedDate: it.fields.AssignedDate || '',
+          division: it.fields.Division || ''
+        }));
+
+      return jsonResponse(200, { orphaned });
+    }
+
     /* Botón Reschedule: borra las filas de Scheduling de esa orden.
        El frontend, despues de esto, tambien llama a /admin-update-order
        para limpiar Supervisor/ServiceWindow/DispatchDate/InspectionDate

@@ -190,7 +190,10 @@
   </div>
 
   <div class="subpanel" id="subpanel-routing"><p class="empty-note">Próximamente.</p></div>
-  <div class="subpanel" id="subpanel-review"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-review">
+    <p class="page-sub" style="margin-bottom:16px">Órdenes con alguien asignado que ya quedó inactivo (dejó de aparecer en el Employee Report) — nadie va a ir a hacer ese trabajo si nadie se da cuenta.</p>
+    <div id="review-list"><p class="empty-note">Cargando…</p></div>
+  </div>
 </div>
 
 <script>
@@ -227,6 +230,7 @@
     if (tab === 'hours') loadHoursOverview();
     if (tab === 'orders') loadOrdersQueue();
     if (tab === 'calendar') loadCalendar();
+    if (tab === 'review') loadReview();
   }
 
   /* ===== Hours ===== */
@@ -641,7 +645,9 @@
       await api('/admin-update-order', {
         body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
       });
-      loadOrdersQueue();
+      const activeTab = document.querySelector('.subtab.active');
+      if (activeTab && activeTab.dataset.tab === 'review') loadReview();
+      else loadOrdersQueue();
     } catch (e) {
       alert('Error: ' + e.message);
     }
@@ -746,6 +752,45 @@
       renderCalendar();
     });
   });
+
+  /* ===== Review ===== */
+  async function loadReview() {
+    const box = document.getElementById('review-list');
+    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    try {
+      const [reviewRes, ordersRes] = await Promise.all([
+        api('/developer-admin', { body: { action: 'list-orphaned-assignments', email: adminUser.email } }),
+        api('/admin-get-orders', { method: 'POST', body: {} })
+      ]);
+      const orderById = {};
+      (ordersRes.orders || []).forEach(o => { orderById[o.OrderID] = o; });
+
+      const orphaned = reviewRes.orphaned || [];
+      if (!orphaned.length) { box.innerHTML = '<p class="empty-note">No hay nada pendiente de revisar — todo en orden.</p>'; return; }
+
+      box.innerHTML = orphaned.map(r => {
+        const o = orderById[r.orderId] || {};
+        return `
+          <div class="order-card">
+            <div class="order-card-header">
+              <div>
+                <div class="order-id">#${esc(r.orderId)}</div>
+                <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · asignado a <b>${esc(r.employeeName)}</b> (ya inactivo) · ${fmtDateShort(r.assignedDate)}</div>
+              </div>
+              <button class="btn-outline" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleDateString();
+  }
 
 
   function fmtDateTime(iso) {
