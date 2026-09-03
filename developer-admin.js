@@ -22,6 +22,7 @@
 
 const {
   SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
+  FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -149,6 +150,163 @@ exports.handler = async (event) => {
       if (!body.id) return jsonResponse(400, { error: 'id is required' });
       await deleteListItem(SERVICES_LIST, body.id);
       return jsonResponse(200, { success: true });
+    }
+
+    /* ============================================================
+       SCHEDULING — Reports: subir Employee Report y Hours Report.
+       Nivel de acceso: igual que canView (Staff/Director/Developer) --
+       los permisos finos de Scheduling quedaron pendientes aparte,
+       por ahora no se restringe mas que eso.
+    ============================================================ */
+
+    /* Employee Report -> crea/actualiza FieldEmployees. Division y
+       Active SIEMPRE se sobreescriben con lo que diga el reporte mas
+       reciente -- nunca hay edicion manual que sobreviva a la
+       siguiente subida (confirmado explicitamente). Cualquiera con
+       Department Code >= 1000 es de oficina y se ignora por completo. */
+    if (action === 'upload-employee-report') {
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+
+      const existing = await fetchAll(FIELD_EMPLOYEES_LIST);
+      const seenIds = new Set();
+      const missingPayroll = [];
+      let created = 0, updated = 0, skippedOffice = 0;
+
+      for (const r of rows) {
+        const firstName = String(r.firstName || '').trim();
+        const lastName = String(r.lastName || '').trim();
+        if (!firstName && !lastName) continue;
+
+        const deptCode = parseInt(String(r.departmentCode || '').trim(), 10);
+        if (isNaN(deptCode) || deptCode >= 1000) { skippedOffice++; continue; }
+
+        const payrollNumber = String(r.payrollNumber || '').trim();
+        const active = String(r.activeStatus || '').trim().toUpperCase() === 'ACTIVE';
+
+        const janitorial  = deptCode >= 100 && deptCode < 200;
+        const renovations = deptCode >= 200 && deptCode < 300;
+        const exteriors   = deptCode >= 300 && deptCode < 400;
+
+        /* Cruce: primero por PayrollNumber si ya lo teniamos guardado
+           (mas confiable), si no por nombre normalizado. */
+        let match = null;
+        if (payrollNumber) {
+          match = existing.find(it => it.fields && String(it.fields.PayrollNumber || '').trim() === payrollNumber);
+        }
+        if (!match) {
+          const wanted = (firstName + ' ' + lastName).toLowerCase();
+          match = existing.find(it => it.fields &&
+            (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).toLowerCase() === wanted);
+        }
+
+        const fields = {
+          Title: (firstName + ' ' + lastName).trim(),
+          FirstName: firstName,
+          LastName: lastName,
+          PayrollNumber: payrollNumber,
+          Janitorial: janitorial,
+          Renovations: renovations,
+          Exteriors: exteriors,
+          Active: active
+        };
+
+        if (match) {
+          await updateListItemByItemId(FIELD_EMPLOYEES_LIST, match.id, fields);
+          seenIds.add(match.id);
+          updated++;
+        } else {
+          const row = await createListItem(FIELD_EMPLOYEES_LIST, fields);
+          seenIds.add(row.id);
+          created++;
+        }
+
+        if (!payrollNumber) missingPayroll.push((firstName + ' ' + lastName).trim());
+      }
+
+      /* Quien ya no aparecio en este reporte, se desactiva (no se
+         borra) -- si vuelve a aparecer despues, se reactiva solo. */
+      let deactivated = 0;
+      const toDeactivate = existing.filter(it => it.fields && !seenIds.has(it.id) && truthy(it.fields.Active));
+      await Promise.all(toDeactivate.map(it => updateListItemByItemId(FIELD_EMPLOYEES_LIST, it.id, { Active: false })));
+      deactivated = toDeactivate.length;
+
+      const summary = created + ' agregados, ' + updated + ' actualizados, ' + deactivated + ' desactivados, ' +
+        skippedOffice + ' de oficina ignorados' +
+        (missingPayroll.length ? '. Falta Payroll Number: ' + missingPayroll.join(', ') : '');
+
+      await createListItem(REPORT_UPLOADS_LIST, {
+        Title: 'Employee Report',
+        ReportType: 'Employee Report',
+        UploadDate: new Date().toISOString(),
+        Summary: summary
+      });
+
+      return jsonResponse(200, { success: true, created, updated, deactivated, skippedOffice, missingPayroll });
+    }
+
+    /* Hours Report (Average Hours) -> reemplaza WeeklyHours completo.
+       Se cruza por nombre contra FieldEmployees para guardar todo con
+       PayrollNumber, nunca con el nombre suelto. */
+    if (action === 'upload-hours-report') {
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+
+      const employees = await fetchAll(FIELD_EMPLOYEES_LIST);
+      const byName = {};
+      employees.forEach(it => {
+        if (!it.fields) return;
+        const name = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim().toLowerCase();
+        if (name && it.fields.PayrollNumber) byName[name] = String(it.fields.PayrollNumber).trim();
+      });
+
+      const existingHours = await fetchAll(WEEKLY_HOURS_LIST);
+      await Promise.all(existingHours.map(it => deleteListItem(WEEKLY_HOURS_LIST, it.id)));
+
+      let inserted = 0;
+      const unmatched = new Set();
+      const toCreate = [];
+
+      for (const r of rows) {
+        const name = String(r.employeeName || '').trim();
+        if (!name) continue;
+        const payrollNumber = byName[name.toLowerCase()];
+        if (!payrollNumber) { unmatched.add(name); continue; }
+
+        toCreate.push({
+          Title: name,
+          PayrollNumber: payrollNumber,
+          WeekStart: r.weekStart,
+          WeekEnd: r.weekEnd,
+          TotalWeeklyHours: Number(r.totalHours) || 0
+        });
+      }
+
+      await Promise.all(toCreate.map(f => createListItem(WEEKLY_HOURS_LIST, f)));
+      inserted = toCreate.length;
+
+      const summary = inserted + ' semanas guardadas' +
+        (unmatched.size ? '. Sin cruce en el catalogo: ' + Array.from(unmatched).join(', ') : '');
+
+      await createListItem(REPORT_UPLOADS_LIST, {
+        Title: 'Hours Report',
+        ReportType: 'Hours Report',
+        UploadDate: new Date().toISOString(),
+        Summary: summary
+      });
+
+      return jsonResponse(200, { success: true, inserted, unmatched: Array.from(unmatched) });
+    }
+
+    if (action === 'list-report-uploads') {
+      const rows = await fetchAll(REPORT_UPLOADS_LIST);
+      const uploads = rows.filter(it => it.fields).map(it => ({
+        id: it.id,
+        ReportType: it.fields.ReportType || '',
+        UploadDate: it.fields.UploadDate || '',
+        Summary: it.fields.Summary || ''
+      })).sort((a, b) => String(b.UploadDate).localeCompare(String(a.UploadDate)));
+      return jsonResponse(200, { uploads });
     }
 
     /* ---- Todo lo demas (password del director, roles del staff)

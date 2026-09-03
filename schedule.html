@@ -33,6 +33,29 @@
     .stub-icon { font-size: 40px; margin-bottom: 20px; }
     .stub-wrap h1 { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; }
     .stub-wrap p { font-size: 14px; color: var(--gray); line-height: 1.7; }
+
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+    h1.page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--gray); margin-bottom: 24px; }
+
+    .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; }
+    .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
+    .subpanel { display: none; }
+    .subpanel.active { display: block; }
+
+    .upload-card { border: 1px solid var(--border); background: var(--white); padding: 24px; margin-bottom: 16px; }
+    .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
+    .upload-card p { font-size: 12px; color: var(--gray); margin: 0 0 14px; }
+    .btn-outline { background: var(--white); border: 1px solid var(--border); padding: 10px 18px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; color: var(--black); font-family: 'Inter', sans-serif; }
+    .btn-gold { background: var(--gold); color: var(--black); border: none; padding: 10px 18px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; font-family: 'Inter', sans-serif; }
+    .btn-outline:disabled, .btn-gold:disabled { opacity: .5; cursor: default; }
+    .result-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; }
+    .warn-list { background: #FFF8E6; border: 1px solid #E8D9A0; color: #8C6F2A; font-size: 12px; padding: 12px 14px; margin-top: 10px; }
+    table.grid-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 12px; }
+    .grid-table th, .grid-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+    .grid-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
+    .empty-note { font-size: 12px; color: var(--gray); padding: 20px; text-align: center; }
   </style>
 </head>
 <body>
@@ -50,18 +73,65 @@
   </div>
 </nav>
 
-<div class="stub-wrap">
-  <div class="stub-icon">&#128197;</div>
-  <h1>Schedule</h1>
-  <p>Coming soon.</p>
+<div class="wrap">
+  <h1 class="page-title">Scheduling</h1>
+  <p class="page-sub">Asignar personal de campo a órdenes pendientes, según horas disponibles y división.</p>
+
+  <div class="subtabs">
+    <button class="subtab" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
+    <button class="subtab" data-tab="calendar" onclick="showSubTab('calendar')">Calendar</button>
+    <button class="subtab" data-tab="hours" onclick="showSubTab('hours')">Hours</button>
+    <button class="subtab active" data-tab="reports" onclick="showSubTab('reports')">Reports</button>
+    <button class="subtab" data-tab="routing" onclick="showSubTab('routing')">Routing</button>
+    <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
+  </div>
+
+  <div class="subpanel" id="subpanel-orders"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-calendar"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-hours"><p class="empty-note">Próximamente.</p></div>
+
+  <div class="subpanel active" id="subpanel-reports">
+    <div class="upload-card">
+      <h3>Employee Report</h3>
+      <p>Nombre + División + Payroll Number + Estado. Crea/actualiza el catálogo de personal de campo (FieldEmployees).</p>
+      <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
+      <button class="btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
+      <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+      <div style="margin-top:12px">
+        <button class="btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+      </div>
+      <div id="employee-result" class="result-box" style="display:none"></div>
+    </div>
+
+    <div class="upload-card">
+      <h3>Hours Report (Average Hours)</h3>
+      <p>Nombre + horas semanales. Se cruza por nombre contra el catálogo para guardar todo con su Payroll Number.</p>
+      <input type="file" id="hours-report-file" accept=".csv" style="display:none" onchange="onHoursFileChosen()">
+      <button class="btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
+      <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+      <div style="margin-top:12px">
+        <button class="btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+      </div>
+      <div id="hours-result" class="result-box" style="display:none"></div>
+    </div>
+
+    <div class="upload-card">
+      <h3>Historial de reportes subidos</h3>
+      <div id="upload-history"><p class="empty-note">Cargando…</p></div>
+    </div>
+  </div>
+
+  <div class="subpanel" id="subpanel-routing"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-review"><p class="empty-note">Próximamente.</p></div>
 </div>
 
 <script>
   const stored = sessionStorage.getItem('admin_account');
+  let adminUser = null;
   if (!stored) {
     window.location.href = 'index.html';
   } else {
-    const adminUser = JSON.parse(stored);
+    adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
   }
 
@@ -70,6 +140,193 @@
     sessionStorage.removeItem('admin_token');
     window.location.href = 'index.html';
   }
+
+  async function api(path, opts = {}) {
+    const res = await fetch('/api' + path, {
+      method: opts.method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
+  function showSubTab(tab) {
+    document.querySelectorAll('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
+    if (tab === 'reports') loadUploadHistory();
+  }
+
+  /* ===== Parser CSV robusto (comillas, comas dentro de comillas) ===== */
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else field += c;
+      }
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function parseUSDate(s) {
+    const parts = String(s || '').trim().split('/');
+    if (parts.length !== 3) return null;
+    let [m, d, y] = parts;
+    let year = parseInt(y, 10);
+    if (isNaN(year)) return null;
+    if (year < 100) year += 2000;
+    const mm = parseInt(m, 10), dd = parseInt(d, 10);
+    if (isNaN(mm) || isNaN(dd)) return null;
+    return year + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+  }
+
+  function hhmmToDecimal(s) {
+    const parts = String(s || '').split(':');
+    if (parts.length < 2) return 0;
+    return Math.round((parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60) * 100) / 100;
+  }
+
+  /* ===== Employee Report ===== */
+  let employeeRows = null;
+  function onEmployeeFileChosen() {
+    const input = document.getElementById('employee-report-file');
+    const file = input.files[0];
+    document.getElementById('employee-result').style.display = 'none';
+    if (!file) { document.getElementById('employee-upload-btn').disabled = true; return; }
+    document.getElementById('employee-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCSV(reader.result);
+        employeeRows = rows.slice(1).filter(r => r.length > 1 && r[0].trim()).map(r => ({
+          firstName: r[0].trim(),
+          lastName: r[1].trim(),
+          departmentName: r[2].trim(),
+          departmentCode: r[3].trim(),
+          payrollNumber: r[4].trim(),
+          activeStatus: r[5].trim()
+        }));
+        document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
+      } catch (e) {
+        alert('No se pudo leer el archivo: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function uploadEmployeeReport() {
+    if (!employeeRows || !employeeRows.length) return;
+    const btn = document.getElementById('employee-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'upload-employee-report', email: adminUser.email, rows: employeeRows } });
+      const box = document.getElementById('employee-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.created + '</b> agregados · <b>' + res.updated + '</b> actualizados · <b>' + res.deactivated + '</b> desactivados · ' +
+        '<span style="color:var(--gray)">' + res.skippedOffice + ' de oficina ignorados</span>';
+      if (res.missingPayroll && res.missingPayroll.length) {
+        box.innerHTML += '<div class="warn-list"><b>Falta Payroll Number en uAttend</b> — agrégalo ahí y vuelve a subir el reporte. Mientras tanto, no están disponibles para asignar:<br>' +
+          res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  /* ===== Hours Report ===== */
+  let hoursRows = null;
+  function onHoursFileChosen() {
+    const input = document.getElementById('hours-report-file');
+    const file = input.files[0];
+    document.getElementById('hours-result').style.display = 'none';
+    if (!file) { document.getElementById('hours-upload-btn').disabled = true; return; }
+    document.getElementById('hours-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCSV(reader.result);
+        let currentName = '';
+        const parsed = [];
+        for (let i = 3; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.length < 3) continue;
+          const name = (r[0] || '').trim();
+          if (name) currentName = name;
+          if (!currentName) continue;
+          const dateRange = (r[2] || '').split(' - ');
+          if (dateRange.length !== 2) continue;
+          const ws = parseUSDate(dateRange[0]), we = parseUSDate(dateRange[1]);
+          if (!ws || !we) continue;
+          parsed.push({ employeeName: currentName, weekStart: ws, weekEnd: we, totalHours: hhmmToDecimal(r[4]) });
+        }
+        hoursRows = parsed;
+        document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
+      } catch (e) {
+        alert('No se pudo leer el archivo: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function uploadHoursReport() {
+    if (!hoursRows || !hoursRows.length) return;
+    const btn = document.getElementById('hours-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'upload-hours-report', email: adminUser.email, rows: hoursRows } });
+      const box = document.getElementById('hours-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.inserted + '</b> semanas guardadas.';
+      if (res.unmatched && res.unmatched.length) {
+        box.innerHTML += '<div class="warn-list"><b>Sin cruce en el catálogo</b> (no están en FieldEmployees):<br>' +
+          res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  async function loadUploadHistory() {
+    const box = document.getElementById('upload-history');
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-report-uploads', email: adminUser.email } });
+      const uploads = res.uploads || [];
+      if (!uploads.length) { box.innerHTML = '<p class="empty-note">Todavía no se ha subido ningún reporte.</p>'; return; }
+      box.innerHTML = '<table class="grid-table"><tr><th>Tipo</th><th>Fecha</th><th>Resultado</th></tr>' +
+        uploads.map(u => '<tr><td>' + esc(u.ReportType) + '</td><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
+        '</table>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">No se pudo cargar el historial: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function fmtDateTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  if (adminUser) loadUploadHistory();
 </script>
 </body>
 </html>
