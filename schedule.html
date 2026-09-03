@@ -56,6 +56,19 @@
     .grid-table th, .grid-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
     .grid-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
     .empty-note { font-size: 12px; color: var(--gray); padding: 20px; text-align: center; }
+
+    .pill-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .pill { padding: 8px 16px; border: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; background: var(--white); color: var(--gray); font-family: 'Inter', sans-serif; }
+    .pill.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+    .hours-card { background: var(--white); border: 1px solid var(--border); padding: 16px 20px; margin-bottom: 12px; }
+    .hours-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .hours-div { font-size: 10px; color: var(--gray); font-weight: 400; margin-left: 8px; text-transform: uppercase; letter-spacing: .04em; }
+    .hours-gauge { position: relative; height: 20px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; margin-bottom: 8px; }
+    .hours-gauge-fill { height: 100%; background: var(--gold); }
+    .hours-gauge-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--black); left: 100%; }
+    .hours-caption { font-size: 12px; color: var(--gray); }
+    .hours-caption b { color: var(--black); }
   </style>
 </head>
 <body>
@@ -88,7 +101,15 @@
 
   <div class="subpanel" id="subpanel-orders"><p class="empty-note">Próximamente.</p></div>
   <div class="subpanel" id="subpanel-calendar"><p class="empty-note">Próximamente.</p></div>
-  <div class="subpanel" id="subpanel-hours"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-hours">
+    <div class="pill-row" id="hours-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="janitorial">Janitorial</div>
+      <div class="pill" data-division="renovations">Renovations</div>
+      <div class="pill" data-division="exteriors">Exteriors</div>
+    </div>
+    <div id="hours-list"><p class="empty-note">Cargando…</p></div>
+  </div>
 
   <div class="subpanel active" id="subpanel-reports">
     <div class="upload-card">
@@ -156,7 +177,61 @@
     document.querySelectorAll('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
     document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
     if (tab === 'reports') loadUploadHistory();
+    if (tab === 'hours') loadHoursOverview();
   }
+
+  /* ===== Hours ===== */
+  let hoursOverviewCache = [];
+  let hoursDivisionFilter = '';
+
+  async function loadHoursOverview() {
+    const box = document.getElementById('hours-list');
+    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
+      hoursOverviewCache = res.employees || [];
+      renderHoursList();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderHoursList() {
+    const box = document.getElementById('hours-list');
+    let list = hoursOverviewCache.slice();
+    if (hoursDivisionFilter) list = list.filter(e => e[hoursDivisionFilter]);
+    list.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!list.length) { box.innerHTML = '<p class="empty-note">No hay empleados activos en esta división.</p>'; return; }
+
+    box.innerHTML = list.map(e => {
+      const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
+      if (!e.hasWeekData) {
+        return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
+          '<div class="hours-caption">Sin datos de horas para esta semana todavía — sube un Hours Report más reciente.</div></div>';
+      }
+      const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
+      const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
+      const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
+      const remaining = 40 - e.hoursThisWeek;
+      const caption = e.hoursThisWeek >= 40
+        ? '<b>' + e.hoursThisWeek.toFixed(1) + ' horas trabajadas</b> · <b style="color:#B33A3A">ya está en overtime (' + (e.hoursThisWeek - 40).toFixed(1) + ' horas extra)</b>'
+        : '<b>' + e.hoursThisWeek.toFixed(1) + ' horas trabajadas</b> · quedan <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' horas</b> antes de llegar a overtime (40 hrs)' +
+          (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' orden(es) ya asignadas esta semana</span>' : '');
+      return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
+        '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
+        '<div class="hours-caption">' + caption + '</div></div>';
+    }).join('');
+  }
+
+  document.getElementById('hours-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('hours-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      hoursDivisionFilter = p.dataset.division;
+      renderHoursList();
+    });
+  });
 
   /* ===== Parser CSV robusto (comillas, comas dentro de comillas) ===== */
   function parseCSV(text) {

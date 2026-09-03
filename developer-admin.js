@@ -309,6 +309,62 @@ exports.handler = async (event) => {
       return jsonResponse(200, { uploads });
     }
 
+    /* Panorama de horas: por cada empleado activo con PayrollNumber
+       (sin eso no se puede asignar, se excluye), sus horas de la
+       semana que contiene HOY (de WeeklyHours) y cuantas ordenes ya
+       tiene asignadas esa misma semana (de Scheduling, aunque hoy
+       todavia este vacia esa lista). */
+    if (action === 'get-hours-overview') {
+      const [employees, hours, scheduling] = await Promise.all([
+        fetchAll(FIELD_EMPLOYEES_LIST),
+        fetchAll(WEEKLY_HOURS_LIST),
+        fetchAll(SCHEDULING_LIST)
+      ]);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const weekStartMonday = new Date(today);
+      const dow = weekStartMonday.getDay();
+      weekStartMonday.setDate(weekStartMonday.getDate() + (dow === 0 ? -6 : 1 - dow));
+      const weekEndSunday = new Date(weekStartMonday);
+      weekEndSunday.setDate(weekEndSunday.getDate() + 6);
+
+      const overview = employees
+        .filter(it => it.fields && truthy(it.fields.Active) && String(it.fields.PayrollNumber || '').trim())
+        .map(it => {
+          const f = it.fields;
+          const payrollNumber = String(f.PayrollNumber).trim();
+          const name = (String(f.FirstName || '').trim() + ' ' + String(f.LastName || '').trim()).trim();
+
+          const weekRow = hours.find(h => {
+            if (!h.fields || String(h.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
+            const ws = new Date(h.fields.WeekStart), we = new Date(h.fields.WeekEnd);
+            return today >= ws && today <= we;
+          });
+          const hoursThisWeek = weekRow ? Number(weekRow.fields.TotalWeeklyHours) || 0 : 0;
+
+          const assignedOrdersThisWeek = scheduling.filter(s => {
+            if (!s.fields || String(s.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
+            const d = new Date(s.fields.AssignedDate);
+            return d >= weekStartMonday && d <= weekEndSunday;
+          }).length;
+
+          return {
+            payrollNumber,
+            name,
+            janitorial: truthy(f.Janitorial),
+            renovations: truthy(f.Renovations),
+            exteriors: truthy(f.Exteriors),
+            hoursThisWeek,
+            hasWeekData: !!weekRow,
+            assignedOrdersThisWeek
+          };
+        });
+
+      return jsonResponse(200, { employees: overview });
+    }
+
     /* ---- Todo lo demas (password del director, roles del staff)
        es exclusivo de Developer ---- */
     if (!isDeveloper) {
