@@ -848,7 +848,8 @@ function batchApprovalGroupCard(batchId, units) {
   const groupOrderId = 'batch-' + batchId;
   const dom = apprDomId(groupOrderId);
   const clientId = units[0].ClientID || '';
-  const innerHtml = units.map(o => newOrderApprovalCard(o, dom)).join('');
+  const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
+  const allScheduled = units.every(u => u.Supervisor && String(u.Supervisor).trim());
   return `
     <div class="order-card" data-order-id="${esc(groupOrderId)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
@@ -858,64 +859,21 @@ function batchApprovalGroupCard(batchId, units) {
         </div>
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
-        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px">Individual units (edit separately if one needs something different)</div>
-        ${innerHtml}
-
-        <div id="${dom}-general" style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
-          <div class="edit-grid">
-            <div class="field-group">
-              <label>Supervisor (applies to all units)</label>
-              <input type="text" id="${dom}-supervisor" oninput="checkBatchApprovalReady('${dom}')">
-            </div>
-            <div class="field-group">
-              <label>Service Window</label>
-              <select id="${dom}-window" onchange="checkBatchApprovalReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select>
-            </div>
-            <div class="field-group">
-              <label>Service Date</label>
-              <input type="date" id="${dom}-dispatch" onchange="checkBatchApprovalReady('${dom}')">
-            </div>
-          </div>
-          <div class="appr-bar">
-            <button class="btn btn-green" id="${dom}-ok" disabled onclick="approveBatchAll('${esc(batchId)}','${dom}')">Approve All ${units.length} Units</button>
-            ${addUnitButtonHtml(clientId, batchId)}
-          </div>
-          ${addUnitFormHtml(clientId, batchId)}
-          <p class="appr-hint">
-            Sets the same supervisor, service window and service date for every unit in
-            this order, then approves each one. If a unit can't be approved (missing
-            info, already changed, etc.) it's left pending and you'll see which one.
-            Editing a unit individually above hides this block for this PO — that unit
-            keeps whatever you set on it directly, instead of the shared values here.
-          </p>
+        <div class="appr-bar" style="margin-bottom:16px">
+          <button class="btn btn-green" ${allScheduled ? '' : 'disabled'} onclick="approveBatchAll('${esc(batchId)}')">Approve All ${units.length} Units</button>
+          ${addUnitButtonHtml(clientId, batchId)}
         </div>
+        ${addUnitFormHtml(clientId, batchId)}
+        ${allScheduled ? '' : '<div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-bottom:16px">Algunas unidades de este PO todavía no se han programado en Scheduling — Approve All se habilita cuando todas ya tengan asignación.</div>'}
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units</div>
+        ${innerHtml}
       </div>
     </div>`;
 }
 
-function checkBatchApprovalReady(dom) {
-  const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
-  const ready = !!(val('supervisor').trim() && val('window') && val('dispatch'));
-  const ok = document.getElementById(dom + '-ok');
-  if (ok) ok.disabled = !ready;
-}
-
-async function approveBatchAll(batchId, dom) {
-  const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
-  const supervisor = val('supervisor').trim();
-  const serviceWindow = val('window');
-  const dispatchDate = val('dispatch');
-  if (!supervisor || !serviceWindow || !dispatchDate) {
-    showToast('Set supervisor, service window and service date before approving.');
-    return;
-  }
-
+async function approveBatchAll(batchId) {
   const units = allOrders.filter(o => o.BatchId === batchId && NEW_ORDER_STATUSES.includes(o.Status));
   if (!units.length) { showToast('No units left to approve in this order.'); return; }
-
-  const btn = document.getElementById(dom + '-ok');
-  const originalLabel = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Approving…'; }
 
   /* Mismo chequeo de password del director que usa una orden individual
      (isOfficeCreatedOrder) -- se checa UNA vez contra la primera unidad,
@@ -926,10 +884,7 @@ async function approveBatchAll(batchId, dom) {
     const detail = await api('/get-order-detail', { body: { orderId: units[0].OrderID } });
     if (isOfficeCreatedOrder(detail.history || [])) {
       const directorActor = await promptDirectorPassword();
-      if (!directorActor) {
-        if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
-        return;
-      }
+      if (!directorActor) return;
       actor = directorActor;
     }
   } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
@@ -937,20 +892,11 @@ async function approveBatchAll(batchId, dom) {
   const succeeded = [];
   const failed = [];
   for (const u of units) {
+    if (!u.Supervisor || !String(u.Supervisor).trim()) {
+      failed.push({ orderId: u.OrderID, error: 'not scheduled yet' });
+      continue;
+    }
     try {
-      /* Si esta unidad ya se lleno individualmente (el bloque general
-         se hubiera ocultado en ese caso), esos valores ganan sobre los
-         compartidos -- nunca se pisan solos los que el admin puso a
-         proposito en una unidad especifica. */
-      const uDom = apprDomId(u.OrderID);
-      const uVal = id => (document.getElementById(uDom + '-' + id) || {}).value || '';
-      const useSupervisor = uVal('supervisor').trim() || supervisor;
-      const useWindow     = uVal('window')            || serviceWindow;
-      const useDispatch   = uVal('dispatch')           || dispatchDate;
-
-      await api('/admin-update-order', {
-        body: { orderId: u.OrderID, supervisor: useSupervisor, serviceWindow: useWindow, dispatchDate: useDispatch, changedBy: actor }
-      });
       await api('/admin-approve-order', {
         body: { orderId: u.OrderID, decision: 'approve', approvedBy: actor }
       });
@@ -968,14 +914,30 @@ async function approveBatchAll(batchId, dom) {
   await loadAll();
 }
 
-function newOrderApprovalCard(o, groupDom) {
+function newOrderApprovalCard(o) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
-  /* Si esta unidad es parte de un PO, tocar cualquiera de sus propios
-     campos oculta el bloque general de "aplica a todas" -- para que
-     nunca quede ambiguo cual dato es el que de verdad se va a guardar
-     si el general y esta unidad dicen cosas distintas. */
-  const onChange = groupDom ? ("hideGroupGeneralBlock('" + groupDom + "');") : '';
+  const isScheduled = !!(o.Supervisor && String(o.Supervisor).trim());
+
+  const readOnlyBlock = isScheduled ? `
+    <div class="edit-grid" style="margin-top:16px">
+      <div class="field-group"><label>Supervisor</label><div style="padding:8px 0;font-size:13px">${esc(o.Supervisor)}</div></div>
+      <div class="field-group"><label>Service Window</label><div style="padding:8px 0;font-size:13px">${esc(o.ServiceWindow || '—')}</div></div>
+      <div class="field-group"><label>Service Date</label><div style="padding:8px 0;font-size:13px">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</div></div>
+      <div class="field-group"><label>Inspection Date</label><div style="padding:8px 0;font-size:13px">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</div></div>
+    </div>` : `
+    <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px">
+      Esta orden todavía no ha sido programada. <a href="schedule.html" target="_blank" style="color:#8C6F2A;text-decoration:underline">Ve a Scheduling para asignarla →</a>
+    </div>
+    <div id="${dom}-bypass-form" style="display:none;margin-top:16px">
+      <div class="edit-grid">
+        <div class="field-group"><label>Supervisor</label><input type="text" id="${dom}-supervisor" oninput="checkBypassReady('${dom}')"></div>
+        <div class="field-group"><label>Service Window</label><select id="${dom}-window" onchange="checkBypassReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select></div>
+        <div class="field-group"><label>Service Date</label><input type="date" id="${dom}-dispatch" onchange="checkBypassReady('${dom}')"></div>
+        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="${dom}-inspection"></div>
+      </div>
+    </div>`;
+
   return `
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
@@ -990,65 +952,45 @@ function newOrderApprovalCard(o, groupDom) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
-        <div class="edit-grid" style="margin-top:16px">
-          <div class="field-group">
-            <label>Supervisor</label>
-            <input type="text" id="${dom}-supervisor" oninput="checkApprovalReady('${dom}');${onChange}">
-          </div>
-          <div class="field-group">
-            <label>Service Window</label>
-            <select id="${dom}-window" onchange="checkApprovalReady('${dom}');${onChange}">${optionsHtml(SERVICE_WINDOWS, '')}</select>
-          </div>
-          <div class="field-group">
-            <label>Service Date</label>
-            <input type="date" id="${dom}-dispatch" onchange="checkApprovalReady('${dom}');${onChange}">
-          </div>
-          <div class="field-group">
-            <label style="text-transform:none;font-weight:400;color:var(--black);display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
-              <input type="checkbox" id="${dom}-inspection-toggle" onchange="toggleInspectionDate('${dom}');${onChange}" style="width:auto">
-              Inspection needed?
-            </label>
-            <input type="date" id="${dom}-inspection" style="display:none;margin-top:8px" onchange="${onChange}">
-          </div>
-        </div>
+        ${readOnlyBlock}
         <div class="appr-bar">
-          <button class="btn btn-green" id="${dom}-ok" disabled
+          <button class="btn btn-green" id="${dom}-ok" ${isScheduled ? '' : 'disabled'}
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
           <button class="btn btn-danger" id="${dom}-no"
                   onclick="decideNewOrder('${esc(o.OrderID)}','request-cancel')">Request Cancellation</button>
+          ${isScheduled ? '' : `<button class="btn btn-outline" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>`}
         </div>
         <p class="appr-hint">
-          Supervisor, service window and service date must be set before approving.
-          Approving saves the order document and the client receives it by email.
+          ${isScheduled
+            ? 'Approving saves the order document and the client receives it by email.'
+            : 'Scheduling assigns who and when — Approvals only accepts or rejects what was already decided there. Bypass is for urgent cases only and needs the Operations Director\'s password.'}
           Requesting a cancellation needs the Operations Director's password and sends it to Review.
         </p>
       </div>
     </div>`;
 }
 
-function hideGroupGeneralBlock(groupDom) {
-  const el = document.getElementById(groupDom + '-general');
-  if (el) el.style.display = 'none';
+/* Bypass: pide el password del director, y solo entonces revela el
+   mini-formulario para escribir Supervisor/Ventana/Fecha ahi mismo,
+   saltandose Scheduling -- excepcion para casos urgentes, no la
+   regla (confirmado explicitamente). */
+async function bypassScheduling(orderId) {
+  const actor = await promptDirectorPassword();
+  if (!actor) return;
+  const dom = apprDomId(orderId);
+  const form = document.getElementById(dom + '-bypass-form');
+  if (form) form.style.display = 'block';
+  window['__bypassActor_' + orderId] = actor;
+  checkBypassReady(dom);
 }
 
-function checkApprovalReady(dom) {
+function checkBypassReady(dom) {
   const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
   const ready = !!(val('supervisor').trim() && val('window') && val('dispatch'));
   const ok = document.getElementById(dom + '-ok');
   if (ok) ok.disabled = !ready;
 }
 
-/* No siempre se inspecciona una orden nueva; tener Dispatch Date e
-   Inspection Date como dos campos de fecha fijos, uno junto al otro,
-   generaba confusion sobre si la inspeccion era obligatoria. Ahora
-   Inspection Date solo aparece si el admin marca que si aplica. */
-function toggleInspectionDate(dom) {
-  const chk = document.getElementById(dom + '-inspection-toggle');
-  const inp = document.getElementById(dom + '-inspection');
-  if (!chk || !inp) return;
-  inp.style.display = chk.checked ? 'block' : 'none';
-  if (!chk.checked) inp.value = '';
-}
 
 async function decideNewOrder(orderId, action) {
   const dom = apprDomId(orderId);
@@ -1072,24 +1014,38 @@ async function decideNewOrder(orderId, action) {
     return;
   }
 
-  const supervisor = val('supervisor').trim();
-  const serviceWindow = val('window');
-  const dispatchDate = val('dispatch');
-  const inspectionDate = val('inspection');
-  if (!supervisor || !serviceWindow || !dispatchDate) {
-    showToast('Set supervisor, service window and service date before approving.');
-    return;
+  const order = allOrders.find(o => o.OrderID === orderId) || {};
+  const bypassActor = window['__bypassActor_' + orderId];
+  let supervisor, serviceWindow, dispatchDate, inspectionDate;
+
+  if (bypassActor) {
+    supervisor = val('supervisor').trim();
+    serviceWindow = val('window');
+    dispatchDate = val('dispatch');
+    inspectionDate = val('inspection');
+    if (!supervisor || !serviceWindow || !dispatchDate) {
+      showToast('Set supervisor, service window and service date before approving.');
+      return;
+    }
+  } else {
+    supervisor = order.Supervisor || '';
+    if (!supervisor) {
+      showToast('This order has not been scheduled yet.');
+      return;
+    }
   }
 
-  let actor = getActorName();
-  try {
-    const detail = await api('/get-order-detail', { body: { orderId } });
-    if (isOfficeCreatedOrder(detail.history || [])) {
-      const directorActor = await promptDirectorPassword();
-      if (!directorActor) return;
-      actor = directorActor;
-    }
-  } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
+  let actor = bypassActor || getActorName();
+  if (!bypassActor) {
+    try {
+      const detail = await api('/get-order-detail', { body: { orderId } });
+      if (isOfficeCreatedOrder(detail.history || [])) {
+        const directorActor = await promptDirectorPassword();
+        if (!directorActor) return;
+        actor = directorActor;
+      }
+    } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
+  }
 
   const ok = document.getElementById(dom + '-ok');
   if (ok) { ok.disabled = true; ok.textContent = 'Approving…'; }
@@ -1098,9 +1054,16 @@ async function decideNewOrder(orderId, action) {
        la lista editada; si por alguna razon todavia no carga, no se manda
        el campo y el backend deja los servicios como estaban. */
     const services = window['apprSvc_' + orderId] ? apprServicesArray(orderId) : undefined;
-    await api('/admin-update-order', {
-      body: { orderId, supervisor, serviceWindow, dispatchDate, inspectionDate: inspectionDate || undefined, services, changedBy: actor }
-    });
+    if (bypassActor) {
+      /* Bypass: los datos son nuevos, hay que guardarlos en la orden. */
+      await api('/admin-update-order', {
+        body: { orderId, supervisor, serviceWindow, dispatchDate, inspectionDate: inspectionDate || undefined, services, changedBy: actor }
+      });
+    } else if (services) {
+      /* Ya programada por Scheduling -- Supervisor/Window/Dispatch ya estan
+         correctos, solo se manda si hay servicios editados en esta pantalla. */
+      await api('/admin-update-order', { body: { orderId, services, changedBy: actor } });
+    }
     const res = await api('/admin-approve-order', {
       body: { orderId, decision: 'approve', approvedBy: actor }
     });
@@ -1108,6 +1071,7 @@ async function decideNewOrder(orderId, action) {
     if (res.document) msg += ' Document ' + res.document.name + ' saved.';
     if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
     showToast(msg);
+    delete window['__bypassActor_' + orderId];
     await loadAll();
   } catch (e) {
     showToast('Error: ' + e.message);
