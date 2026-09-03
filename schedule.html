@@ -69,6 +69,23 @@
     .hours-gauge-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--black); left: 100%; }
     .hours-caption { font-size: 12px; color: var(--gray); }
     .hours-caption b { color: var(--black); }
+
+    .order-card { border: 1px solid var(--border); background: var(--white); margin-bottom: 10px; }
+    .order-card-header { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .order-id { font-size: 13px; font-weight: 700; }
+    .order-meta { font-size: 11px; color: var(--gray); margin-top: 2px; }
+    .order-body { display: none; padding: 16px 18px; border-top: 1px solid var(--border); }
+    .order-body.open { display: block; }
+    .candidate-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; margin-bottom: 6px; }
+    .candidate-name { font-weight: 700; flex: 1; }
+    .candidate-stat { color: var(--gray); font-size: 11px; }
+    .candidate-stat b { color: var(--black); }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .field-group label { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); font-weight: 700; margin-bottom: 6px; }
+    .field-group select, .field-group input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); font-size: 12px; font-family: 'Inter', sans-serif; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
+    .search-bar input { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid var(--border); font-size: 13px; margin-bottom: 12px; font-family: 'Inter', sans-serif; }
+    .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -99,7 +116,16 @@
     <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
   </div>
 
-  <div class="subpanel" id="subpanel-orders"><p class="empty-note">Próximamente.</p></div>
+  <div class="subpanel" id="subpanel-orders">
+    <div class="search-bar"><input type="text" id="orders-search" placeholder="Buscar por número de orden o cliente…" oninput="renderOrdersQueue()"></div>
+    <div class="pill-row" id="orders-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="Janitorial">Janitorial</div>
+      <div class="pill" data-division="Renovations">Renovations</div>
+      <div class="pill" data-division="Exteriors">Exteriors</div>
+    </div>
+    <div id="orders-queue-list"><p class="empty-note">Cargando…</p></div>
+  </div>
   <div class="subpanel" id="subpanel-calendar"><p class="empty-note">Próximamente.</p></div>
   <div class="subpanel" id="subpanel-hours">
     <div class="pill-row" id="hours-division-pills">
@@ -178,6 +204,7 @@
     document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
     if (tab === 'reports') loadUploadHistory();
     if (tab === 'hours') loadHoursOverview();
+    if (tab === 'orders') loadOrdersQueue();
   }
 
   /* ===== Hours ===== */
@@ -394,6 +421,220 @@
   }
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+  /* ===== Orders ===== */
+  let ordersQueueCache = [];       // ordenes Received sin ninguna fila en Scheduling
+  let ordersScheduledCache = [];   // ordenes Received CON fila en Scheduling, esperando Approve
+  let ordersDivisionFilter = '';
+  let openOrderCard = null;
+
+  async function loadOrdersQueue() {
+    const box = document.getElementById('orders-queue-list');
+    box.innerHTML = '<p class="empty-note">Cargando…</p>';
+    try {
+      const [ordersRes, schedulingRes, hoursRes] = await Promise.all([
+        api('/admin-get-orders', { method: 'POST', body: {} }),
+        api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
+        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
+      ]);
+      hoursOverviewCache = hoursRes.employees || [];
+
+      const scheduledOrderIds = new Set((schedulingRes.items || []).map(s => s.OrderID));
+      const pending = (ordersRes.orders || []).filter(o => o.Status === 'Received');
+
+      ordersQueueCache = pending.filter(o => !scheduledOrderIds.has(o.OrderID));
+      ordersScheduledCache = pending.filter(o => scheduledOrderIds.has(o.OrderID));
+
+      renderOrdersQueue();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">No se pudo cargar: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderOrdersQueue() {
+    const box = document.getElementById('orders-queue-list');
+    const q = (document.getElementById('orders-search').value || '').trim().toLowerCase();
+
+    const filterFn = o => {
+      if (ordersDivisionFilter && (o.Division || '').toLowerCase() !== ordersDivisionFilter.toLowerCase()) return false;
+      if (q && !((o.OrderID || '').toLowerCase().includes(q) || (o.BusinessName || '').toLowerCase().includes(q))) return false;
+      return true;
+    };
+
+    const queue = ordersQueueCache.filter(filterFn)
+      .sort((a, b) => String(a.createdDateTime || '').localeCompare(String(b.createdDateTime || '')));
+    const scheduled = ordersScheduledCache.filter(filterFn);
+
+    let html = '';
+    if (queue.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Esperando asignación (' + queue.length + ')</div>';
+      html += queue.map(orderQueueCardHtml).join('');
+    }
+    if (scheduled.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Ya programadas, esperando Approve (' + scheduled.length + ')</div>';
+      html += scheduled.map(orderScheduledCardHtml).join('');
+    }
+    box.innerHTML = html || '<p class="empty-note">No hay órdenes pendientes.</p>';
+  }
+
+  function daysWaiting(createdDateTime) {
+    if (!createdDateTime) return '';
+    const created = new Date(createdDateTime);
+    const days = Math.floor((Date.now() - created.getTime()) / 86400000);
+    return days <= 0 ? 'hoy' : days + ' día' + (days === 1 ? '' : 's');
+  }
+
+  function orderQueueCardHtml(o) {
+    return `
+      <div class="order-card" data-order="${escAttr(o.OrderID)}">
+        <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
+          <div>
+            <div class="order-id">#${esc(o.OrderID)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · esperando ${daysWaiting(o.createdDateTime)}</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray)">▾</span>
+        </div>
+        <div class="order-body" id="order-body-${escAttr(o.OrderID)}"></div>
+      </div>`;
+  }
+
+  function orderScheduledCardHtml(o) {
+    return `
+      <div class="order-card" data-order="${escAttr(o.OrderID)}">
+        <div class="order-card-header">
+          <div>
+            <div class="order-id">#${esc(o.OrderID)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · asignado a: ${esc(o.Supervisor || '—')}</div>
+          </div>
+          <button class="btn-outline" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
+        </div>
+      </div>`;
+  }
+
+  function toggleOrderCard(orderId) {
+    const bodyId = 'order-body-' + orderId;
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+
+    if (openOrderCard && openOrderCard !== orderId) {
+      const prevBody = document.getElementById('order-body-' + openOrderCard);
+      if (prevBody) { prevBody.classList.remove('open'); prevBody.innerHTML = ''; }
+    }
+
+    if (body.classList.contains('open')) {
+      body.classList.remove('open'); body.innerHTML = ''; openOrderCard = null; return;
+    }
+
+    const order = ordersQueueCache.find(o => o.OrderID === orderId);
+    body.innerHTML = assignFormHtml(order);
+    body.classList.add('open');
+    openOrderCard = orderId;
+  }
+
+  function assignFormHtml(o) {
+    const candidates = hoursOverviewCache.filter(e => {
+      const key = (o.Division || '').toLowerCase();
+      return (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors);
+    }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
+
+    if (!candidates.length) {
+      return '<p class="empty-note">No hay empleados activos en ' + esc(o.Division) + ' ahorita mismo. Revisa FieldEmployees o sube un Employee Report más reciente.</p>';
+    }
+
+    const rows = candidates.map(c => `
+      <div class="candidate-row">
+        <input type="checkbox" value="${escAttr(c.payrollNumber)}" class="cand-check" style="width:auto">
+        <span class="candidate-name">${esc(c.name)}</span>
+        <span class="candidate-stat">${c.hasWeekData ? ('Horas esta semana: <b>' + c.hoursThisWeek.toFixed(1) + '</b>') : '<span style="color:var(--gray)">Sin datos de horas esta semana</span>'}</span>
+        <span class="candidate-stat">Órdenes esta semana: <b>${c.assignedOrdersThisWeek}</b></span>
+      </div>`).join('');
+
+    return `
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Candidatos — ${esc(o.Division)}</div>
+      ${rows}
+      <div class="toggle-row" style="margin-top:14px">
+        <input type="checkbox" id="starts-office-${escAttr(o.OrderID)}" style="width:auto">
+        <label for="starts-office-${escAttr(o.OrderID)}">Arranca desde oficina</label>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Fecha asignada</label><input type="date" id="assign-date-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Service Window</label>
+          <select id="assign-window-${escAttr(o.OrderID)}">
+            <option value="">Seleccionar…</option>
+            <option>5:00 AM - 8:00 AM</option>
+            <option>8:00 AM - 11:00 AM</option>
+            <option>11:00 AM - 2:00 PM</option>
+            <option>2:00 PM - 5:00 PM</option>
+          </select>
+        </div>
+        <div class="field-group"><label>Inspection Date (opcional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}"></div>
+      </div>
+      <button class="btn-gold" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
+      <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
+  }
+
+  async function submitAssignment(orderId) {
+    const errEl = document.getElementById('assign-error-' + orderId);
+    errEl.textContent = '';
+
+    const body = document.getElementById('order-body-' + orderId);
+    const checked = Array.from(body.querySelectorAll('.cand-check:checked')).map(c => c.value);
+    const assignedDate = document.getElementById('assign-date-' + orderId).value;
+    const serviceWindow = document.getElementById('assign-window-' + orderId).value;
+    const inspectionDate = document.getElementById('assign-inspection-' + orderId).value;
+    const startsFromOffice = document.getElementById('starts-office-' + orderId).checked;
+
+    if (!checked.length) { errEl.textContent = 'Selecciona al menos una persona.'; return; }
+    if (!assignedDate) { errEl.textContent = 'Elige la fecha asignada.'; return; }
+    if (!serviceWindow) { errEl.textContent = 'Elige el Service Window.'; return; }
+
+    const order = ordersQueueCache.find(o => o.OrderID === orderId);
+    const names = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name).join(', ');
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'save-scheduling-assignment', email: adminUser.email,
+          orderId, payrollNumbers: checked, assignedDate, division: order.Division, startsFromOffice
+        }
+      });
+      await api('/admin-update-order', {
+        body: {
+          orderId, supervisor: names, serviceWindow, dispatchDate: assignedDate,
+          inspectionDate: inspectionDate || '', changedBy: adminUser.name || adminUser.email
+        }
+      });
+      openOrderCard = null;
+      loadOrdersQueue();
+    } catch (e) {
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function rescheduleOrder(orderId) {
+    if (!confirm('¿Quitar la asignación de esta orden y regresarla a la cola?')) return;
+    try {
+      await api('/developer-admin', { body: { action: 'reschedule-order', email: adminUser.email, orderId } });
+      await api('/admin-update-order', {
+        body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
+      });
+      loadOrdersQueue();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  document.getElementById('orders-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('orders-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      ordersDivisionFilter = p.dataset.division;
+      renderOrdersQueue();
+    });
+  });
+
+
   function fmtDateTime(iso) {
     if (!iso) return '—';
     const d = new Date(iso);

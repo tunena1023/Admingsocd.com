@@ -314,6 +314,56 @@ exports.handler = async (event) => {
        semana que contiene HOY (de WeeklyHours) y cuantas ordenes ya
        tiene asignadas esa misma semana (de Scheduling, aunque hoy
        todavia este vacia esa lista). */
+    /* Escribe las filas de Scheduling (una por persona seleccionada,
+       para ese dia especifico). NO toca la orden en si -- eso lo hace
+       /admin-update-order, que ya existe y ya sabe escribir Supervisor/
+       ServiceWindow/DispatchDate/InspectionDate + el historial; el
+       frontend llama a los dos en secuencia. */
+    if (action === 'save-scheduling-assignment') {
+      const { orderId, payrollNumbers, assignedDate, division, startsFromOffice } = body;
+      if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
+      if (!Array.isArray(payrollNumbers) || !payrollNumbers.length) return jsonResponse(400, { error: 'At least one employee is required' });
+      if (!assignedDate) return jsonResponse(400, { error: 'assignedDate is required' });
+
+      await Promise.all(payrollNumbers.map(pn => createListItem(SCHEDULING_LIST, {
+        Title: orderId + '-' + pn + '-' + assignedDate,
+        OrderID: orderId,
+        PayrollNumber: String(pn).trim(),
+        AssignedDate: assignedDate,
+        Division: division || '',
+        StartsFromOffice: !!startsFromOffice
+      })));
+
+      return jsonResponse(200, { success: true });
+    }
+
+    if (action === 'list-scheduling') {
+      const rows = await fetchAll(SCHEDULING_LIST);
+      const items = rows.filter(it => it.fields).map(it => ({
+        id: it.id,
+        OrderID: it.fields.OrderID || '',
+        PayrollNumber: it.fields.PayrollNumber || '',
+        AssignedDate: it.fields.AssignedDate || '',
+        Division: it.fields.Division || '',
+        StartsFromOffice: truthy(it.fields.StartsFromOffice)
+      }));
+      return jsonResponse(200, { items });
+    }
+
+    /* Botón Reschedule: borra las filas de Scheduling de esa orden.
+       El frontend, despues de esto, tambien llama a /admin-update-order
+       para limpiar Supervisor/ServiceWindow/DispatchDate/InspectionDate
+       en la orden misma (eso ya queda registrado en su historial por
+       ese mismo endpoint, sin duplicar esa logica aqui). */
+    if (action === 'reschedule-order') {
+      const { orderId } = body;
+      if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
+      const rows = await fetchAll(SCHEDULING_LIST);
+      const toDelete = rows.filter(it => it.fields && it.fields.OrderID === orderId);
+      await Promise.all(toDelete.map(it => deleteListItem(SCHEDULING_LIST, it.id)));
+      return jsonResponse(200, { success: true, removed: toDelete.length });
+    }
+
     if (action === 'get-hours-overview') {
       const [employees, hours, scheduling] = await Promise.all([
         fetchAll(FIELD_EMPLOYEES_LIST),
