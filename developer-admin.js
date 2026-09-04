@@ -491,11 +491,20 @@ exports.handler = async (event) => {
           });
           const hoursLastWeek = prevWeekRow ? Number(prevWeekRow.fields.TotalWeeklyHours) || 0 : null;
 
-          const assignedOrdersThisWeek = scheduling.filter(s => {
+          /* Ordenes UNICAS (no filas de Scheduling) -- un trabajo de
+             varios dias en la misma orden cuenta como 1 servicio, no
+             uno por cada dia asignado. */
+          const assignedOrdersThisWeek = new Set(scheduling.filter(s => {
             if (!s.fields || String(s.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
             const d = new Date(s.fields.AssignedDate);
             return d >= weekStartSunday && d <= weekEndSaturday;
-          }).length;
+          }).map(s => s.fields.OrderID)).size;
+
+          const assignedOrdersLastWeek = new Set(scheduling.filter(s => {
+            if (!s.fields || String(s.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
+            const d = new Date(s.fields.AssignedDate);
+            return d >= prevWeekStart && d <= prevWeekEnd;
+          }).map(s => s.fields.OrderID)).size;
 
           return {
             payrollNumber,
@@ -506,7 +515,8 @@ exports.handler = async (event) => {
             hoursThisWeek,
             hasWeekData: !!weekRow,
             hoursLastWeek,
-            assignedOrdersThisWeek
+            assignedOrdersThisWeek,
+            assignedOrdersLastWeek
           };
         });
 
