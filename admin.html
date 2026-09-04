@@ -2276,6 +2276,20 @@ function historyChangeLines(h) {
      -> Received"). */
   if (String(h.ChangeType || '') === 'Created') return [];
 
+  /* 'Batch Created': OldValue es el PO tag, NewValue es un JSON con
+     todos los OrderID de las unidades de ese pedido -- sin este caso
+     especial, se imprimia el JSON crudo tal cual (visto en pantalla
+     real: 'PO5000 -> ["GS-6060-1003-PO5000","GS-6060-1004-PO5000"]'). */
+  if (String(h.ChangeType || '') === 'Batch Created') {
+    let ids = [];
+    try { ids = JSON.parse(h.NewValue || '[]'); } catch (e) {}
+    if (!Array.isArray(ids) || !ids.length) return [];
+    const poTag = String(h.OldValue || '').trim();
+    const label = poTag ? (' (' + esc(poTag) + ')') : '';
+    return ['&#128230; Part of a multi-unit order' + label + ' with ' + ids.length +
+            ' unit' + (ids.length === 1 ? '' : 's') + ': ' + ids.map(esc).join(', ')];
+  }
+
   const oldPay = parseSvcPayload(h.OldValue);
   const newPay = parseSvcPayload(h.NewValue);
   const oldSvcs = oldPay ? oldPay.services : null;
@@ -2393,7 +2407,7 @@ function histNoteText(h) {
 /* Estos tipos de evento son ruido operativo (confirman que el documento
    se genero o fallo, no un cambio de la orden en si) y solo se ocultan
    aqui, en Active/History — Review no los usa. */
-const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed'];
+const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed', 'Archived'];
 
 /* Arma el HTML del historial: filtra ruido operativo, agrupa renglones
    de la misma tanda ('Dates Confirmed' repetido) y fusiona el detalle
