@@ -50,6 +50,16 @@ function truthy(v) {
   return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
 }
 
+/* uAttend a veces exporta nombres con espacios dobles entre nombre y
+   apellido, o con espacio sobrante al final (visto en un Hours Report
+   real: "Andres  Galiano", "Clara  Chihuahua "). trim() nomas quita
+   los extremos, no los espacios de en medio -- sin esto, el cruce por
+   nombre fallaba en silencio para esa gente, aunque el nombre fuera
+   "el mismo" a simple vista. */
+function normalizeName(s) {
+  return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 /* Rol real de un correo, segun la lista Staff. null si Staff no
    existe todavia, esta vacia, o el correo no tiene renglon ahi --
    en los 3 casos, "sin permiso" es la respuesta correcta, no un error. */
@@ -196,9 +206,9 @@ exports.handler = async (event) => {
           match = existing.find(it => it.fields && String(it.fields.PayrollNumber || '').trim() === payrollNumber);
         }
         if (!match) {
-          const wanted = (firstName + ' ' + lastName).toLowerCase();
+          const wanted = normalizeName(firstName + ' ' + lastName);
           match = existing.find(it => it.fields &&
-            (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).toLowerCase() === wanted);
+            normalizeName(String(it.fields.FirstName || '') + ' ' + String(it.fields.LastName || '')) === wanted);
         }
 
         const fields = {
@@ -257,7 +267,7 @@ exports.handler = async (event) => {
       const byName = {};
       employees.forEach(it => {
         if (!it.fields) return;
-        const name = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim().toLowerCase();
+        const name = normalizeName(String(it.fields.FirstName || '') + ' ' + String(it.fields.LastName || ''));
         if (name && it.fields.PayrollNumber) byName[name] = String(it.fields.PayrollNumber).trim();
       });
 
@@ -271,7 +281,7 @@ exports.handler = async (event) => {
       for (const r of rows) {
         const name = String(r.employeeName || '').trim();
         if (!name) continue;
-        const payrollNumber = byName[name.toLowerCase()];
+        const payrollNumber = byName[normalizeName(name)];
         if (!payrollNumber) { unmatched.add(name); continue; }
 
         toCreate.push({
