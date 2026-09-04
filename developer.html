@@ -15,16 +15,19 @@
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--black); min-height: 100vh; }
 
     nav {
-      background: var(--black);
+      background: var(--white);
+      background-image: url('/api/site-image?name=NavBackground.jpg');
+      background-size: cover; background-position: center;
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 40px; height: 60px; position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid var(--border);
     }
-    .nav-logo img { height: 36px; object-fit: contain; }
-    .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--white); }
+    .nav-logo img { height: 48px; object-fit: contain; }
+    .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--black); }
     .nav-right { display: flex; align-items: center; gap: 20px; }
-    .nav-user { font-size: 13px; color: #aaa; }
+    .nav-user { font-size: 13px; color: var(--gray); }
     .nav-back, .btn-signout {
-      font-size: 12px; color: var(--gold); background: none; border: none;
+      font-size: 12px; color: #8C6F2A; background: none; border: none;
       cursor: pointer; font-family: 'Inter', sans-serif; letter-spacing: .04em;
       text-decoration: none;
     }
