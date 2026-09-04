@@ -105,6 +105,7 @@
     .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .week-nav b { font-size: 13px; }
   </style>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -182,9 +183,9 @@
     </div>
 
     <div class="upload-card">
-      <h3>Hours Report (Average Hours)</h3>
-      <p>Name + weekly hours. Cross-referenced by name against the catalog to save everything with its Payroll Number.</p>
-      <input type="file" id="hours-report-file" accept=".csv" style="display:none" onchange="onHoursFileChosen()">
+      <h3>Punch Report</h3>
+      <p>Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
+      <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
       <button class="btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
       <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
       <div style="margin-top:12px">
@@ -354,24 +355,6 @@
     return rows;
   }
 
-  function parseUSDate(s) {
-    const parts = String(s || '').trim().split('/');
-    if (parts.length !== 3) return null;
-    let [m, d, y] = parts;
-    let year = parseInt(y, 10);
-    if (isNaN(year)) return null;
-    if (year < 100) year += 2000;
-    const mm = parseInt(m, 10), dd = parseInt(d, 10);
-    if (isNaN(mm) || isNaN(dd)) return null;
-    return year + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
-  }
-
-  function hhmmToDecimal(s) {
-    const parts = String(s || '').split(':');
-    if (parts.length < 2) return 0;
-    return Math.round((parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60) * 100) / 100;
-  }
-
   /* ===== Employee Report ===== */
   let employeeRows = null;
   function onEmployeeFileChosen() {
@@ -424,6 +407,10 @@
 
   /* ===== Hours Report ===== */
   let hoursRows = null;
+  function toISODateLocal(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   function onHoursFileChosen() {
     const input = document.getElementById('hours-report-file');
     const file = input.files[0];
@@ -433,39 +420,48 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const rows = parseCSV(reader.result);
-        let currentName = '';
-        const parsed = [];
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+
+        /* Columnas: EMP L NAME(0), EMP F NAME(1), EMP##(2), DATE(3),
+           IN(4), OUT(5), TOTAL(6), DEPT CODE(7)... Header en fila 3
+           (indice 2), datos desde la fila 4 (indice 3). EMP## sirve
+           directo como PayrollNumber -- sin cruzar por nombre.
+           Si OUT quedo sin ponchar, uAttend pone '------' en vez de
+           hora -- TOTAL entonces no es una Fecha real (viene vacio o
+           texto), esa fila se descarta sola porque no pasa el chequeo
+           "instanceof Date". TOTAL ya viene resuelto correcto por
+           uAttend incluso en turnos que cruzan medianoche -- se usa
+           tal cual, no se resta IN de OUT a mano. */
+        const weekly = {};
         for (let i = 3; i < rows.length; i++) {
           const r = rows[i];
-          if (!r || r.length < 3) continue;
-          const name = (r[0] || '').trim();
-          if (name) currentName = name;
-          if (!currentName) continue;
-          const dateRange = (r[2] || '').split(' - ');
-          if (dateRange.length !== 2) continue;
-          const ws = parseUSDate(dateRange[0]), we = parseUSDate(dateRange[1]);
-          if (!ws || !we) continue;
-          /* uAttend a veces junta varias semanas reales en UN solo
-             renglon (visto con datos reales: pediste 2 semanas exactas
-             y te dio un renglon con "TOTAL WEEKLY HRS" = PROMEDIO por
-             semana, no el total real -- el total real esta en
-             "TOTAL HRS" en esos casos, que coincidio exacto con la
-             ponchadora misma). Si el rango del renglon es mas largo
-             que una semana real (~7 dias), se usa TOTAL HRS (r[5]);
-             si es una semana real, TOTAL WEEKLY HRS (r[4]) ya es
-             correcto tal cual. */
-          const spanDays = Math.round((new Date(we) - new Date(ws)) / 86400000);
-          const hoursRaw = spanDays > 10 ? r[5] : r[4];
-          parsed.push({ employeeName: currentName, weekStart: ws, weekEnd: we, totalHours: hhmmToDecimal(hoursRaw) });
+          if (!r || r.length < 7) continue;
+          const payrollNumber = String(r[2] || '').trim();
+          const dateCell = r[3], totalCell = r[6];
+          if (!payrollNumber || !(dateCell instanceof Date) || !(totalCell instanceof Date)) continue;
+
+          const hours = totalCell.getHours() + totalCell.getMinutes() / 60;
+
+          const dow = dateCell.getDay();
+          const weekStart = new Date(dateCell.getFullYear(), dateCell.getMonth(), dateCell.getDate() - dow);
+          const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+          const wsISO = toISODateLocal(weekStart), weISO = toISODateLocal(weekEnd);
+
+          const key = payrollNumber + '|' + wsISO;
+          if (!weekly[key]) weekly[key] = { payrollNumber, weekStart: wsISO, weekEnd: weISO, totalHours: 0 };
+          weekly[key].totalHours += hours;
         }
-        hoursRows = parsed;
+
+        hoursRows = Object.values(weekly).map(w => ({ ...w, totalHours: Math.round(w.totalHours * 100) / 100 }));
         document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
       } catch (e) {
         alert('Could not read the file: ' + e.message);
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   async function uploadHoursReport() {
@@ -478,7 +474,7 @@
       box.style.display = 'block';
       box.innerHTML = '<b>' + res.created + '</b> new weeks · <b>' + res.updated + '</b> updated.';
       if (res.unmatched && res.unmatched.length) {
-        box.innerHTML += '<div class="warn-list"><b>No match in the catalog</b> (not in FieldEmployees):<br>' +
+        box.innerHTML += '<div class="warn-list"><b>Payroll Number not in the catalog</b> (not in FieldEmployees):<br>' +
           res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
       }
       loadUploadHistory();

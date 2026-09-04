@@ -271,13 +271,17 @@ exports.handler = async (event) => {
       const rows = Array.isArray(body.rows) ? body.rows : [];
       if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
 
+      /* El Punch Report trae EMP## directo (=PayrollNumber), asi que
+         ya no hace falta cruzar por nombre para nada -- el frontend
+         ya suma las horas por semana y manda payrollNumber tal cual.
+         Aqui solo se valida contra el catalogo para avisar si algun
+         numero no se reconoce (typo, alguien que no esta en
+         FieldEmployees todavia, etc). */
       const employees = await fetchAll(FIELD_EMPLOYEES_LIST);
-      const byName = {};
-      employees.forEach(it => {
-        if (!it.fields) return;
-        const name = normalizeName(String(it.fields.FirstName || '') + ' ' + String(it.fields.LastName || ''));
-        if (name && it.fields.PayrollNumber) byName[name] = String(it.fields.PayrollNumber).trim();
-      });
+      const knownPayrollNumbers = new Set(
+        employees.filter(it => it.fields && it.fields.PayrollNumber)
+          .map(it => String(it.fields.PayrollNumber).trim())
+      );
 
       /* Antes esto borraba TODO WeeklyHours y volvia a crear -- si
          subias un reporte angosto (2 semanas), se perdian las semanas
@@ -299,14 +303,13 @@ exports.handler = async (event) => {
       const tasks = [];
 
       for (const r of rows) {
-        const name = String(r.employeeName || '').trim();
-        if (!name) continue;
-        const payrollNumber = byName[normalizeName(name)];
-        if (!payrollNumber) { unmatched.add(name); continue; }
+        const payrollNumber = String(r.payrollNumber || '').trim();
+        if (!payrollNumber) continue;
+        if (!knownPayrollNumbers.has(payrollNumber)) { unmatched.add(payrollNumber); continue; }
 
         const key = payrollNumber + '|' + String(r.weekStart || '').slice(0, 10);
         const fields = {
-          Title: name,
+          Title: payrollNumber,
           PayrollNumber: payrollNumber,
           WeekStart: r.weekStart,
           WeekEnd: r.weekEnd,
@@ -322,11 +325,11 @@ exports.handler = async (event) => {
       await Promise.all(tasks);
 
       const summary = created + ' semanas nuevas, ' + updated + ' actualizadas' +
-        (unmatched.size ? '. Sin cruce en el catalogo: ' + Array.from(unmatched).join(', ') : '');
+        (unmatched.size ? '. Payroll Number sin reconocer: ' + Array.from(unmatched).join(', ') : '');
 
       await createListItem(REPORT_UPLOADS_LIST, {
-        Title: 'Hours Report',
-        ReportType: 'Hours Report',
+        Title: 'Punch Report',
+        ReportType: 'Punch Report',
         UploadDate: new Date().toISOString(),
         Summary: summary
       });
