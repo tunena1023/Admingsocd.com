@@ -182,7 +182,7 @@ exports.handler = async (event) => {
       const existing = await fetchAll(FIELD_EMPLOYEES_LIST);
       const seenIds = new Set();
       const missingPayroll = [];
-      let created = 0, updated = 0, skippedOffice = 0;
+      let created = 0, updated = 0, officeCount = 0;
 
       for (const r of rows) {
         const firstName = String(r.firstName || '').trim();
@@ -190,14 +190,22 @@ exports.handler = async (event) => {
         if (!firstName && !lastName) continue;
 
         const deptCode = parseInt(String(r.departmentCode || '').trim(), 10);
-        if (isNaN(deptCode) || deptCode >= 1000) { skippedOffice++; continue; }
+        const isOffice = isNaN(deptCode) || deptCode >= 1000;
+        if (isOffice) officeCount++;
 
         const payrollNumber = String(r.payrollNumber || '').trim();
         const active = String(r.activeStatus || '').trim().toUpperCase() === 'ACTIVE';
 
-        const janitorial  = deptCode >= 100 && deptCode < 200;
-        const renovations = deptCode >= 200 && deptCode < 300;
-        const exteriors   = deptCode >= 300 && deptCode < 400;
+        /* La gente de oficina SI se guarda en FieldEmployees -- si no,
+           el Hours Report nunca puede cruzarla, y siempre saldria como
+           "sin cruce" aunque sea esperado que asi sea. Se guarda sin
+           ninguna division marcada, asi nunca sale como candidata para
+           asignar (el filtro de Scheduling siempre exige una division
+           que coincida) -- son "invisibles" para asignar, pero SI
+           encontrables para las horas. */
+        const janitorial  = !isOffice && deptCode >= 100 && deptCode < 200;
+        const renovations = !isOffice && deptCode >= 200 && deptCode < 300;
+        const exteriors    = !isOffice && deptCode >= 300 && deptCode < 400;
 
         /* Cruce: primero por PayrollNumber si ya lo teniamos guardado
            (mas confiable), si no por nombre normalizado. */
@@ -243,7 +251,7 @@ exports.handler = async (event) => {
       deactivated = toDeactivate.length;
 
       const summary = created + ' agregados, ' + updated + ' actualizados, ' + deactivated + ' desactivados, ' +
-        skippedOffice + ' de oficina ignorados' +
+        officeCount + ' de oficina (guardados, nunca asignables)' +
         (missingPayroll.length ? '. Falta Payroll Number: ' + missingPayroll.join(', ') : '');
 
       await createListItem(REPORT_UPLOADS_LIST, {
@@ -253,7 +261,7 @@ exports.handler = async (event) => {
         Summary: summary
       });
 
-      return jsonResponse(200, { success: true, created, updated, deactivated, skippedOffice, missingPayroll });
+      return jsonResponse(200, { success: true, created, updated, deactivated, officeCount, missingPayroll });
     }
 
     /* Hours Report (Average Hours) -> reemplaza WeeklyHours completo.
@@ -271,12 +279,24 @@ exports.handler = async (event) => {
         if (name && it.fields.PayrollNumber) byName[name] = String(it.fields.PayrollNumber).trim();
       });
 
+      /* Antes esto borraba TODO WeeklyHours y volvia a crear -- si
+         subias un reporte angosto (2 semanas), se perdian las semanas
+         viejas que ya tenias guardadas de antes. Ahora se actualiza
+         lo que ya existia (misma persona + misma semana) y se crea
+         lo nuevo, sin borrar nunca nada -- el historial se va
+         acumulando de verdad, sin importar que tan ancho o angosto
+         sea cada reporte que subas. */
       const existingHours = await fetchAll(WEEKLY_HOURS_LIST);
-      await Promise.all(existingHours.map(it => deleteListItem(WEEKLY_HOURS_LIST, it.id)));
+      const existingByKey = {};
+      existingHours.forEach(it => {
+        if (!it.fields) return;
+        const key = String(it.fields.PayrollNumber || '').trim() + '|' + String(it.fields.WeekStart || '').slice(0, 10);
+        existingByKey[key] = it;
+      });
 
-      let inserted = 0;
+      let created = 0, updated = 0;
       const unmatched = new Set();
-      const toCreate = [];
+      const tasks = [];
 
       for (const r of rows) {
         const name = String(r.employeeName || '').trim();
@@ -284,19 +304,24 @@ exports.handler = async (event) => {
         const payrollNumber = byName[normalizeName(name)];
         if (!payrollNumber) { unmatched.add(name); continue; }
 
-        toCreate.push({
+        const key = payrollNumber + '|' + String(r.weekStart || '').slice(0, 10);
+        const fields = {
           Title: name,
           PayrollNumber: payrollNumber,
           WeekStart: r.weekStart,
           WeekEnd: r.weekEnd,
           TotalWeeklyHours: Number(r.totalHours) || 0
-        });
+        };
+        const existingRow = existingByKey[key];
+        if (existingRow) {
+          tasks.push(updateListItemByItemId(WEEKLY_HOURS_LIST, existingRow.id, fields).then(() => { updated++; }));
+        } else {
+          tasks.push(createListItem(WEEKLY_HOURS_LIST, fields).then(() => { created++; }));
+        }
       }
+      await Promise.all(tasks);
 
-      await Promise.all(toCreate.map(f => createListItem(WEEKLY_HOURS_LIST, f)));
-      inserted = toCreate.length;
-
-      const summary = inserted + ' semanas guardadas' +
+      const summary = created + ' semanas nuevas, ' + updated + ' actualizadas' +
         (unmatched.size ? '. Sin cruce en el catalogo: ' + Array.from(unmatched).join(', ') : '');
 
       await createListItem(REPORT_UPLOADS_LIST, {
@@ -306,7 +331,7 @@ exports.handler = async (event) => {
         Summary: summary
       });
 
-      return jsonResponse(200, { success: true, inserted, unmatched: Array.from(unmatched) });
+      return jsonResponse(200, { success: true, created, updated, unmatched: Array.from(unmatched) });
     }
 
     if (action === 'list-report-uploads') {
@@ -436,8 +461,14 @@ exports.handler = async (event) => {
       const weekEndSaturday = new Date(weekStartSunday);
       weekEndSaturday.setDate(weekEndSaturday.getDate() + 6);
 
+      const prevWeekStart = new Date(weekStartSunday);
+      prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+      const prevWeekEnd = new Date(prevWeekStart);
+      prevWeekEnd.setDate(prevWeekEnd.getDate() + 6);
+
       const overview = employees
-        .filter(it => it.fields && truthy(it.fields.Active) && String(it.fields.PayrollNumber || '').trim())
+        .filter(it => it.fields && truthy(it.fields.Active) && String(it.fields.PayrollNumber || '').trim() &&
+          (truthy(it.fields.Janitorial) || truthy(it.fields.Renovations) || truthy(it.fields.Exteriors)))
         .map(it => {
           const f = it.fields;
           const payrollNumber = String(f.PayrollNumber).trim();
@@ -449,6 +480,16 @@ exports.handler = async (event) => {
             return today >= ws && today <= we;
           });
           const hoursThisWeek = weekRow ? Number(weekRow.fields.TotalWeeklyHours) || 0 : 0;
+
+          /* Semana anterior: mismo criterio, nomas buscando la fila
+             cuyo WeekStart caiga en la semana de antes (Domingo a
+             Sabado tambien). Ya no se pierde con cada subida porque
+             WeeklyHours ahora acumula en vez de reemplazar. */
+          const prevWeekRow = hours.find(h => {
+            if (!h.fields || String(h.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
+            return String(h.fields.WeekStart || '').slice(0, 10) === prevWeekStart.toISOString().slice(0, 10);
+          });
+          const hoursLastWeek = prevWeekRow ? Number(prevWeekRow.fields.TotalWeeklyHours) || 0 : null;
 
           const assignedOrdersThisWeek = scheduling.filter(s => {
             if (!s.fields || String(s.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
@@ -464,11 +505,18 @@ exports.handler = async (event) => {
             exteriors: truthy(f.Exteriors),
             hoursThisWeek,
             hasWeekData: !!weekRow,
+            hoursLastWeek,
             assignedOrdersThisWeek
           };
         });
 
-      return jsonResponse(200, { employees: overview });
+      return jsonResponse(200, {
+        employees: overview,
+        weekStart: weekStartSunday.toISOString().slice(0, 10),
+        weekEnd: weekEndSaturday.toISOString().slice(0, 10),
+        prevWeekStart: prevWeekStart.toISOString().slice(0, 10),
+        prevWeekEnd: prevWeekEnd.toISOString().slice(0, 10)
+      });
     }
 
     /* ---- Todo lo demas (password del director, roles del staff)

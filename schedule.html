@@ -69,6 +69,14 @@
     .hours-gauge-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--black); left: 100%; }
     .hours-caption { font-size: 12px; color: var(--gray); }
     .hours-caption b { color: var(--black); }
+    .hours-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .hours-col-right { border-left: 1px solid var(--border); padding-left: 20px; }
+    .hours-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); margin-bottom: 6px; }
+    .hours-col-date { text-transform: none; letter-spacing: normal; font-weight: 400; color: #999; margin-left: 4px; }
+    .hours-hist-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .hours-hist-label { font-size: 12px; color: var(--black); }
+    .hours-hist-date { font-size: 10px; color: #999; }
+    .hours-hist-val { font-size: 12px; font-weight: 700; }
 
     .order-card { border: 1px solid var(--border); background: var(--white); margin-bottom: 10px; }
     .order-card-header { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -184,8 +192,11 @@
     </div>
 
     <div class="upload-card">
-      <h3>Upload History</h3>
-      <div id="upload-history"><p class="empty-note">Loading…</p></div>
+      <div class="order-card-header" style="padding:0 0 10px" onclick="toggleUploadHistory()">
+        <h3 style="margin:0">Upload History</h3>
+        <span id="upload-history-chevron" style="font-size:11px;color:var(--gray)">▸</span>
+      </div>
+      <div id="upload-history" style="display:none"><p class="empty-note">Loading…</p></div>
     </div>
   </div>
 
@@ -236,6 +247,13 @@
   /* ===== Hours ===== */
   let hoursOverviewCache = [];
   let hoursDivisionFilter = '';
+  let hoursWeekDates = {};
+
+  function fmtShortDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 
   async function loadHoursOverview() {
     const box = document.getElementById('hours-list');
@@ -243,6 +261,10 @@
     try {
       const res = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
       hoursOverviewCache = res.employees || [];
+      hoursWeekDates = {
+        weekStart: res.weekStart, weekEnd: res.weekEnd,
+        prevWeekStart: res.prevWeekStart, prevWeekEnd: res.prevWeekEnd
+      };
       renderHoursList();
     } catch (e) {
       box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
@@ -257,23 +279,39 @@
 
     if (!list.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
 
+    const curRange = fmtShortDate(hoursWeekDates.weekStart) + ' – ' + fmtShortDate(hoursWeekDates.weekEnd);
+    const prevRange = fmtShortDate(hoursWeekDates.prevWeekStart) + ' – ' + fmtShortDate(hoursWeekDates.prevWeekEnd);
+
     box.innerHTML = list.map(e => {
       const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
-      if (!e.hasWeekData) {
-        return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
-          '<div class="hours-caption">No hours data for this week yet — upload a more recent Hours Report.</div></div>';
-      }
-      const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
-      const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
-      const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
-      const remaining = 40 - e.hoursThisWeek;
-      const caption = e.hoursThisWeek >= 40
-        ? '<b>' + e.hoursThisWeek.toFixed(1) + ' hours worked</b> · <b style="color:#B33A3A">already in overtime (' + (e.hoursThisWeek - 40).toFixed(1) + ' extra hours)</b>'
-        : '<b>' + e.hoursThisWeek.toFixed(1) + ' hours worked</b> · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hours</b> left before overtime (40 hrs)' +
-          (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' order(s) already assigned this week</span>' : '');
+
+      const gaugeHtml = (() => {
+        if (!e.hasWeekData) {
+          return '<div class="hours-caption">No hours data for this week yet — upload a more recent Hours Report.</div>';
+        }
+        const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
+        const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
+        const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
+        const remaining = 40 - e.hoursThisWeek;
+        const caption = e.hoursThisWeek >= 40
+          ? '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:#B33A3A">' + (e.hoursThisWeek - 40).toFixed(1) + ' hrs</b> overtime'
+          : '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hrs</b> left' +
+            (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' assigned</span>' : '');
+        return '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
+          '<div class="hours-caption">' + caption + '</div>';
+      })();
+
+      const historyHtml =
+        '<div class="hours-hist-row"><div><div class="hours-hist-label">This week</div><div class="hours-hist-date">' + curRange + '</div></div>' +
+        '<span class="hours-hist-val" style="color:var(--black)">' + (e.hasWeekData ? e.hoursThisWeek.toFixed(1) + ' hrs' : '—') + '</span></div>' +
+        '<div class="hours-hist-row"><div><div class="hours-hist-label" style="color:var(--gray)">Last week</div><div class="hours-hist-date">' + prevRange + '</div></div>' +
+        '<span class="hours-hist-val" style="color:var(--gray)">' + (e.hoursLastWeek != null ? e.hoursLastWeek.toFixed(1) + ' hrs' : '—') + '</span></div>';
+
       return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
-        '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
-        '<div class="hours-caption">' + caption + '</div></div>';
+        '<div class="hours-split">' +
+          '<div><div class="hours-col-label">Current week <span class="hours-col-date">' + curRange + '</span></div>' + gaugeHtml + '</div>' +
+          '<div class="hours-col-right"><div class="hours-col-label">History</div>' + historyHtml + '</div>' +
+        '</div></div>';
     }).join('');
   }
 
@@ -363,7 +401,7 @@
       const box = document.getElementById('employee-result');
       box.style.display = 'block';
       box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
-        '<span style="color:var(--gray)">' + res.skippedOffice + ' office employees skipped</span>';
+        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>';
       if (res.missingPayroll && res.missingPayroll.length) {
         box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
           res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
@@ -430,7 +468,7 @@
       const res = await api('/developer-admin', { body: { action: 'upload-hours-report', email: adminUser.email, rows: hoursRows } });
       const box = document.getElementById('hours-result');
       box.style.display = 'block';
-      box.innerHTML = '<b>' + res.inserted + '</b> weeks saved.';
+      box.innerHTML = '<b>' + res.created + '</b> new weeks · <b>' + res.updated + '</b> updated.';
       if (res.unmatched && res.unmatched.length) {
         box.innerHTML += '<div class="warn-list"><b>No match in the catalog</b> (not in FieldEmployees):<br>' +
           res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
@@ -455,6 +493,14 @@
     } catch (e) {
       box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
     }
+  }
+
+  function toggleUploadHistory() {
+    const box = document.getElementById('upload-history');
+    const chevron = document.getElementById('upload-history-chevron');
+    const willOpen = box.style.display === 'none';
+    box.style.display = willOpen ? 'block' : 'none';
+    chevron.textContent = willOpen ? '▾' : '▸';
   }
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
