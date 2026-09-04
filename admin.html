@@ -234,14 +234,30 @@
     .svc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
     .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-    /* TOAST */
-    .toast {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-      background: var(--black); color: var(--white); padding: 14px 24px;
-      border-radius: 4px; font-size: 13px; z-index: 9999;
-      opacity: 0; transition: opacity .3s; pointer-events: none;
+    /* ACTION OVERLAY -- pantalla completa oscura con logo + mensaje,
+       reemplaza el toast chiquito de la esquina que pasaba
+       desapercibido. showLoadingOverlay() lo prende con "Loading…",
+       showToast() lo reusa para mostrar el resultado final. */
+    .action-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(17,17,17,.85);
+      z-index: 9999; align-items: center; justify-content: center;
+      cursor: pointer;
     }
-    .toast.show { opacity: 1; }
+    .action-overlay.show { display: flex; }
+    .action-overlay-box { text-align: center; }
+    .action-overlay-logo { height: 56px; object-fit: contain; margin-bottom: 20px; }
+    .action-overlay-spinner {
+      width: 28px; height: 28px; margin: 0 auto 20px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.25); border-top-color: var(--gold);
+      animation: overlay-spin .8s linear infinite; display: none;
+    }
+    .action-overlay.loading .action-overlay-spinner { display: block; }
+    .action-overlay.loading .action-overlay-logo { display: none; }
+    @keyframes overlay-spin { to { transform: rotate(360deg); } }
+    .action-overlay-msg {
+      color: var(--white); font-size: 16px; font-family: 'Inter', sans-serif;
+      max-width: 420px; padding: 0 24px; line-height: 1.5;
+    }
 
     /* EMPTY */
     .empty-note { color: var(--gray); font-size: 14px; padding: 40px 0; text-align: center; }
@@ -533,7 +549,13 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="action-overlay" id="action-overlay" onclick="hideActionOverlay()">
+  <div class="action-overlay-box">
+    <div class="action-overlay-spinner"></div>
+    <img src="/api/site-image?name=Logo.png" alt="GS Solutions" class="action-overlay-logo" onerror="this.style.display='none'">
+    <div class="action-overlay-msg" id="action-overlay-msg"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
@@ -544,7 +566,7 @@ const MSAL_CONFIG = {
   auth: {
     clientId: '18dfcf2e-0059-40f5-831c-69d13b9091fc',
     authority: 'https://login.microsoftonline.com/d18a66ea-5185-4a02-99cc-46b6578ff498',
-    redirectUri: window.location.origin + '/admin-index.html'
+    redirectUri: window.location.origin + '/index.html'
   },
   cache: { cacheLocation: 'sessionStorage' }
 };
@@ -568,7 +590,7 @@ async function initAuth() {
 
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) {
-    window.location.href = 'admin-index.html';
+    window.location.href = 'index.html';
     return;
   }
   adminUser = { name: accounts[0].name, email: accounts[0].username };
@@ -606,7 +628,7 @@ function signOut() {
   sessionStorage.removeItem('admin_account');
   sessionStorage.removeItem('admin_token');
   if (msalInstance) msalInstance.logout();
-  else window.location.href = 'admin-index.html';
+  else window.location.href = 'index.html';
 }
 
 /* ============================================================
@@ -708,11 +730,32 @@ function statusClass(s) {
   return 'status-' + (m[s] || 'pending');
 }
 
+/* Se llama justo antes de empezar una accion que guarda/cambia algo
+   (aprobar, guardar edicion, asignar en Scheduling, etc) -- oscurece
+   la pantalla completa con el logo y "Loading…" mientras se espera
+   la respuesta del servidor. showToast() reusa este mismo overlay
+   para mostrar el resultado final, sin parpadeo entre los dos. */
+function showLoadingOverlay(text) {
+  const el = document.getElementById('action-overlay');
+  const msg = document.getElementById('action-overlay-msg');
+  clearTimeout(window.__overlayTimer);
+  el.classList.add('loading');
+  msg.textContent = text || 'Loading…';
+  el.classList.add('show');
+}
+
+function hideActionOverlay() {
+  document.getElementById('action-overlay').classList.remove('show', 'loading');
+}
+
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 4000);
+  const el = document.getElementById('action-overlay');
+  const msgEl = document.getElementById('action-overlay-msg');
+  el.classList.remove('loading');
+  msgEl.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window.__overlayTimer);
+  window.__overlayTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 /* ============================================================
@@ -1048,6 +1091,7 @@ async function approveBatchAll(batchId) {
 
   const succeeded = [];
   const failed = [];
+  showLoadingOverlay('Approving ' + units.length + ' units…');
   for (const u of units) {
     if (!u.Supervisor || !String(u.Supervisor).trim()) {
       failed.push({ orderId: u.OrderID, error: 'not scheduled yet' });
@@ -1207,6 +1251,7 @@ async function decideNewOrder(orderId, action) {
 
   const ok = document.getElementById(dom + '-ok');
   if (ok) { ok.disabled = true; ok.textContent = 'Approving…'; }
+  showLoadingOverlay('Approving order ' + orderId + '…');
   try {
     /* Si el detalle (y por tanto el editor de servicios) ya cargo, se manda
        la lista editada; si por alguna razon todavia no carga, no se manda
@@ -3053,6 +3098,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
   }
 
   try {
+    showLoadingOverlay('Saving order ' + orderId + '…');
     const res = await api('/admin-update-order', { body });
     showToast(sendToClient
       ? 'Change sent to the client for confirmation.'
@@ -4763,6 +4809,7 @@ let pendingDirectLinkOrderId = null;
     const names = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name).join(', ');
 
     try {
+      showLoadingOverlay('Assigning order ' + orderId + '…');
       await api('/developer-admin', {
         body: {
           action: 'save-scheduling-assignment', email: adminUser.email,
