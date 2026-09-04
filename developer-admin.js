@@ -427,11 +427,14 @@ exports.handler = async (event) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const weekStartMonday = new Date(today);
-      const dow = weekStartMonday.getDay();
-      weekStartMonday.setDate(weekStartMonday.getDate() + (dow === 0 ? -6 : 1 - dow));
-      const weekEndSunday = new Date(weekStartMonday);
-      weekEndSunday.setDate(weekEndSunday.getDate() + 6);
+      /* Domingo-Sabado, igual que uAttend (confirmado con su propio
+         Time Card real: el periodo empieza en domingo, no lunes) --
+         si no coincide con el corte que uAttend usa, el cruce con
+         WeeklyHours nunca alinea bien. */
+      const weekStartSunday = new Date(today);
+      weekStartSunday.setDate(weekStartSunday.getDate() - weekStartSunday.getDay());
+      const weekEndSaturday = new Date(weekStartSunday);
+      weekEndSaturday.setDate(weekEndSaturday.getDate() + 6);
 
       const overview = employees
         .filter(it => it.fields && truthy(it.fields.Active) && String(it.fields.PayrollNumber || '').trim())
@@ -450,7 +453,7 @@ exports.handler = async (event) => {
           const assignedOrdersThisWeek = scheduling.filter(s => {
             if (!s.fields || String(s.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
             const d = new Date(s.fields.AssignedDate);
-            return d >= weekStartMonday && d <= weekEndSunday;
+            return d >= weekStartSunday && d <= weekEndSaturday;
           }).length;
 
           return {

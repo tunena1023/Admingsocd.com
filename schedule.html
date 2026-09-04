@@ -699,12 +699,13 @@
   function calendarWeekBounds(offset) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const dow = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(monday.getDate() + (dow === 0 ? -6 : 1 - dow) + offset * 7);
+    /* Domingo-Sabado, igual que uAttend y que get-hours-overview --
+       mismo corte de semana en todo el sistema. */
+    const sunday = new Date(today);
+    sunday.setDate(sunday.getDate() - sunday.getDay() + offset * 7);
     const days = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
+      const d = new Date(sunday);
       d.setDate(d.getDate() + i);
       days.push(d);
     }
@@ -732,7 +733,7 @@
   function renderCalendar() {
     const box = document.getElementById('calendar-grid');
     const days = calendarWeekBounds(calendarWeekOffset);
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     document.getElementById('calendar-week-label').textContent =
       days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
