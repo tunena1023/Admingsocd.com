@@ -70,8 +70,8 @@
     .hours-caption { font-size: 12px; color: var(--gray); }
     .hours-caption b { color: var(--black); }
     .hours-split { display: grid; grid-template-columns: 1fr 0.6fr 1fr; gap: 16px; }
-    .hours-col-mid { display: flex; align-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0 16px; }
-    .hours-col-right { border-left: none; padding-left: 0; }
+    .hours-col-mid { border-left: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0 16px; }
+    .hours-col-right { display: flex; align-items: center; padding-left: 4px; }
     .hours-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); margin-bottom: 6px; }
     .hours-col-date { text-transform: none; letter-spacing: normal; font-weight: 400; color: #999; margin-left: 4px; }
     .hours-hist-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
@@ -312,13 +312,13 @@
         '<div class="hours-hist-services">' + e.assignedOrdersLastWeek + ' service' + (e.assignedOrdersLastWeek === 1 ? '' : 's') + '</div></div></div>';
 
       const routingHtml =
-        '<a href="schedule.html?tab=routing" target="_blank" class="btn-outline" style="display:block;text-align:center;text-decoration:none;padding:14px 8px">Suggested<br>Routes</a>';
+        '<button class="btn-gold" style="display:block;width:100%;text-align:center;padding:14px 8px" onclick="showSubTab(\'routing\')">Suggested<br>Routes</button>';
 
       return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
         '<div class="hours-split">' +
           '<div><div class="hours-col-label">Current week <span class="hours-col-date">' + curRange + '</span></div>' + gaugeHtml + '</div>' +
-          '<div class="hours-col-mid">' + routingHtml + '</div>' +
-          '<div class="hours-col-right"><div class="hours-col-label">History</div>' + historyHtml + '</div>' +
+          '<div class="hours-col-mid"><div class="hours-col-label">History</div>' + historyHtml + '</div>' +
+          '<div class="hours-col-right">' + routingHtml + '</div>' +
         '</div></div>';
     }).join('');
   }
