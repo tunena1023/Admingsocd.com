@@ -3,7 +3,7 @@
    5 modos según query params (todos GET):
      ?cat=Kitchen                  → Assets/CategoryImages/Kitchen-Image.png
                                      (regla de prefijo, igual que customer.html)
-     ?name=Logo.png                → archivo exacto en la raíz del drive
+     ?name=Logo.jpg                → archivo exacto en la raíz del drive
      ?svc=Kitchen-Stove-DeepClean  → Assets/Services/{nombre} (sin extensión,
                                      sin importar mayúsculas)
      ?gallery-list=Kitchen         → JSON {files:[...]} de Assets/Services/Kitchen/
@@ -81,11 +81,10 @@ async function serveCategory(cat) {
    que el error real (permiso, ruta, lo que sea) salga en la respuesta
    y se pueda ver visitando la URL en el navegador. Quitar despues de
    encontrar la causa real. */
+/* ?name=Logo.jpg — archivo en la raíz del drive buscado por ruta directa */
 async function serveRootFile(name) {
-  const { graphFetch, getDriveId } = require('./lib/graph');
-  const driveId = await getDriveId();
-  const clean = String(name || '').replace(/^\/+|\/+$/g, '');
-  const item = await graphFetch('/drives/' + driveId + '/root:/' + clean.split('/').map(encodeURIComponent).join('/'));
+  const { driveItemByPath } = require('./lib/graph');
+  const item = await driveItemByPath(String(name));
   if (!item || (item.size || 0) > MAX_BYTES) return notFound();
   return binaryResponse(await downloadById(item.id), typeOf(item.name));
 }
