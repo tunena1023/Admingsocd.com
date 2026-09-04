@@ -275,7 +275,66 @@
       .svc-cols { grid-template-columns: 1fr; }
       .svc-grid { grid-template-columns: 1fr; }
     }
+
+    /* ============================================================
+       SCHEDULING -- clases nuevas nomas (order-card, order-body,
+       btn-gold, btn-outline, search-bar, field-group, empty-note,
+       etc ya existian arriba y se reusan tal cual, mismo lenguaje
+       visual desde que se diseño schedule.html para parecerse).
+    ============================================================ */
+    .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; }
+    .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
+    .subpanel { display: none; }
+    .subpanel.active { display: block; }
+
+    .upload-card { border: 1px solid var(--border); background: var(--white); padding: 24px; margin-bottom: 16px; }
+    .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
+    .upload-card p { font-size: 12px; color: var(--gray); margin: 0 0 14px; }
+    .result-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; }
+    .warn-list { background: #FFF8E6; border: 1px solid #E8D9A0; color: #8C6F2A; font-size: 12px; padding: 12px 14px; margin-top: 10px; }
+    table.grid-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 12px; }
+    .grid-table th, .grid-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+    .grid-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
+
+    .pill-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .pill { padding: 8px 16px; border: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; background: var(--white); color: var(--gray); font-family: 'Inter', sans-serif; }
+    .pill.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+    .hours-card { background: var(--white); border: 1px solid var(--border); padding: 16px 20px; margin-bottom: 12px; }
+    .hours-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .hours-div { font-size: 10px; color: var(--gray); font-weight: 400; margin-left: 8px; text-transform: uppercase; letter-spacing: .04em; }
+    .hours-gauge { position: relative; height: 20px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; margin-bottom: 8px; }
+    .hours-gauge-fill { height: 100%; background: var(--gold); }
+    .hours-caption { font-size: 12px; color: var(--gray); }
+    .hours-caption b { color: var(--black); }
+    .hours-split { display: grid; grid-template-columns: 1fr 0.6fr 1fr; gap: 16px; }
+    .hours-col-mid { border-left: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0 16px; }
+    .hours-col-right { display: flex; align-items: center; padding-left: 4px; }
+    .hours-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); margin-bottom: 6px; }
+    .hours-col-date { text-transform: none; letter-spacing: normal; font-weight: 400; color: #999; margin-left: 4px; }
+    .hours-hist-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .hours-hist-label { font-size: 12px; color: var(--black); }
+    .hours-hist-date { font-size: 10px; color: #999; }
+    .hours-hist-val { font-size: 12px; font-weight: 700; }
+    .hours-hist-services { font-size: 10px; color: var(--gray); margin-top: 1px; }
+
+    .candidate-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; margin-bottom: 6px; }
+    .candidate-name { font-weight: 700; flex: 1; }
+    .candidate-stat { color: var(--gray); font-size: 11px; }
+    .candidate-stat b { color: var(--black); }
+    .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
+    .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
+
+    table.calendar-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+    .calendar-table th, .calendar-table td { border: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: top; }
+    .calendar-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
+    .calendar-table th.emp-col { width: 140px; }
+    .cal-order-chip { background: var(--gold); color: var(--black); font-size: 10px; padding: 3px 6px; margin-bottom: 3px; display: block; word-break: break-word; }
+    .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .week-nav b { font-size: 13px; }
   </style>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -299,7 +358,7 @@
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="showTab('create')">Create Order</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
-  <button class="tab" onclick="location.href='schedule.html'">Schedule</button>
+  <button class="tab" onclick="showTab('schedule')">Schedule</button>
   <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
 </div>
 
@@ -387,6 +446,95 @@
   <div id="create-client-result"><p class="empty-note">Loading…</p></div>
 </div>
 
+<!-- SCHEDULE -->
+<div class="panel" id="panel-schedule">
+  <h2 class="section-title">Scheduling</h2>
+  <p class="section-sub">Assign field employees to pending orders, based on available hours and division.</p>
+
+  <div class="subtabs">
+    <button class="subtab" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
+    <button class="subtab" data-tab="calendar" onclick="showSubTab('calendar')">Calendar</button>
+    <button class="subtab" data-tab="hours" onclick="showSubTab('hours')">Hours</button>
+    <button class="subtab active" data-tab="reports" onclick="showSubTab('reports')">Reports</button>
+    <button class="subtab" data-tab="routing" onclick="showSubTab('routing')">Routing</button>
+    <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
+  </div>
+
+  <div class="subpanel" id="subpanel-orders">
+    <div class="search-bar"><input type="text" id="orders-search" placeholder="Search by order number or client…" oninput="renderOrdersQueue()"></div>
+    <div class="pill-row" id="orders-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="Janitorial">Janitorial</div>
+      <div class="pill" data-division="Renovations">Renovations</div>
+      <div class="pill" data-division="Exteriors">Exteriors</div>
+    </div>
+    <div id="orders-queue-list"><p class="empty-note">Loading…</p></div>
+  </div>
+  <div class="subpanel" id="subpanel-calendar">
+    <div class="pill-row" id="calendar-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="janitorial">Janitorial</div>
+      <div class="pill" data-division="renovations">Renovations</div>
+      <div class="pill" data-division="exteriors">Exteriors</div>
+    </div>
+    <div class="week-nav">
+      <button class="btn-outline" onclick="moveCalendarWeek(-1)">◀ Previous week</button>
+      <b id="calendar-week-label"></b>
+      <button class="btn-outline" onclick="moveCalendarWeek(1)">Next week ▶</button>
+    </div>
+    <div id="calendar-grid"><p class="empty-note">Loading…</p></div>
+  </div>
+  <div class="subpanel" id="subpanel-hours">
+    <div class="pill-row" id="hours-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="janitorial">Janitorial</div>
+      <div class="pill" data-division="renovations">Renovations</div>
+      <div class="pill" data-division="exteriors">Exteriors</div>
+    </div>
+    <div id="hours-list"><p class="empty-note">Loading…</p></div>
+  </div>
+
+  <div class="subpanel active" id="subpanel-reports">
+    <div class="upload-card">
+      <h3>Employee Report</h3>
+      <p>Name + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees).</p>
+      <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
+      <button class="btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
+      <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+      <div style="margin-top:12px">
+        <button class="btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+      </div>
+      <div id="employee-result" class="result-box" style="display:none"></div>
+    </div>
+
+    <div class="upload-card">
+      <h3>Punch Report</h3>
+      <p>Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
+      <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
+      <button class="btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
+      <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+      <div style="margin-top:12px">
+        <button class="btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+      </div>
+      <div id="hours-result" class="result-box" style="display:none"></div>
+    </div>
+
+    <div class="upload-card">
+      <div class="order-card-header" style="padding:0 0 10px" onclick="toggleUploadHistory()">
+        <h3 style="margin:0">Upload History</h3>
+        <span id="upload-history-chevron" style="font-size:11px;color:var(--gray)">▸</span>
+      </div>
+      <div id="upload-history" style="display:none"><p class="empty-note">Loading…</p></div>
+    </div>
+  </div>
+
+  <div class="subpanel" id="subpanel-routing"><p class="empty-note">Coming soon.</p></div>
+  <div class="subpanel" id="subpanel-review">
+    <p class="section-sub" style="margin-bottom:16px">Orders with someone assigned who has since gone inactive (no longer appears in the Employee Report) — nobody will show up to do that work unless someone catches it.</p>
+    <div id="review-list"><p class="empty-note">Loading…</p></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
@@ -416,6 +564,7 @@ async function initAuth() {
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
     checkDeveloperAccess();
     loadAll();
+    applyUrlTabParam();
     return;
   }
 
@@ -428,6 +577,15 @@ async function initAuth() {
   document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
   checkDeveloperAccess();
   loadAll();
+  applyUrlTabParam();
+}
+
+/* Si la URL trae ?tab=algo (ej. un link externo hacia Scheduling),
+   abre ese tab directo al cargar -- sin esto, siempre se quedaba en
+   Approvals sin importar de donde vinieras. */
+function applyUrlTabParam() {
+  const tab = new URLSearchParams(location.search).get('tab');
+  if (tab) showTab(tab);
 }
 
 /* Muestra el tab "Developer" solo si el correo logueado tiene un rol
@@ -488,12 +646,13 @@ let createUnitCardCounter = 0;
 ============================================================ */
 function showTab(tab) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','clients','create'];
+    const tabs = ['approvals','review','active','history','clients','create', null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
+  if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
 }
 
 /* ============================================================
@@ -864,7 +1023,7 @@ function batchApprovalGroupCard(batchId, units) {
           ${addUnitButtonHtml(clientId, batchId)}
         </div>
         ${addUnitFormHtml(clientId, batchId)}
-        ${allScheduled ? '' : '<div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-bottom:16px">Algunas unidades de este PO todavía no se han programado en Scheduling — Approve All se habilita cuando todas ya tengan asignación.</div>'}
+        ${allScheduled ? '' : '<div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-bottom:16px">Some units in this PO have not been scheduled yet — Approve All unlocks once all of them are assigned.</div>'}
         <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units</div>
         ${innerHtml}
       </div>
@@ -926,8 +1085,9 @@ function newOrderApprovalCard(o) {
       <div class="field-group"><label>Service Date</label><div style="padding:8px 0;font-size:13px">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</div></div>
       <div class="field-group"><label>Inspection Date</label><div style="padding:8px 0;font-size:13px">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</div></div>
     </div>` : `
-    <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px">
-      Esta orden todavía no ha sido programada. <a href="schedule.html" target="_blank" style="color:#8C6F2A;text-decoration:underline">Ve a Scheduling para asignarla →</a>
+    <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <span>This order has not been scheduled yet.</span>
+      <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Go to Scheduling</button>
     </div>
     <div id="${dom}-bypass-form" style="display:none;margin-top:16px">
       <div class="edit-grid">
@@ -2427,7 +2587,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
               Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b> ·
               Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b>
             </div>
-            <a href="schedule.html?orderId=${encodeURIComponent(o.OrderID)}" target="_blank" class="btn btn-outline" style="display:inline-block;text-decoration:none">Reassign in Scheduling</a>
+            <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
           </div>
           <div class="field-group">
             <label>Notes for client</label>
@@ -4132,9 +4292,670 @@ function cancelCreate() {
 }
 
 /* ============================================================
+   SCHEDULING -- fusionado desde schedule.html (paginа aparte antes,
+   ahora panel dentro de admin.html como todo lo demas).
+============================================================ */
+function goToScheduleForOrder(orderId) {
+  pendingDirectLinkOrderId = orderId;
+  showTab('schedule');
+  showSubTab('orders');
+}
+let pendingDirectLinkOrderId = null;
+
+  function showSubTab(tab) {
+    document.querySelectorAll('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
+    if (tab === 'reports') loadUploadHistory();
+    if (tab === 'hours') loadHoursOverview();
+    if (tab === 'orders') loadOrdersQueue();
+    if (tab === 'calendar') loadCalendar();
+    if (tab === 'review') loadReview();
+  }
+
+  /* ===== Hours ===== */
+  let hoursOverviewCache = [];
+  let hoursDivisionFilter = '';
+  let hoursWeekDates = {};
+
+  function fmtShortDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  async function loadHoursOverview() {
+    const box = document.getElementById('hours-list');
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
+      hoursOverviewCache = res.employees || [];
+      hoursWeekDates = {
+        weekStart: res.weekStart, weekEnd: res.weekEnd,
+        prevWeekStart: res.prevWeekStart, prevWeekEnd: res.prevWeekEnd
+      };
+      renderHoursList();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderHoursList() {
+    const box = document.getElementById('hours-list');
+    let list = hoursOverviewCache.slice();
+    if (hoursDivisionFilter) list = list.filter(e => e[hoursDivisionFilter]);
+    list.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!list.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
+
+    const curRange = fmtShortDate(hoursWeekDates.weekStart) + ' – ' + fmtShortDate(hoursWeekDates.weekEnd);
+    const prevRange = fmtShortDate(hoursWeekDates.prevWeekStart) + ' – ' + fmtShortDate(hoursWeekDates.prevWeekEnd);
+
+    box.innerHTML = list.map(e => {
+      const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
+
+      const gaugeHtml = (() => {
+        if (!e.hasWeekData) {
+          return '<div class="hours-caption">No hours data for this week yet — upload a more recent Hours Report.</div>';
+        }
+        const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
+        const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
+        const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
+        const remaining = 40 - e.hoursThisWeek;
+        const caption = e.hoursThisWeek >= 40
+          ? '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:#B33A3A">' + (e.hoursThisWeek - 40).toFixed(1) + ' hrs</b> overtime'
+          : '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hrs</b> left' +
+            (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' assigned</span>' : '');
+        return '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
+          '<div class="hours-caption">' + caption + '</div>';
+      })();
+
+      const historyHtml =
+        '<div class="hours-hist-row"><div><div class="hours-hist-label">This week</div><div class="hours-hist-date">' + curRange + '</div></div>' +
+        '<div style="text-align:right"><span class="hours-hist-val" style="color:var(--black)">' + (e.hasWeekData ? e.hoursThisWeek.toFixed(1) + ' hrs' : '—') + '</span>' +
+        '<div class="hours-hist-services">' + e.assignedOrdersThisWeek + ' service' + (e.assignedOrdersThisWeek === 1 ? '' : 's') + '</div></div></div>' +
+        '<div class="hours-hist-row"><div><div class="hours-hist-label" style="color:var(--gray)">Last week</div><div class="hours-hist-date">' + prevRange + '</div></div>' +
+        '<div style="text-align:right"><span class="hours-hist-val" style="color:var(--gray)">' + (e.hoursLastWeek != null ? e.hoursLastWeek.toFixed(1) + ' hrs' : '—') + '</span>' +
+        '<div class="hours-hist-services">' + e.assignedOrdersLastWeek + ' service' + (e.assignedOrdersLastWeek === 1 ? '' : 's') + '</div></div></div>';
+
+      const routingHtml =
+        '<button class="btn-gold" style="display:block;width:100%;text-align:center;padding:14px 8px" onclick="showSubTab(\'routing\')">Suggested<br>Routes</button>';
+
+      return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
+        '<div class="hours-split">' +
+          '<div><div class="hours-col-label">Current week <span class="hours-col-date">' + curRange + '</span></div>' + gaugeHtml + '</div>' +
+          '<div class="hours-col-mid"><div class="hours-col-label">History</div>' + historyHtml + '</div>' +
+          '<div class="hours-col-right">' + routingHtml + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  document.getElementById('hours-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('hours-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      hoursDivisionFilter = p.dataset.division;
+      renderHoursList();
+    });
+  });
+
+  /* ===== Parser CSV robusto (comillas, comas dentro de comillas) ===== */
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else field += c;
+      }
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  /* ===== Employee Report ===== */
+  let employeeRows = null;
+  function onEmployeeFileChosen() {
+    const input = document.getElementById('employee-report-file');
+    const file = input.files[0];
+    document.getElementById('employee-result').style.display = 'none';
+    if (!file) { document.getElementById('employee-upload-btn').disabled = true; return; }
+    document.getElementById('employee-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCSV(reader.result);
+        employeeRows = rows.slice(1).filter(r => r.length > 1 && r[0].trim()).map(r => ({
+          firstName: r[0].trim(),
+          lastName: r[1].trim(),
+          departmentName: r[2].trim(),
+          departmentCode: r[3].trim(),
+          payrollNumber: r[4].trim(),
+          activeStatus: r[5].trim()
+        }));
+        document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
+      } catch (e) {
+        alert('Could not read the file: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function uploadEmployeeReport() {
+    if (!employeeRows || !employeeRows.length) return;
+    const btn = document.getElementById('employee-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'upload-employee-report', email: adminUser.email, rows: employeeRows } });
+      const box = document.getElementById('employee-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
+        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>';
+      if (res.missingPayroll && res.missingPayroll.length) {
+        box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
+          res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  /* ===== Hours Report ===== */
+  let hoursRows = null;
+  function toISODateLocal(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function onHoursFileChosen() {
+    const input = document.getElementById('hours-report-file');
+    const file = input.files[0];
+    document.getElementById('hours-result').style.display = 'none';
+    if (!file) { document.getElementById('hours-upload-btn').disabled = true; return; }
+    document.getElementById('hours-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+
+        /* Columnas: EMP L NAME(0), EMP F NAME(1), EMP##(2), DATE(3),
+           IN(4), OUT(5), TOTAL(6), DEPT CODE(7)... Header en fila 3
+           (indice 2), datos desde la fila 4 (indice 3). EMP## sirve
+           directo como PayrollNumber -- sin cruzar por nombre.
+           Si OUT quedo sin ponchar, uAttend pone '------' en vez de
+           hora -- TOTAL entonces no es una Fecha real (viene vacio o
+           texto), esa fila se descarta sola porque no pasa el chequeo
+           "instanceof Date". TOTAL ya viene resuelto correcto por
+           uAttend incluso en turnos que cruzan medianoche -- se usa
+           tal cual, no se resta IN de OUT a mano. */
+        const weekly = {};
+        for (let i = 3; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.length < 7) continue;
+          const payrollNumber = String(r[2] || '').trim();
+          const dateCell = r[3], totalCell = r[6];
+          if (!payrollNumber || !(dateCell instanceof Date) || !(totalCell instanceof Date)) continue;
+
+          const hours = totalCell.getHours() + totalCell.getMinutes() / 60;
+
+          const dow = dateCell.getDay();
+          const weekStart = new Date(dateCell.getFullYear(), dateCell.getMonth(), dateCell.getDate() - dow);
+          const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+          const wsISO = toISODateLocal(weekStart), weISO = toISODateLocal(weekEnd);
+
+          const key = payrollNumber + '|' + wsISO;
+          if (!weekly[key]) weekly[key] = { payrollNumber, weekStart: wsISO, weekEnd: weISO, totalHours: 0 };
+          weekly[key].totalHours += hours;
+        }
+
+        hoursRows = Object.values(weekly).map(w => ({ ...w, totalHours: Math.round(w.totalHours * 100) / 100 }));
+        document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
+      } catch (e) {
+        alert('Could not read the file: ' + e.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function uploadHoursReport() {
+    if (!hoursRows || !hoursRows.length) return;
+    const btn = document.getElementById('hours-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await api('/developer-admin', { body: { action: 'upload-hours-report', email: adminUser.email, rows: hoursRows } });
+      const box = document.getElementById('hours-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.created + '</b> new weeks · <b>' + res.updated + '</b> updated.';
+      if (res.unmatched && res.unmatched.length) {
+        box.innerHTML += '<div class="warn-list"><b>Payroll Number not in the catalog</b> (not in FieldEmployees):<br>' +
+          res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  async function loadUploadHistory() {
+    const box = document.getElementById('upload-history');
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-report-uploads', email: adminUser.email } });
+      const uploads = res.uploads || [];
+      if (!uploads.length) { box.innerHTML = '<p class="empty-note">No reports uploaded yet.</p>'; return; }
+      box.innerHTML = '<table class="grid-table"><tr><th>Type</th><th>Date</th><th>Result</th></tr>' +
+        uploads.map(u => '<tr><td>' + esc(u.ReportType) + '</td><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
+        '</table>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function toggleUploadHistory() {
+    const box = document.getElementById('upload-history');
+    const chevron = document.getElementById('upload-history-chevron');
+    const willOpen = box.style.display === 'none';
+    box.style.display = willOpen ? 'block' : 'none';
+    chevron.textContent = willOpen ? '▾' : '▸';
+  }
+
+  function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+  /* ===== Orders ===== */
+  let ordersQueueCache = [];       // ordenes Received sin ninguna fila en Scheduling
+  let directLinkOrder = null;      // orden abierta directo por ?orderId=, sin importar status
+  let ordersScheduledCache = [];   // ordenes Received CON fila en Scheduling, esperando Approve
+  let ordersDivisionFilter = '';
+  let openOrderCard = null;
+
+  async function loadOrdersQueue() {
+    const box = document.getElementById('orders-queue-list');
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
+    try {
+      const [ordersRes, schedulingRes, hoursRes] = await Promise.all([
+        api('/admin-get-orders', { method: 'POST', body: {} }),
+        api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
+        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
+      ]);
+      hoursOverviewCache = hoursRes.employees || [];
+
+      const scheduledOrderIds = new Set((schedulingRes.items || []).map(s => s.OrderID));
+      const pending = (ordersRes.orders || []).filter(o => o.Status === 'Received');
+
+      ordersQueueCache = pending.filter(o => !scheduledOrderIds.has(o.OrderID));
+      ordersScheduledCache = pending.filter(o => scheduledOrderIds.has(o.OrderID));
+
+      /* Link directo desde otro lado del sistema (ej. "Reassign in
+         Scheduling" en Active) -- abre ESA orden especifica sin
+         importar su status, no solo las que estan en Received.
+         pendingDirectLinkOrderId es para navegacion interna (misma
+         pagina, sin recargar); el parametro de URL sigue funcionando
+         si alguien llega con un link externo con ?orderId=. */
+      const linkedId = pendingDirectLinkOrderId || new URLSearchParams(location.search).get('orderId');
+      directLinkOrder = linkedId ? (ordersRes.orders || []).find(o => o.OrderID === linkedId) || null : null;
+      pendingDirectLinkOrderId = null;
+
+      renderOrdersQueue();
+      if (directLinkOrder) {
+        setTimeout(() => toggleOrderCard(directLinkOrder.OrderID), 50);
+      }
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderOrdersQueue() {
+    const box = document.getElementById('orders-queue-list');
+    const q = (document.getElementById('orders-search').value || '').trim().toLowerCase();
+
+    const filterFn = o => {
+      if (ordersDivisionFilter && (o.Division || '').toLowerCase() !== ordersDivisionFilter.toLowerCase()) return false;
+      if (q && !((o.OrderID || '').toLowerCase().includes(q) || (o.BusinessName || '').toLowerCase().includes(q))) return false;
+      return true;
+    };
+
+    const queue = ordersQueueCache.filter(filterFn)
+      .sort((a, b) => String(a.createdDateTime || '').localeCompare(String(b.createdDateTime || '')));
+    const scheduled = ordersScheduledCache.filter(filterFn);
+
+    let html = '';
+    if (directLinkOrder) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:0 0 8px">Opened directly (' + esc(directLinkOrder.Status) + ')</div>';
+      html += orderQueueCardHtml(directLinkOrder);
+    }
+    if (queue.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Waiting for assignment (' + queue.length + ')</div>';
+      html += queue.map(orderQueueCardHtml).join('');
+    }
+    if (scheduled.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Already scheduled, waiting for Approve (' + scheduled.length + ')</div>';
+      html += scheduled.map(orderScheduledCardHtml).join('');
+    }
+    box.innerHTML = html || '<p class="empty-note">No pending orders.</p>';
+  }
+
+  function daysWaiting(createdDateTime) {
+    if (!createdDateTime) return '';
+    const created = new Date(createdDateTime);
+    const days = Math.floor((Date.now() - created.getTime()) / 86400000);
+    return days <= 0 ? 'today' : days + ' day' + (days === 1 ? '' : 's');
+  }
+
+  function orderQueueCardHtml(o) {
+    const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
+    return `
+      <div class="order-card" data-order="${escAttr(o.OrderID)}">
+        <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
+          <div>
+            <div class="order-id">#${esc(o.OrderID)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray)">▾</span>
+        </div>
+        <div class="order-body" id="order-body-${escAttr(o.OrderID)}"></div>
+      </div>`;
+  }
+
+  function orderScheduledCardHtml(o) {
+    return `
+      <div class="order-card" data-order="${escAttr(o.OrderID)}">
+        <div class="order-card-header">
+          <div>
+            <div class="order-id">#${esc(o.OrderID)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}</div>
+          </div>
+          <button class="btn-outline" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
+        </div>
+      </div>`;
+  }
+
+  function toggleOrderCard(orderId) {
+    const bodyId = 'order-body-' + orderId;
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+
+    if (openOrderCard && openOrderCard !== orderId) {
+      const prevBody = document.getElementById('order-body-' + openOrderCard);
+      if (prevBody) { prevBody.classList.remove('open'); prevBody.innerHTML = ''; }
+    }
+
+    if (body.classList.contains('open')) {
+      body.classList.remove('open'); body.innerHTML = ''; openOrderCard = null; return;
+    }
+
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+    body.innerHTML = assignFormHtml(order);
+    body.classList.add('open');
+    openOrderCard = orderId;
+  }
+
+  function assignFormHtml(o) {
+    const candidates = hoursOverviewCache.filter(e => {
+      const key = (o.Division || '').toLowerCase();
+      return (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors);
+    }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
+
+    if (!candidates.length) {
+      return '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>';
+    }
+
+    const rows = candidates.map(c => `
+      <div class="candidate-row">
+        <input type="checkbox" value="${escAttr(c.payrollNumber)}" class="cand-check" style="width:auto">
+        <span class="candidate-name">${esc(c.name)}</span>
+        <span class="candidate-stat">${c.hasWeekData ? ('Hours this week: <b>' + c.hoursThisWeek.toFixed(1) + '</b>') : '<span style="color:var(--gray)">No hours data this week</span>'}</span>
+        <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
+      </div>`).join('');
+
+    return `
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Candidates — ${esc(o.Division)}</div>
+      ${rows}
+      <div class="toggle-row" style="margin-top:14px">
+        <input type="checkbox" id="starts-office-${escAttr(o.OrderID)}" style="width:auto">
+        <label for="starts-office-${escAttr(o.OrderID)}">Starts from office</label>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label>Assigned Date</label><input type="date" id="assign-date-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Service Window</label>
+          <select id="assign-window-${escAttr(o.OrderID)}">
+            <option value="">Select…</option>
+            <option>5:00 AM - 8:00 AM</option>
+            <option>8:00 AM - 11:00 AM</option>
+            <option>11:00 AM - 2:00 PM</option>
+            <option>2:00 PM - 5:00 PM</option>
+          </select>
+        </div>
+        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}"></div>
+      </div>
+      <button class="btn-gold" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
+      <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
+  }
+
+  async function submitAssignment(orderId) {
+    const errEl = document.getElementById('assign-error-' + orderId);
+    errEl.textContent = '';
+
+    const body = document.getElementById('order-body-' + orderId);
+    const checked = Array.from(body.querySelectorAll('.cand-check:checked')).map(c => c.value);
+    const assignedDate = document.getElementById('assign-date-' + orderId).value;
+    const serviceWindow = document.getElementById('assign-window-' + orderId).value;
+    const inspectionDate = document.getElementById('assign-inspection-' + orderId).value;
+    const startsFromOffice = document.getElementById('starts-office-' + orderId).checked;
+
+    if (!checked.length) { errEl.textContent = 'Select at least one person.'; return; }
+    if (!assignedDate) { errEl.textContent = 'Choose the assigned date.'; return; }
+    if (!serviceWindow) { errEl.textContent = 'Choose the Service Window.'; return; }
+
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+    const names = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name).join(', ');
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'save-scheduling-assignment', email: adminUser.email,
+          orderId, payrollNumbers: checked, assignedDate, division: order.Division, startsFromOffice
+        }
+      });
+      await api('/admin-update-order', {
+        body: {
+          orderId, supervisor: names, serviceWindow, dispatchDate: assignedDate,
+          inspectionDate: inspectionDate || '', changedBy: adminUser.name || adminUser.email
+        }
+      });
+      openOrderCard = null;
+      loadOrdersQueue();
+    } catch (e) {
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function rescheduleOrder(orderId) {
+    if (!confirm('Remove this order\'s assignment and send it back to the queue?')) return;
+    try {
+      await api('/developer-admin', { body: { action: 'reschedule-order', email: adminUser.email, orderId } });
+      await api('/admin-update-order', {
+        body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
+      });
+      const activeTab = document.querySelector('.subtab.active');
+      if (activeTab && activeTab.dataset.tab === 'review') loadReview();
+      else loadOrdersQueue();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  document.getElementById('orders-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('orders-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      ordersDivisionFilter = p.dataset.division;
+      renderOrdersQueue();
+    });
+  });
+
+  /* ===== Calendar ===== */
+  let calendarWeekOffset = 0;
+  let calendarDivisionFilter = '';
+  let schedulingCache = [];
+  let ordersCacheForCalendar = [];
+
+  function calendarWeekBounds(offset) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    /* Domingo-Sabado, igual que uAttend y que get-hours-overview --
+       mismo corte de semana en todo el sistema. */
+    const sunday = new Date(today);
+    sunday.setDate(sunday.getDate() - sunday.getDay() + offset * 7);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  async function loadCalendar() {
+    const box = document.getElementById('calendar-grid');
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
+    try {
+      const [schedRes, ordersRes, hoursRes] = await Promise.all([
+        api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
+        api('/admin-get-orders', { method: 'POST', body: {} }),
+        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
+      ]);
+      schedulingCache = schedRes.items || [];
+      ordersCacheForCalendar = ordersRes.orders || [];
+      hoursOverviewCache = hoursRes.employees || [];
+      renderCalendar();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderCalendar() {
+    const box = document.getElementById('calendar-grid');
+    const days = calendarWeekBounds(calendarWeekOffset);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    document.getElementById('calendar-week-label').textContent =
+      days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
+
+    let employees = hoursOverviewCache.slice();
+    if (calendarDivisionFilter) employees = employees.filter(e => e[calendarDivisionFilter]);
+    employees.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!employees.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
+
+    const orderById = {};
+    ordersCacheForCalendar.forEach(o => { orderById[o.OrderID] = o; });
+
+    let html = '<table class="calendar-table"><tr><th class="emp-col">Employee</th>' +
+      days.map((d, i) => '<th>' + dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>').join('') + '</tr>';
+
+    employees.forEach(emp => {
+      html += '<tr><td><b>' + esc(emp.name) + '</b></td>';
+      days.forEach(d => {
+        const dayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const entries = schedulingCache.filter(s => s.PayrollNumber === emp.payrollNumber && String(s.AssignedDate).slice(0, 10) === dayStr);
+        const cell = entries.map(s => {
+          const o = orderById[s.OrderID];
+          const label = o ? (o.BusinessName || o.ClientID) : s.OrderID;
+          return '<span class="cal-order-chip" title="' + esc(s.OrderID) + '">' + esc(label) + '</span>';
+        }).join('');
+        html += '<td>' + cell + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  }
+
+  function moveCalendarWeek(delta) {
+    calendarWeekOffset += delta;
+    renderCalendar();
+  }
+
+  document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      calendarDivisionFilter = p.dataset.division;
+      renderCalendar();
+    });
+  });
+
+  /* ===== Review ===== */
+  async function loadReview() {
+    const box = document.getElementById('review-list');
+    box.innerHTML = '<p class="empty-note">Loading…</p>';
+    try {
+      const [reviewRes, ordersRes] = await Promise.all([
+        api('/developer-admin', { body: { action: 'list-orphaned-assignments', email: adminUser.email } }),
+        api('/admin-get-orders', { method: 'POST', body: {} })
+      ]);
+      const orderById = {};
+      (ordersRes.orders || []).forEach(o => { orderById[o.OrderID] = o; });
+
+      const orphaned = reviewRes.orphaned || [];
+      if (!orphaned.length) { box.innerHTML = '<p class="empty-note">Nothing to review — all clear.</p>'; return; }
+
+      box.innerHTML = orphaned.map(r => {
+        const o = orderById[r.orderId] || {};
+        return `
+          <div class="order-card">
+            <div class="order-card-header">
+              <div>
+                <div class="order-id">#${esc(r.orderId)}</div>
+                <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · assigned to <b>${esc(r.employeeName)}</b> (now inactive) · ${fmtDateShort(r.assignedDate)}</div>
+              </div>
+              <button class="btn-outline" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleDateString();
+  }
+
+
+let scheduleTabInitialized = false;
+function onScheduleTabOpened() {
+  const linkedOrderId = new URLSearchParams(location.search).get('orderId');
+  if (linkedOrderId && !scheduleTabInitialized) {
+    showSubTab('orders');
+  } else if (!scheduleTabInitialized) {
+    showSubTab('reports');
+  }
+  scheduleTabInitialized = true;
+}
+
+
+/* ============================================================
    INIT
 ============================================================ */
 initAuth();
 </script>
 </body>
-</html>
+</html>
