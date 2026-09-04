@@ -400,7 +400,18 @@
           if (dateRange.length !== 2) continue;
           const ws = parseUSDate(dateRange[0]), we = parseUSDate(dateRange[1]);
           if (!ws || !we) continue;
-          parsed.push({ employeeName: currentName, weekStart: ws, weekEnd: we, totalHours: hhmmToDecimal(r[4]) });
+          /* uAttend a veces junta varias semanas reales en UN solo
+             renglon (visto con datos reales: pediste 2 semanas exactas
+             y te dio un renglon con "TOTAL WEEKLY HRS" = PROMEDIO por
+             semana, no el total real -- el total real esta en
+             "TOTAL HRS" en esos casos, que coincidio exacto con la
+             ponchadora misma). Si el rango del renglon es mas largo
+             que una semana real (~7 dias), se usa TOTAL HRS (r[5]);
+             si es una semana real, TOTAL WEEKLY HRS (r[4]) ya es
+             correcto tal cual. */
+          const spanDays = Math.round((new Date(we) - new Date(ws)) / 86400000);
+          const hoursRaw = spanDays > 10 ? r[5] : r[4];
+          parsed.push({ employeeName: currentName, weekStart: ws, weekEnd: we, totalHours: hhmmToDecimal(hoursRaw) });
         }
         hoursRows = parsed;
         document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
