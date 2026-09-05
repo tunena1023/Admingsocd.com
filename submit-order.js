@@ -10,7 +10,7 @@
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENT_ADDRESSES_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
-  graphFetch, siteListPath,
+  graphFetch, siteListPath, geocodeAddress,
   jsonResponse
 } = require('./lib/graph');
 
@@ -123,6 +123,29 @@ function resolveServices(raw, division) {
 
 function dateField(v) { return v ? v : null; }
 
+/* Coordenadas para Routing: si la orden trae buildingId (viene de un
+   Building ya guardado, que ya se geocodifico solo al crearse -- ver
+   admin-update-client.js), se copian esas mismas coordenadas, sin
+   volver a preguntarle nada a Nominatim. Si no hay buildingId (orden
+   normal, sin building ligado), se geocodifica la direccion de texto
+   directo. Nunca truena la creacion de la orden si esto falla -- se
+   intenta y ya, Routing simplemente no podra ubicar esa orden en el
+   mapa hasta que se resuelva despues. */
+async function resolveOrderCoordinates(buildingId, address, city, zip) {
+  try {
+    if (buildingId) {
+      const bld = await graphFetch(siteListPath(CLIENT_ADDRESSES_LIST) + '/items/' + buildingId + '?$expand=fields');
+      const f = bld && bld.fields;
+      if (f && f.Latitude != null && f.Longitude != null) {
+        return { lat: Number(f.Latitude), lon: Number(f.Longitude) };
+      }
+    }
+    return await geocodeAddress(address, city, zip);
+  } catch (e) {
+    return null;
+  }
+}
+
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -197,7 +220,10 @@ exports.handler = async (event) => {
         DueDate:        add.dueDate,
         DraftData:      '',
         BatchId:        add.batchId,
-        BuildingId:     String(add.buildingId)
+        BuildingId:     String(add.buildingId),
+        /* El Building ya se geocodifico solo (admin-update-client.js) --
+           se copian sus coordenadas, sin volver a preguntarle a Nominatim. */
+        ...(bf.Latitude != null && bf.Longitude != null ? { Latitude: bf.Latitude, Longitude: bf.Longitude } : {})
       });
 
       try {
@@ -259,6 +285,12 @@ exports.handler = async (event) => {
       DueDate:        dateField(b.DueDate),
       DraftData:      ''
     };
+
+    /* Coordenadas para Routing -- ordenes normales no traen building
+       ligado, se geocodifica la direccion de texto directo. Se hace
+       una sola vez aqui, compartido entre Flujo A y Flujo C. */
+    const orderGeo = await resolveOrderCoordinates(null, b.Address, b.City, b.Zip);
+    if (orderGeo) { orderFields.Latitude = orderGeo.lat; orderFields.Longitude = orderGeo.lon; }
 
     /* ===== FLUJO A: Draft temporal → Orden real ===== */
     if (isTempDraft) {
@@ -476,7 +508,13 @@ exports.handler = async (event) => {
           City:           bf.City    || '',
           Zip:            bf.Zip     || '',
           BatchId:        poTag,
-          BuildingId:     bId
+          BuildingId:     bId,
+          /* Cada unidad tiene su PROPIO building, distinto a la
+             direccion de facturacion que ya se geocodifico en
+             orderFields -- se sobreescribe con las coordenadas
+             correctas de este building especifico. */
+          Latitude:  bf.Latitude  != null ? bf.Latitude  : null,
+          Longitude: bf.Longitude != null ? bf.Longitude : null
         });
 
         try {
