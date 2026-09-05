@@ -36,6 +36,10 @@
     .stub-icon { font-size: 40px; margin-bottom: 20px; }
     .stub-wrap h1 { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; }
     .stub-wrap p { font-size: 14px; color: var(--gray); line-height: 1.7; }
+
+    .tab-bar { background: var(--white); border-bottom: 1px solid var(--border); display: flex; padding: 0 40px; gap: 0; overflow-x: auto; }
+    .tab { padding: 16px 24px; font-size: 13px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; border: none; background: none; color: var(--gray); border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
+    .tab.active { color: var(--black); border-bottom-color: var(--gold); }
   </style>
 </head>
 <body>
@@ -52,6 +56,20 @@
     <button class="btn-signout" onclick="signOut()">Sign out</button>
   </div>
 </nav>
+
+<div class="tab-bar">
+  <a class="tab" href="admin.html?tab=approvals">Approvals</a>
+  <a class="tab" href="admin.html?tab=review">Review</a>
+  <a class="tab" href="admin.html?tab=active">Active</a>
+  <a class="tab" href="admin.html?tab=history">History</a>
+  <a class="tab" href="admin.html?tab=assigned">Assigned</a>
+  <a class="tab" href="admin.html?tab=clients">Clients</a>
+  <a class="tab" href="admin.html?tab=create">Create Order</a>
+  <a class="tab active" href="quickbooks.html">QuickBooks</a>
+  <a class="tab" href="recurring.html">Recurring</a>
+  <a class="tab" href="admin.html?tab=schedule">Schedule</a>
+  <a class="tab" href="developer.html">Developer</a>
+</div>
 
 <div class="stub-wrap">
   <div class="stub-icon">&#128179;</div>
