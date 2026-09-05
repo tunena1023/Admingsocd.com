@@ -200,6 +200,13 @@
     </div>
     <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
   </section>
+
+  <section id="debug-section" style="display:none;border:1px solid #B33A3A;padding:20px;background:#FFF5F5">
+    <p class="section-title" style="color:#B33A3A">⚠ Debug — Wipe Test Data</p>
+    <p class="section-sub">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads and Recurring data. Clients and Services are never touched. This cannot be undone. Remove this section once testing is done.</p>
+    <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
+    <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
+  </section>
 </div>
 
 <div id="service-modal-overlay" class="modal-overlay" style="display:none">
@@ -332,6 +339,7 @@
       document.getElementById('staff-section').style.display = 'block';
       document.getElementById('password-section').style.display = 'block';
       document.getElementById('geocode-section').style.display = 'block';
+      document.getElementById('debug-section').style.display = 'block';
       loadStaff();
     }
 
@@ -607,6 +615,28 @@
       box.textContent = 'Error: ' + e.message;
     } finally {
       btn.disabled = false;
+    }
+  }
+
+  /* Debug temporal, solo para pruebas -- borrar este boton entero
+     (seccion HTML + esta funcion + la accion wipe-test-data en
+     developer-admin.js) cuando ya no haga falta. Doble candado: un
+     confirm() de "estas seguro" primero, y la password exacta
+     despues -- ninguno de los dos solo es suficiente. */
+  async function debugWipeTestData() {
+    const sure = confirm('This will PERMANENTLY delete ALL Orders, Scheduling and Recurring data. Clients and Services are NOT touched. This cannot be undone. Continue?');
+    if (!sure) return;
+
+    const pass = window.prompt('Type the exact confirmation password:');
+    if (pass === null) return;
+
+    const box = document.getElementById('debug-wipe-result');
+    box.textContent = 'Wiping…';
+    try {
+      const res = await api('wipe-test-data', { password: pass });
+      box.textContent = 'Done. ' + Object.entries(res.deleted).map(([list, n]) => list + ': ' + n).join(' · ');
+    } catch (e) {
+      box.textContent = 'Error: ' + e.message;
     }
   }
 </script>

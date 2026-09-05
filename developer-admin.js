@@ -24,6 +24,7 @@ const {
   SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
@@ -785,6 +786,35 @@ exports.handler = async (event) => {
         });
 
       return jsonResponse(200, { employees: overview });
+    }
+
+    /* ============================================================
+       DEBUG -- boton temporal para pruebas, borrar despues de usarlo.
+       Borra TODO lo de Orders/Scheduling/Recurring (nunca Clients ni
+       Services, confirmado explicitamente). Requiere password exacta
+       ademas de rol Developer -- doble candado para algo tan
+       destructivo e irreversible.
+    ============================================================ */
+    if (action === 'wipe-test-data') {
+      if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
+      if (String(body.password || '') !== 'BorraTodoYnoDejesNada') {
+        return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
+      }
+
+      const listsToWipe = [
+        ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
+        FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
+        RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST
+      ];
+
+      const deleted = {};
+      for (const list of listsToWipe) {
+        const rows = await fetchAll(list);
+        await Promise.all(rows.map(it => deleteListItem(list, it.id)));
+        deleted[list] = rows.length;
+      }
+
+      return jsonResponse(200, { success: true, deleted });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
