@@ -23,6 +23,7 @@
 const {
   SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
+  RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
@@ -622,6 +623,162 @@ exports.handler = async (event) => {
         processed: batch.length, geocoded, failed,
         remaining: Math.max(missing.length - batch.length, 0)
       });
+    }
+
+    /* ============================================================
+       RECURRING SERVICES -- trabajos fijos de Janitorial que se
+       repiten cada semana. Viven separado de Orders por completo,
+       nunca generan una Orden real ni pasan por Approvals (decidido
+       explicitamente). Soportan 1 o varias personas por contrato,
+       cada una cubriendo una parte de las horas totales.
+    ============================================================ */
+
+    if (action === 'save-recurring-service') {
+      const { recurringServiceId, clientId, buildingNumber, division, servicesJson, daysOfWeek, time, totalHours, assignments } = body;
+      if (!clientId) return jsonResponse(400, { error: 'clientId is required' });
+      if (!daysOfWeek) return jsonResponse(400, { error: 'daysOfWeek is required' });
+      if (!time) return jsonResponse(400, { error: 'time is required' });
+      if (!Array.isArray(assignments) || !assignments.length) return jsonResponse(400, { error: 'At least one assignment is required' });
+
+      const fields = {
+        Title: clientId,
+        ClientID: clientId,
+        BuildingNumber: buildingNumber || '',
+        Division: division || 'Janitorial',
+        ServicesJSON: servicesJson || '',
+        DaysOfWeek: daysOfWeek,
+        Time: time,
+        TotalHours: Number(totalHours) || 0,
+        Active: true
+      };
+
+      let serviceId = recurringServiceId;
+      if (serviceId) {
+        await updateListItemByItemId(RECURRING_SERVICES_LIST, serviceId, fields);
+        /* Se reemplazan las asignaciones viejas de este contrato por
+           las nuevas -- mas simple que tratar de calcular cuales
+           agregar/quitar/editar una por una. */
+        const existingAssignments = await fetchAll(RECURRING_ASSIGNMENTS_LIST);
+        const toDelete = existingAssignments.filter(it => it.fields && String(it.fields.RecurringServiceID) === String(serviceId));
+        await Promise.all(toDelete.map(it => deleteListItem(RECURRING_ASSIGNMENTS_LIST, it.id)));
+      } else {
+        const created = await createListItem(RECURRING_SERVICES_LIST, fields);
+        serviceId = created.id;
+      }
+
+      await Promise.all(assignments.map(a => createListItem(RECURRING_ASSIGNMENTS_LIST, {
+        Title: serviceId + '-' + a.payrollNumber,
+        RecurringServiceID: String(serviceId),
+        PayrollNumber: String(a.payrollNumber).trim(),
+        HoursAllocated: Number(a.hoursAllocated) || 0
+      })));
+
+      return jsonResponse(200, { success: true, recurringServiceId: serviceId });
+    }
+
+    if (action === 'list-recurring-services') {
+      const [services, assignments, employees] = await Promise.all([
+        fetchAll(RECURRING_SERVICES_LIST),
+        fetchAll(RECURRING_ASSIGNMENTS_LIST),
+        fetchAll(FIELD_EMPLOYEES_LIST)
+      ]);
+
+      const nameByPayroll = {};
+      employees.forEach(it => {
+        if (!it.fields || !it.fields.PayrollNumber) return;
+        nameByPayroll[String(it.fields.PayrollNumber).trim()] =
+          (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+      });
+
+      const list = services.filter(it => it.fields).map(it => {
+        const f = it.fields;
+        const myAssignments = assignments
+          .filter(a => a.fields && String(a.fields.RecurringServiceID) === String(it.id))
+          .map(a => ({
+            payrollNumber: a.fields.PayrollNumber,
+            name: nameByPayroll[String(a.fields.PayrollNumber).trim()] || a.fields.PayrollNumber,
+            hoursAllocated: Number(a.fields.HoursAllocated) || 0
+          }));
+        return {
+          id: it.id,
+          clientId: f.ClientID || '',
+          buildingNumber: f.BuildingNumber || '',
+          division: f.Division || '',
+          servicesJson: f.ServicesJSON || '',
+          daysOfWeek: f.DaysOfWeek || '',
+          time: f.Time || '',
+          totalHours: Number(f.TotalHours) || 0,
+          active: truthy(f.Active),
+          assignments: myAssignments
+        };
+      });
+
+      return jsonResponse(200, { services: list });
+    }
+
+    if (action === 'toggle-recurring-active') {
+      const { recurringServiceId, active } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+      await updateListItemByItemId(RECURRING_SERVICES_LIST, recurringServiceId, { Active: !!active });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Vista combinada por empleado para el tab "Assigned": Recurring +
+       Scheduling normal, en un solo lugar. Solo trae OrderID/fecha del
+       lado de Scheduling -- el frontend cruza eso contra los datos de
+       Orders que ya carga aparte (mismo patron que ya usa Calendar). */
+    if (action === 'get-assigned-overview') {
+      const [employees, recurringServices, recurringAssignments, scheduling] = await Promise.all([
+        fetchAll(FIELD_EMPLOYEES_LIST),
+        fetchAll(RECURRING_SERVICES_LIST),
+        fetchAll(RECURRING_ASSIGNMENTS_LIST),
+        fetchAll(SCHEDULING_LIST)
+      ]);
+
+      const serviceById = {};
+      recurringServices.forEach(it => { if (it.fields) serviceById[it.id] = it.fields; });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const overview = employees
+        .filter(it => it.fields && truthy(it.fields.Active) && String(it.fields.PayrollNumber || '').trim() &&
+          (truthy(it.fields.Janitorial) || truthy(it.fields.Renovations) || truthy(it.fields.Exteriors)))
+        .map(it => {
+          const f = it.fields;
+          const payrollNumber = String(f.PayrollNumber).trim();
+          const name = (String(f.FirstName || '').trim() + ' ' + String(f.LastName || '').trim()).trim();
+
+          const myRecurring = recurringAssignments
+            .filter(a => a.fields && String(a.fields.PayrollNumber || '').trim() === payrollNumber &&
+              a.fields.RecurringServiceID && serviceById[a.fields.RecurringServiceID] &&
+              truthy(serviceById[a.fields.RecurringServiceID].Active))
+            .map(a => {
+              const svc = serviceById[a.fields.RecurringServiceID];
+              return {
+                recurringServiceId: a.fields.RecurringServiceID,
+                clientId: svc.ClientID || '',
+                buildingNumber: svc.BuildingNumber || '',
+                daysOfWeek: svc.DaysOfWeek || '',
+                time: svc.Time || '',
+                hoursAllocated: Number(a.fields.HoursAllocated) || 0
+              };
+            });
+
+          const myOrders = scheduling
+            .filter(s => s.fields && String(s.fields.PayrollNumber || '').trim() === payrollNumber &&
+              !isNaN(new Date(s.fields.AssignedDate)) && new Date(s.fields.AssignedDate) >= today)
+            .map(s => ({ orderId: s.fields.OrderID, assignedDate: s.fields.AssignedDate }))
+            .sort((a, b) => String(a.assignedDate).localeCompare(String(b.assignedDate)));
+
+          return {
+            payrollNumber, name,
+            janitorial: truthy(f.Janitorial), renovations: truthy(f.Renovations), exteriors: truthy(f.Exteriors),
+            recurring: myRecurring, orders: myOrders
+          };
+        });
+
+      return jsonResponse(200, { employees: overview });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
