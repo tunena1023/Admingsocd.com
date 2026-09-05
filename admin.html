@@ -354,6 +354,8 @@
     .week-nav b { font-size: 13px; }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -546,7 +548,24 @@
     </div>
   </div>
 
-  <div class="subpanel" id="subpanel-routing"><p class="empty-note">Coming soon.</p></div>
+  <div class="subpanel" id="subpanel-routing">
+    <div class="pill-row" id="routing-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="Janitorial">Janitorial</div>
+      <div class="pill" data-division="Renovations">Renovations</div>
+      <div class="pill" data-division="Exteriors">Exteriors</div>
+    </div>
+    <p class="order-meta" style="margin-bottom:16px">Pending orders located by address. Suggested blocks group nearby stops considering distance and due dates — always a suggestion, never automatic.</p>
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+      <div style="border:1px solid var(--border);background:var(--white);padding:8px">
+        <div id="routing-map" style="height:420px;width:100%"></div>
+      </div>
+      <div id="routing-side"><p class="empty-note">Loading…</p></div>
+    </div>
+
+    <div id="routing-unlocated" style="margin-top:16px"></div>
+  </div>
   <div class="subpanel" id="subpanel-review">
     <p class="section-sub" style="margin-bottom:16px">Orders with someone assigned who has since gone inactive (no longer appears in the Employee Report) — nobody will show up to do that work unless someone catches it.</p>
     <div id="review-list"><p class="empty-note">Loading…</p></div>
@@ -4372,6 +4391,7 @@ let pendingDirectLinkOrderId = null;
     if (tab === 'orders') loadOrdersQueue();
     if (tab === 'calendar') loadCalendar();
     if (tab === 'review') loadReview();
+    if (tab === 'routing') loadRouting();
   }
 
   /* ===== Hours ===== */
@@ -4661,18 +4681,44 @@ let pendingDirectLinkOrderId = null;
       ordersScheduledCache = pending.filter(o => scheduledOrderIds.has(o.OrderID));
 
       /* Link directo desde otro lado del sistema (ej. "Reassign in
-         Scheduling" en Active) -- abre ESA orden especifica sin
-         importar su status, no solo las que estan en Received.
-         pendingDirectLinkOrderId es para navegacion interna (misma
-         pagina, sin recargar); el parametro de URL sigue funcionando
-         si alguien llega con un link externo con ?orderId=. */
-      const linkedId = pendingDirectLinkOrderId || new URLSearchParams(location.search).get('orderId');
+         Scheduling" en Active, o un bloque de Routing) -- abre ESA
+         orden especifica sin importar su status, no solo las que
+         estan en Received. pendingDirectLinkOrderId es para
+         navegacion interna (misma pagina, sin recargar); el
+         parametro de URL sigue funcionando si alguien llega con un
+         link externo con ?orderId=. Un bloque de Routing manda varias
+         ordenes de un jalon -- se abre la primera, las demas quedan
+         anotadas junto a ella (companionOrderIds) para asignarlas
+         una por una con el mismo Assign de siempre, nunca en bloque
+         de verdad -- Orders sigue siendo el unico lugar donde se
+         confirma. */
+      let companionOrderIds = [];
+      let linkedId = pendingDirectLinkOrderId || new URLSearchParams(location.search).get('orderId');
+      if (pendingRoutingBlockIds && pendingRoutingBlockIds.length) {
+        linkedId = pendingRoutingBlockIds[0];
+        companionOrderIds = pendingRoutingBlockIds.slice(1);
+        pendingRoutingBlockIds = null;
+      }
       directLinkOrder = linkedId ? (ordersRes.orders || []).find(o => o.OrderID === linkedId) || null : null;
       pendingDirectLinkOrderId = null;
 
       renderOrdersQueue();
       if (directLinkOrder) {
-        setTimeout(() => toggleOrderCard(directLinkOrder.OrderID), 50);
+        setTimeout(() => {
+          toggleOrderCard(directLinkOrder.OrderID);
+          if (companionOrderIds.length) {
+            const body = document.getElementById('order-body-' + directLinkOrder.OrderID);
+            if (body) {
+              const names = companionOrderIds.map(id => {
+                const o = (ordersRes.orders || []).find(x => x.OrderID === id);
+                return o ? (o.BusinessName || o.ClientID) + ' (#' + id + ')' : '#' + id;
+              }).join(', ');
+              body.insertAdjacentHTML('afterbegin',
+                '<div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:10px 12px;margin-bottom:14px">' +
+                'Part of a suggested block from Routing — also assign: ' + esc(names) + '</div>');
+            }
+          }
+        }, 50);
       }
     } catch (e) {
       box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
@@ -5013,6 +5059,188 @@ function onScheduleTabOpened() {
   }
   scheduleTabInitialized = true;
 }
+
+/* ============================================================
+   ROUTING
+============================================================ */
+let routingMap = null;
+let routingMarkers = [];
+let routingDivisionFilter = '';
+let routingQueueWithCoords = [];
+let routingQueueNoCoords = [];
+let pendingRoutingBlockIds = null;
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function loadRouting() {
+  const side = document.getElementById('routing-side');
+  side.innerHTML = '<p class="empty-note">Loading…</p>';
+  try {
+    const [ordersRes, schedulingRes] = await Promise.all([
+      api('/admin-get-orders', { method: 'POST', body: {} }),
+      api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } })
+    ]);
+    const scheduledIds = new Set((schedulingRes.items || []).map(s => s.OrderID));
+    let pending = (ordersRes.orders || []).filter(o => o.Status === 'Received' && !scheduledIds.has(o.OrderID));
+    if (routingDivisionFilter) pending = pending.filter(o => (o.Division || '').toLowerCase() === routingDivisionFilter.toLowerCase());
+
+    routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null);
+    routingQueueNoCoords = pending.filter(o => o.Latitude == null || o.Longitude == null);
+
+    renderRoutingMap();
+    await renderRoutingSide();
+    renderRoutingUnlocated();
+  } catch (e) {
+    side.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderRoutingMap() {
+  if (!routingMap) {
+    routingMap = L.map('routing-map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    }).addTo(routingMap);
+  }
+  routingMarkers.forEach(m => routingMap.removeLayer(m));
+  routingMarkers = [];
+
+  if (!routingQueueWithCoords.length) { routingMap.setView([41.6, -93.6], 10); return; }
+
+  const bounds = [];
+  routingQueueWithCoords.forEach(o => {
+    const marker = L.circleMarker([o.Latitude, o.Longitude], {
+      radius: 9, fillColor: '#111111', color: '#fff', weight: 2, fillOpacity: 1
+    }).addTo(routingMap);
+    marker.bindTooltip(o.BusinessName || o.OrderID);
+    routingMarkers.push(marker);
+    bounds.push([o.Latitude, o.Longitude]);
+  });
+  routingMap.fitBounds(bounds, { padding: [30, 30] });
+}
+
+/* Sugerencia simple: toma la orden con fecha limite mas cercana como
+   semilla, y le agrega hasta 3 mas que esten a <=15km -- nunca mas de
+   4 paradas por bloque. Siempre es sugerencia, nunca automatico: el
+   humano decide si darle Assign o armar su propia seleccion abajo. */
+function suggestBlock() {
+  if (!routingQueueWithCoords.length) return null;
+  const sorted = routingQueueWithCoords.slice().sort((a, b) => String(a.DueDate || '9999').localeCompare(String(b.DueDate || '9999')));
+  const seed = sorted[0];
+  const block = [seed];
+  for (const o of sorted) {
+    if (o.OrderID === seed.OrderID) continue;
+    if (block.length >= 4) break;
+    if (haversineKm(seed.Latitude, seed.Longitude, o.Latitude, o.Longitude) <= 25) block.push(o);
+  }
+  return block.length > 1 ? block : null;
+}
+
+async function renderRoutingSide() {
+  const side = document.getElementById('routing-side');
+  const block = suggestBlock();
+  const blockIds = new Set((block || []).map(o => o.OrderID));
+  const rest = routingQueueWithCoords.filter(o => !blockIds.has(o.OrderID));
+
+  let html = '';
+  if (block) {
+    html += '<div class="order-card" style="border-color:var(--gold)">' +
+      '<div class="order-card-header"><div class="order-id">Suggested block</div><div class="order-meta">' + block.length + ' stops · closest due dates</div></div>' +
+      '<ul style="list-style:none;margin:0 18px;padding:0;font-size:12px">' + block.map((o, i) =>
+        '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
+      ).join('') + '</ul>' +
+      '<p class="order-meta" id="suggested-route-info" style="margin:10px 18px">Calculating route…</p>' +
+      '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(block.map(o => o.OrderID)) + ')\'>Assign This Block</button>' +
+      '</div>';
+  } else {
+    html += '<p class="empty-note">No nearby cluster found — pick orders manually below.</p>';
+  }
+  side.innerHTML = html;
+
+  if (block) {
+    const info = document.getElementById('suggested-route-info');
+    const route = await fetchOsrmRoute(block);
+    info.innerHTML = route ? ('<b>' + route.minutes + ' min</b> total drive time') : 'Could not calculate drive time.';
+  }
+
+  renderRoutingManualList(rest);
+}
+
+function renderRoutingManualList(rest) {
+  let html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Other pending orders — select to build your own route</div>';
+  html += rest.map(o => '<div class="order-card"><div class="order-card-header" style="display:flex;align-items:center;gap:10px">' +
+    '<input type="checkbox" class="routing-check" value="' + escAttr(o.OrderID) + '" onchange="onRoutingCheck()">' +
+    '<div><div class="order-id">#' + esc(o.OrderID) + '</div><div class="order-meta">' + esc(o.BusinessName || o.ClientID) + ' · ' + esc(o.Division || '') + '</div></div></div></div>').join('');
+  html += '<button class="btn btn-outline" id="preview-route-btn" style="margin-top:10px" onclick="previewManualRoute()" disabled>Preview Route</button>';
+  html += '<div id="manual-route-preview"></div>';
+  document.getElementById('routing-side').innerHTML += html;
+}
+
+function onRoutingCheck() {
+  const checked = document.querySelectorAll('.routing-check:checked');
+  const btn = document.getElementById('preview-route-btn');
+  btn.disabled = checked.length < 2;
+  btn.textContent = 'Preview Route (' + checked.length + ' selected)';
+}
+
+async function previewManualRoute() {
+  const ids = Array.from(document.querySelectorAll('.routing-check:checked')).map(c => c.value);
+  const orders = routingQueueWithCoords.filter(o => ids.includes(o.OrderID));
+  const box = document.getElementById('manual-route-preview');
+  box.innerHTML = '<p class="empty-note">Calculating…</p>';
+  const route = await fetchOsrmRoute(orders);
+  box.innerHTML = '<div class="order-card" style="border-color:var(--gold);margin-top:10px">' +
+    '<div class="order-card-header"><div class="order-id">Your selection</div><div class="order-meta">' + orders.length + ' stops' + (route ? ' · ' + route.minutes + ' min' : '') + '</div></div>' +
+    '<ul style="list-style:none;margin:0 18px;padding:0;font-size:12px">' + orders.map((o, i) =>
+      '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
+    ).join('') + '</ul>' +
+    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(ids) + ')\'>Assign This Block</button>' +
+    '</div>';
+}
+
+async function fetchOsrmRoute(orders) {
+  if (orders.length < 2) return null;
+  try {
+    const coords = orders.map(o => o.Longitude + ',' + o.Latitude).join(';');
+    const res = await fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=false');
+    const data = await res.json();
+    if (!data.routes || !data.routes[0]) return null;
+    return { minutes: Math.round(data.routes[0].duration / 60) };
+  } catch (e) { return null; }
+}
+
+function renderRoutingUnlocated() {
+  const box = document.getElementById('routing-unlocated');
+  if (!routingQueueNoCoords.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="background:#F4F4F4;border:1px solid var(--border);color:var(--gray);font-size:12px;padding:12px 14px">' +
+    '<b style="color:var(--black)">' + routingQueueNoCoords.length + ' order(s) could not be located on the map</b> — assign them directly from Orders: ' +
+    routingQueueNoCoords.map(o => '#' + esc(o.OrderID)).join(', ') +
+    '</div>';
+}
+
+/* Manda el bloque a Orders -- ahi es donde SIEMPRE se confirma de
+   verdad (nunca se asigna directo desde Routing). Se abre la primera
+   orden del bloque, y las demas quedan anotadas junto a ella para
+   que se asignen una por una con el mismo mecanismo que ya existe. */
+function assignRoutingBlock(orderIds) {
+  pendingRoutingBlockIds = orderIds;
+  showSubTab('orders');
+}
+
+document.getElementById('routing-division-pills').querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.getElementById('routing-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    routingDivisionFilter = p.dataset.division;
+    loadRouting();
+  });
+});
 
 
 /* ============================================================

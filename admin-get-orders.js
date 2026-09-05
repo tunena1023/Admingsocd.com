@@ -75,6 +75,8 @@ exports.handler = async (event) => {
           OrderContactId:            f.OrderContactId            || '',
           BatchId:    f.BatchId    || '',
           BuildingId: f.BuildingId || '',
+          Latitude:   f.Latitude   != null ? f.Latitude  : null,
+          Longitude:  f.Longitude  != null ? f.Longitude : null,
           Services: servicesByOrder[f.OrderID || f.Title] || []
         };
       })
