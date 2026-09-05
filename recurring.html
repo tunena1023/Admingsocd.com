@@ -102,7 +102,10 @@
       <div class="field-group"><label>Time</label><input type="time" id="rc-time" value="06:00"></div>
     </div>
 
-    <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5" style="max-width:120px"></div>
+    <div class="field-row">
+      <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5"></div>
+      <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><input type="date" id="rc-expiration"></div>
+    </div>
 
     <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
     <div id="assign-rows"></div>
@@ -230,6 +233,7 @@
     const days = selectedDays();
     const time = document.getElementById('rc-time').value;
     const totalHours = document.getElementById('rc-total-hours').value;
+    const expirationDate = document.getElementById('rc-expiration').value;
     const services = collectSelectedServices();
 
     const assignments = Array.from(document.querySelectorAll('.assign-row')).map(row => ({
@@ -249,13 +253,14 @@
           recurringServiceId: editingServiceId,
           clientId, buildingNumber, division: 'Janitorial',
           servicesJson: JSON.stringify(services),
-          daysOfWeek: days.join(','), time, totalHours, assignments
+          daysOfWeek: days.join(','), time, totalHours, expirationDate, assignments
         }
       });
       editingServiceId = null;
       document.getElementById('rc-client').value = '';
       document.getElementById('rc-building').value = '';
       document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
+      document.getElementById('rc-expiration').value = '';
       document.getElementById('assign-rows').innerHTML = '';
       addAssignRow();
       loadRecurringList();
@@ -276,10 +281,22 @@
         const client = clientsCache.find(c => c.clientId === s.clientId);
         const clientName = client ? client.businessName : s.clientId;
         const peopleStr = s.assignments.map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
+
+        let expHtml = '';
+        if (s.expirationDate) {
+          const expDate = new Date(s.expirationDate + 'T12:00:00');
+          const today = new Date(); today.setHours(12,0,0,0);
+          const daysLeft = Math.round((expDate - today) / 86400000);
+          const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
+          const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
+                        (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
+          expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
+        }
+
         return '<div class="rc-card">' +
           '<div class="rc-top">' +
             '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
-            '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + '</div></div>' +
+            '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
             '<div style="display:flex;gap:8px;align-items:center">' +
               '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
               '<button class="btn-outline" onclick="toggleEdit(\'' + s.id + '\')">Edit</button>' +

@@ -634,7 +634,7 @@ exports.handler = async (event) => {
     ============================================================ */
 
     if (action === 'save-recurring-service') {
-      const { recurringServiceId, clientId, buildingNumber, division, servicesJson, daysOfWeek, time, totalHours, assignments } = body;
+      const { recurringServiceId, clientId, buildingNumber, division, servicesJson, daysOfWeek, time, totalHours, expirationDate, assignments } = body;
       if (!clientId) return jsonResponse(400, { error: 'clientId is required' });
       if (!daysOfWeek) return jsonResponse(400, { error: 'daysOfWeek is required' });
       if (!time) return jsonResponse(400, { error: 'time is required' });
@@ -651,6 +651,11 @@ exports.handler = async (event) => {
         TotalHours: Number(totalHours) || 0,
         Active: true
       };
+      /* Solo se toca si de verdad se mando -- si no, un simple "Save
+         Change" de reasignar empleado (que reusa este mismo endpoint,
+         mandando expirationDate en blanco) no debe borrar la fecha
+         que ya estaba guardada. */
+      if (expirationDate !== undefined) fields.ExpirationDate = expirationDate || null;
 
       let serviceId = recurringServiceId;
       if (serviceId) {
@@ -708,6 +713,7 @@ exports.handler = async (event) => {
           daysOfWeek: f.DaysOfWeek || '',
           time: f.Time || '',
           totalHours: Number(f.TotalHours) || 0,
+          expirationDate: f.ExpirationDate || '',
           active: truthy(f.Active),
           assignments: myAssignments
         };
