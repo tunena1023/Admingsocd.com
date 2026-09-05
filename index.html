@@ -18,7 +18,9 @@
     }
     body {
       font-family: 'Inter', sans-serif;
-      background: var(--black);
+      background-color: var(--black);
+      background-image: url('/api/site-image?name=NavBackground.jpg');
+      background-repeat: repeat;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -26,11 +28,11 @@
       justify-content: center;
       padding: 24px;
     }
-    .corner-logo { position: fixed; top: 24px; left: 32px; }
-    .corner-logo img { height: 44px; object-fit: contain; }
-    .corner-logo .logo-placeholder {
-      font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600;
-      color: var(--white); letter-spacing: .05em;
+    .logo-wrap { margin-bottom: 28px; }
+    .logo-wrap img { height: 72px; object-fit: contain; }
+    .logo-wrap .logo-placeholder {
+      font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600;
+      color: var(--black); letter-spacing: .05em;
     }
     .login-box {
       background: var(--white);
@@ -92,12 +94,12 @@
   </style>
 </head>
 <body>
-  <div class="corner-logo">
-    <img id="logo" src="/api/site-image?name=Logo.jpg" alt="GS Solutions"
-         onerror="this.style.display='none';document.getElementById('logo-text').style.display='block'">
-    <div id="logo-text" class="logo-placeholder" style="display:none">GS Solutions</div>
-  </div>
   <div class="login-box">
+    <div class="logo-wrap">
+      <img id="logo" src="/api/site-image?name=Logo.jpg" alt="GS Solutions"
+           onerror="this.style.display='none';document.getElementById('logo-text').style.display='block'">
+      <div id="logo-text" class="logo-placeholder" style="display:none">GS Solutions</div>
+    </div>
     <h1>Admin Portal</h1>
     <p class="subtitle">Sign in with your GS Solutions Microsoft account</p>
     <button class="btn-login" id="btn-login" onclick="signIn()">
