@@ -817,6 +817,20 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, deleted });
     }
 
+    /* DEBUG TEMPORAL -- companero de wipe-test-data, pero SOLO
+       Clients. Mismo candado (rol Developer + password exacta). */
+    if (action === 'wipe-clients-only') {
+      if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
+      if (String(body.password || '') !== 'BorraTodoYnoDejesNada') {
+        return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
+      }
+
+      const rows = await fetchAll(CLIENTS_LIST);
+      await Promise.all(rows.map(it => deleteListItem(CLIENTS_LIST, it.id)));
+
+      return jsonResponse(200, { success: true, deleted: rows.length });
+    }
+
     /* ============================================================
        CARGA MASIVA DE CLIENTES -- mas flexible que register-client.js
        (ese exige TODOS los campos; un archivo real de verdad trae

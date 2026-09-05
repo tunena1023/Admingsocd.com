@@ -222,6 +222,7 @@
     <p class="section-title" style="color:#B33A3A">⚠ Debug — Wipe Test Data</p>
     <p class="section-sub">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads and Recurring data. Clients and Services are never touched. This cannot be undone. Remove this section once testing is done.</p>
     <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
+    <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
     <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
   </section>
 </div>
@@ -753,6 +754,23 @@
     try {
       const res = await api('wipe-test-data', { password: pass });
       box.textContent = 'Done. ' + Object.entries(res.deleted).map(([list, n]) => list + ': ' + n).join(' · ');
+    } catch (e) {
+      box.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function debugWipeClientsOnly() {
+    const sure = confirm('This will PERMANENTLY delete ALL Clients. Orders, Scheduling, Recurring and Services are NOT touched. This cannot be undone. Continue?');
+    if (!sure) return;
+
+    const pass = window.prompt('Type the exact confirmation password:');
+    if (pass === null) return;
+
+    const box = document.getElementById('debug-wipe-result');
+    box.textContent = 'Wiping…';
+    try {
+      const res = await api('wipe-clients-only', { password: pass });
+      box.textContent = 'Done. Clients deleted: ' + res.deleted;
     } catch (e) {
       box.textContent = 'Error: ' + e.message;
     }
