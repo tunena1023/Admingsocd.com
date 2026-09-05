@@ -293,6 +293,15 @@
       .edit-grid { grid-template-columns: 1fr; }
       .svc-cols { grid-template-columns: 1fr; }
       .svc-grid { grid-template-columns: 1fr; }
+
+      /* SCHEDULING -- se agrego hasta que se probo en celular por
+         primera vez, ninguna de estas clases tenia colapso movil. */
+      .field-row { grid-template-columns: 1fr; }
+      .hours-split { grid-template-columns: 1fr; }
+      .hours-col-mid { border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 0; }
+      .routing-grid { grid-template-columns: 1fr; }
+      #routing-map { height: 260px !important; }
+      .calendar-table-wrap { overflow-x: auto; }
     }
 
     /* ============================================================
@@ -319,6 +328,12 @@
     .pill-row { display: flex; gap: 8px; margin-bottom: 18px; }
     .pill { padding: 8px 16px; border: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; background: var(--white); color: var(--gray); font-family: 'Inter', sans-serif; }
     .pill.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+    /* FALTABA -- se uso en el formulario de asignar de Orders al
+       fusionar schedule.html, pero nunca se porto su definicion. */
+    .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+
+    .routing-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
 
     .hours-card { background: var(--white); border: 1px solid var(--border); padding: 16px 20px; margin-bottom: 12px; }
     .hours-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
@@ -579,7 +594,7 @@
     </div>
     <p class="order-meta" style="margin-bottom:16px">Pending orders located by address. Suggested blocks group nearby stops considering distance and due dates — always a suggestion, never automatic.</p>
 
-    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+    <div class="routing-grid">
       <div style="border:1px solid var(--border);background:var(--white);padding:8px">
         <div id="routing-map" style="height:420px;width:100%"></div>
       </div>
@@ -4997,7 +5012,7 @@ let pendingDirectLinkOrderId = null;
     const orderById = {};
     ordersCacheForCalendar.forEach(o => { orderById[o.OrderID] = o; });
 
-    let html = '<table class="calendar-table"><tr><th class="emp-col">Employee</th>' +
+    let html = '<div class="calendar-table-wrap"><table class="calendar-table"><tr><th class="emp-col">Employee</th>' +
       days.map((d, i) => '<th>' + dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>').join('') + '</tr>';
 
     employees.forEach(emp => {
@@ -5014,7 +5029,7 @@ let pendingDirectLinkOrderId = null;
       });
       html += '</tr>';
     });
-    html += '</table>';
+    html += '</table></div>';
     box.innerHTML = html;
   }
 
