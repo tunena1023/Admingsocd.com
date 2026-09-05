@@ -115,6 +115,7 @@
       .field-row { grid-template-columns: 1fr; }
     }
   </style>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -197,6 +198,15 @@
         <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
       </div>
     </div>
+  </section>
+
+  <section id="bulk-clients-section" style="display:none">
+    <p class="section-title">Bulk Import Clients</p>
+    <p class="section-sub">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
+    <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
+    <button class="btn" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
+    <span id="bulk-clients-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+    <div id="bulk-clients-preview" style="margin-top:16px"></div>
   </section>
 
   <section id="geocode-section" style="display:none">
@@ -341,6 +351,7 @@
 
     const canEdit = myRole === 'Director' || myRole === 'Developer';
     if (canEdit) document.getElementById('add-service-btn').style.display = '';
+    if (canEdit) document.getElementById('bulk-clients-section').style.display = 'block';
 
     if (myRole === 'Developer') {
       document.getElementById('staff-section').style.display = 'block';
@@ -596,6 +607,106 @@
       document.getElementById('new-director-password').value = '';
     } catch (e) {
       showToast('Error: ' + e.message);
+    }
+  }
+
+  /* Encuentra la columna cuyo encabezado contenga alguna de las
+     palabras clave (insensible a mayusculas) -- asi aguanta variantes
+     razonables de nombre de columna entre distintos exports, sin
+     depender de que el encabezado sea exacto. */
+  function findCol(headers, keywords) {
+    return headers.findIndex(h => keywords.some(k => String(h || '').toLowerCase().includes(k)));
+  }
+
+  let bulkClientsRows = [];
+
+  function onBulkClientsFileChosen() {
+    const input = document.getElementById('bulk-clients-file');
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('bulk-clients-file-name').textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        if (!rows.length) throw new Error('File is empty.');
+
+        const headers = rows[0];
+        const colName = findCol(headers, ['company name', 'company']);
+        const colFallbackName = findCol(headers, ['name']);
+        const colAddress = findCol(headers, ['street address', 'address']);
+        const colCity = findCol(headers, ['city']);
+        const colState = findCol(headers, ['state']);
+        const colZip = findCol(headers, ['zip']);
+        const colPhone = findCol(headers, ['phone']);
+        const colEmail = findCol(headers, ['email']);
+        const colUnit = findCol(headers, ['unit']);
+
+        bulkClientsRows = rows.slice(1)
+          .filter(r => r && r.length)
+          .map(r => ({
+            businessName: String((colName >= 0 ? r[colName] : '') || (colFallbackName >= 0 ? r[colFallbackName] : '') || '').trim(),
+            contactPerson: String((colFallbackName >= 0 ? r[colFallbackName] : '') || '').trim(),
+            address: String((colAddress >= 0 ? r[colAddress] : '') || '').trim(),
+            suite: String((colUnit >= 0 ? r[colUnit] : '') || '').trim(),
+            city: String((colCity >= 0 ? r[colCity] : '') || '').trim(),
+            state: String((colState >= 0 ? r[colState] : '') || '').trim(),
+            zip: String((colZip >= 0 ? r[colZip] : '') || '').trim(),
+            phone: String((colPhone >= 0 ? r[colPhone] : '') || '').trim(),
+            email: String((colEmail >= 0 ? r[colEmail] : '') || '').trim()
+          }))
+          .filter(c => c.businessName);
+
+        renderBulkClientsPreview();
+      } catch (e) {
+        document.getElementById('bulk-clients-preview').innerHTML =
+          '<p style="color:#B33A3A;font-size:13px">Could not read the file: ' + e.message + '</p>';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderBulkClientsPreview() {
+    const box = document.getElementById('bulk-clients-preview');
+    if (!bulkClientsRows.length) {
+      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check that the file has a "Company name" or "Name" column.</p>';
+      return;
+    }
+    const rowsHtml = bulkClientsRows.map(c =>
+      '<tr><td>' + esc(c.businessName) + '</td><td>' + esc(c.address) + '</td><td>' + esc(c.city) + '</td>' +
+      '<td>' + esc(c.zip) + '</td><td>' + esc(c.phone) + '</td><td>' + esc(c.email) + '</td></tr>'
+    ).join('');
+    box.innerHTML =
+      '<p style="font-size:13px;margin-bottom:10px"><b>' + bulkClientsRows.length + '</b> clients found in the file. Review before importing — clients that already exist by business name will be skipped automatically.</p>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<tr style="background:var(--bg)"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th></tr>' +
+      rowsHtml.replace(/<td>/g, '<td style="padding:6px;border:1px solid var(--border)">') +
+      '</table></div>' +
+      '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()">Import ' + bulkClientsRows.length + ' Clients</button>' +
+      '<div id="bulk-clients-result" style="margin-top:12px;font-size:13px"></div>';
+  }
+
+  async function confirmBulkImport() {
+    const resultBox = document.getElementById('bulk-clients-result');
+    resultBox.textContent = 'Importing…';
+    try {
+      const res = await api('bulk-import-clients', { rows: bulkClientsRows });
+      let msg = '<b>' + res.created + ' client(s) created.</b>';
+      if (res.skipped && res.skipped.length) {
+        msg += '<br>Skipped ' + res.skipped.length + ': ' + res.skipped.join(', ');
+      }
+      resultBox.innerHTML = msg;
+    } catch (e) {
+      resultBox.innerHTML = '<span style="color:#B33A3A">Error: ' + e.message + '</span>';
     }
   }
 

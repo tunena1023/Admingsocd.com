@@ -24,7 +24,7 @@ const {
   SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
@@ -815,6 +815,55 @@ exports.handler = async (event) => {
       }
 
       return jsonResponse(200, { success: true, deleted });
+    }
+
+    /* ============================================================
+       CARGA MASIVA DE CLIENTES -- mas flexible que register-client.js
+       (ese exige TODOS los campos; un archivo real de verdad trae
+       datos incompletos). Evita duplicados por nombre de negocio,
+       nunca actualiza uno que ya existe -- solo crea los que faltan.
+    ============================================================ */
+    if (action === 'bulk-import-clients') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot import clients.' });
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+
+      const existing = await fetchAll(CLIENTS_LIST);
+      const existingNames = new Set(
+        existing.map(it => it.fields && String(it.fields.Title || '').trim().toLowerCase()).filter(Boolean)
+      );
+
+      let nextNum = existing
+        .map(it => parseInt(String((it.fields && it.fields.ClientID) || '').replace('GS-', ''), 10))
+        .filter(n => !isNaN(n))
+        .reduce((max, n) => Math.max(max, n), 1000) + 1;
+
+      let created = 0;
+      const skipped = [];
+      for (const r of rows) {
+        const businessName = String(r.businessName || '').trim();
+        if (!businessName) { skipped.push('(blank name)'); continue; }
+        if (existingNames.has(businessName.toLowerCase())) { skipped.push(businessName + ' (already exists)'); continue; }
+
+        const clientId = 'GS-' + nextNum;
+        nextNum++;
+
+        await createListItem(CLIENTS_LIST, {
+          ClientID: clientId,
+          Title: businessName,
+          ClientName: r.contactPerson || businessName,
+          Address: r.address || '',
+          Suite: r.suite || '',
+          City: r.city || '',
+          Zip: r.zip || '',
+          Contact: r.email || '',
+          Phone: r.phone || ''
+        });
+        existingNames.add(businessName.toLowerCase());
+        created++;
+      }
+
+      return jsonResponse(200, { success: true, created, skipped });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
