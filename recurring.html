@@ -54,8 +54,6 @@
   .rc-meta { font-size:12px; color:var(--gray); margin-top:3px; }
   .rc-badge { font-size:10px; text-transform:uppercase; letter-spacing:.04em; background:var(--bg); color:var(--gray); padding:3px 8px; border:1px solid var(--border); }
   .rc-badge.inactive { color:#B33A3A; }
-  .rc-edit-area { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
-  .rc-edit-area.open { display:block; }
   .empty-note { font-size:12px; color:var(--gray); text-align:center; padding:20px; }
   .dialog-error { color:#B33A3A; font-size:12px; margin-top:8px; }
 
@@ -130,7 +128,8 @@
     <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
 
     <div style="margin-top:16px">
-      <button class="btn-gold" onclick="saveRecurring()">Create Recurring</button>
+      <button class="btn-gold" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
+      <button class="btn-outline" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
       <p class="dialog-error" id="rc-error"></p>
     </div>
   </div>
@@ -219,6 +218,25 @@
     }));
   }
 
+  /* Marca los checkboxes que ya estaban guardados (para Edit) y abre
+     las categorias correspondientes para que se vean sin tener que
+     buscarlas una por una. */
+  function applySelectedServices(servicesJson) {
+    document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
+    document.querySelectorAll('.svc-cat-body').forEach(b => b.classList.remove('open'));
+    let services = [];
+    try { services = JSON.parse(servicesJson || '[]'); } catch (e) {}
+    services.forEach(s => {
+      const sel = '.svc-check[data-cat="' + CSS.escape(s.category || '') + '"][data-name="' + CSS.escape(s.name || '') + '"][data-sub="' + CSS.escape(s.sub || '') + '"]';
+      const check = document.querySelector(sel);
+      if (check) {
+        check.checked = true;
+        const body = check.closest('.svc-cat-body');
+        if (body) body.classList.add('open');
+      }
+    });
+  }
+
   /* ===== Cargar datos iniciales ===== */
   async function loadInitialData() {
     try {
@@ -280,6 +298,9 @@
       document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
       document.getElementById('rc-expiration').value = '';
       document.getElementById('assign-rows').innerHTML = '';
+      document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
+      document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
+      document.getElementById('cancel-edit-btn').style.display = 'none';
       addAssignRow();
       loadRecurringList();
     } catch (e) {
@@ -317,11 +338,10 @@
             '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
             '<div style="display:flex;gap:8px;align-items:center">' +
               '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
-              '<button class="btn-outline" onclick="toggleEdit(\'' + s.id + '\')">Edit</button>' +
+              '<button class="btn-outline" onclick="editRecurring(\'' + s.id + '\')">Edit</button>' +
               '<button class="btn-outline" onclick="toggleActive(\'' + s.id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
             '</div>' +
           '</div>' +
-          '<div class="rc-edit-area" id="edit-' + s.id + '"></div>' +
         '</div>';
       }).join('');
     } catch (e) {
@@ -338,51 +358,51 @@
     }
   }
 
-  async function toggleEdit(id) {
-    const area = document.getElementById('edit-' + id);
-    if (area.classList.contains('open')) { area.classList.remove('open'); area.innerHTML = ''; return; }
-
+  /* Edit reusa el mismo formulario de arriba (cliente, edificio,
+     SERVICIOS, dias, hora, horas totales, expiracion, empleados) --
+     antes solo dejaba tocar empleado/horas, encontrado como bug
+     real: los servicios tambien deben poder editarse. */
+  async function editRecurring(id) {
     const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
     const svc = (res.services || []).find(s => s.id === id);
     if (!svc) return;
 
-    const options = employeesCache.filter(e => e.janitorial);
-    area.innerHTML = '<div class="field-group"><label>Reassign employee(s) and hours</label></div>' +
-      svc.assignments.map((a, i) =>
-        '<div class="assign-row" style="grid-template-columns:1fr 100px">' +
-          '<div class="field-group"><select class="edit-emp-' + esc(id) + '">' +
-            options.map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === a.payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') +
-          '</select></div>' +
-          '<div class="field-group"><input type="number" step="0.5" class="edit-hours-' + esc(id) + '" value="' + a.hoursAllocated + '"></div>' +
-        '</div>'
-      ).join('') +
-      '<button class="btn-gold" style="margin-top:10px" onclick="saveEdit(\'' + id + '\')">Save Change</button>';
-    area.classList.add('open');
+    editingServiceId = id;
+
+    document.getElementById('rc-client').value = svc.clientId;
+    document.getElementById('rc-building').value = svc.buildingNumber || '';
+
+    document.getElementById('svc-area').style.display = 'block';
+    document.getElementById('add-services-btn').style.display = 'none';
+    applySelectedServices(svc.servicesJson);
+
+    const days = (svc.daysOfWeek || '').split(',');
+    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
+      p.classList.toggle('active', days.includes(p.dataset.day));
+    });
+    document.getElementById('rc-time').value = svc.time || '06:00';
+    document.getElementById('rc-total-hours').value = svc.totalHours || 8;
+    document.getElementById('rc-expiration').value = svc.expirationDate || '';
+
+    document.getElementById('assign-rows').innerHTML = '';
+    (svc.assignments.length ? svc.assignments : [{}]).forEach(a => addAssignRow(a.payrollNumber, a.hoursAllocated));
+
+    document.getElementById('save-recurring-btn').textContent = 'Save Changes';
+    document.getElementById('cancel-edit-btn').style.display = 'inline-block';
+    document.querySelector('.wrap').scrollIntoView({ behavior: 'smooth' });
   }
 
-  async function saveEdit(id) {
-    const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
-    const svc = (res.services || []).find(s => s.id === id);
-    if (!svc) return;
-
-    const emps = Array.from(document.querySelectorAll('.edit-emp-' + id));
-    const hrs = Array.from(document.querySelectorAll('.edit-hours-' + id));
-    const assignments = emps.map((sel, i) => ({ payrollNumber: sel.value, hoursAllocated: hrs[i].value }));
-
-    try {
-      await api('/developer-admin', {
-        body: {
-          action: 'save-recurring-service', email: adminUser.email,
-          recurringServiceId: id,
-          clientId: svc.clientId, buildingNumber: svc.buildingNumber, division: svc.division,
-          servicesJson: svc.servicesJson, daysOfWeek: svc.daysOfWeek, time: svc.time, totalHours: svc.totalHours,
-          assignments
-        }
-      });
-      loadRecurringList();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
+  function cancelEdit() {
+    editingServiceId = null;
+    document.getElementById('rc-client').value = '';
+    document.getElementById('rc-building').value = '';
+    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
+    document.getElementById('rc-expiration').value = '';
+    document.getElementById('assign-rows').innerHTML = '';
+    document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
+    document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
+    document.getElementById('cancel-edit-btn').style.display = 'none';
+    addAssignRow();
   }
 
   if (adminUser) loadInitialData();
