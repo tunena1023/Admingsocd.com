@@ -377,6 +377,7 @@
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="showTab('create')">Create Order</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
+  <button class="tab" onclick="location.href='recurring.html'">Recurring</button>
   <button class="tab" onclick="showTab('schedule')">Schedule</button>
   <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
 </div>
@@ -669,7 +670,7 @@ let createUnitCardCounter = 0;
 ============================================================ */
 function showTab(tab) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','clients','create', null, 'schedule'];
+    const tabs = ['approvals','review','active','history','clients','create', null, null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));

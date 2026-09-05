@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Recurring Services — GS Solutions</title>
+<style>
+  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--black); }
+
+  nav {
+    background: var(--white);
+    background-image: url('/api/site-image?name=NavBackground.jpg');
+    background-size: cover; background-position: center;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 40px; height:60px; position:sticky; top:0; z-index:100;
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo img { height:48px; object-fit:contain; }
+  .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size:22px; color:var(--black); display:none; }
+  .nav-right { display:flex; align-items:center; gap:20px; }
+  .nav-user { font-size:13px; color:var(--gray); }
+  .nav-back, .btn-signout { font-size:12px; color:#8C6F2A; background:none; border:none; cursor:pointer; letter-spacing:.04em; text-decoration:none; }
+
+  .wrap { max-width:960px; margin:0 auto; padding:32px 24px 60px; }
+  h1.page-title { font-family: 'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin:0 0 4px; }
+  p.page-sub { font-size:13px; color:var(--gray); margin:0 0 24px; }
+
+  .card { border:1px solid var(--border); background:var(--white); padding:24px; margin-bottom:24px; }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .field-group label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--gray); font-weight:700; margin-bottom:6px; }
+  .field-group select, .field-group input { width:100%; padding:9px 10px; border:1px solid var(--border); font-size:13px; font-family: Arial, sans-serif; }
+
+  .day-pills { display:flex; gap:6px; }
+  .day-pill { width:36px; height:36px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; cursor:pointer; color:var(--gray); background:var(--white); }
+  .day-pill.active { background:var(--gold); color:var(--black); border-color:var(--gold); }
+
+  .btn-gold { background:var(--gold); color:var(--black); border:none; padding:10px 20px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
+  .btn-outline { background:var(--white); border:1px solid var(--border); padding:8px 16px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; color:var(--black); }
+
+  .svc-cat-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg); border:1px solid var(--border); cursor:pointer; font-size:12px; font-weight:700; }
+  .svc-cat-body { border:1px solid var(--border); border-top:none; padding:12px 14px; font-size:12px; display:none; }
+  .svc-cat-body.open { display:block; }
+  .svc-cat-body label { display:block; margin-bottom:6px; font-weight:400; text-transform:none; letter-spacing:normal; color:var(--black); font-size:12px; }
+  .add-more-link { font-size:11px; color:#8C6F2A; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:.04em; display:inline-block; margin:8px 0 4px; }
+
+  .assign-row { display:grid; grid-template-columns:1fr 100px 32px; gap:10px; margin-bottom:8px; align-items:end; }
+  .assign-row .field-group { margin-bottom:0; }
+  .remove-assign { background:none; border:1px solid var(--border); color:#B33A3A; cursor:pointer; height:36px; }
+
+  .rc-card { border:1px solid var(--border); background:var(--white); padding:16px 20px; margin-bottom:10px; }
+  .rc-top { display:flex; justify-content:space-between; align-items:center; }
+  .rc-name { font-size:13px; font-weight:700; }
+  .rc-meta { font-size:12px; color:var(--gray); margin-top:3px; }
+  .rc-badge { font-size:10px; text-transform:uppercase; letter-spacing:.04em; background:var(--bg); color:var(--gray); padding:3px 8px; border:1px solid var(--border); }
+  .rc-badge.inactive { color:#B33A3A; }
+  .rc-edit-area { display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+  .rc-edit-area.open { display:block; }
+  .empty-note { font-size:12px; color:var(--gray); text-align:center; padding:20px; }
+  .dialog-error { color:#B33A3A; font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img id="nav-logo" src="/api/site-image?name=Logo.jpg" alt="GS Solutions"
+         onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
+    <span id="nav-logo-text" class="nav-logo-text">GS Solutions</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-back" href="admin.html">&larr; Back to Admin</a>
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1 class="page-title">Recurring Services</h1>
+  <p class="page-sub">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. These never go through Approvals and never create a regular Order.</p>
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field-group"><label>Client</label><select id="rc-client"><option value="">Select…</option></select></div>
+      <div class="field-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
+    </div>
+
+    <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
+      <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
+      <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
+    </div>
+    <div id="svc-area" style="display:none;margin-bottom:16px"></div>
+
+    <div class="field-row">
+      <div class="field-group">
+        <label>Days</label>
+        <div class="day-pills" id="rc-days">
+          <div class="day-pill" data-day="Sun">S</div><div class="day-pill" data-day="Mon">M</div><div class="day-pill" data-day="Tue">T</div>
+          <div class="day-pill" data-day="Wed">W</div><div class="day-pill" data-day="Thu">T</div><div class="day-pill" data-day="Fri">F</div><div class="day-pill" data-day="Sat">S</div>
+        </div>
+      </div>
+      <div class="field-group"><label>Time</label><input type="time" id="rc-time" value="06:00"></div>
+    </div>
+
+    <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5" style="max-width:120px"></div>
+
+    <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
+    <div id="assign-rows"></div>
+    <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
+
+    <div style="margin-top:16px">
+      <button class="btn-gold" onclick="saveRecurring()">Create Recurring</button>
+      <p class="dialog-error" id="rc-error"></p>
+    </div>
+  </div>
+
+  <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Active Recurring Contracts</h2>
+  <div id="rc-list"><p class="empty-note">Loading…</p></div>
+</div>
+
+<script>
+  const stored = sessionStorage.getItem('admin_account');
+  let adminUser = null;
+  if (!stored) {
+    window.location.href = 'index.html';
+  } else {
+    adminUser = JSON.parse(stored);
+    document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+  }
+
+  function signOut() {
+    sessionStorage.removeItem('admin_account');
+    sessionStorage.removeItem('admin_token');
+    window.location.href = 'index.html';
+  }
+
+  async function api(path, opts = {}) {
+    const res = await fetch('/api' + path, {
+      method: opts.method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+  let clientsCache = [];
+  let employeesCache = [];
+  let servicesCache = null;
+  let editingServiceId = null;
+
+  /* ===== Days pills ===== */
+  document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
+    p.addEventListener('click', () => p.classList.toggle('active'));
+  });
+  function selectedDays() {
+    return Array.from(document.getElementById('rc-days').querySelectorAll('.day-pill.active')).map(p => p.dataset.day);
+  }
+
+  /* ===== Assignment rows (1 o varias personas repartiendo horas) ===== */
+  function addAssignRow(payrollNumber, hours) {
+    const wrap = document.getElementById('assign-rows');
+    const row = document.createElement('div');
+    row.className = 'assign-row';
+    const options = employeesCache.filter(e => e.janitorial)
+      .map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
+    row.innerHTML =
+      '<div class="field-group"><label>Employee</label><select class="assign-emp">' + options + '</select></div>' +
+      '<div class="field-group"><label>Hours</label><input type="number" class="assign-hours" step="0.5" value="' + (hours != null ? hours : 8) + '"></div>' +
+      '<button class="remove-assign" onclick="this.parentElement.remove()">✕</button>';
+    wrap.appendChild(row);
+  }
+
+  /* ===== Services accordion (mismo catalogo, categorias = cuartos/areas) ===== */
+  function renderServiceCategories() {
+    const area = document.getElementById('svc-area');
+    if (!servicesCache || !servicesCache.Janitorial) { area.innerHTML = '<p class="empty-note">No services found.</p>'; return; }
+    const cats = servicesCache.Janitorial.categories || {};
+    area.innerHTML = Object.keys(cats).map(cat => {
+      const rows = cats[cat].map(s => {
+        const subsHtml = (s.subs || []).map(sub =>
+          '<label><input type="checkbox" class="svc-check" data-cat="' + escAttr(cat) + '" data-name="' + escAttr(s.name) + '" data-sub="' + escAttr(sub) + '" style="width:auto;margin-right:6px">' + esc(s.name) + (sub ? ' — ' + esc(sub) : '') + '</label>'
+        ).join('');
+        return subsHtml;
+      }).join('');
+      return '<div class="svc-cat-header" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span>' + esc(cat) + '</span><span>▾</span></div>' +
+             '<div class="svc-cat-body">' + rows + '</div>';
+    }).join('');
+  }
+
+  function collectSelectedServices() {
+    return Array.from(document.querySelectorAll('.svc-check:checked')).map(c => ({
+      category: c.dataset.cat, name: c.dataset.name, sub: c.dataset.sub
+    }));
+  }
+
+  /* ===== Cargar datos iniciales ===== */
+  async function loadInitialData() {
+    try {
+      const [clientsRes, servicesRes, employeesRes] = await Promise.all([
+        api('/admin-get-clients', { body: {} }),
+        api('/get-services', { body: {} }),
+        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
+      ]);
+      clientsCache = clientsRes.clients || [];
+      servicesCache = servicesRes;
+      employeesCache = employeesRes.employees || [];
+
+      document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
+        clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
+
+      renderServiceCategories();
+      addAssignRow();
+      loadRecurringList();
+    } catch (e) {
+      alert('Could not load initial data: ' + e.message);
+    }
+  }
+
+  async function saveRecurring() {
+    const errEl = document.getElementById('rc-error');
+    errEl.textContent = '';
+
+    const clientId = document.getElementById('rc-client').value;
+    const buildingNumber = document.getElementById('rc-building').value.trim();
+    const days = selectedDays();
+    const time = document.getElementById('rc-time').value;
+    const totalHours = document.getElementById('rc-total-hours').value;
+    const services = collectSelectedServices();
+
+    const assignments = Array.from(document.querySelectorAll('.assign-row')).map(row => ({
+      payrollNumber: row.querySelector('.assign-emp').value,
+      hoursAllocated: row.querySelector('.assign-hours').value
+    })).filter(a => a.payrollNumber);
+
+    if (!clientId) { errEl.textContent = 'Select a client.'; return; }
+    if (!days.length) { errEl.textContent = 'Select at least one day.'; return; }
+    if (!time) { errEl.textContent = 'Set a time.'; return; }
+    if (!assignments.length) { errEl.textContent = 'Add at least one employee.'; return; }
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'save-recurring-service', email: adminUser.email,
+          recurringServiceId: editingServiceId,
+          clientId, buildingNumber, division: 'Janitorial',
+          servicesJson: JSON.stringify(services),
+          daysOfWeek: days.join(','), time, totalHours, assignments
+        }
+      });
+      editingServiceId = null;
+      document.getElementById('rc-client').value = '';
+      document.getElementById('rc-building').value = '';
+      document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
+      document.getElementById('assign-rows').innerHTML = '';
+      addAssignRow();
+      loadRecurringList();
+    } catch (e) {
+      errEl.textContent = e.message;
+    }
+  }
+
+  /* ===== Lista de contratos existentes ===== */
+  async function loadRecurringList() {
+    const box = document.getElementById('rc-list');
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+      const services = res.services || [];
+      if (!services.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
+
+      box.innerHTML = services.map(s => {
+        const client = clientsCache.find(c => c.clientId === s.clientId);
+        const clientName = client ? client.businessName : s.clientId;
+        const peopleStr = s.assignments.map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
+        return '<div class="rc-card">' +
+          '<div class="rc-top">' +
+            '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
+            '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + '</div></div>' +
+            '<div style="display:flex;gap:8px;align-items:center">' +
+              '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
+              '<button class="btn-outline" onclick="toggleEdit(\'' + s.id + '\')">Edit</button>' +
+              '<button class="btn-outline" onclick="toggleActive(\'' + s.id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rc-edit-area" id="edit-' + s.id + '"></div>' +
+        '</div>';
+      }).join('');
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function toggleActive(id, active) {
+    try {
+      await api('/developer-admin', { body: { action: 'toggle-recurring-active', email: adminUser.email, recurringServiceId: id, active } });
+      loadRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  async function toggleEdit(id) {
+    const area = document.getElementById('edit-' + id);
+    if (area.classList.contains('open')) { area.classList.remove('open'); area.innerHTML = ''; return; }
+
+    const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+    const svc = (res.services || []).find(s => s.id === id);
+    if (!svc) return;
+
+    const options = employeesCache.filter(e => e.janitorial);
+    area.innerHTML = '<div class="field-group"><label>Reassign employee(s) and hours</label></div>' +
+      svc.assignments.map((a, i) =>
+        '<div class="assign-row" style="grid-template-columns:1fr 100px">' +
+          '<div class="field-group"><select class="edit-emp-' + esc(id) + '">' +
+            options.map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === a.payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') +
+          '</select></div>' +
+          '<div class="field-group"><input type="number" step="0.5" class="edit-hours-' + esc(id) + '" value="' + a.hoursAllocated + '"></div>' +
+        '</div>'
+      ).join('') +
+      '<button class="btn-gold" style="margin-top:10px" onclick="saveEdit(\'' + id + '\')">Save Change</button>';
+    area.classList.add('open');
+  }
+
+  async function saveEdit(id) {
+    const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+    const svc = (res.services || []).find(s => s.id === id);
+    if (!svc) return;
+
+    const emps = Array.from(document.querySelectorAll('.edit-emp-' + id));
+    const hrs = Array.from(document.querySelectorAll('.edit-hours-' + id));
+    const assignments = emps.map((sel, i) => ({ payrollNumber: sel.value, hoursAllocated: hrs[i].value }));
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'save-recurring-service', email: adminUser.email,
+          recurringServiceId: id,
+          clientId: svc.clientId, buildingNumber: svc.buildingNumber, division: svc.division,
+          servicesJson: svc.servicesJson, daysOfWeek: svc.daysOfWeek, time: svc.time, totalHours: svc.totalHours,
+          assignments
+        }
+      });
+      loadRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  if (adminUser) loadInitialData();
+</script>
+</body>
+</html>
