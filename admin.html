@@ -4619,8 +4619,19 @@ let pendingDirectLinkOrderId = null;
            texto), esa fila se descarta sola porque no pasa el chequeo
            "instanceof Date". TOTAL ya viene resuelto correcto por
            uAttend incluso en turnos que cruzan medianoche -- se usa
-           tal cual, no se resta IN de OUT a mano. */
-        const weekly = {};
+           tal cual, no se resta IN de OUT a mano.
+
+           REGLA DE ALMUERZO (confirmada con el usuario, verificada
+           contra un Time Card real): uAttend descuenta 30 minutos de
+           almuerzo cuando el turno CRUDO ponchado de ese DIA suma 6
+           horas o mas (5:59 no descuenta, 6:00 en punto si). El
+           Punch Report crudo NO trae esta resta -- hay que aplicarla
+           nosotros. Por eso primero se agrupa por (persona, dia)
+           sumando TODOS los renglones de ese dia (turnos partidos),
+           y HASTA DESPUES se le resta la media hora si aplica --
+           restarlo por renglon individual seria incorrecto si el dia
+           tiene varios turnos cortos que solo juntos llegan a 6h. */
+        const dailyTotals = {};
         for (let i = 3; i < rows.length; i++) {
           const r = rows[i];
           if (!r || r.length < 7) continue;
@@ -4629,16 +4640,24 @@ let pendingDirectLinkOrderId = null;
           if (!payrollNumber || !(dateCell instanceof Date) || !(totalCell instanceof Date)) continue;
 
           const hours = totalCell.getHours() + totalCell.getMinutes() / 60;
+          const dayKey = payrollNumber + '|' + toISODateLocal(dateCell);
+          if (!dailyTotals[dayKey]) dailyTotals[dayKey] = { payrollNumber, dateCell, hours: 0 };
+          dailyTotals[dayKey].hours += hours;
+        }
 
-          const dow = dateCell.getDay();
-          const weekStart = new Date(dateCell.getFullYear(), dateCell.getMonth(), dateCell.getDate() - dow);
+        const weekly = {};
+        Object.values(dailyTotals).forEach(day => {
+          const dayHours = day.hours >= 6 ? day.hours - 0.5 : day.hours;
+
+          const dow = day.dateCell.getDay();
+          const weekStart = new Date(day.dateCell.getFullYear(), day.dateCell.getMonth(), day.dateCell.getDate() - dow);
           const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
           const wsISO = toISODateLocal(weekStart), weISO = toISODateLocal(weekEnd);
 
-          const key = payrollNumber + '|' + wsISO;
-          if (!weekly[key]) weekly[key] = { payrollNumber, weekStart: wsISO, weekEnd: weISO, totalHours: 0 };
-          weekly[key].totalHours += hours;
-        }
+          const key = day.payrollNumber + '|' + wsISO;
+          if (!weekly[key]) weekly[key] = { payrollNumber: day.payrollNumber, weekStart: wsISO, weekEnd: weISO, totalHours: 0 };
+          weekly[key].totalHours += dayHours;
+        });
 
         hoursRows = Object.values(weekly).map(w => ({ ...w, totalHours: Math.round(w.totalHours * 100) / 100 }));
         document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
