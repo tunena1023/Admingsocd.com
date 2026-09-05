@@ -405,6 +405,7 @@
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
   <button class="tab" onclick="location.href='recurring.html'">Recurring</button>
   <button class="tab" onclick="showTab('schedule')">Schedule</button>
+  <button class="tab" id="service-catalog-tab-btn" style="display:none" onclick="location.href='service-catalog.html'">Service Catalog</button>
   <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
 </div>
 
@@ -680,6 +681,8 @@ async function checkDeveloperAccess() {
     if (res.role) {
       const btn = document.getElementById('developer-tab-btn');
       if (btn) btn.style.display = '';
+      const catBtn = document.getElementById('service-catalog-tab-btn');
+      if (catBtn) catBtn.style.display = '';
     }
   } catch (e) { /* si falla, el tab simplemente no se muestra */ }
 }

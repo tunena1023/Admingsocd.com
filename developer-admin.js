@@ -21,7 +21,7 @@
 ============================================================ */
 
 const {
-  SERVICES_LIST, STAFF_LIST, SETTINGS_LIST,
+  SERVICES_LIST, SERVICES_CATALOG_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
@@ -60,6 +60,29 @@ function truthy(v) {
    "el mismo" a simple vista. */
 function normalizeName(s) {
   return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/* ============================================================
+   CATALOGO NUEVO (ServicesCatalog) -- clasificacion por SKU.
+   Regla confirmada por el usuario, viene del reporte de QuickBooks
+   (formato real de SKU: "110-10", "222-07", etc. -- el prefijo de
+   3 digitos antes del guion es lo unico que importa):
+     100-199 = Janitorial   | 200-299 = Renovations | 300-399 = Exteriors
+     111/222/333 = Commercial dentro de su rango, cualquier otro
+     prefijo del mismo rango (110/210/300) = Residential.
+   Un SKU que no cae en ninguno de estos 6 prefijos exactos no se
+   reconoce -- la fila se ignora en la importacion, nunca se adivina. */
+const SKU_PREFIX_MAP = {
+  '110': { division: 'Janitorial',  propertyType: 'Residential' },
+  '111': { division: 'Janitorial',  propertyType: 'Commercial' },
+  '210': { division: 'Renovations', propertyType: 'Residential' },
+  '222': { division: 'Renovations', propertyType: 'Commercial' },
+  '300': { division: 'Exteriors',   propertyType: 'Residential' },
+  '333': { division: 'Exteriors',   propertyType: 'Commercial' }
+};
+function classifySku(sku) {
+  const prefix = String(sku || '').trim().slice(0, 3);
+  return SKU_PREFIX_MAP[prefix] || null;
 }
 
 /* Rol real de un correo, segun la lista Staff. null si Staff no
@@ -163,6 +186,163 @@ exports.handler = async (event) => {
       if (!body.id) return jsonResponse(400, { error: 'id is required' });
       await deleteListItem(SERVICES_LIST, body.id);
       return jsonResponse(200, { success: true });
+    }
+
+    /* ============================================================
+       CATALOGO NUEVO (ServicesCatalog) -- viene del reporte de
+       QuickBooks (ProductsServicesList...csv), organizado por
+       servicio completo de negocio, no por pieza/cuarto. Nada de
+       edicion manual: la unica forma de cambiar un servicio es
+       subiendo un reporte nuevo. Actualiza por SKU, nunca reemplaza
+       de golpe, y nunca desactiva/reactiva en silencio -- por eso
+       son 2 pasos separados (preview primero, apply solo con lo que
+       el usuario ya confirmo en pantalla).
+    ============================================================ */
+
+    if (action === 'list-catalog') {
+      const rows = await fetchAll(SERVICES_CATALOG_LIST);
+      const services = rows.filter(it => it.fields).map(it => ({
+        id: it.id,
+        serviceName: it.fields.ServiceName || '',
+        sku: it.fields.SKU || '',
+        division: it.fields.Division || '',
+        propertyType: it.fields.PropertyType || '',
+        description: it.fields.Description || '',
+        price: it.fields.Price != null ? it.fields.Price : null,
+        active: truthy(it.fields.Active)
+      }));
+      return jsonResponse(200, { services });
+    }
+
+    /* Recibe las filas ya parseadas del CSV en el navegador
+       ({ serviceName, sku, price, description }) y regresa el diff
+       completo SIN escribir nada todavia -- para que el usuario vea
+       que va a pasar antes de confirmar. */
+    if (action === 'preview-catalog-import') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+
+      const existing = await fetchAll(SERVICES_CATALOG_LIST);
+      const bySku = new Map();
+      existing.forEach(it => {
+        const sku = it.fields && String(it.fields.SKU || '').trim();
+        if (sku) bySku.set(sku, it);
+      });
+
+      const toCreate = [], toUpdate = [], toReactivate = [], skippedNoSku = [], skippedUnrecognized = [];
+      const seenSkus = new Set();
+
+      for (const r of rows) {
+        const sku = String(r.sku || '').trim();
+        const serviceName = String(r.serviceName || '').trim();
+        if (!serviceName) continue;
+        if (!sku) { skippedNoSku.push(serviceName); continue; }
+
+        const cls = classifySku(sku);
+        if (!cls) { skippedUnrecognized.push(serviceName + ' (' + sku + ')'); continue; }
+
+        seenSkus.add(sku);
+        const price = r.price === '' || r.price == null ? null : Number(r.price);
+        const description = String(r.description || '').trim();
+
+        const match = bySku.get(sku);
+        if (!match) {
+          toCreate.push({ sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description });
+          continue;
+        }
+
+        const f = match.fields;
+        const wasActive = truthy(f.Active);
+        const changed = String(f.ServiceName || '') !== serviceName ||
+          String(f.Division || '') !== cls.division ||
+          String(f.PropertyType || '') !== cls.propertyType ||
+          String(f.Description || '') !== description ||
+          Number(f.Price || 0) !== (price || 0);
+
+        const item = { sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, id: match.id };
+        if (!wasActive) {
+          toReactivate.push(item);
+        } else if (changed) {
+          toUpdate.push(item);
+        }
+        /* si no cambio nada y ya estaba activo, no se hace nada -- ni
+           siquiera se manda al frontend, para no llenar la pantalla
+           de renglones sin novedad */
+      }
+
+      /* Lo que esta activo hoy en el catalogo pero no aparecio para
+         nada en este reporte -- candidato a desactivar, con aviso. */
+      const toDeactivate = [];
+      existing.forEach(it => {
+        const f = it.fields;
+        if (!f) return;
+        const sku = String(f.SKU || '').trim();
+        if (sku && truthy(f.Active) && !seenSkus.has(sku)) {
+          toDeactivate.push({ id: it.id, sku, serviceName: f.ServiceName || '' });
+        }
+      });
+
+      return jsonResponse(200, { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized });
+    }
+
+    /* Aplica de verdad: crea lo nuevo, actualiza lo que cambio, y
+       SOLO reactiva/desactiva los SKUs que el usuario marco en la
+       pantalla de preview (confirmedReactivateSkus/confirmedDeactivateSkus)
+       -- cualquier otro candidato a reactivar/desactivar que el
+       usuario haya dejado sin marcar se queda exactamente como esta. */
+    if (action === 'apply-catalog-import') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const toCreate = Array.isArray(body.toCreate) ? body.toCreate : [];
+      const toUpdate = Array.isArray(body.toUpdate) ? body.toUpdate : [];
+      const confirmedReactivate = Array.isArray(body.confirmedReactivate) ? body.confirmedReactivate : [];
+      const confirmedDeactivate = Array.isArray(body.confirmedDeactivate) ? body.confirmedDeactivate : [];
+
+      let created = 0, updated = 0, reactivated = 0, deactivated = 0;
+
+      for (const r of toCreate) {
+        await createListItem(SERVICES_CATALOG_LIST, {
+          Title: r.serviceName,
+          ServiceName: r.serviceName,
+          SKU: r.sku,
+          Division: r.division,
+          PropertyType: r.propertyType,
+          Description: r.description || '',
+          Price: r.price,
+          Active: true
+        });
+        created++;
+      }
+
+      for (const r of toUpdate) {
+        await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, {
+          ServiceName: r.serviceName,
+          Division: r.division,
+          PropertyType: r.propertyType,
+          Description: r.description || '',
+          Price: r.price
+        });
+        updated++;
+      }
+
+      for (const r of confirmedReactivate) {
+        await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, {
+          ServiceName: r.serviceName,
+          Division: r.division,
+          PropertyType: r.propertyType,
+          Description: r.description || '',
+          Price: r.price,
+          Active: true
+        });
+        reactivated++;
+      }
+
+      for (const r of confirmedDeactivate) {
+        await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, { Active: false });
+        deactivated++;
+      }
+
+      return jsonResponse(200, { success: true, created, updated, reactivated, deactivated });
     }
 
     /* ============================================================
