@@ -352,6 +352,14 @@
     .cal-order-chip { background: var(--gold); color: var(--black); font-size: 10px; padding: 3px 6px; margin-bottom: 3px; display: block; word-break: break-word; }
     .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .week-nav b { font-size: 13px; }
+
+    .emp-card { border: 1px solid var(--border); background: var(--white); padding: 16px 20px; margin-bottom: 12px; }
+    .emp-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .emp-div { font-size: 10px; color: var(--gray); font-weight: 400; text-transform: uppercase; letter-spacing: .04em; margin-left: 8px; }
+    .commit-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); font-size: 12px; margin-bottom: 6px; }
+    .commit-tag { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
+    .tag-recurring { background: #E8DFC5; color: #8C6F2A; }
+    .tag-order { background: var(--black); color: var(--white); }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -376,6 +384,7 @@
   <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span></button>
   <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
   <button class="tab" onclick="showTab('history')">History</button>
+  <button class="tab" onclick="showTab('assigned')">Assigned</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="showTab('create')">Create Order</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
@@ -426,6 +435,19 @@
   </div>
   <div id="history-toolbar"></div>
   <div id="history-list"><p class="empty-note">Loading…</p></div>
+</div>
+
+<!-- ASSIGNED -->
+<div class="panel" id="panel-assigned">
+  <h2 class="section-title">Assigned</h2>
+  <p class="section-sub">What each field employee has on their plate — Recurring contracts and Scheduling assignments, in one place.</p>
+  <div class="pill-row" id="assigned-division-pills">
+    <div class="pill active" data-division="">All</div>
+    <div class="pill" data-division="janitorial">Janitorial</div>
+    <div class="pill" data-division="renovations">Renovations</div>
+    <div class="pill" data-division="exteriors">Exteriors</div>
+  </div>
+  <div id="assigned-list"><p class="empty-note">Loading…</p></div>
 </div>
 
 
@@ -689,13 +711,14 @@ let createUnitCardCounter = 0;
 ============================================================ */
 function showTab(tab) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','clients','create', null, null, 'schedule'];
+    const tabs = ['approvals','review','active','history','assigned','clients','create', null, null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
+  if (tab === 'assigned' && typeof loadAssigned === 'function') loadAssigned();
 }
 
 /* ============================================================
@@ -5239,6 +5262,70 @@ document.getElementById('routing-division-pills').querySelectorAll('.pill').forE
     p.classList.add('active');
     routingDivisionFilter = p.dataset.division;
     loadRouting();
+  });
+});
+
+/* ============================================================
+   ASSIGNED -- tab principal junto a History, no sub-tab de
+   Scheduling (a proposito, para que sea igual de facil de llegar
+   que History). Reusa allClients/allOrders que ya existen globales
+   desde loadAll(), sin volver a pedirlos.
+============================================================ */
+let assignedOverviewCache = [];
+let assignedDivisionFilter = '';
+
+async function loadAssigned() {
+  const box = document.getElementById('assigned-list');
+  box.innerHTML = '<p class="empty-note">Loading…</p>';
+  try {
+    const res = await api('/developer-admin', { body: { action: 'get-assigned-overview', email: adminUser.email } });
+    assignedOverviewCache = res.employees || [];
+    renderAssignedList();
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderAssignedList() {
+  const box = document.getElementById('assigned-list');
+  let list = assignedOverviewCache.slice();
+  if (assignedDivisionFilter) list = list.filter(e => e[assignedDivisionFilter]);
+  list.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (!list.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
+
+  box.innerHTML = list.map(e => {
+    const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
+
+    const recurringRows = (e.recurring || []).map(r => {
+      const client = allClients.find(c => c.clientId === r.clientId);
+      const clientName = client ? client.businessName : r.clientId;
+      return '<div class="commit-row"><span class="commit-tag tag-recurring">Recurring</span>' +
+        '<span style="flex:1">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + ' — ' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</span>' +
+        '<a href="recurring.html" target="_blank" class="btn btn-outline" style="padding:3px 10px;text-decoration:none">View</a></div>';
+    }).join('');
+
+    const orderRows = (e.orders || []).map(o => {
+      const ord = allOrders.find(x => x.OrderID === o.orderId);
+      const label = ord ? (ord.BusinessName || ord.ClientID) : o.orderId;
+      const dateStr = o.assignedDate ? new Date(o.assignedDate).toLocaleDateString() : '';
+      return '<div class="commit-row"><span class="commit-tag tag-order">Order</span>' +
+        '<span style="flex:1">#' + esc(o.orderId) + ' — ' + esc(label) + (dateStr ? ' · ' + dateStr : '') + '</span>' +
+        '<button class="btn btn-outline" style="padding:3px 10px" onclick="goToScheduleForOrder(\'' + escAttr(o.orderId) + '\')">View</button></div>';
+    }).join('');
+
+    const body = (recurringRows + orderRows) || '<p class="empty-note" style="padding:0;text-align:left">Nothing assigned this week.</p>';
+
+    return '<div class="emp-card"><div class="emp-name">' + esc(e.name) + '<span class="emp-div">' + esc(divs) + '</span></div>' + body + '</div>';
+  }).join('');
+}
+
+document.getElementById('assigned-division-pills').querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.getElementById('assigned-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    assignedDivisionFilter = p.dataset.division;
+    renderAssignedList();
   });
 });
 
