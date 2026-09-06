@@ -432,6 +432,25 @@ exports.handler = async (event) => {
         error: 'This order has nothing waiting for a decision (status: ' + current + ').'
       });
     }
+    /* REGLA DEL PROYECTO: toda orden pasa por sus estatus en orden --
+       una orden nueva nunca llega a Assigned sin supervisor, ventana
+       de servicio y fecha de despacho. Esto se valida aqui, en el
+       backend, para que ningun camino del frontend (boton individual,
+       "Approve All" del batch, o cualquier otro que se agregue despues)
+       se lo pueda saltar por accidente -- antes solo se checaba que
+       hubiera Supervisor en el frontend, dejando pasar ordenes sin
+       ventana ni fecha. */
+    if (isNew && decision === 'approve') {
+      const missing = [];
+      if (!String(f.Supervisor || '').trim()) missing.push('a supervisor');
+      if (!String(f.ServiceWindow || '').trim()) missing.push('a service window');
+      if (!String(f.DispatchDate || '').trim()) missing.push('a service date');
+      if (missing.length) {
+        return jsonResponse(400, {
+          error: 'This order needs ' + missing.join(', ') + ' before it can be approved.'
+        });
+      }
+    }
     if (decision === 'reject' && isNew) {
       return jsonResponse(400, {
         error: "A new order can't be rejected directly — request its cancellation instead."

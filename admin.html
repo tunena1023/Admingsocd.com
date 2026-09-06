@@ -1174,7 +1174,7 @@ function batchApprovalGroupCard(batchId, units) {
   const dom = apprDomId(groupOrderId);
   const clientId = units[0].ClientID || '';
   const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
-  const allScheduled = units.every(u => u.Supervisor && String(u.Supervisor).trim());
+  const allScheduled = units.every(u => u.Supervisor && String(u.Supervisor).trim() && u.ServiceWindow && String(u.ServiceWindow).trim() && u.DispatchDate && String(u.DispatchDate).trim());
   return `
     <div class="order-card" data-order-id="${esc(groupOrderId)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
@@ -1218,7 +1218,7 @@ async function approveBatchAll(batchId) {
   const failed = [];
   showLoadingOverlay('Approving ' + units.length + ' units…');
   for (const u of units) {
-    if (!u.Supervisor || !String(u.Supervisor).trim()) {
+    if (!u.Supervisor || !String(u.Supervisor).trim() || !u.ServiceWindow || !String(u.ServiceWindow).trim() || !u.DispatchDate || !String(u.DispatchDate).trim()) {
       failed.push({ orderId: u.OrderID, error: 'not scheduled yet' });
       continue;
     }
@@ -1243,7 +1243,7 @@ async function approveBatchAll(batchId) {
 function newOrderApprovalCard(o) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
-  const isScheduled = !!(o.Supervisor && String(o.Supervisor).trim());
+  const isScheduled = !!(o.Supervisor && String(o.Supervisor).trim() && o.ServiceWindow && String(o.ServiceWindow).trim() && o.DispatchDate && String(o.DispatchDate).trim());
 
   const readOnlyBlock = isScheduled ? `
     <div class="edit-grid" style="margin-top:16px">
@@ -1356,8 +1356,8 @@ async function decideNewOrder(orderId, action) {
     }
   } else {
     supervisor = order.Supervisor || '';
-    if (!supervisor) {
-      showToast('This order has not been scheduled yet.');
+    if (!supervisor || !String(order.ServiceWindow || '').trim() || !String(order.DispatchDate || '').trim()) {
+      showToast('This order needs a supervisor, service window and service date before it can be approved.');
       return;
     }
   }
