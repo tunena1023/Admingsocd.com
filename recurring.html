@@ -63,6 +63,26 @@
   .svc-chip { border:1px solid var(--border); background:var(--white); padding:10px 12px; font-size:12px; text-align:left; cursor:pointer; border-radius:2px; font-family:Arial, sans-serif; color:var(--black); }
   .svc-chip.active { background:var(--gold); border-color:var(--gold); font-weight:700; }
   @media (max-width:640px) { .svc-chip-grid { grid-template-columns:1fr; } }
+
+  /* Recurring es siempre Janitorial -- fila completa por servicio con
+     L1/L2/L3 al final, en vez del grid de chips (ese sigue siendo para
+     Renovations/Exteriors en otras pantallas). */
+  .svc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:3px; margin-bottom:8px; background:var(--white); font-family:Arial, sans-serif; transition:border-color .15s, background .15s; }
+  .svc-row.selected { border-color:var(--gold); background:#FEFBF3; }
+  .svc-row-name { font-size:13px; }
+  .lvl-group { display:flex; border:1px solid var(--border); border-radius:20px; overflow:hidden; flex-shrink:0; }
+  .lvl-btn { width:34px; height:26px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; cursor:pointer; background:var(--white); color:var(--gray); border-right:1px solid var(--border); }
+  .lvl-btn:last-child { border-right:none; }
+  .lvl-btn.active { background:var(--gold); color:var(--black); }
+  .lvl-btn:hover:not(.active) { background:var(--bg); }
+
+  .svc-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .svc-toolbar .svc-search { flex:1; min-width:160px; margin-bottom:0; }
+  .selall-label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray); }
+  .lvl-toggle3 { position:relative; display:flex; width:180px; height:34px; background:var(--border); border-radius:17px; padding:3px; flex-shrink:0; }
+  .lvl-toggle3-thumb { position:absolute; top:3px; left:3px; width:calc(33.333% - 2px); height:calc(100% - 6px); background:var(--gold); border-radius:14px; transition:transform .25s cubic-bezier(.4,0,.2,1), opacity .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); opacity:0; }
+  .lvl-toggle3-opt { position:relative; flex:1; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--gray); cursor:pointer; z-index:1; transition:color .25s; }
+  .lvl-toggle3-opt.active { color:var(--black); }
   .add-more-link { font-size:11px; color:#8C6F2A; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:.04em; display:inline-block; margin:8px 0 4px; }
 
   .assign-row { display:grid; grid-template-columns:1fr 100px 32px; gap:10px; margin-bottom:8px; align-items:end; }
@@ -143,9 +163,18 @@
         </label>
         <span class="res-toggle-label">Residential</span>
       </div>
-      <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
+      <div class="svc-toolbar">
+        <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
+        <span class="selall-label">Select all</span>
+        <div class="lvl-toggle3" id="rcSelAllToggle">
+          <div class="lvl-toggle3-thumb" id="rcSelAllThumb"></div>
+          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 1',0)">L1</div>
+          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 2',1)">L2</div>
+          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 3',2)">L3</div>
+        </div>
+      </div>
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
-      <div class="svc-chip-grid" id="svc-chip-grid"></div>
+      <div id="svc-chip-grid"></div>
     </div>
 
     <div class="field-row">
@@ -241,8 +270,9 @@
      Residential/Commercial + buscador + chips, solo el nombre visible,
      el SKU nunca se muestra) ===== */
   let rcPropertyType = 'Commercial';
-  let rcSelectedSkus = new Set();
+  let rcSelectedLevels = new Map();   // sku -> 'Level 1'/'Level 2'/'Level 3'
   let rcServiceNameBySku = {};
+  let rcSelAllActive = null;          // 0/1/2 = L1/L2/L3 activo arriba, null = nada
 
   function setSvcPropertyType(type) {
     rcPropertyType = type;
@@ -262,33 +292,66 @@
     if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
     list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
     if (!list.length) { grid.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
-    grid.innerHTML = list.map(s =>
-      '<button type="button" class="svc-chip' + (rcSelectedSkus.has(s.sku) ? ' active' : '') + '" onclick="toggleSvcChip(\'' + escAttr(s.sku) + '\')">' + esc(s.serviceName) + '</button>'
-    ).join('');
+    const levels = ['Level 1', 'Level 2', 'Level 3'];
+    grid.innerHTML = list.map(s => {
+      const lvl = rcSelectedLevels.get(s.sku);
+      return '<div class="svc-row' + (lvl ? ' selected' : '') + '">' +
+        '<span class="svc-row-name">' + esc(s.serviceName) + '</span>' +
+        '<div class="lvl-group">' +
+          levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickSvcLevel(\'' + escAttr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+        '</div></div>';
+    }).join('');
   }
 
-  function toggleSvcChip(sku) {
-    if (rcSelectedSkus.has(sku)) rcSelectedSkus.delete(sku); else rcSelectedSkus.add(sku);
+  function pickSvcLevel(sku, level) {
+    if (rcSelectedLevels.get(sku) === level) rcSelectedLevels.delete(sku);
+    else rcSelectedLevels.set(sku, level);
+    renderServiceChips();
+  }
+
+  /* "Select all" de arriba -- 3 posiciones tipo toggle redondito.
+     Clic aplica ese nivel a todo lo visible (respeta el buscador);
+     clic en la posicion ya activa quita la seleccion masiva completa. */
+  function rcSelectAllLevel(level, idx) {
+    const q = (document.getElementById('rc-svc-search').value || '').trim().toLowerCase();
+    const visible = servicesCache.filter(s => s.propertyType === rcPropertyType && (!q || s.serviceName.toLowerCase().includes(q)));
+    const thumb = document.getElementById('rcSelAllThumb');
+
+    if (rcSelAllActive === idx) {
+      visible.forEach(s => rcSelectedLevels.delete(s.sku));
+      rcSelAllActive = null;
+      thumb.style.opacity = '0';
+    } else {
+      visible.forEach(s => rcSelectedLevels.set(s.sku, level));
+      rcSelAllActive = idx;
+      thumb.style.opacity = '1';
+      thumb.style.transform = 'translateX(' + (idx * 100) + '%)';
+    }
+    document.querySelectorAll('#rcSelAllToggle .lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === rcSelAllActive));
     renderServiceChips();
   }
 
   function collectSelectedServices() {
-    return Array.from(rcSelectedSkus).map(sku => ({ sku, serviceName: rcServiceNameBySku[sku] || sku }));
+    return Array.from(rcSelectedLevels, ([sku, level]) => ({ sku, serviceName: rcServiceNameBySku[sku] || sku, level }));
   }
 
-  /* Marca los chips que ya estaban guardados (para Edit). Si el
+  /* Marca las filas que ya estaban guardadas (para Edit). Si el
      renglon guardado es del formato viejo (por cuarto: category/name/sub,
-     sin sku), no se puede mapear a un chip -- se avisa con la nota y no
+     sin sku), no se puede mapear a una fila -- se avisa con la nota y no
      se pierde nada mientras no se le de Save de nuevo a este contrato. */
   function applySelectedServices(servicesJson) {
-    rcSelectedSkus = new Set();
+    rcSelectedLevels = new Map();
+    rcSelAllActive = null;
+    const thumb = document.getElementById('rcSelAllThumb');
+    if (thumb) thumb.style.opacity = '0';
+    document.querySelectorAll('#rcSelAllToggle .lvl-toggle3-opt').forEach(el => el.classList.remove('active'));
     let services = [];
     try { services = JSON.parse(servicesJson || '[]'); } catch (e) {}
     let hasLegacy = false;
     let firstType = null;
     services.forEach(s => {
       if (s && s.sku) {
-        rcSelectedSkus.add(s.sku);
+        rcSelectedLevels.set(s.sku, s.level || 'Level 1');
         if (!firstType) {
           const found = servicesCache.find(c => c.sku === s.sku);
           if (found) firstType = found.propertyType;
