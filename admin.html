@@ -3236,7 +3236,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         ${materialsReadyPillHtml(o)}
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
-          <div><div class="field-caption">Entry</div><div class="field-value">${fmtDateTime(o.EntryDate)}</div></div>
+          <div><div class="field-caption">Entry</div><div class="field-value">${fmtDate(o.EntryDate)}</div></div>
           <div><div class="field-caption">Due</div><div class="field-value">${fmtDate(o.DueDate)}</div></div>
           <div><div class="field-caption">Supervisor</div><div class="field-value">${o.Supervisor ? esc(o.Supervisor) : '—'}</div></div>
           <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')}</div></div>
@@ -3921,7 +3921,7 @@ async function printOrder(orderId) {
   .chg div{font-size:12px;margin:2px 0}</style></head><body>
   <h1>Order #${o.OrderID}</h1>
   <p class="meta">${o.BusinessName} · ${o.Division} · ${o.Status}<br>
-  Entry: ${fmtDateTime(o.EntryDate)} · Due: ${fmtDate(o.DueDate)}<br>
+  Entry: ${fmtDate(o.EntryDate)} · Due: ${fmtDate(o.DueDate)}<br>
   Building/Unit: ${o.BuildingNumber||'—'} / ${o.UnitNumber||'—'} · Bed/Bath: ${o.Bedrooms||'—'} / ${o.Bathrooms||'—'}<br>
   ${o.Supervisor?'Supervisor: '+o.Supervisor+'<br>':''}
   ${o.Notes?'Notes: '+o.Notes:''}</p>
@@ -5193,13 +5193,27 @@ let pendingDirectLinkOrderId = null;
       const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
 
       const gaugeHtml = (() => {
-        const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
-        const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
-        const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
-        const remaining = 40 - e.hoursThisWeek;
-        const caption = e.hoursThisWeek >= 40
-          ? '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:#B33A3A">' + (e.hoursThisWeek - 40).toFixed(1) + ' hrs</b> overtime'
-          : '<b>' + e.hoursThisWeek.toFixed(1) + ' hrs</b> worked · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hrs</b> left' +
+        const recurringHours = e.recurringHoursThisWeek || 0;
+        /* Sin reporte real todavia (uAttend no conectado o no ha
+           corrido esta semana) -- se asumen las 40h completas
+           disponibles, PERO las horas recurrentes ya comprometidas
+           se reservan de una vez, no se cuentan como si estuvieran
+           libres. Con reporte real, se confia en lo ya ponchado tal
+           cual -- si el recurrente ya se trabajo, deberia venir
+           incluido ahi, sumarlo aparte lo contaria doble. Cuando
+           llegue la API de uAttend en tiempo real esto se puede
+           afinar mas (saber a que hora exacta poncho, cuanto le
+           queda a media manana), por ahora es la mejor aproximacion
+           sin esos datos. */
+        const effectiveHours = e.hasWeekData ? e.hoursThisWeek : recurringHours;
+        const pct = Math.min(effectiveHours / 40 * 100, 100);
+        const overPct = effectiveHours > 40 ? Math.min((effectiveHours / 40 - 1) * 100, 100) : 0;
+        const fillColor = effectiveHours >= 40 ? '#B33A3A' : (effectiveHours >= 34 ? '#B8862E' : 'var(--gold)');
+        const remaining = 40 - effectiveHours;
+        const workedLabel = e.hasWeekData ? 'worked' : (recurringHours ? 'reserved (recurring)' : 'worked');
+        const caption = effectiveHours >= 40
+          ? '<b>' + effectiveHours.toFixed(1) + ' hrs</b> ' + workedLabel + ' · <b style="color:#B33A3A">' + (effectiveHours - 40).toFixed(1) + ' hrs</b> overtime'
+          : '<b>' + effectiveHours.toFixed(1) + ' hrs</b> ' + workedLabel + ' · <b style="color:' + (remaining <= 6 ? '#B8862E' : '#4A7A4A') + '">' + remaining.toFixed(1) + ' hrs</b> left' +
             (e.assignedOrdersThisWeek ? ' · <span style="color:var(--gray)">' + e.assignedOrdersThisWeek + ' assigned</span>' : '');
         return '<div class="hours-gauge"><div class="hours-gauge-fill" style="width:' + Math.min(pct + overPct, 100) + '%;background:' + fillColor + '"></div></div>' +
           '<div class="hours-caption">' + caption + '</div>';

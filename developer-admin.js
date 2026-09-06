@@ -673,11 +673,32 @@ exports.handler = async (event) => {
     }
 
     if (action === 'get-hours-overview') {
-      const [employees, hours, scheduling] = await Promise.all([
+      const [employees, hours, scheduling, recurringServices, recurringAssignments] = await Promise.all([
         fetchAll(FIELD_EMPLOYEES_LIST),
         fetchAll(WEEKLY_HOURS_LIST),
-        fetchAll(SCHEDULING_LIST)
+        fetchAll(SCHEDULING_LIST),
+        fetchAll(RECURRING_SERVICES_LIST),
+        fetchAll(RECURRING_ASSIGNMENTS_LIST)
       ]);
+
+      /* Contratos recurrentes activos (no vencidos) -- sus horas
+         semanales cuentan contra el allowance de 40h de cada persona
+         asignada, igual que cualquier otro trabajo, aunque nunca
+         generen una Orden real ni pasen por Scheduling. */
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const activeServiceIds = new Set(
+        recurringServices
+          .filter(it => it.fields && truthy(it.fields.Active) &&
+            (!it.fields.ExpirationDate || String(it.fields.ExpirationDate).slice(0, 10) >= todayISO))
+          .map(it => it.id)
+      );
+      const recurringHoursByPayroll = {};
+      recurringAssignments.forEach(a => {
+        if (!a.fields || !activeServiceIds.has(a.fields.RecurringServiceID)) return;
+        const pn = String(a.fields.PayrollNumber || '').trim();
+        if (!pn) return;
+        recurringHoursByPayroll[pn] = (recurringHoursByPayroll[pn] || 0) + (Number(a.fields.HoursAllocated) || 0);
+      });
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -750,7 +771,8 @@ exports.handler = async (event) => {
             hasWeekData: !!weekRows.length,
             hoursLastWeek,
             assignedOrdersThisWeek,
-            assignedOrdersLastWeek
+            assignedOrdersLastWeek,
+            recurringHoursThisWeek: recurringHoursByPayroll[payrollNumber] || 0
           };
         });
 
