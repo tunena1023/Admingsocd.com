@@ -1053,6 +1053,34 @@ function isReactivationPending(history) {
   return false;
 }
 
+/* Una sugerencia de cambio de servicios que un Supervisor mando desde
+   el celular en campo (tech.gsocd.com), distinta de un cambio que
+   pidio la oficina misma -- mismo patron de "revisar solo la
+   solicitud abierta mas reciente" que ya usan requestOrigin/
+   isWaitingForClient/isReactivationPending. Se distingue con su
+   propia tarjeta (galeria de fotos + boton Send to Customer, ademas
+   de Approve/Reject normales). */
+function isSupervisorUpdate(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    const type = String(h.ChangeType || '');
+    if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested') {
+      return type === 'Change Requested' && String(h.FieldChanged || '') === 'Supervisor Update';
+    }
+  }
+  return false;
+}
+
+function supervisorUpdateActor(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (String(h.ChangeType || '') === 'Change Requested' && String(h.FieldChanged || '') === 'Supervisor Update') {
+      return h.ChangedBy || '';
+    }
+  }
+  return '';
+}
+
 /* Lee el estatus al que va a regresar la orden si se aprueba la
    reactivacion -- calculado UNA SOLA VEZ por el backend al pedirla
    (request-reactivate), guardado en el marcador para que tanto esta
@@ -1529,6 +1557,25 @@ function decisionAreaHtml(o, history) {
     <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to <b>${esc(restoreTo)}</b> immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
   }
 
+  if (isSupervisorUpdate(history)) {
+    const actor = supervisorUpdateActor(history);
+    const notesId2 = dom + '-notes';
+    const galleryId = dom + '-gallery';
+    return `<p class="meta-line" style="margin-bottom:14px">Service change suggested on-site by <b>${esc(actor)}</b>. The client hasn't seen this yet.</p>
+    <p class="review-photo-note" id="${galleryId}-toggle" style="font-size:12px;color:var(--gold-dk);text-decoration:underline;cursor:pointer;margin-bottom:14px;display:inline-block" onclick="toggleSupervisorGallery('${esc(o.OrderID)}','${galleryId}')">📷 View Gallery</p>
+    <div id="${galleryId}"></div>
+    <div class="field-group" style="margin-top:12px">
+      <label>Notes (required if rejecting, optional if approving)</label>
+      <input type="text" id="${notesId2}" placeholder="Reason…">
+    </div>
+    <div class="appr-bar">
+      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','approve',false)">Approve</button>
+      <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',false)">Reject</button>
+      <button class="btn btn-gold" onclick="sendSupervisorUpdateToCustomer('${esc(o.OrderID)}')">Send to Customer</button>
+    </div>
+    <p class="appr-hint">Approve applies the change internally without notifying the client. Send to Customer forwards it to them for confirmation — nothing reaches the client until you do this. Reject undoes it and restores the original services.</p>`;
+  }
+
   const isCancel = status === 'Cancellation Requested';
   const needsPassword = passwordNeeded(o, history);
   const notesId = dom + '-notes';
@@ -1629,6 +1676,53 @@ async function cancelOfficeUpdate(orderId) {
     await loadAll();
   } catch (e) {
     showToast('Error: ' + e.message);
+  }
+}
+
+/* Forward de una sugerencia de supervisor al cliente -- reusa el
+   mismo backend que ya usa 'Request Confirmation (send to client)'
+   desde Active. Los servicios ya se aplicaron cuando el supervisor
+   mando la sugerencia (submit-supervisor-update.js en tech.gsocd.com,
+   mismo patron que este mismo modo requestOnly) -- aqui solo hace
+   falta el marcador 'Client Confirmation' para que le llegue al
+   cliente, sin volver a tocar servicios ni fechas. */
+async function sendSupervisorUpdateToCustomer(orderId) {
+  if (!confirm('Send this update to the customer for confirmation?')) return;
+  try {
+    showLoadingOverlay('Sending to customer…');
+    await api('/admin-update-order', {
+      body: { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: true }
+    });
+    showToast('Sent to the client for confirmation.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+/* Galeria inline de una orden, dentro de la misma tarjeta de Review --
+   cubre la necesidad puntual de ver las fotos del supervisor sin
+   esperar a que exista un tab de Gallery completo en admin.html. */
+async function toggleSupervisorGallery(orderId, galleryId) {
+  const box = document.getElementById(galleryId);
+  if (!box) return;
+  if (box.dataset.loaded === 'true') {
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = '<p class="empty-note">Loading photos…</p>';
+  try {
+    const data = await api('/get-order-photos', { body: { orderId } });
+    const photos = data.photos || [];
+    box.innerHTML = photos.length
+      ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-bottom:14px">' +
+        photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" onclick="window.open(this.src)">').join('') +
+        '</div>'
+      : '<p class="empty-note" style="margin-bottom:14px">No photos yet for this order.</p>';
+    box.dataset.loaded = 'true';
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load photos: ' + esc(e.message) + '</p>';
   }
 }
 

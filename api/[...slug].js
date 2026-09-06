@@ -15,6 +15,7 @@ const handlers = {
   'developer-admin':     require('../developer-admin').handler,
   'get-order-detail':    require('../get-order-detail').handler,
   'get-order-document':  require('../get-order-document').handler,
+  'get-order-photos':    require('../get-order-photos').handler,
   'get-services':        require('../get-services').handler,
   'register-client':     require('../register-client').handler,
   'site-image':          require('../site-image').handler,
