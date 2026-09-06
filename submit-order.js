@@ -481,8 +481,12 @@ exports.handler = async (event) => {
 
       const buildingsById = {};
       buildingRows.forEach(it => { if (it.fields) buildingsById[it.id] = it.fields; });
+      /* 'CLIENT_ADDRESS' es un id especial (no es un renglon real de
+         CLIENT_ADDRESSES_LIST) -- significa "esta unidad no tiene
+         building guardado, usa la direccion del cliente". Se salta la
+         validacion de pertenencia para ese caso unicamente. */
       for (const id of buildingIds) {
-        if (!buildingsById[id]) return jsonResponse(403, { error: 'One of the selected buildings does not belong to this client.' });
+        if (id !== 'CLIENT_ADDRESS' && !buildingsById[id]) return jsonResponse(403, { error: 'One of the selected buildings does not belong to this client.' });
       }
 
       const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
@@ -493,7 +497,12 @@ exports.handler = async (event) => {
       const createdOrderIds = [];
       for (const unit of b.Units) {
         const bId = String(unit.buildingId).trim();
-        const bf = buildingsById[bId];
+        /* Sin building guardado -- usar la direccion del cliente
+           (ya geocodificada arriba, en orderFields) en vez de un
+           renglon real de CLIENT_ADDRESSES_LIST. */
+        const bf = bId === 'CLIENT_ADDRESS'
+          ? { BuildingNumber: '', Address: orderFields.Address, Suite: orderFields.Suite, City: orderFields.City, Zip: orderFields.Zip, Latitude: orderFields.Latitude, Longitude: orderFields.Longitude }
+          : buildingsById[bId];
         const suffix = String(nextSuffixNum++).padStart(4, '0');
         const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + poTag;
 
@@ -532,7 +541,8 @@ exports.handler = async (event) => {
               Category:    s.Category    || '',
               ServiceName: s.ServiceName || '',
               SubOption:   s.SubOption   || '',
-              Division:    s.Division    || b.Division
+              Division:    s.Division    || b.Division,
+              Level:       s.Level       || ''
             })
           ));
 

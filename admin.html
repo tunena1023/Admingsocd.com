@@ -4357,10 +4357,18 @@ function setCreateOrderMode(mode) {
 
 function createBuildingOptionsHtml() {
   const buildings = (createSelectedClient && createSelectedClient.buildings) ? createSelectedClient.buildings.filter(b => !b.archived) : [];
-  if (!buildings.length) return '<option value="">No saved buildings for this client</option>';
-  return buildings.map(b =>
+  const hasClientAddress = createSelectedClient && createSelectedClient.address;
+  let html = '';
+  if (!buildings.length && !hasClientAddress) {
+    return '<option value="">No saved buildings or address for this client</option>';
+  }
+  if (hasClientAddress) {
+    html += '<option value="CLIENT_ADDRESS">Use client address — ' + esc(createSelectedClient.address) + '</option>';
+  }
+  html += buildings.map(b =>
     '<option value="' + esc(b.id) + '">' + esc(b.label || 'Building') + (b.buildingNumber ? ' #' + esc(b.buildingNumber) : '') + '</option>'
   ).join('');
+  return html;
 }
 
 function createUnitCardHtml(idx) {
@@ -4575,8 +4583,13 @@ async function submitCreateOrder() {
 
   if (createMultiOn) {
     if (!createSelectedClient.buildings || !createSelectedClient.buildings.filter(b => !b.archived).length) {
-      showToast('This client has no saved buildings yet — add one in the Clients tab first.');
-      return;
+      if (!createSelectedClient.address) {
+        showToast('This client has no saved buildings and no address on file — add one in the Clients tab first.');
+        return;
+      }
+      /* Sin buildings guardados pero SI hay direccion del cliente --
+         se deja seguir, createBuildingOptionsHtml ya ofrece la opcion
+         "Use client address" para cada unidad. */
     }
     const entryDate = document.getElementById('create-multi-entry-date').value;
     const dueDate = document.getElementById('create-multi-due-date').value;
