@@ -6026,11 +6026,25 @@ function renderRoutingAddList() {
   if (!items.length) { list.innerHTML = '<p class="empty-note">Nothing to add here.</p>'; return; }
   list.innerHTML = items.map(i =>
     '<div class="routing-stop-row"><div><div class="routing-stop-name">' + esc(i.name) + '</div><div class="routing-stop-sub">' + esc(i.sub) + '</div></div>' +
-    '<button type="button" class="routing-add-btn" onclick="addRoutingStop(\'' + i.kind + '\',\'' + escAttr(i.key) + '\')">+ Add</button></div>'
+    '<button type="button" class="routing-add-btn" onclick="addRoutingStop(\'' + i.kind + '\',\'' + escAttr(i.key) + '\',this)">+ Add</button></div>'
   ).join('');
 }
 
-async function addRoutingStop(kind, key) {
+/* Nominatim (el geocodificador gratuito que usamos) solo permite 1
+   solicitud por segundo -- si se prueban varios clientes seguidos
+   rapido, las primeras pasan bien pero las siguientes empiezan a
+   fallar aunque la direccion sea real. Este throttle espacia las
+   llamadas para que eso no pase. */
+let lastGeocodeCallTime = 0;
+async function throttledGeocode(address, city, zip) {
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - lastGeocodeCallTime));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastGeocodeCallTime = Date.now();
+  return api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address, city, zip } });
+}
+
+async function addRoutingStop(kind, key, btn) {
   if (kind === 'order') {
     const o = routingQueueWithCoords.find(x => x.OrderID === key);
     if (!o) return;
@@ -6039,6 +6053,7 @@ async function addRoutingStop(kind, key) {
     return;
   }
 
+  if (btn) { btn.disabled = true; btn.textContent = '\u2026'; }
   const clientId = key.replace(/^client-/, '');
   const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
   if (!c) return;
@@ -6048,10 +6063,18 @@ async function addRoutingStop(kind, key) {
     lat = b.latitude; lon = b.longitude;
   } else {
     try {
-      const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: b ? b.address : c.address, city: b ? b.city : c.city, zip: b ? b.zip : c.zip } });
-      if (!geo.geo) { showToast('Could not locate that address.'); return; }
+      const geo = await throttledGeocode(b ? b.address : c.address, b ? b.city : c.city, b ? b.zip : c.zip);
+      if (!geo.geo) {
+        showToast('Could not locate that address' + ((b ? b.address : c.address) ? ' (' + (b ? b.address : c.address) + ')' : ' -- no address on file') + '.');
+        if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
+        return;
+      }
       lat = geo.geo.lat; lon = geo.geo.lon;
-    } catch (e) { showToast('Error: ' + e.message); return; }
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
+      return;
+    }
   }
 
   routingSelected.push({
@@ -6165,7 +6188,7 @@ async function calcDetourFor(widgetId, clientId, buildingId) {
     const b = c.buildings.find(x => x.id === buildingId);
     lat = b.latitude; lon = b.longitude;
   } else {
-    const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: c.address, city: c.city, zip: c.zip } });
+    const geo = await throttledGeocode(c.address, c.city, c.zip);
     if (!geo.geo) { box.innerHTML = '<p class="empty-note">Could not locate that address.</p>'; return; }
     lat = geo.geo.lat; lon = geo.geo.lon;
   }
