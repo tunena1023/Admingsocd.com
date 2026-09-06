@@ -455,18 +455,17 @@ exports.handler = async (event) => {
           .map(it => String(it.fields.PayrollNumber).trim())
       );
 
-      /* Antes esto borraba TODO WeeklyHours y volvia a crear -- si
-         subias un reporte angosto (2 semanas), se perdian las semanas
-         viejas que ya tenias guardadas de antes. Ahora se actualiza
-         lo que ya existia (misma persona + misma semana) y se crea
-         lo nuevo, sin borrar nunca nada -- el historial se va
-         acumulando de verdad, sin importar que tan ancho o angosto
-         sea cada reporte que subas. */
+      /* CAMBIO DE LOGICA (ver comentario largo en admin.html, junto a
+         onHoursFileChosen): cada renglon que llega ahora es UN DIA,
+         no una semana completa -- se guarda uno por (persona, dia),
+         nunca se reemplaza toda la semana con un solo numero. Subir
+         el mismo dia dos veces solo sobreescribe ESE dia, no duplica
+         ni pisa los demas dias de la semana. */
       const existingHours = await fetchAll(WEEKLY_HOURS_LIST);
       const existingByKey = {};
       existingHours.forEach(it => {
         if (!it.fields) return;
-        const key = String(it.fields.PayrollNumber || '').trim() + '|' + String(it.fields.WeekStart || '').slice(0, 10);
+        const key = String(it.fields.PayrollNumber || '').trim() + '|' + String(it.fields.Date || '').slice(0, 10);
         existingByKey[key] = it;
       });
 
@@ -476,16 +475,18 @@ exports.handler = async (event) => {
 
       for (const r of rows) {
         const payrollNumber = String(r.payrollNumber || '').trim();
-        if (!payrollNumber) continue;
+        const date = String(r.date || '').slice(0, 10);
+        if (!payrollNumber || !date) continue;
         if (!knownPayrollNumbers.has(payrollNumber)) { unmatched.add(payrollNumber); continue; }
 
-        const key = payrollNumber + '|' + String(r.weekStart || '').slice(0, 10);
+        const key = payrollNumber + '|' + date;
         const fields = {
-          Title: payrollNumber,
+          Title: payrollNumber + ' ' + date,
           PayrollNumber: payrollNumber,
+          Date: date,
           WeekStart: r.weekStart,
           WeekEnd: r.weekEnd,
-          TotalWeeklyHours: Number(r.totalHours) || 0
+          TotalWeeklyHours: Number(r.hours) || 0
         };
         const existingRow = existingByKey[key];
         if (existingRow) {
@@ -649,22 +650,26 @@ exports.handler = async (event) => {
           const payrollNumber = String(f.PayrollNumber).trim();
           const name = (String(f.FirstName || '').trim() + ' ' + String(f.LastName || '').trim()).trim();
 
-          const weekRow = hours.find(h => {
+          const weekRows = hours.filter(h => {
             if (!h.fields || String(h.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
-            const ws = new Date(h.fields.WeekStart), we = new Date(h.fields.WeekEnd);
-            return today >= ws && today <= we;
+            const d = new Date(h.fields.Date);
+            return d >= weekStartSunday && d <= weekEndSaturday;
           });
-          const hoursThisWeek = weekRow ? Number(weekRow.fields.TotalWeeklyHours) || 0 : 0;
+          const hoursThisWeek = weekRows.reduce((sum, h) => sum + (Number(h.fields.TotalWeeklyHours) || 0), 0);
 
-          /* Semana anterior: mismo criterio, nomas buscando la fila
-             cuyo WeekStart caiga en la semana de antes (Domingo a
-             Sabado tambien). Ya no se pierde con cada subida porque
-             WeeklyHours ahora acumula en vez de reemplazar. */
-          const prevWeekRow = hours.find(h => {
+          /* Semana anterior: mismo criterio, sumando todos los dias
+             de esa lista de fechas. Cada dia se guarda por separado
+             (columna Date) -- no se pierde nada al subir un reporte
+             diario nuevo, cada subida solo toca el dia que le
+             corresponde. */
+          const prevWeekRows = hours.filter(h => {
             if (!h.fields || String(h.fields.PayrollNumber || '').trim() !== payrollNumber) return false;
-            return String(h.fields.WeekStart || '').slice(0, 10) === prevWeekStart.toISOString().slice(0, 10);
+            const d = new Date(h.fields.Date);
+            return d >= prevWeekStart && d <= prevWeekEnd;
           });
-          const hoursLastWeek = prevWeekRow ? Number(prevWeekRow.fields.TotalWeeklyHours) || 0 : null;
+          const hoursLastWeek = prevWeekRows.length
+            ? prevWeekRows.reduce((sum, h) => sum + (Number(h.fields.TotalWeeklyHours) || 0), 0)
+            : null;
 
           /* Ordenes UNICAS (no filas de Scheduling) -- un trabajo de
              varios dias en la misma orden cuenta como 1 servicio, no
@@ -688,7 +693,7 @@ exports.handler = async (event) => {
             renovations: truthy(f.Renovations),
             exteriors: truthy(f.Exteriors),
             hoursThisWeek,
-            hasWeekData: !!weekRow,
+            hasWeekData: !!weekRows.length,
             hoursLastWeek,
             assignedOrdersThisWeek,
             assignedOrdersLastWeek
