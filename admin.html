@@ -33,9 +33,10 @@
        recurring.html: toggle Residential/Commercial + buscador + chips
        en grid de 2 columnas, solo el nombre visible, nunca el SKU. */
     .svc-search { width: 100%; max-width: 280px; padding: 8px 10px; border: 1px solid var(--border); font-size: 12px; margin-bottom: 12px; font-family: 'Inter', sans-serif; display: block; }
-    .svc-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .svc-chip-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
     .svc-chip { border: 1px solid var(--border); background: var(--white); padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; border-radius: 2px; font-family: 'Inter', sans-serif; color: var(--black); }
     .svc-chip.active { background: var(--gold); border-color: var(--gold); font-weight: 700; }
+    @media (max-width: 900px) { .svc-chip-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 640px) { .svc-chip-grid { grid-template-columns: 1fr; } }
 
     /* Toggle redondito tipo iPhone -- reemplaza las 2 pills de
