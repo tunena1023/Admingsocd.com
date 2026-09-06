@@ -5975,7 +5975,12 @@ function drawRoutingPath(path) {
   clearRoutingPath();
   if (!path || !path.length) return;
   routingRouteLine = L.polyline(path, { color: '#C9A84C', weight: 5, opacity: 0.85 }).addTo(routingMap);
-  routingMap.fitBounds(routingRouteLine.getBounds(), { padding: [30, 30] });
+  /* NUNCA reencuadrar a la linea de la ruta -- si el camino real por
+     calles da una vuelta larga para llegar a algun punto, esto
+     alejaba el mapa muchisimo y se veia como un loop sin sentido. El
+     mapa se queda enfocado en las PARADAS (ya encuadrado desde
+     renderRoutingMap), la linea se dibuja encima aunque una parte
+     quede fuera de la vista. */
 }
 
 function showRoutingTimeOverlay(html) {
