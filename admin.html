@@ -660,6 +660,11 @@
     </div>
     <p class="order-meta" style="margin-bottom:16px">Pending orders located by address. Suggested blocks group nearby stops considering distance and due dates — always a suggestion, never automatic.</p>
 
+    <div style="margin-bottom:16px;position:relative">
+      <input type="text" id="routing-client-search" placeholder="Add any client to the map — even without a pending order…" oninput="searchRoutingClient()" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+      <div id="routing-client-results" style="max-width:420px"></div>
+    </div>
+
     <div class="routing-grid">
       <div style="border:1px solid var(--border);background:var(--white);padding:8px">
         <div id="routing-map" style="height:420px;width:100%"></div>
@@ -5808,6 +5813,13 @@ let routingMap = null;
 let routingMarkers = [];
 let routingDivisionFilter = '';
 let routingQueueWithCoords = [];
+/* Paradas agregadas a mano desde el buscador de clientes -- viven
+   aparte de la cola real de ordenes pendientes, y sobreviven cada
+   recarga de loadRouting() (no se resetean solas) para poder seguir
+   probando/armando un bloque sin perderlo cada vez que cambia el
+   filtro de division. */
+let routingCustomStops = [];
+let allClientsForRoutingCache = null;
 let routingQueueNoCoords = [];
 let pendingRoutingBlockIds = null;
 
@@ -5831,7 +5843,8 @@ async function loadRouting() {
     let pending = (ordersRes.orders || []).filter(o => o.Status === 'Received' && !scheduledIds.has(o.OrderID));
     if (routingDivisionFilter) pending = pending.filter(o => (o.Division || '').toLowerCase() === routingDivisionFilter.toLowerCase());
 
-    routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null);
+    routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null)
+      .concat(routingCustomStops);
     routingQueueNoCoords = pending.filter(o => o.Latitude == null || o.Longitude == null);
 
     renderRoutingMap();
@@ -5857,9 +5870,9 @@ function renderRoutingMap() {
   const bounds = [];
   routingQueueWithCoords.forEach(o => {
     const marker = L.circleMarker([o.Latitude, o.Longitude], {
-      radius: 9, fillColor: '#111111', color: '#fff', weight: 2, fillOpacity: 1
+      radius: 9, fillColor: o.isCustomStop ? '#C9A84C' : '#111111', color: '#fff', weight: 2, fillOpacity: 1
     }).addTo(routingMap);
-    marker.bindTooltip(o.BusinessName || o.OrderID);
+    marker.bindTooltip((o.BusinessName || o.OrderID) + (o.isCustomStop ? ' (added for testing)' : ''));
     routingMarkers.push(marker);
     bounds.push([o.Latitude, o.Longitude]);
   });
@@ -5921,10 +5934,88 @@ async function renderRoutingSide() {
       workText += route ? ' · <b>' + Math.round(grandTotal) + ' min total</b>' : '';
     }
     info.innerHTML = '<b>' + driveText + '</b>' + workText;
+    if (route) {
+      const detourBox = document.createElement('div');
+      detourBox.id = 'suggested-detour';
+      info.insertAdjacentElement('afterend', detourBox);
+      setupDetourWidget('suggested-detour', block, route.minutes);
+    }
   }
 
   renderRoutingManualList(rest);
 }
+
+/* Cuanto MAS tiempo de manejo costaria agregar una parada a una ruta
+   ya armada -- se prueba insertandola en cada posicion posible de la
+   secuencia y se queda con la mejor (menos tiempo agregado), nunca al
+   final a fuerzas. Sirve tanto para el bloque sugerido como para la
+   seleccion manual -- un solo contexto activo a la vez. */
+let routingDetourContext = null;
+
+function detourWidgetHtml(widgetId) {
+  return '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">' +
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Add a stop to this route?</div>' +
+    '<input type="text" id="' + widgetId + '-search" placeholder="Search a client to see the detour cost…" oninput="searchDetourCandidate(\'' + widgetId + '\')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit">' +
+    '<div id="' + widgetId + '-results"></div>' +
+    '</div>';
+}
+
+function setupDetourWidget(containerId, stops, baseMinutes) {
+  routingDetourContext = { stops, baseMinutes };
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = detourWidgetHtml(containerId);
+}
+
+async function searchDetourCandidate(widgetId) {
+  const q = document.getElementById(widgetId + '-search').value.trim().toLowerCase();
+  const box = document.getElementById(widgetId + '-results');
+  if (!q) { box.innerHTML = ''; return; }
+  try {
+    if (!allClientsForRoutingCache) {
+      const res = await api('/admin-get-clients', { method: 'POST', body: {} });
+      allClientsForRoutingCache = res.clients || [];
+    }
+  } catch (e) { box.innerHTML = ''; return; }
+
+  const matches = allClientsForRoutingCache.filter(c => c.businessName.toLowerCase().includes(q)).slice(0, 5);
+  box.innerHTML = matches.map(c => {
+    const b = (c.buildings || []).find(x => !x.archived && x.latitude != null) || null;
+    return '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + '</span>' +
+      '<button type="button" class="btn-outline" onclick="calcDetourFor(\'' + widgetId + '\',\'' + c.clientId + '\',\'' + (b ? b.id : '') + '\')">See detour cost</button></div>';
+  }).join('');
+}
+
+async function calcDetourFor(widgetId, clientId, buildingId) {
+  const box = document.getElementById(widgetId + '-results');
+  box.innerHTML = '<p class="empty-note">Calculating…</p>';
+  const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
+  let lat, lon;
+  if (buildingId) {
+    const b = c.buildings.find(x => x.id === buildingId);
+    lat = b.latitude; lon = b.longitude;
+  } else {
+    const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: c.address, city: c.city, zip: c.zip } });
+    if (!geo.geo) { box.innerHTML = '<p class="empty-note">Could not locate that address.</p>'; return; }
+    lat = geo.geo.lat; lon = geo.geo.lon;
+  }
+
+  const candidate = { OrderID: 'candidate', BusinessName: c.businessName, Latitude: lat, Longitude: lon };
+  const best = await computeBestInsertion(routingDetourContext.stops, candidate);
+  if (!best) { box.innerHTML = '<p class="empty-note">Could not calculate that detour.</p>'; return; }
+  const added = Math.round(best.minutes - routingDetourContext.baseMinutes);
+  box.innerHTML = '<p class="order-meta"><b>' + esc(c.businessName) + '</b> would add about <b>' + added + ' min</b> of drive time to this route (best inserted at stop #' + (best.position + 1) + ' of ' + (routingDetourContext.stops.length + 1) + ').</p>';
+}
+
+async function computeBestInsertion(currentStops, candidate) {
+  let best = null;
+  for (let i = 0; i <= currentStops.length; i++) {
+    const seq = currentStops.slice(0, i).concat([candidate]).concat(currentStops.slice(i));
+    const route = await fetchOsrmRoute(seq);
+    if (route && (!best || route.minutes < best.minutes)) best = { minutes: route.minutes, position: i };
+  }
+  return best;
+}
+
 
 /* Tiempo de trabajo (nunca de manejo) por orden -- interno nomas,
    para que quien arma la ruta pueda ver cuanto va a tardar de verdad
@@ -5943,12 +6034,89 @@ async function fetchOrderTimeEstimates(orderIds) {
 
 function renderRoutingManualList(rest) {
   let html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Other pending orders — select to build your own route</div>';
-  html += rest.map(o => '<div class="order-card"><div class="order-card-header" style="display:flex;align-items:center;gap:10px">' +
+  html += rest.map(o => '<div class="order-card"' + (o.isCustomStop ? ' style="border-color:var(--gold)"' : '') + '><div class="order-card-header" style="display:flex;align-items:center;gap:10px">' +
     '<input type="checkbox" class="routing-check" value="' + escAttr(o.OrderID) + '" onchange="onRoutingCheck()">' +
-    '<div><div class="order-id">#' + esc(o.OrderID) + '</div><div class="order-meta">' + esc(o.BusinessName || o.ClientID) + ' · ' + esc(o.Division || '') + '</div></div></div></div>').join('');
+    '<div style="flex:1"><div class="order-id">' + (o.isCustomStop ? '🧪 ' + esc(o.BusinessName) : '#' + esc(o.OrderID)) + '</div><div class="order-meta">' + (o.isCustomStop ? 'Added for testing' : esc(o.BusinessName || o.ClientID) + ' · ' + esc(o.Division || '')) + '</div></div>' +
+    (o.isCustomStop ? '<button type="button" class="um-remove-btn" style="background:none;border:none;color:#B33A3A;font-size:16px;cursor:pointer" title="Remove from map" onclick="event.stopPropagation();removeRoutingCustomStop(\'' + escAttr(o.OrderID) + '\')">✕</button>' : '') +
+    '</div></div>').join('');
   html += '<button class="btn btn-outline" id="preview-route-btn" style="margin-top:10px" onclick="previewManualRoute()" disabled>Preview Route</button>';
   html += '<div id="manual-route-preview"></div>';
   document.getElementById('routing-side').innerHTML += html;
+}
+
+/* Buscador de cliente en Routing -- para poder probar el mapa/las
+   distancias/los tiempos ANTES de tener ordenes reales de verdad.
+   Cualquier cliente se puede agregar al mapa como parada, tenga o no
+   una orden pendiente -- se usan sus edificios guardados (si ya
+   tienen Latitude/Longitude del backfill) o se geocodifica al
+   momento si hace falta. */
+async function searchRoutingClient() {
+  const q = document.getElementById('routing-client-search').value.trim().toLowerCase();
+  const box = document.getElementById('routing-client-results');
+  if (!q) { box.innerHTML = ''; return; }
+  try {
+    if (!allClientsForRoutingCache) {
+      const res = await api('/admin-get-clients', { method: 'POST', body: {} });
+      allClientsForRoutingCache = res.clients || [];
+    }
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load clients: ' + esc(e.message) + '</p>';
+    return;
+  }
+
+  const matches = allClientsForRoutingCache.filter(c =>
+    c.businessName.toLowerCase().includes(q) || c.clientId.toLowerCase().includes(q)
+  ).slice(0, 6);
+
+  if (!matches.length) { box.innerHTML = '<p class="empty-note" style="padding:8px 0">No clients match.</p>'; return; }
+
+  box.innerHTML = matches.map(c => {
+    const buildings = (c.buildings || []).filter(b => !b.archived);
+    if (!buildings.length) {
+      return '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + '</span>' +
+        '<button type="button" class="btn-outline" onclick="addRoutingClientStop(\'' + c.clientId + '\', null)">+ Add (main address)</button></div>';
+    }
+    return buildings.map(b => '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + ' — ' + esc(b.label || b.address) + '</span>' +
+      '<button type="button" class="btn-outline" onclick="addRoutingClientStop(\'' + c.clientId + '\', \'' + b.id + '\')">+ Add</button></div>').join('');
+  }).join('');
+}
+
+async function addRoutingClientStop(clientId, buildingId) {
+  const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
+  if (!c) return;
+  let lat, lon, label;
+
+  if (buildingId) {
+    const b = c.buildings.find(x => x.id === buildingId);
+    label = c.businessName + ' — ' + (b.label || b.address);
+    if (b.latitude != null && b.longitude != null) {
+      lat = b.latitude; lon = b.longitude;
+    } else {
+      const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: b.address, city: b.city, zip: b.zip } });
+      if (!geo.geo) { showToast('Could not locate that address.'); return; }
+      lat = geo.geo.lat; lon = geo.geo.lon;
+    }
+  } else {
+    label = c.businessName + ' (main address)';
+    const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: c.address, city: c.city, zip: c.zip } });
+    if (!geo.geo) { showToast('Could not locate that address.'); return; }
+    lat = geo.geo.lat; lon = geo.geo.lon;
+  }
+
+  routingCustomStops.push({
+    OrderID: 'client-' + clientId + '-' + Date.now(),
+    BusinessName: label, ClientID: clientId, Division: '',
+    Latitude: lat, Longitude: lon, isCustomStop: true
+  });
+  document.getElementById('routing-client-search').value = '';
+  document.getElementById('routing-client-results').innerHTML = '';
+  showToast('Added to the map.');
+  loadRouting();
+}
+
+function removeRoutingCustomStop(orderId) {
+  routingCustomStops = routingCustomStops.filter(s => s.OrderID !== orderId);
+  loadRouting();
 }
 
 function onRoutingCheck() {
@@ -5980,7 +6148,9 @@ async function previewManualRoute() {
       '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
     ).join('') + '</ul>' +
     '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(ids) + ')\'>Assign This Block</button>' +
+    (route ? '<div id="manual-detour" style="margin:0 18px 16px"></div>' : '') +
     '</div>';
+  if (route) setupDetourWidget('manual-detour', orders, route.minutes);
 }
 
 async function fetchOsrmRoute(orders) {

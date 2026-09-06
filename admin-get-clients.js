@@ -42,6 +42,8 @@ exports.handler = async (event) => {
         city:           it.fields.City           || '',
         zip:            it.fields.Zip            || '',
         contactId:      it.fields.ContactId      || '',
+        latitude:       it.fields.Latitude  != null ? Number(it.fields.Latitude)  : null,
+        longitude:      it.fields.Longitude != null ? Number(it.fields.Longitude) : null,
         archived:       truthy(it.fields.Archived)
       });
     });

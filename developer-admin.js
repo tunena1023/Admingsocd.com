@@ -990,6 +990,15 @@ exports.handler = async (event) => {
        segundo -- con muchos edificios pendientes, hacerlo todo de un
        jalon se pasaria del limite de tiempo de la funcion. El
        frontend llama esto en bucle hasta que 'remaining' llegue a 0. */
+    /* Geocodificar UNA direccion al momento -- para el buscador de
+       clientes en Routing, cuando el cliente no tiene ningun edificio
+       guardado con coordenadas ya resueltas (o usa solo su direccion
+       principal, que nunca pasa por el backfill de ClientAddresses). */
+    if (action === 'geocode-one-address') {
+      const geo = await geocodeAddress(body.address, body.city, body.zip);
+      return jsonResponse(200, { geo });
+    }
+
     if (action === 'geocode-buildings-backfill') {
       const rows = await fetchAll(CLIENT_ADDRESSES_LIST);
       const missing = rows.filter(it => it.fields && it.fields.Address &&
