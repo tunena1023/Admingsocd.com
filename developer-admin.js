@@ -1016,7 +1016,12 @@ exports.handler = async (event) => {
       const listsToWipe = [
         ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
         FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
-        RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST
+        RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
+        TECHS_LIST, ORDER_ASSIGNMENTS_LIST
+        /* Staff y Settings SIEMPRE excluidas a proposito -- ahi vive
+           quien tiene acceso a este mismo panel (Director/Developer)
+           y la contrasena del director. Borrarlas dejaria a todos
+           fuera del sistema, sin forma de volver a entrar. */
       ];
 
       const deleted = {};
