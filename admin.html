@@ -730,6 +730,7 @@ let allServices = null;
 let orderDetailCache = {};
 let createSelectedClient = null;
 let createSelected = new Map();   // sku -> fila del catalogo { serviceName, division, propertyType }
+let activeCatalogCache = null;    // ServicesCatalog activo, precargado en loadAll()
 let createMultiOn = false;
 let createUnitCardCounter = 0;
 
@@ -753,14 +754,19 @@ function showTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes] = await Promise.all([
+    const [ordersRes, clientsRes, svcRes, newCatalogRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
-      api('/get-services', { method: 'GET' })
+      api('/get-services', { method: 'GET' }),
+      api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] }))
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
     if (svcRes && !svcRes.error) allServices = svcRes;
+    /* Catalogo nuevo (ServicesCatalog) -- precargado igual que allServices,
+       para que Active/Approvals lo tengan listo sin esperar un fetch
+       aparte cada vez que se abre un editor. Solo activos. */
+    activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
     orderDetailCache = {};
     renderApprovals();
     renderReview();
@@ -2742,8 +2748,8 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         </div>
         <div style="margin-top:20px">
           <p class="detail-label" style="margin-bottom:10px">Services</p>
-          <div id="edit-svc-${esc(o.OrderID)}" class="svc-cols">
-            ${buildServiceRows(o.OrderID, o.Division, services)}
+          <div id="edit-svc-${esc(o.OrderID)}">
+            ${buildServiceRows(o.OrderID, o.Division)}
           </div>
         </div>
         <div class="btn-actions">
@@ -2925,89 +2931,137 @@ function accInitialAttrs(key, cat) {
 
 function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
 
-/* Acordeon completo del catalogo de la division -- ya no solo lo que
-   la orden trae asignado. Cada servicio se ve como pastillas de
-   sub-opcion (igual que Approvals y el cliente); tocar la pastilla ya
-   activa la quita, tocar otra la cambia. El checkbox de "no completado"
-   y su motivo solo aparecen para un servicio que SI esta seleccionado
-   -- no tiene sentido marcarlo en algo que ni siquiera esta en la
-   orden. Reemplaza el bloque viejo de 3 selects + "+ Add Service",
-   que solo dejaba ver/agregar de un jalon sin catalogo visible. */
-function buildServiceRows(orderId, division, services) {
-  const divData = allServices && allServices[division];
-  if (!divData) return '<p style="font-size:13px;color:var(--gray)">Loading catalog…</p>';
+/* Picker del catalogo nuevo (ServicesCatalog) para el editor de Active
+   -- mismo patron que Recurring/Create Order: toggle Residential/
+   Commercial + buscador + chips, solo el nombre visible. La estructura
+   de guardado (sel[cat][svcName]=subOption) NO cambio -- sigue siendo
+   la misma que usan svcSelectionChanged/buildServicesPayload/
+   rebuildServicesFromSelection sin tocar esas funciones: "cat" ahora
+   es el PropertyType (Residential/Commercial) y "subOption" ahora es
+   el SKU, exactamente igual que se decidio para Create Order.
+   Ordenes viejas guardadas con el catalogo por-cuarto (cat=Kitchen,
+   sub=Deep Clean, sin match de SKU) se detectan y se muestran aparte
+   como nota informativa -- se quedan en la orden tal cual hasta que
+   alguien las vuelva a elegir con el picker nuevo y le de Save. */
+function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
+function inferPropType(orderId, division) {
+  const sel = window['adminSvc_' + orderId] || {};
+  for (const c of Object.keys(sel)) {
+    for (const svcName in (sel[c] || {})) {
+      const sku = sel[c][svcName];
+      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division === division);
+      if (found) return found.propertyType;
+    }
+  }
+  return 'Residential';
+}
+
+function buildAdminLegacyNote(orderId) {
+  const sel = window['adminSvc_' + orderId] || {};
+  const legacyNames = [];
+  Object.entries(sel).forEach(([, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      const known = (activeCatalogCache || []).some(s => s.sku === sub);
+      if (!known) legacyNames.push(svcName);
+    });
+  });
+  if (!legacyNames.length) return '';
+  return '<p class="empty-note" style="text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">' +
+    'This order still has services saved in the old catalog format: ' + esc(legacyNames.join(', ')) +
+    '. They stay on the order exactly as they are — re-select the matching service below (and Save) to move them to the new catalog.</p>';
+}
+
+function buildAdminChipsHtml(orderId, division) {
+  const propType = window['adminPropType_' + orderId] || 'Residential';
+  const sel = window['adminSvc_' + orderId] || {};
+  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  let list = (activeCatalogCache || []).filter(s => s.division === division && s.propertyType === propType);
+  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  return list.map(s => {
+    const active = (sel[propType] || {})[s.serviceName] === s.sku;
+    return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleAdminSvcChip(\'' +
+      jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
+  }).join('');
+}
+
+function buildAdminSelectedListHtml(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const ncState = window['adminNC_' + orderId] || {};
-  const cats = divData.categories || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => rows.push({ cat, svcName, sub }));
+  });
+  if (!rows.length) return '<p class="empty-note">No services selected yet.</p>';
   const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
-
-  return Object.entries(cats).map(([cat, svcs]) => {
-    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
-    const bodyId = 'svc-cat-body-' + safe + '-' + catSafe;
-    const selectedCount = Object.keys(sel[cat] || {}).length;
-
-    const rows = svcs.map(svc => {
-      const svcName = svc.name;
-      const current = (sel[cat] || {})[svcName] || '';
-      const isSelected = !!current;
-      const st = ncState[ncKey(cat, svcName)] || { nc: false, reason: '' };
-      const svcSafe = svcName.replace(/[^a-z0-9]/gi, '_');
-      const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
-
-      const pills = (svc.subs || []).map(sub => {
-        const active = sub === current;
-        return `<button type="button"
-          style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
-          onclick="toggleAdminSvcChip('${esc(orderId)}','${esc(cat)}','${esc(svcName)}','${esc(sub)}')">${esc(sub)}</button>`;
-      }).join('');
-
-      return `<div class="svc-row" data-cat="${esc(cat)}" data-svc="${esc(svcName)}">
-        <div class="svc-row-main" style="align-items:flex-start">
-          <div class="svc-row-name"><b>${esc(svcName)}</b></div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">${pills}</div>
-        </div>
-        ${isSelected ? `
-        <div class="svc-row-nc">
-          <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
-            onchange="toggleNotCompleted('${esc(orderId)}','${esc(cat)}','${esc(svcName)}',this,'${rid}')">
-          <label for="nc-chk-${safe}-${catSafe}-${svcSafe}">Not completed</label>
-        </div>
-        <div class="svc-row-reason${st.nc ? ' show' : ''}" id="${rid}-wrap">
-          <input type="text" id="${rid}" placeholder="Why was it not completed?"
-            value="${esc(st.reason)}"
-            oninput="setNotCompletedReason('${esc(orderId)}','${esc(cat)}','${esc(svcName)}',this.value)">
-        </div>` : ''}
-      </div>`;
-    }).join('');
-
-    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
-      <div class="svc-cat-header" onclick="accToggleCategory('edit-svc-${esc(orderId)}','active-${esc(orderId)}','${esc(cat)}',this)" ondblclick="accPinCategory('active-${esc(orderId)}','${esc(cat)}',this)">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('active-' + orderId, cat).pinIcon}</span></span>
-        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('active-' + orderId, cat).rotate}">▼</span>
+  return rows.map(r => {
+    const st = ncState[ncKey(r.cat, r.svcName)] || { nc: false, reason: '' };
+    const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
+    const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
+    const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
+    return `<div class="svc-row">
+      <b style="font-size:13px">${esc(r.svcName)}</b>
+      <div class="svc-row-nc">
+        <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
+          onchange="toggleNotCompleted('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this,'${rid}')">
+        <label for="nc-chk-${safe}-${catSafe}-${svcSafe}">Not completed</label>
       </div>
-      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('active-' + orderId, cat).display}">${rows}</div>
+      <div class="svc-row-reason${st.nc ? ' show' : ''}" id="${rid}-wrap">
+        <input type="text" id="${rid}" placeholder="Why was it not completed?" value="${esc(st.reason)}"
+          oninput="setNotCompletedReason('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value)">
+      </div>
     </div>`;
   }).join('');
 }
 
-function toggleAdminSvcChip(orderId, cat, svcName, sub) {
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  if (!sel[cat]) sel[cat] = {};
-  if (sel[cat][svcName] === sub) {
-    delete sel[cat][svcName];
-    if (!Object.keys(sel[cat]).length) delete sel[cat];
-    /* Se quito de la orden: su estado de "no completado" ya no aplica */
-    const ncState = window['adminNC_' + orderId] || {};
-    delete ncState[ncKey(cat, svcName)];
-  } else {
-    sel[cat][svcName] = sub;
+function buildServiceRows(orderId, division) {
+  if (window['adminPropType_' + orderId] === undefined) {
+    window['adminPropType_' + orderId] = inferPropType(orderId, division);
   }
+  const propType = window['adminPropType_' + orderId];
+  if (!activeCatalogCache || !activeCatalogCache.length) {
+    return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
+  }
+  return buildAdminLegacyNote(orderId) +
+    `<div class="pill-row" id="admin-svc-toggle-${orderId}">
+      <div class="pill${propType === 'Residential' ? ' active' : ''}" data-type="Residential" onclick="setAdminPropType('${jsStr(orderId)}','Residential')">Residential</div>
+      <div class="pill${propType === 'Commercial' ? ' active' : ''}" data-type="Commercial" onclick="setAdminPropType('${jsStr(orderId)}','Commercial')">Commercial</div>
+    </div>
+    <input type="text" class="svc-search" id="admin-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderAdminServiceRows('${jsStr(orderId)}')">
+    <div class="svc-chip-grid" id="admin-svc-grid-${orderId}">${buildAdminChipsHtml(orderId, division)}</div>
+    <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
+    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
+}
+
+function setAdminPropType(orderId, type) {
+  window['adminPropType_' + orderId] = type;
+  const toggleBox = document.getElementById('admin-svc-toggle-' + orderId);
+  if (toggleBox) toggleBox.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+  rerenderAdminServiceRows(orderId);
+}
+
+function rerenderAdminServiceRows(orderId) {
   const division = window['adminDiv_' + orderId] || '';
-  const box = document.getElementById('edit-svc-' + orderId);
-  if (box && allServices && allServices[division]) {
-    box.innerHTML = buildServiceRows(orderId, division, rebuildServicesFromSelection(orderId));
+  const grid = document.getElementById('admin-svc-grid-' + orderId);
+  if (grid) grid.innerHTML = buildAdminChipsHtml(orderId, division);
+}
+
+function toggleAdminSvcChip(orderId, propType, svcName, sku) {
+  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+  if (!sel[propType]) sel[propType] = {};
+  if (sel[propType][svcName] === sku) {
+    delete sel[propType][svcName];
+    if (!Object.keys(sel[propType]).length) delete sel[propType];
+    const ncState = window['adminNC_' + orderId] || {};
+    delete ncState[ncKey(propType, svcName)];
+  } else {
+    sel[propType][svcName] = sku;
   }
+  rerenderAdminServiceRows(orderId);
+  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
+  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
   refreshConfirmBtn(orderId);
   refreshSaveBtn(orderId);
 }
