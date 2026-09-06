@@ -829,6 +829,46 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
+    /* Tiempo de trabajo estimado por orden -- SOLO para uso interno de
+       Routing (nunca se le muestra al cliente). Suma, por cada
+       servicio de la orden, el tiempo guardado en ServiceTimes segun
+       su SKU (SubOption) y su Level si es Janitorial. Un servicio sin
+       tiempo asignado todavia simplemente no suma nada -- se avisa
+       aparte cuantos quedaron sin poder calcular, para no fingir una
+       precision que no existe. */
+    if (action === 'get-order-time-estimates') {
+      const orderIds = Array.isArray(body.orderIds) ? body.orderIds : [];
+      if (!orderIds.length) return jsonResponse(400, { error: 'orderIds is required' });
+
+      const [svcRows, timeRows] = await Promise.all([
+        fetchAll(ORDER_SERVICES_LIST),
+        fetchAll(SERVICE_TIMES_LIST)
+      ]);
+      const timesBySku = {};
+      timeRows.forEach(it => { if (it.fields && it.fields.SKU) timesBySku[String(it.fields.SKU).trim()] = it.fields; });
+
+      const orderIdSet = new Set(orderIds);
+      const byOrder = {};
+      orderIds.forEach(id => { byOrder[id] = { minutes: 0, missing: 0, serviceCount: 0 }; });
+
+      svcRows.forEach(it => {
+        if (!it.fields || !orderIdSet.has(it.fields.OrderID)) return;
+        const oid = it.fields.OrderID;
+        byOrder[oid].serviceCount++;
+        const sku = String(it.fields.SubOption || '').trim();
+        const t = timesBySku[sku];
+        if (!t) { byOrder[oid].missing++; return; }
+        const level = String(it.fields.Level || '').trim();
+        let minutes = t.Level1Minutes;
+        if (level === 'Level 2' && t.Level2Minutes != null) minutes = t.Level2Minutes;
+        if (level === 'Level 3' && t.Level3Minutes != null) minutes = t.Level3Minutes;
+        if (minutes == null) { byOrder[oid].missing++; return; }
+        byOrder[oid].minutes += Number(minutes) || 0;
+      });
+
+      return jsonResponse(200, { estimates: byOrder });
+    }
+
     if (action === 'list-service-times') {
       const [catalog, times] = await Promise.all([
         fetchAll(SERVICES_CATALOG_LIST),

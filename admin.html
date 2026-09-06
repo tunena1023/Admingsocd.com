@@ -5906,12 +5906,40 @@ async function renderRoutingSide() {
 
   if (block) {
     const info = document.getElementById('suggested-route-info');
-    const route = await fetchOsrmRoute(block);
-    info.innerHTML = route ? ('<b>' + route.minutes + ' min</b> total drive time') : 'Could not calculate drive time.';
+    const [route, workEstimate] = await Promise.all([
+      fetchOsrmRoute(block),
+      fetchOrderTimeEstimates(block.map(o => o.OrderID))
+    ]);
+    const driveText = route ? route.minutes + ' min drive' : 'drive time unavailable';
+    let workText = '';
+    if (workEstimate) {
+      const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
+      const missingCount = Object.values(workEstimate).reduce((s, e) => s + e.missing, 0);
+      workText = ' + ' + Math.round(totalWork) + ' min work' +
+        (missingCount ? ' <span style="color:#B06A2A">(' + missingCount + ' service' + (missingCount === 1 ? '' : 's') + ' without a time set — total is an underestimate)</span>' : '');
+      const grandTotal = (route ? route.minutes : 0) + totalWork;
+      workText += route ? ' · <b>' + Math.round(grandTotal) + ' min total</b>' : '';
+    }
+    info.innerHTML = '<b>' + driveText + '</b>' + workText;
   }
 
   renderRoutingManualList(rest);
 }
+
+/* Tiempo de trabajo (nunca de manejo) por orden -- interno nomas,
+   para que quien arma la ruta pueda ver cuanto va a tardar de verdad
+   en cada parada y no solo cuanto se hace en llegar. Usa
+   ServiceTimes (Developer -> Service Times), nunca se le muestra al
+   cliente en ningun lado. */
+async function fetchOrderTimeEstimates(orderIds) {
+  try {
+    const res = await api('/developer-admin', { body: { action: 'get-order-time-estimates', email: adminUser.email, orderIds } });
+    return res.estimates || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 
 function renderRoutingManualList(rest) {
   let html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Other pending orders — select to build your own route</div>';
@@ -5935,9 +5963,19 @@ async function previewManualRoute() {
   const orders = routingQueueWithCoords.filter(o => ids.includes(o.OrderID));
   const box = document.getElementById('manual-route-preview');
   box.innerHTML = '<p class="empty-note">Calculating…</p>';
-  const route = await fetchOsrmRoute(orders);
+  const [route, workEstimate] = await Promise.all([
+    fetchOsrmRoute(orders),
+    fetchOrderTimeEstimates(ids)
+  ]);
+  let metaText = orders.length + ' stops';
+  if (route) metaText += ' · ' + route.minutes + ' min drive';
+  if (workEstimate) {
+    const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
+    metaText += ' + ' + Math.round(totalWork) + ' min work';
+    if (route) metaText += ' · ' + Math.round(route.minutes + totalWork) + ' min total';
+  }
   box.innerHTML = '<div class="order-card" style="border-color:var(--gold);margin-top:10px">' +
-    '<div class="order-card-header"><div class="order-id">Your selection</div><div class="order-meta">' + orders.length + ' stops' + (route ? ' · ' + route.minutes + ' min' : '') + '</div></div>' +
+    '<div class="order-card-header"><div class="order-id">Your selection</div><div class="order-meta">' + metaText + '</div></div>' +
     '<ul style="list-style:none;margin:0 18px;padding:0;font-size:12px">' + orders.map((o, i) =>
       '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
     ).join('') + '</ul>' +
