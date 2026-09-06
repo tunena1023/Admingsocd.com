@@ -37,6 +37,18 @@
     .svc-chip { border: 1px solid var(--border); background: var(--white); padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; border-radius: 2px; font-family: 'Inter', sans-serif; color: var(--black); }
     .svc-chip.active { background: var(--gold); border-color: var(--gold); font-weight: 700; }
     @media (max-width: 640px) { .svc-chip-grid { grid-template-columns: 1fr; } }
+
+    /* Toggle redondito tipo iPhone -- reemplaza las 2 pills de
+       Residential/Commercial en Create Order, Active y Approvals.
+       Apagado = Commercial (default), prendido = Residential. */
+    .res-toggle-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .res-toggle-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
+    .svc-toggle { position: relative; display: inline-block; width: 40px; height: 22px; vertical-align: middle; cursor: pointer; }
+    .svc-toggle input { opacity: 0; width: 0; height: 0; }
+    .svc-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; transition: background .2s; }
+    .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+    .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
+    .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
     .svc-cat-body { display: none; padding: 4px 16px 12px; background: var(--bg); }
     .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
     .svc-row:last-child { border-bottom: none; }
@@ -1806,7 +1818,7 @@ function apprInferPropType(orderId, division) {
       if (found) return found.propertyType;
     }
   }
-  return 'Residential';
+  return 'Commercial';
 }
 
 function apprLegacyNote(orderId) {
@@ -1825,7 +1837,7 @@ function apprLegacyNote(orderId) {
 }
 
 function apprChipsHtml(orderId, division) {
-  const propType = window['apprPropType_' + orderId] || 'Residential';
+  const propType = window['apprPropType_' + orderId] || 'Commercial';
   const sel = window['apprSvc_' + orderId] || {};
   const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
   let list = (activeCatalogCache || []).filter(s => s.division === division && s.propertyType === propType);
@@ -1845,9 +1857,13 @@ function apprServiceEditorHtml(orderId, division) {
   }
   const propType = window['apprPropType_' + orderId];
   return apprLegacyNote(orderId) +
-    `<div class="pill-row" id="appr-svc-toggle-${orderId}">
-      <div class="pill${propType === 'Residential' ? ' active' : ''}" data-type="Residential" onclick="setApprPropType('${jsStr(orderId)}','Residential')">Residential</div>
-      <div class="pill${propType === 'Commercial' ? ' active' : ''}" data-type="Commercial" onclick="setApprPropType('${jsStr(orderId)}','Commercial')">Commercial</div>
+    `<div class="res-toggle-wrap" id="appr-svc-toggle-${orderId}">
+      <span class="res-toggle-label">Commercial</span>
+      <label class="svc-toggle">
+        <input type="checkbox" ${propType === 'Residential' ? 'checked' : ''} onchange="setApprPropType('${jsStr(orderId)}', this.checked ? 'Residential' : 'Commercial')">
+        <span class="svc-toggle-track"></span>
+      </label>
+      <span class="res-toggle-label">Residential</span>
     </div>
     <input type="text" class="svc-search" id="appr-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderApprChips('${jsStr(orderId)}')">
     <div class="svc-chip-grid" id="appr-svc-grid-${orderId}">${apprChipsHtml(orderId, division)}</div>`;
@@ -1855,8 +1871,6 @@ function apprServiceEditorHtml(orderId, division) {
 
 function setApprPropType(orderId, type) {
   window['apprPropType_' + orderId] = type;
-  const toggleBox = document.getElementById('appr-svc-toggle-' + orderId);
-  if (toggleBox) toggleBox.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
   rerenderApprChips(orderId);
 }
 
@@ -2995,7 +3009,7 @@ function inferPropType(orderId, division) {
       if (found) return found.propertyType;
     }
   }
-  return 'Residential';
+  return 'Commercial';
 }
 
 function buildAdminLegacyNote(orderId) {
@@ -3066,9 +3080,13 @@ function buildServiceRows(orderId, division) {
     return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
   }
   return buildAdminLegacyNote(orderId) +
-    `<div class="pill-row" id="admin-svc-toggle-${orderId}">
-      <div class="pill${propType === 'Residential' ? ' active' : ''}" data-type="Residential" onclick="setAdminPropType('${jsStr(orderId)}','Residential')">Residential</div>
-      <div class="pill${propType === 'Commercial' ? ' active' : ''}" data-type="Commercial" onclick="setAdminPropType('${jsStr(orderId)}','Commercial')">Commercial</div>
+    `<div class="res-toggle-wrap" id="admin-svc-toggle-${orderId}">
+      <span class="res-toggle-label">Commercial</span>
+      <label class="svc-toggle">
+        <input type="checkbox" ${propType === 'Residential' ? 'checked' : ''} onchange="setAdminPropType('${jsStr(orderId)}', this.checked ? 'Residential' : 'Commercial')">
+        <span class="svc-toggle-track"></span>
+      </label>
+      <span class="res-toggle-label">Residential</span>
     </div>
     <input type="text" class="svc-search" id="admin-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderAdminServiceRows('${jsStr(orderId)}')">
     <div class="svc-chip-grid" id="admin-svc-grid-${orderId}">${buildAdminChipsHtml(orderId, division)}</div>
@@ -3078,8 +3096,6 @@ function buildServiceRows(orderId, division) {
 
 function setAdminPropType(orderId, type) {
   window['adminPropType_' + orderId] = type;
-  const toggleBox = document.getElementById('admin-svc-toggle-' + orderId);
-  if (toggleBox) toggleBox.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
   rerenderAdminServiceRows(orderId);
 }
 
@@ -4225,9 +4241,13 @@ function createOrderFormHtml() {
       </div>
       <div id="create-services-wrap" style="display:none">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div class="pill-row" id="create-svc-toggle">
-          <div class="pill active" data-type="Residential" onclick="setCreatePropertyType('Residential')">Residential</div>
-          <div class="pill" data-type="Commercial" onclick="setCreatePropertyType('Commercial')">Commercial</div>
+        <div class="res-toggle-wrap" id="create-svc-toggle">
+          <span class="res-toggle-label" id="create-svc-toggle-label">Commercial</span>
+          <label class="svc-toggle">
+            <input type="checkbox" onchange="setCreatePropertyType(this.checked ? 'Residential' : 'Commercial')">
+            <span class="svc-toggle-track"></span>
+          </label>
+          <span class="res-toggle-label">Residential</span>
         </div>
         <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
         <div class="svc-chip-grid" id="create-services-list"></div>
@@ -4354,7 +4374,7 @@ function renumberCreateUnitCards() {
    pero abajo ahora hay toggle Residential/Commercial + buscador +
    chips -- nunca se muestra el SKU, solo el nombre. ===== */
 let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas una vez
-let createPropertyType = 'Residential';
+let createPropertyType = 'Commercial';
 
 async function loadCreateServices() {
   const div = document.getElementById('create-division').value;
@@ -4367,8 +4387,9 @@ async function loadCreateServices() {
     } catch (e) { showToast('Could not load the service catalog.'); return; }
   }
   createSelected = new Map();
-  createPropertyType = 'Residential';
-  document.querySelectorAll('#create-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === 'Residential'));
+  createPropertyType = 'Commercial';
+  const cb = document.querySelector('#create-svc-toggle input[type=checkbox]');
+  if (cb) cb.checked = false;
   document.getElementById('create-svc-search').value = '';
   wrap.style.display = 'block';
   renderCreateServiceChips();
@@ -4376,7 +4397,6 @@ async function loadCreateServices() {
 
 function setCreatePropertyType(type) {
   createPropertyType = type;
-  document.querySelectorAll('#create-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
   renderCreateServiceChips();
 }
 

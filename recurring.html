@@ -47,6 +47,18 @@
   .pill { padding:7px 14px; border:1px solid var(--border); font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; background:var(--white); color:var(--gray); font-family:Arial, sans-serif; }
   .pill.active { background:var(--gold); color:var(--black); border-color:var(--gold); }
   .svc-search { width:100%; max-width:280px; padding:8px 10px; border:1px solid var(--border); font-size:12px; margin-bottom:12px; font-family:Arial, sans-serif; display:block; }
+
+  /* Toggle redondito tipo iPhone -- reemplaza las 2 pills de
+     Residential/Commercial. Apagado = Commercial (default), prendido
+     = Residential. */
+  .res-toggle-wrap { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .res-toggle-label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray); }
+  .svc-toggle { position: relative; display: inline-block; width: 40px; height: 22px; vertical-align: middle; cursor: pointer; }
+  .svc-toggle input { opacity: 0; width: 0; height: 0; }
+  .svc-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; transition: background .2s; }
+  .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
+  .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
   .svc-chip-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .svc-chip { border:1px solid var(--border); background:var(--white); padding:10px 12px; font-size:12px; text-align:left; cursor:pointer; border-radius:2px; font-family:Arial, sans-serif; color:var(--black); }
   .svc-chip.active { background:var(--gold); border-color:var(--gold); font-weight:700; }
@@ -123,9 +135,13 @@
       <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
     </div>
     <div id="svc-area" style="display:none;margin-bottom:16px">
-      <div class="pill-row" id="rc-svc-toggle">
-        <button type="button" class="pill active" data-type="Residential" onclick="setSvcPropertyType('Residential')">Residential</button>
-        <button type="button" class="pill" data-type="Commercial" onclick="setSvcPropertyType('Commercial')">Commercial</button>
+      <div class="res-toggle-wrap" id="rc-svc-toggle">
+        <span class="res-toggle-label" id="rc-svc-toggle-label">Commercial</span>
+        <label class="svc-toggle">
+          <input type="checkbox" onchange="setSvcPropertyType(this.checked ? 'Residential' : 'Commercial')">
+          <span class="svc-toggle-track"></span>
+        </label>
+        <span class="res-toggle-label">Residential</span>
       </div>
       <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
@@ -224,13 +240,14 @@
      Janitorial porque Recurring nunca es de otra division, toggle
      Residential/Commercial + buscador + chips, solo el nombre visible,
      el SKU nunca se muestra) ===== */
-  let rcPropertyType = 'Residential';
+  let rcPropertyType = 'Commercial';
   let rcSelectedSkus = new Set();
   let rcServiceNameBySku = {};
 
   function setSvcPropertyType(type) {
     rcPropertyType = type;
-    document.querySelectorAll('#rc-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+    const cb = document.querySelector('#rc-svc-toggle input[type=checkbox]');
+    if (cb) cb.checked = (type === 'Residential');
     renderServiceChips();
   }
 
@@ -281,7 +298,7 @@
       }
     });
     document.getElementById('rc-svc-legacy-note').style.display = hasLegacy ? 'block' : 'none';
-    setSvcPropertyType(firstType || 'Residential');
+    setSvcPropertyType(firstType || 'Commercial');
   }
 
   /* ===== Cargar datos iniciales ===== */
