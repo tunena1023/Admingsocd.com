@@ -65,6 +65,16 @@
     }
     /* Traido de admin.html junto con Reports -- mismo lenguaje visual */
     .upload-card { border: 1px solid var(--border); background: var(--white); padding: 24px; margin-bottom: 16px; }
+    /* Tarjetas de acordeon -- mismo lenguaje oficial que Approvals/
+       Review en admin.html (order-card/order-card-header/appr-body).
+       Cada seccion de Developer ahora vive dentro de una de estas,
+       una sola abierta a la vez. */
+    .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+    .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; cursor: pointer; }
+    .order-card-header:hover { background: var(--bg); }
+    .order-id { font-weight: 600; font-size: 15px; }
+    .dev-chevron { font-size: 11px; color: var(--gray); }
+    .appr-body { padding: 0 24px 24px; border-top: 1px solid var(--border); }
     .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
     .upload-card p { font-size: 12px; color: var(--gray); margin: 0 0 14px; }
     .result-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; }
@@ -229,132 +239,206 @@
     <div class="dev-content" id="dev-content">
 
   <section id="import-section" data-category="services" style="display:none">
-    <p class="section-title">Import from QuickBooks</p>
-    <p class="section-sub">
-      Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
-      100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
-      Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
-      list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
-      never edited by hand here.
-    </p>
-    <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
-    <button class="btn btn-outline" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
-    <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-    <div id="catalog-preview"></div>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Import from QuickBooks</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
+          100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
+          Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
+          list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
+          never edited by hand here.
+        </p>
+        <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
+        <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div id="catalog-preview"></div>
+      </div>
+    </div>
   </section>
 
   <section id="browse-section" data-category="services">
-    <p class="section-title">Service Catalog</p>
-    <p class="section-sub" id="browse-sub">Loading…</p>
-    <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
-    <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Service Catalog</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" id="browse-sub" style="margin-top:16px">Loading…</p>
+        <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
+        <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
+      </div>
+    </div>
   </section>
 
   <section id="staff-section" data-category="settings" style="display:none">
-    <p class="section-title">Staff &amp; Roles</p>
-    <p class="section-sub">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
-    <table class="staff-table" id="staff-table"><tbody></tbody></table>
-    <div class="btn-actions">
-      <button class="btn btn-gold" onclick="openStaffModal(null)">+ Add Staff</button>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Staff &amp; Roles</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
+        <table class="staff-table" id="staff-table"><tbody></tbody></table>
+        <div class="btn-actions">
+          <button class="btn btn-gold" onclick="openStaffModal(null)">+ Add Staff</button>
+        </div>
+      </div>
     </div>
   </section>
 
   <section id="techs-section" data-category="settings" style="display:none">
-    <p class="section-title">Techs &amp; Roles</p>
-    <p class="section-sub">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
-    <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
-      <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Techs &amp; Roles</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
+        <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
+          <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+        </div>
+        <table class="staff-table" id="techs-table"><tbody></tbody></table>
+      </div>
     </div>
-    <table class="staff-table" id="techs-table"><tbody></tbody></table>
   </section>
 
   <section id="service-times-section" data-category="services" style="display:none">
-    <p class="section-title">Service Times</p>
-    <p class="section-sub">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
-      <button class="btn btn-outline" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Service Times</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+          <button class="btn btn-outline" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+        </div>
+        <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
+        <table class="staff-table" id="service-times-table">
+          <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
-    <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
-    <table class="staff-table" id="service-times-table">
-      <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
-      <tbody></tbody>
-    </table>
   </section>
 
   <section id="password-section" data-category="settings" style="display:none">
-    <p class="section-title">Operations Director Password</p>
-    <p class="section-sub">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
-    <div class="field-row" style="max-width:440px">
-      <div class="field-group">
-        <label>New password</label>
-        <input type="text" id="new-director-password" placeholder="Leave blank to keep current">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Operations Director Password</div>
+        <span class="dev-chevron">▸</span>
       </div>
-      <div class="field-group" style="display:flex;align-items:flex-end">
-        <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
+        <div class="field-row" style="max-width:440px">
+          <div class="field-group">
+            <label>New password</label>
+            <input type="text" id="new-director-password" placeholder="Leave blank to keep current">
+          </div>
+          <div class="field-group" style="display:flex;align-items:flex-end">
+            <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <section id="reports-section" data-category="reports" style="display:none">
-    <p class="section-title">Reports</p>
-    <div class="upload-card">
-      <h3>Employee Report</h3>
-      <p>Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
-      <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
-      <button class="btn btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
-      <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-      <div style="margin-top:12px">
-        <button class="btn btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Employee Report</div>
+        <span class="dev-chevron">▸</span>
       </div>
-      <div id="employee-result" class="result-box" style="display:none"></div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
+        <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
+        <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div style="margin-top:12px">
+          <button class="btn btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+        </div>
+        <div id="employee-result" class="result-box" style="display:none"></div>
+      </div>
     </div>
 
-    <div class="upload-card">
-      <h3>Punch Report</h3>
-      <p>Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
-      <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
-      <button class="btn btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
-      <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-      <div style="margin-top:12px">
-        <button class="btn btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Punch Report</div>
+        <span class="dev-chevron">▸</span>
       </div>
-      <div id="hours-result" class="result-box" style="display:none"></div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
+        <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
+        <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div style="margin-top:12px">
+          <button class="btn btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+        </div>
+        <div id="hours-result" class="result-box" style="display:none"></div>
+      </div>
     </div>
 
-    <div class="upload-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleUploadHistory()">
-        <h3 style="margin:0">Upload History</h3>
-        <span id="upload-history-chevron" style="font-size:11px;color:var(--gray)">▸</span>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Upload History</div>
+        <span class="dev-chevron">▸</span>
       </div>
-      <div id="upload-history" style="display:none;margin-top:12px"><p class="empty-note">Loading…</p></div>
+      <div class="appr-body" style="display:none">
+        <div id="upload-history" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
+      </div>
     </div>
   </section>
 
   <section id="bulk-clients-section" data-category="customers" style="display:none">
-    <p class="section-title">Bulk Import Clients</p>
-    <p class="section-sub">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
-    <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
-    <button class="btn" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
-    <span id="bulk-clients-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-    <div id="bulk-clients-preview" style="margin-top:16px"></div>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Bulk Import Clients</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
+        <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
+        <button class="btn" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
+        <span id="bulk-clients-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div id="bulk-clients-preview" style="margin-top:16px"></div>
+      </div>
+    </div>
   </section>
 
   <section id="geocode-section" data-category="settings" style="display:none">
-    <p class="section-title">Scheduling — Building Coordinates</p>
-    <p class="section-sub">One-time backfill: resolves Latitude/Longitude (via Nominatim/OpenStreetMap, free) for any saved building that doesn't have them yet. New buildings created from now on geocode themselves automatically — this is only for the ones that already existed before that.</p>
-    <div class="btn-actions">
-      <button class="btn btn-gold" id="geocode-btn" onclick="runGeocodeBackfill()">Run Backfill</button>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div class="order-id">Scheduling — Building Coordinates</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">One-time backfill: resolves Latitude/Longitude (via Nominatim/OpenStreetMap, free) for any saved building that doesn't have them yet. New buildings created from now on geocode themselves automatically — this is only for the ones that already existed before that.</p>
+        <div class="btn-actions">
+          <button class="btn btn-gold" id="geocode-btn" onclick="runGeocodeBackfill()">Run Backfill</button>
+        </div>
+        <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
     </div>
-    <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
   </section>
 
-  <section id="debug-section" data-category="settings" style="display:none;border:1px solid #B33A3A;padding:20px;background:#FFF5F5">
-    <p class="section-title" style="color:#B33A3A">⚠ Debug — Wipe Test Data</p>
-    <p class="section-sub">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
-    <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
-    <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
-    <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
+  <section id="debug-section" data-category="settings" style="display:none">
+    <div class="order-card" style="border-color:#B33A3A">
+      <div class="order-card-header" onclick="toggleDevCard(this)" style="background:#FFF5F5">
+        <div class="order-id" style="color:#B33A3A">⚠ Debug — Wipe Test Data</div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none;background:#FFF5F5">
+        <p class="section-sub" style="margin-top:16px">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
+        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
+        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
+        <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
   </section>
 
     </div>
@@ -480,6 +564,23 @@
       const eligible = sec.classList.contains('role-eligible');
       sec.style.display = (matches && eligible) ? 'block' : 'none';
     });
+  }
+
+  /* Acordeon -- una sola tarjeta abierta a la vez, mismo
+     comportamiento que Approvals/Review. Como switchDevCategory ya
+     oculta las secciones de otras categorias, cerrar TODAS las
+     tarjetas del documento al abrir una es suficiente -- las de
+     otras categorias estan ocultas de todos modos. */
+  function toggleDevCard(headerEl) {
+    const body = headerEl.nextElementSibling;
+    const wasOpen = body.style.display === 'block';
+    document.querySelectorAll('#dev-content .appr-body').forEach(b => { b.style.display = 'none'; });
+    document.querySelectorAll('#dev-content .dev-chevron').forEach(c => { c.textContent = '▸'; });
+    if (!wasOpen) {
+      body.style.display = 'block';
+      headerEl.querySelector('.dev-chevron').textContent = '▾';
+      if (body.querySelector('#upload-history')) loadUploadHistory();
+    }
   }
 
   /* ============================================================
@@ -1224,15 +1325,6 @@
     } catch (e) {
       box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
     }
-  }
-
-  function toggleUploadHistory() {
-    const box = document.getElementById('upload-history');
-    const chevron = document.getElementById('upload-history-chevron');
-    const willOpen = box.style.display === 'none';
-    box.style.display = willOpen ? 'block' : 'none';
-    chevron.textContent = willOpen ? '▾' : '▸';
-    if (willOpen) loadUploadHistory();
   }
 
   /* Debug temporal, solo para pruebas -- borrar este boton entero
