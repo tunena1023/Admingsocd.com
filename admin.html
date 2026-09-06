@@ -644,15 +644,14 @@
 <div class="panel" id="panel-schedule">
 
   <div class="subtabs">
-    <button class="subtab" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
+    <button class="subtab active" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
     <button class="subtab" data-tab="calendar" onclick="showSubTab('calendar')">Calendar</button>
     <button class="subtab" data-tab="hours" onclick="showSubTab('hours')">Hours</button>
-    <button class="subtab active" data-tab="reports" onclick="showSubTab('reports')">Reports</button>
     <button class="subtab" data-tab="routing" onclick="showSubTab('routing')">Routing</button>
     <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
   </div>
 
-  <div class="subpanel" id="subpanel-orders">
+  <div class="subpanel active" id="subpanel-orders">
     <div class="search-bar"><input type="text" id="orders-search" placeholder="Search by order number or client…" oninput="renderOrdersQueue()"></div>
     <div class="pill-row" id="orders-division-pills">
       <div class="pill active" data-division="">All</div>
@@ -684,40 +683,6 @@
       <div class="pill" data-division="exteriors">Exteriors</div>
     </div>
     <div id="hours-list"><p class="empty-note">Loading…</p></div>
-  </div>
-
-  <div class="subpanel active" id="subpanel-reports">
-    <div class="upload-card">
-      <h3>Employee Report</h3>
-      <p>Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
-      <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
-      <button class="btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
-      <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-      <div style="margin-top:12px">
-        <button class="btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
-      </div>
-      <div id="employee-result" class="result-box" style="display:none"></div>
-    </div>
-
-    <div class="upload-card">
-      <h3>Punch Report</h3>
-      <p>Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
-      <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
-      <button class="btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
-      <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-      <div style="margin-top:12px">
-        <button class="btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
-      </div>
-      <div id="hours-result" class="result-box" style="display:none"></div>
-    </div>
-
-    <div class="upload-card">
-      <div class="order-card-header" style="padding:0 0 10px" onclick="toggleUploadHistory()">
-        <h3 style="margin:0">Upload History</h3>
-        <span id="upload-history-chevron" style="font-size:11px;color:var(--gray)">▸</span>
-      </div>
-      <div id="upload-history" style="display:none"><p class="empty-note">Loading…</p></div>
-    </div>
   </div>
 
   <div class="subpanel" id="subpanel-routing">
@@ -5179,7 +5144,6 @@ let pendingDirectLinkOrderId = null;
   function showSubTab(tab) {
     document.querySelectorAll('#panel-schedule .subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
     document.querySelectorAll('#panel-schedule .subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
-    if (tab === 'reports') loadUploadHistory();
     if (tab === 'hours') loadHoursOverview();
     if (tab === 'orders') loadOrdersQueue();
     if (tab === 'calendar') loadCalendar();
@@ -5269,229 +5233,6 @@ let pendingDirectLinkOrderId = null;
       renderHoursList();
     });
   });
-
-  /* ===== Parser CSV robusto (comillas, comas dentro de comillas) ===== */
-  function parseCSV(text) {
-    const rows = [];
-    let row = [], field = '', inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-      const c = text[i], next = text[i + 1];
-      if (inQuotes) {
-        if (c === '"' && next === '"') { field += '"'; i++; }
-        else if (c === '"') { inQuotes = false; }
-        else { field += c; }
-      } else {
-        if (c === '"') inQuotes = true;
-        else if (c === ',') { row.push(field); field = ''; }
-        else if (c === '\r') { /* skip */ }
-        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-        else field += c;
-      }
-    }
-    if (field || row.length) { row.push(field); rows.push(row); }
-    return rows;
-  }
-
-  /* ===== Employee Report ===== */
-  let employeeRows = null;
-  function onEmployeeFileChosen() {
-    const input = document.getElementById('employee-report-file');
-    const file = input.files[0];
-    document.getElementById('employee-result').style.display = 'none';
-    if (!file) { document.getElementById('employee-upload-btn').disabled = true; return; }
-    document.getElementById('employee-file-name').textContent = file.name;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const rows = parseCSV(reader.result);
-        /* Columnas confirmadas con el reporte real (2026-09-06):
-           First Name, Last Name, Email, Phone, Department Name,
-           Department Code, Payroll Number, Active Status -- Email y
-           Phone son nuevas, antes el reporte no las traia. */
-        employeeRows = rows.slice(1).filter(r => r.length > 1 && r[0].trim()).map(r => ({
-          firstName: r[0].trim(),
-          lastName: r[1].trim(),
-          email: (r[2] || '').trim(),
-          phone: (r[3] || '').trim(),
-          departmentName: (r[4] || '').trim(),
-          departmentCode: (r[5] || '').trim(),
-          payrollNumber: (r[6] || '').trim(),
-          activeStatus: (r[7] || '').trim()
-        }));
-        document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
-      } catch (e) {
-        alert('Could not read the file: ' + e.message);
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  async function uploadEmployeeReport() {
-    if (!employeeRows || !employeeRows.length) return;
-    const btn = document.getElementById('employee-upload-btn');
-    btn.disabled = true; btn.textContent = 'Uploading…';
-    try {
-      const res = await api('/developer-admin', { body: { action: 'upload-employee-report', email: adminUser.email, rows: employeeRows } });
-      const box = document.getElementById('employee-result');
-      box.style.display = 'block';
-      box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
-        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>' +
-        '<div style="margin-top:6px">Tech portal: <b>' + res.techsCreated + '</b> new accounts · <b>' + res.techsUpdated + '</b> updated</div>';
-      if (res.missingPhone && res.missingPhone.length) {
-        box.innerHTML += '<div class="warn-list"><b>No valid phone number</b> — no tech portal account was created for these (needs the last 4 digits to log in):<br>' +
-          res.missingPhone.map(n => '• ' + n).join('<br>') + '</div>';
-      }
-      if (res.missingPayroll && res.missingPayroll.length) {
-        box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
-          res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
-      }
-      loadUploadHistory();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    } finally {
-      btn.disabled = false; btn.textContent = 'Upload';
-    }
-  }
-
-  /* ===== Hours Report ===== */
-  let hoursRows = null;
-  function toISODateLocal(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-
-  function onHoursFileChosen() {
-    const input = document.getElementById('hours-report-file');
-    const file = input.files[0];
-    document.getElementById('hours-result').style.display = 'none';
-    if (!file) { document.getElementById('hours-upload-btn').disabled = true; return; }
-    document.getElementById('hours-file-name').textContent = file.name;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = new Uint8Array(reader.result);
-        const wb = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
-
-        /* Columnas: EMP L NAME(0), EMP F NAME(1), EMP##(2), DATE(3),
-           IN(4), OUT(5), TOTAL(6), DEPT CODE(7)... Header en fila 3
-           (indice 2), datos desde la fila 4 (indice 3). EMP## sirve
-           directo como PayrollNumber -- sin cruzar por nombre.
-           Si OUT quedo sin ponchar, uAttend pone '------' en vez de
-           hora -- TOTAL entonces no es una Fecha real (viene vacio o
-           texto), esa fila se descarta sola porque no pasa el chequeo
-           "instanceof Date". TOTAL ya viene resuelto correcto por
-           uAttend incluso en turnos que cruzan medianoche -- se usa
-           tal cual, no se resta IN de OUT a mano.
-
-           REGLA DE ALMUERZO (confirmada con el usuario, verificada
-           contra un Time Card real): uAttend descuenta 30 minutos de
-           almuerzo cuando el turno CRUDO ponchado de ese DIA suma 6
-           horas o mas (5:59 no descuenta, 6:00 en punto si). El
-           Punch Report crudo NO trae esta resta -- hay que aplicarla
-           nosotros. Por eso primero se agrupa por (persona, dia)
-           sumando TODOS los renglones de ese dia (turnos partidos),
-           y HASTA DESPUES se le resta la media hora si aplica --
-           restarlo por renglon individual seria incorrecto si el dia
-           tiene varios turnos cortos que solo juntos llegan a 6h.
-
-           CAMBIO DE LOGICA (confirmado con el usuario): cada persona
-           empieza cada domingo con 40 horas para trabajar, y de ahi
-           se van descontando las horas de cada dia que se poncha.
-           Antes se guardaba un solo numero por semana que el reporte
-           de CADA DIA reemplazaba por completo -- si el reporte se
-           sube diario (como es el caso real), cada subida BORRABA lo
-           acumulado de los dias anteriores de esa misma semana en
-           vez de sumarse. Ahora se manda un renglon POR DIA (no por
-           semana) -- el backend guarda cada dia por separado (columna
-           Date nueva en WeeklyHours) y el total de la semana se suma
-           al momento de leerlo, nunca se guarda como un numero fijo
-           que algo mas pueda pisar. Subir el mismo dia dos veces
-           tampoco duplica: se sobreescribe ESE dia nomas. */
-        const dailyTotals = {};
-        for (let i = 3; i < rows.length; i++) {
-          const r = rows[i];
-          if (!r || r.length < 7) continue;
-          const payrollNumber = String(r[2] || '').trim();
-          const dateCell = r[3], totalCell = r[6];
-          if (!payrollNumber || !(dateCell instanceof Date) || !(totalCell instanceof Date)) continue;
-
-          const hours = totalCell.getHours() + totalCell.getMinutes() / 60;
-          const dayKey = payrollNumber + '|' + toISODateLocal(dateCell);
-          if (!dailyTotals[dayKey]) dailyTotals[dayKey] = { payrollNumber, dateCell, hours: 0 };
-          dailyTotals[dayKey].hours += hours;
-        }
-
-        const daily = {};
-        Object.values(dailyTotals).forEach(day => {
-          const dayHours = day.hours >= 6 ? day.hours - 0.5 : day.hours;
-
-          const dow = day.dateCell.getDay();
-          const weekStart = new Date(day.dateCell.getFullYear(), day.dateCell.getMonth(), day.dateCell.getDate() - dow);
-          const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
-          const wsISO = toISODateLocal(weekStart), weISO = toISODateLocal(weekEnd);
-
-          const key = day.payrollNumber + '|' + toISODateLocal(day.dateCell);
-          daily[key] = {
-            payrollNumber: day.payrollNumber,
-            date: toISODateLocal(day.dateCell),
-            weekStart: wsISO,
-            weekEnd: weISO,
-            hours: Math.round(dayHours * 100) / 100
-          };
-        });
-
-        hoursRows = Object.values(daily);
-        document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
-      } catch (e) {
-        alert('Could not read the file: ' + e.message);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  async function uploadHoursReport() {
-    if (!hoursRows || !hoursRows.length) return;
-    const btn = document.getElementById('hours-upload-btn');
-    btn.disabled = true; btn.textContent = 'Uploading…';
-    try {
-      const res = await api('/developer-admin', { body: { action: 'upload-hours-report', email: adminUser.email, rows: hoursRows } });
-      const box = document.getElementById('hours-result');
-      box.style.display = 'block';
-      box.innerHTML = '<b>' + res.created + '</b> new days · <b>' + res.updated + '</b> updated.';
-      if (res.unmatched && res.unmatched.length) {
-        box.innerHTML += '<div class="warn-list"><b>Payroll Number not in the catalog</b> (not in FieldEmployees):<br>' +
-          res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
-      }
-      loadUploadHistory();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    } finally {
-      btn.disabled = false; btn.textContent = 'Upload';
-    }
-  }
-
-  async function loadUploadHistory() {
-    const box = document.getElementById('upload-history');
-    try {
-      const res = await api('/developer-admin', { body: { action: 'list-report-uploads', email: adminUser.email } });
-      const uploads = res.uploads || [];
-      if (!uploads.length) { box.innerHTML = '<p class="empty-note">No reports uploaded yet.</p>'; return; }
-      box.innerHTML = '<table class="grid-table"><tr><th>Type</th><th>Date</th><th>Result</th></tr>' +
-        uploads.map(u => '<tr><td>' + esc(u.ReportType) + '</td><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
-        '</table>';
-    } catch (e) {
-      box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
-    }
-  }
-
-  function toggleUploadHistory() {
-    const box = document.getElementById('upload-history');
-    const chevron = document.getElementById('upload-history-chevron');
-    const willOpen = box.style.display === 'none';
-    box.style.display = willOpen ? 'block' : 'none';
-    chevron.textContent = willOpen ? '▾' : '▸';
-  }
 
   function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
