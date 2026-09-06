@@ -199,6 +199,16 @@ exports.handler = async (event) => {
        el usuario ya confirmo en pantalla).
     ============================================================ */
 
+    /* Toggle individual on/off -- prender/apagar un servicio sin subir
+       un reporte nuevo. Solo cambia Active; nombre/SKU/precio/
+       descripcion siguen sin poderse tocar a mano aqui. */
+    if (action === 'toggle-catalog-active') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(SERVICES_CATALOG_LIST, body.id, { Active: !!body.active });
+      return jsonResponse(200, { success: true });
+    }
+
     if (action === 'list-catalog') {
       const rows = await fetchAll(SERVICES_CATALOG_LIST);
       const services = rows.filter(it => it.fields).map(it => ({
