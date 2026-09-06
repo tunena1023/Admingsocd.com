@@ -409,7 +409,15 @@
     .routing-panel-card { background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
     /* Estas 2 siempre miden lo mismo, no importa si aparece la
        tercera tarjeta (Route preview) o no. */
-    .routing-add-card, .routing-selected-card { flex: 0 0 260px; }
+    /* Ninguna de las 2 tiene altura fija -- crecen con su contenido.
+       'Add Stops' colapsada se encoge a solo su encabezado (mismo
+       comportamiento que las tarjetas de Approvals/Review); abierta,
+       su lista tiene un tope razonable con scroll interno (puede
+       haber muchos clientes). 'Selected' nunca tiene tope -- crece
+       lo que haga falta, sin scroll. */
+    .routing-add-card, .routing-selected-card { flex: 0 0 auto; }
+    .routing-add-card .routing-panel-body { max-height: 340px; }
+    .routing-selected-card .routing-panel-body { overflow-y: visible; }
     .routing-panel-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; background: rgba(201,168,76,0.10); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
     .routing-panel-header.static { cursor: default; background: var(--bg); }
     .routing-panel-header b { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
@@ -5959,6 +5967,19 @@ async function loadRouting() {
 function toggleRoutingAddCard() {
   document.getElementById('routing-add-header').classList.toggle('open');
   document.getElementById('routing-add-body').classList.toggle('open');
+  invalidateRoutingMapSizeSoon();
+}
+
+/* El mapa se estira/encoge para hacerle match a lo que mida la
+   columna derecha (align-items:stretch) -- pero Leaflet cachea el
+   tamano de su contenedor, si no se le avisa se queda con el viejo y
+   se ve cortado. Se usa en cualquier cambio que afecte la altura de
+   las tarjetas: colapsar Add Stops, agregar/quitar una parada,
+   mostrar/ocultar Route preview. */
+function invalidateRoutingMapSizeSoon() {
+  requestAnimationFrame(() => {
+    setTimeout(() => { if (routingMap) routingMap.invalidateSize(); }, 60);
+  });
 }
 
 function isRoutingStopSelected(key) { return routingSelected.some(s => s.key === key); }
@@ -6220,7 +6241,7 @@ async function addRoutingStop(kind, key, btn) {
 
   routingSelected.push({
     key: 'client-' + clientId,
-    name: c.businessName + (b ? ' \u2014 ' + (b.label || b.address) : ' (main address)'),
+    name: c.businessName + (b ? (' \u2014 ' + (b.label || b.address)) : (c.address ? ' \u2014 ' + c.address : '')),
     sub: 'Added for testing', lat, lon, isCustomStop: true
   });
   refreshRoutingSelectionUI();
@@ -6249,9 +6270,7 @@ function showRoutingRouteResult(html) {
   const el = document.getElementById('routing-route-result');
   el.innerHTML = html;
   el.style.display = 'block';
-  requestAnimationFrame(() => {
-    setTimeout(() => { if (routingMap) routingMap.invalidateSize(); }, 60);
-  });
+  invalidateRoutingMapSizeSoon();
 }
 
 function hideRoutingRouteResult() {
@@ -6259,9 +6278,7 @@ function hideRoutingRouteResult() {
   if (!el) return;
   el.style.display = 'none';
   el.innerHTML = '';
-  requestAnimationFrame(() => {
-    setTimeout(() => { if (routingMap) routingMap.invalidateSize(); }, 60);
-  });
+  invalidateRoutingMapSizeSoon();
 }
 
 function renderRoutingSelected() {
