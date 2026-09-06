@@ -355,8 +355,9 @@
       .field-row { grid-template-columns: 1fr; }
       .hours-split { grid-template-columns: 1fr; }
       .hours-col-mid { border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 0; }
-      .routing-grid { grid-template-columns: 1fr; }
-      #routing-map { height: 260px !important; }
+      .routing-split-wrap { flex-direction: column; height: auto; }
+      .routing-map-half { height: 260px; }
+      .routing-right-half { height: 480px; }
       .calendar-table-wrap { overflow-x: auto; }
     }
 
@@ -389,7 +390,35 @@
        fusionar schedule.html, pero nunca se porto su definicion. */
     .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
 
-    .routing-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+    .routing-split-wrap { display: flex; gap: 16px; height: 640px; }
+    .routing-map-half { flex: 1 1 50%; border: 1px solid var(--border); background: var(--white); padding: 8px; box-sizing: border-box; }
+    #routing-map { width: 100%; height: 100%; }
+    .routing-right-half { flex: 1 1 50%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .routing-panel-card { flex: 1; background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    .routing-panel-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; background: rgba(201,168,76,0.10); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+    .routing-panel-header.static { cursor: default; background: var(--bg); }
+    .routing-panel-header b { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .routing-chev { font-size: 11px; color: var(--gray); transition: transform .15s; }
+    .routing-panel-header.open .routing-chev { transform: rotate(180deg); }
+    .routing-panel-body { flex: 1; overflow-y: auto; display: none; flex-direction: column; min-height: 0; }
+    .routing-panel-body.open { display: flex; }
+    .routing-abc-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--white); z-index: 2; }
+    .routing-abc-btn { width: 24px; height: 24px; border: 1px solid var(--border); background: var(--bg); color: var(--black); border-radius: 3px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; }
+    .routing-abc-btn.active { background: var(--gold); border-color: var(--gold); color: var(--black); }
+    .routing-abc-btn.disabled { opacity: .25; cursor: default; pointer-events: none; }
+    .routing-abc-btn.all { width: auto; padding: 0 10px; }
+    .routing-stop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .routing-stop-row:last-child { border-bottom: none; }
+    .routing-stop-name { font-weight: 700; }
+    .routing-stop-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
+    .routing-add-btn { border: 1px solid var(--border); background: var(--white); color: var(--black); font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 3px; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; }
+    .routing-add-btn:hover { border-color: var(--gold); }
+    .routing-add-btn:disabled { opacity: .35; cursor: default; }
+    .routing-sel-badge { width: 20px; height: 20px; border-radius: 50%; background: var(--black); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .routing-sel-badge.custom { background: var(--gold); color: var(--black); }
+    .routing-preview-wrap { padding: 12px 16px; border-top: 1px solid var(--border); }
+    .routing-suggested-card { margin: 12px 14px; padding: 12px 14px; background: rgba(201,168,76,0.10); border: 1px solid var(--gold); border-radius: 3px; }
+    .routing-suggested-card .routing-add-btn { background: var(--gold); border-color: var(--gold); }
 
     .hours-card { background: var(--white); border: 1px solid var(--border); padding: 16px 20px; margin-bottom: 12px; }
     .hours-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
@@ -658,20 +687,35 @@
       <div class="pill" data-division="Renovations">Renovations</div>
       <div class="pill" data-division="Exteriors">Exteriors</div>
     </div>
-    <p class="order-meta" style="margin-bottom:16px">Pending orders located by address. Suggested blocks group nearby stops considering distance and due dates — always a suggestion, never automatic.</p>
+    <p class="order-meta" style="margin-bottom:16px">Pending orders located by address, plus any client you want to test with. Suggested blocks group nearby stops considering distance and due dates — always a suggestion, never automatic.</p>
 
-    <div style="margin-bottom:16px;position:relative">
-      <input type="text" id="routing-client-search" placeholder="Add any client to the map — even without a pending order…" oninput="searchRoutingClient()" style="width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
-      <div id="routing-client-results" style="max-width:420px"></div>
-    </div>
-
-    <div class="routing-grid">
-      <div style="border:1px solid var(--border);background:var(--white);padding:8px">
-        <div id="routing-map" style="height:420px;width:100%"></div>
+    <div class="routing-split-wrap">
+      <div class="routing-map-half">
+        <div id="routing-map"></div>
       </div>
-      <div id="routing-side"><p class="empty-note">Loading…</p></div>
+      <div class="routing-right-half">
+        <div class="routing-panel-card routing-add-card">
+          <div class="routing-panel-header open" id="routing-add-header" onclick="toggleRoutingAddCard()">
+            <b>+ Add Stops</b><span class="routing-chev">▾</span>
+          </div>
+          <div class="routing-panel-body open" id="routing-add-body">
+            <div id="routing-suggested-row"></div>
+            <div class="routing-abc-row" id="routing-abc-row"></div>
+            <div id="routing-add-list"></div>
+          </div>
+        </div>
+
+        <div class="routing-panel-card routing-selected-card">
+          <div class="routing-panel-header static"><b>Selected for this route</b><span id="routing-sel-count" style="font-size:11px;color:var(--gray);font-weight:400"></span></div>
+          <div class="routing-panel-body open" id="routing-selected-list"></div>
+          <div class="routing-preview-wrap">
+            <button class="btn btn-outline" id="preview-route-btn" style="width:100%" onclick="previewManualRoute()" disabled>Preview Route</button>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <div id="routing-route-result" style="margin-top:16px"></div>
     <div id="routing-unlocated" style="margin-top:16px"></div>
   </div>
   <div class="subpanel" id="subpanel-review">
@@ -5811,16 +5855,18 @@ function onScheduleTabOpened() {
 ============================================================ */
 let routingMap = null;
 let routingMarkers = [];
+let routingSelectedMarkers = [];
 let routingDivisionFilter = '';
 let routingQueueWithCoords = [];
-/* Paradas agregadas a mano desde el buscador de clientes -- viven
-   aparte de la cola real de ordenes pendientes, y sobreviven cada
-   recarga de loadRouting() (no se resetean solas) para poder seguir
-   probando/armando un bloque sin perderlo cada vez que cambia el
-   filtro de division. */
-let routingCustomStops = [];
-let allClientsForRoutingCache = null;
 let routingQueueNoCoords = [];
+let allClientsForRoutingCache = null;
+/* Paradas elegidas para armar la ruta -- mezcla ordenes reales
+   pendientes y clientes agregados para prueba. Forma unica:
+   {key, name, sub, lat, lon, isCustomStop}. Al seleccionar algo (sea
+   orden real o cliente de prueba) entra aqui directo -- ya no hay un
+   paso intermedio de "casilla marcada". */
+let routingSelected = [];
+let routingActiveLetter = null;
 let pendingRoutingBlockIds = null;
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -5832,8 +5878,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 }
 
 async function loadRouting() {
-  const side = document.getElementById('routing-side');
-  side.innerHTML = '<p class="empty-note">Loading…</p>';
   try {
     const [ordersRes, schedulingRes] = await Promise.all([
       api('/admin-get-orders', { method: 'POST', body: {} }),
@@ -5843,17 +5887,33 @@ async function loadRouting() {
     let pending = (ordersRes.orders || []).filter(o => o.Status === 'Received' && !scheduledIds.has(o.OrderID));
     if (routingDivisionFilter) pending = pending.filter(o => (o.Division || '').toLowerCase() === routingDivisionFilter.toLowerCase());
 
-    routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null)
-      .concat(routingCustomStops);
+    routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null);
     routingQueueNoCoords = pending.filter(o => o.Latitude == null || o.Longitude == null);
 
+    if (!allClientsForRoutingCache) {
+      try {
+        const cres = await api('/admin-get-clients', { method: 'POST', body: {} });
+        allClientsForRoutingCache = cres.clients || [];
+      } catch (e) { allClientsForRoutingCache = []; }
+    }
+
     renderRoutingMap();
-    await renderRoutingSide();
+    renderRoutingAbc();
+    renderRoutingAddList();
+    renderRoutingSuggested();
+    renderRoutingSelected();
     renderRoutingUnlocated();
   } catch (e) {
-    side.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    document.getElementById('routing-add-list').innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
   }
 }
+
+function toggleRoutingAddCard() {
+  document.getElementById('routing-add-header').classList.toggle('open');
+  document.getElementById('routing-add-body').classList.toggle('open');
+}
+
+function isRoutingStopSelected(key) { return routingSelected.some(s => s.key === key); }
 
 function renderRoutingMap() {
   if (!routingMap) {
@@ -5864,28 +5924,43 @@ function renderRoutingMap() {
   }
   routingMarkers.forEach(m => routingMap.removeLayer(m));
   routingMarkers = [];
-
-  if (!routingQueueWithCoords.length) { routingMap.setView([41.6, -93.6], 10); return; }
+  routingSelectedMarkers.forEach(m => routingMap.removeLayer(m));
+  routingSelectedMarkers = [];
 
   const bounds = [];
-  routingQueueWithCoords.forEach(o => {
+
+  routingQueueWithCoords.filter(o => !isRoutingStopSelected(o.OrderID)).forEach(o => {
     const marker = L.circleMarker([o.Latitude, o.Longitude], {
-      radius: 9, fillColor: o.isCustomStop ? '#C9A84C' : '#111111', color: '#fff', weight: 2, fillOpacity: 1
+      radius: 8, fillColor: '#111111', color: '#fff', weight: 2, fillOpacity: 1
     }).addTo(routingMap);
-    marker.bindTooltip((o.BusinessName || o.OrderID) + (o.isCustomStop ? ' (added for testing)' : ''));
+    marker.bindTooltip(o.BusinessName || o.OrderID);
     routingMarkers.push(marker);
     bounds.push([o.Latitude, o.Longitude]);
   });
+
+  routingSelected.forEach((s, i) => {
+    const color = s.isCustomStop ? '#C9A84C' : '#111111';
+    const textColor = s.isCustomStop ? '#111111' : '#ffffff';
+    const marker = L.marker([s.lat, s.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="width:24px;height:24px;background:' + color + ';border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' + textColor + ';box-shadow:0 1px 4px rgba(0,0,0,.3)">' + (i + 1) + '</div>',
+        iconSize: [24, 24], iconAnchor: [12, 12]
+      })
+    }).addTo(routingMap);
+    marker.bindTooltip(s.name + (s.isCustomStop ? ' (added for testing)' : ''));
+    routingSelectedMarkers.push(marker);
+    bounds.push([s.lat, s.lon]);
+  });
+
+  if (!bounds.length) { routingMap.setView([41.6, -93.6], 10); return; }
   routingMap.fitBounds(bounds, { padding: [30, 30] });
 }
 
-/* Sugerencia simple: toma la orden con fecha limite mas cercana como
-   semilla, y le agrega hasta 3 mas que esten a <=15km -- nunca mas de
-   4 paradas por bloque. Siempre es sugerencia, nunca automatico: el
-   humano decide si darle Assign o armar su propia seleccion abajo. */
 function suggestBlock() {
-  if (!routingQueueWithCoords.length) return null;
-  const sorted = routingQueueWithCoords.slice().sort((a, b) => String(a.DueDate || '9999').localeCompare(String(b.DueDate || '9999')));
+  const pool = routingQueueWithCoords.filter(o => !isRoutingStopSelected(o.OrderID));
+  if (!pool.length) return null;
+  const sorted = pool.slice().sort((a, b) => String(a.DueDate || '9999').localeCompare(String(b.DueDate || '9999')));
   const seed = sorted[0];
   const block = [seed];
   for (const o of sorted) {
@@ -5896,66 +5971,168 @@ function suggestBlock() {
   return block.length > 1 ? block : null;
 }
 
-async function renderRoutingSide() {
-  const side = document.getElementById('routing-side');
+function renderRoutingSuggested() {
+  const box = document.getElementById('routing-suggested-row');
   const block = suggestBlock();
-  const blockIds = new Set((block || []).map(o => o.OrderID));
-  const rest = routingQueueWithCoords.filter(o => !blockIds.has(o.OrderID));
-
-  let html = '';
-  if (block) {
-    html += '<div class="order-card" style="border-color:var(--gold)">' +
-      '<div class="order-card-header"><div class="order-id">Suggested block</div><div class="order-meta">' + block.length + ' stops · closest due dates</div></div>' +
-      '<ul style="list-style:none;margin:0 18px;padding:0;font-size:12px">' + block.map((o, i) =>
-        '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
-      ).join('') + '</ul>' +
-      '<p class="order-meta" id="suggested-route-info" style="margin:10px 18px">Calculating route…</p>' +
-      '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(block.map(o => o.OrderID)) + ')\'>Assign This Block</button>' +
-      '</div>';
-  } else {
-    html += '<p class="empty-note">No nearby cluster found — pick orders manually below.</p>';
-  }
-  side.innerHTML = html;
-
-  if (block) {
-    const info = document.getElementById('suggested-route-info');
-    const [route, workEstimate] = await Promise.all([
-      fetchOsrmRoute(block),
-      fetchOrderTimeEstimates(block.map(o => o.OrderID))
-    ]);
-    const driveText = route ? route.minutes + ' min drive' : 'drive time unavailable';
-    let workText = '';
-    if (workEstimate) {
-      const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
-      const missingCount = Object.values(workEstimate).reduce((s, e) => s + e.missing, 0);
-      workText = ' + ' + Math.round(totalWork) + ' min work' +
-        (missingCount ? ' <span style="color:#B06A2A">(' + missingCount + ' service' + (missingCount === 1 ? '' : 's') + ' without a time set — total is an underestimate)</span>' : '');
-      const grandTotal = (route ? route.minutes : 0) + totalWork;
-      workText += route ? ' · <b>' + Math.round(grandTotal) + ' min total</b>' : '';
-    }
-    info.innerHTML = '<b>' + driveText + '</b>' + workText;
-    if (route) {
-      const detourBox = document.createElement('div');
-      detourBox.id = 'suggested-detour';
-      info.insertAdjacentElement('afterend', detourBox);
-      setupDetourWidget('suggested-detour', block, route.minutes);
-    }
-  }
-
-  renderRoutingManualList(rest);
+  if (!block) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="routing-suggested-card">' +
+    '<div style="font-size:12px;font-weight:700;margin-bottom:4px">Suggested block</div>' +
+    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">' + block.length + ' nearby stops, closest due dates: ' + block.map(o => esc(o.BusinessName || o.ClientID)).join(', ') + '</div>' +
+    '<button type="button" class="routing-add-btn" onclick=\'addSuggestedBlock(' + JSON.stringify(block.map(o => o.OrderID)) + ')\'>+ Add all ' + block.length + '</button>' +
+    '</div>';
 }
 
-/* Cuanto MAS tiempo de manejo costaria agregar una parada a una ruta
-   ya armada -- se prueba insertandola en cada posicion posible de la
-   secuencia y se queda con la mejor (menos tiempo agregado), nunca al
-   final a fuerzas. Sirve tanto para el bloque sugerido como para la
-   seleccion manual -- un solo contexto activo a la vez. */
+function addSuggestedBlock(orderIds) {
+  orderIds.forEach(id => {
+    if (isRoutingStopSelected(id)) return;
+    const o = routingQueueWithCoords.find(x => x.OrderID === id);
+    if (!o) return;
+    routingSelected.push({ key: o.OrderID, name: o.BusinessName || o.ClientID, sub: '#' + o.OrderID + ' \u00b7 ' + (o.Division || ''), lat: o.Latitude, lon: o.Longitude, isCustomStop: false });
+  });
+  refreshRoutingSelectionUI();
+}
+
+function routingLetterOf(name) {
+  const c = (name || '').trim().charAt(0);
+  return c && /[a-zA-Z]/.test(c) ? c.toUpperCase() : '#';
+}
+
+function getRoutingAddableItems() {
+  const orderItems = routingQueueWithCoords.filter(o => !isRoutingStopSelected(o.OrderID)).map(o => ({
+    key: o.OrderID, name: o.BusinessName || o.ClientID, sub: '#' + o.OrderID + ' \u00b7 ' + (o.Division || ''), kind: 'order'
+  }));
+  const clientItems = (allClientsForRoutingCache || []).filter(c => !isRoutingStopSelected('client-' + c.clientId)).map(c => ({
+    key: 'client-' + c.clientId, name: c.businessName, sub: 'Client (test)', kind: 'client'
+  }));
+  return orderItems.concat(clientItems).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderRoutingAbc() {
+  const row = document.getElementById('routing-abc-row');
+  const items = getRoutingAddableItems();
+  const has = new Set(items.map(i => routingLetterOf(i.name)));
+  let html = '<button type="button" class="routing-abc-btn all' + (routingActiveLetter === null ? ' active' : '') + '" onclick="pickRoutingLetter(null)">All</button>';
+  html += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(l =>
+    '<button type="button" class="routing-abc-btn' + (!has.has(l) ? ' disabled' : '') + (routingActiveLetter === l ? ' active' : '') + '" onclick="pickRoutingLetter(\'' + l + '\')">' + l + '</button>'
+  ).join('');
+  row.innerHTML = html;
+}
+
+function pickRoutingLetter(l) { routingActiveLetter = l; renderRoutingAbc(); renderRoutingAddList(); }
+
+function renderRoutingAddList() {
+  const list = document.getElementById('routing-add-list');
+  const items = getRoutingAddableItems().filter(i => !routingActiveLetter || routingLetterOf(i.name) === routingActiveLetter);
+  if (!items.length) { list.innerHTML = '<p class="empty-note">Nothing to add here.</p>'; return; }
+  list.innerHTML = items.map(i =>
+    '<div class="routing-stop-row"><div><div class="routing-stop-name">' + esc(i.name) + '</div><div class="routing-stop-sub">' + esc(i.sub) + '</div></div>' +
+    '<button type="button" class="routing-add-btn" onclick="addRoutingStop(\'' + i.kind + '\',\'' + escAttr(i.key) + '\')">+ Add</button></div>'
+  ).join('');
+}
+
+async function addRoutingStop(kind, key) {
+  if (kind === 'order') {
+    const o = routingQueueWithCoords.find(x => x.OrderID === key);
+    if (!o) return;
+    routingSelected.push({ key: o.OrderID, name: o.BusinessName || o.ClientID, sub: '#' + o.OrderID + ' \u00b7 ' + (o.Division || ''), lat: o.Latitude, lon: o.Longitude, isCustomStop: false });
+    refreshRoutingSelectionUI();
+    return;
+  }
+
+  const clientId = key.replace(/^client-/, '');
+  const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
+  if (!c) return;
+  const b = (c.buildings || []).find(x => !x.archived) || null;
+  let lat, lon;
+  if (b && b.latitude != null && b.longitude != null) {
+    lat = b.latitude; lon = b.longitude;
+  } else {
+    try {
+      const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: b ? b.address : c.address, city: b ? b.city : c.city, zip: b ? b.zip : c.zip } });
+      if (!geo.geo) { showToast('Could not locate that address.'); return; }
+      lat = geo.geo.lat; lon = geo.geo.lon;
+    } catch (e) { showToast('Error: ' + e.message); return; }
+  }
+
+  routingSelected.push({
+    key: 'client-' + clientId,
+    name: c.businessName + (b ? ' \u2014 ' + (b.label || b.address) : ' (main address)'),
+    sub: 'Added for testing', lat, lon, isCustomStop: true
+  });
+  refreshRoutingSelectionUI();
+}
+
+function removeRoutingSelected(key) {
+  routingSelected = routingSelected.filter(s => s.key !== key);
+  refreshRoutingSelectionUI();
+}
+
+function refreshRoutingSelectionUI() {
+  renderRoutingMap();
+  renderRoutingAbc();
+  renderRoutingAddList();
+  renderRoutingSuggested();
+  renderRoutingSelected();
+  const result = document.getElementById('routing-route-result');
+  if (result) result.innerHTML = '';
+}
+
+function renderRoutingSelected() {
+  document.getElementById('routing-sel-count').textContent = routingSelected.length + ' stop' + (routingSelected.length === 1 ? '' : 's');
+  const btn = document.getElementById('preview-route-btn');
+  btn.disabled = routingSelected.length < 2;
+  btn.textContent = 'Preview Route (' + routingSelected.length + ' selected)';
+  const list = document.getElementById('routing-selected-list');
+  if (!routingSelected.length) { list.innerHTML = '<p class="empty-note">Nothing selected yet \u2014 add stops above.</p>'; return; }
+  list.innerHTML = routingSelected.map((s, i) =>
+    '<div class="routing-stop-row"><div class="routing-sel-badge' + (s.isCustomStop ? ' custom' : '') + '">' + (i + 1) + '</div>' +
+    '<div style="flex:1"><div class="routing-stop-name">' + esc(s.name) + '</div><div class="routing-stop-sub">' + esc(s.sub) + '</div></div>' +
+    '<button type="button" style="background:none;border:none;color:#B33A3A;font-size:16px;cursor:pointer" onclick="removeRoutingSelected(\'' + escAttr(s.key) + '\')">\u2715</button></div>'
+  ).join('');
+}
+
+async function previewManualRoute() {
+  const box = document.getElementById('routing-route-result');
+  box.innerHTML = '<p class="empty-note">Calculating\u2026</p>';
+  const stops = routingSelected.map(s => ({ OrderID: s.key, BusinessName: s.name, Latitude: s.lat, Longitude: s.lon }));
+  const realOrderIds = routingSelected.filter(s => !s.isCustomStop).map(s => s.key);
+
+  const [route, workEstimate] = await Promise.all([
+    fetchOsrmRoute(stops),
+    realOrderIds.length ? fetchOrderTimeEstimates(realOrderIds) : Promise.resolve(null)
+  ]);
+
+  let metaText = stops.length + ' stops';
+  if (route) metaText += ' \u00b7 ' + route.minutes + ' min drive';
+  let testingNote = '';
+  if (workEstimate) {
+    const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
+    const missingCount = Object.values(workEstimate).reduce((s, e) => s + e.missing, 0);
+    metaText += ' + ' + Math.round(totalWork) + ' min work' +
+      (missingCount ? ' <span style="color:#B06A2A">(' + missingCount + ' service' + (missingCount === 1 ? '' : 's') + ' without a time set)</span>' : '');
+    if (route) metaText += ' \u00b7 <b>' + Math.round(route.minutes + totalWork) + ' min total</b>';
+  } else if (realOrderIds.length < stops.length) {
+    testingNote = '<p class="order-meta" style="margin:0 18px 12px;color:var(--gray)">Test clients don\'t have services chosen, so only drive time counts for them.</p>';
+  }
+
+  box.innerHTML = '<div class="order-card" style="border-color:var(--gold)">' +
+    '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
+    testingNote +
+    (route ? '<div id="manual-detour" style="margin:0 18px 16px"></div>' : '') +
+    (realOrderIds.length
+      ? '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(realOrderIds) + ')\'>Assign This Block</button>'
+      : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
+    '</div>';
+
+  if (route) setupDetourWidget('manual-detour', stops, route.minutes);
+}
+
 let routingDetourContext = null;
 
 function detourWidgetHtml(widgetId) {
-  return '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">' +
+  return '<div style="padding-top:14px;border-top:1px solid var(--border)">' +
     '<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Add a stop to this route?</div>' +
-    '<input type="text" id="' + widgetId + '-search" placeholder="Search a client to see the detour cost…" oninput="searchDetourCandidate(\'' + widgetId + '\')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit">' +
+    '<input type="text" id="' + widgetId + '-search" placeholder="Search a client to see the detour cost\u2026" oninput="searchDetourCandidate(\'' + widgetId + '\')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit">' +
     '<div id="' + widgetId + '-results"></div>' +
     '</div>';
 }
@@ -5970,13 +6147,7 @@ async function searchDetourCandidate(widgetId) {
   const q = document.getElementById(widgetId + '-search').value.trim().toLowerCase();
   const box = document.getElementById(widgetId + '-results');
   if (!q) { box.innerHTML = ''; return; }
-  try {
-    if (!allClientsForRoutingCache) {
-      const res = await api('/admin-get-clients', { method: 'POST', body: {} });
-      allClientsForRoutingCache = res.clients || [];
-    }
-  } catch (e) { box.innerHTML = ''; return; }
-
+  if (!allClientsForRoutingCache) return;
   const matches = allClientsForRoutingCache.filter(c => c.businessName.toLowerCase().includes(q)).slice(0, 5);
   box.innerHTML = matches.map(c => {
     const b = (c.buildings || []).find(x => !x.archived && x.latitude != null) || null;
@@ -5987,7 +6158,7 @@ async function searchDetourCandidate(widgetId) {
 
 async function calcDetourFor(widgetId, clientId, buildingId) {
   const box = document.getElementById(widgetId + '-results');
-  box.innerHTML = '<p class="empty-note">Calculating…</p>';
+  box.innerHTML = '<p class="empty-note">Calculating\u2026</p>';
   const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
   let lat, lon;
   if (buildingId) {
@@ -6016,12 +6187,6 @@ async function computeBestInsertion(currentStops, candidate) {
   return best;
 }
 
-
-/* Tiempo de trabajo (nunca de manejo) por orden -- interno nomas,
-   para que quien arma la ruta pueda ver cuanto va a tardar de verdad
-   en cada parada y no solo cuanto se hace en llegar. Usa
-   ServiceTimes (Developer -> Service Times), nunca se le muestra al
-   cliente en ningun lado. */
 async function fetchOrderTimeEstimates(orderIds) {
   try {
     const res = await api('/developer-admin', { body: { action: 'get-order-time-estimates', email: adminUser.email, orderIds } });
@@ -6029,128 +6194,6 @@ async function fetchOrderTimeEstimates(orderIds) {
   } catch (e) {
     return null;
   }
-}
-
-
-function renderRoutingManualList(rest) {
-  let html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Other pending orders — select to build your own route</div>';
-  html += rest.map(o => '<div class="order-card"' + (o.isCustomStop ? ' style="border-color:var(--gold)"' : '') + '><div class="order-card-header" style="display:flex;align-items:center;gap:10px">' +
-    '<input type="checkbox" class="routing-check" value="' + escAttr(o.OrderID) + '" onchange="onRoutingCheck()">' +
-    '<div style="flex:1"><div class="order-id">' + (o.isCustomStop ? '🧪 ' + esc(o.BusinessName) : '#' + esc(o.OrderID)) + '</div><div class="order-meta">' + (o.isCustomStop ? 'Added for testing' : esc(o.BusinessName || o.ClientID) + ' · ' + esc(o.Division || '')) + '</div></div>' +
-    (o.isCustomStop ? '<button type="button" class="um-remove-btn" style="background:none;border:none;color:#B33A3A;font-size:16px;cursor:pointer" title="Remove from map" onclick="event.stopPropagation();removeRoutingCustomStop(\'' + escAttr(o.OrderID) + '\')">✕</button>' : '') +
-    '</div></div>').join('');
-  html += '<button class="btn btn-outline" id="preview-route-btn" style="margin-top:10px" onclick="previewManualRoute()" disabled>Preview Route</button>';
-  html += '<div id="manual-route-preview"></div>';
-  document.getElementById('routing-side').innerHTML += html;
-}
-
-/* Buscador de cliente en Routing -- para poder probar el mapa/las
-   distancias/los tiempos ANTES de tener ordenes reales de verdad.
-   Cualquier cliente se puede agregar al mapa como parada, tenga o no
-   una orden pendiente -- se usan sus edificios guardados (si ya
-   tienen Latitude/Longitude del backfill) o se geocodifica al
-   momento si hace falta. */
-async function searchRoutingClient() {
-  const q = document.getElementById('routing-client-search').value.trim().toLowerCase();
-  const box = document.getElementById('routing-client-results');
-  if (!q) { box.innerHTML = ''; return; }
-  try {
-    if (!allClientsForRoutingCache) {
-      const res = await api('/admin-get-clients', { method: 'POST', body: {} });
-      allClientsForRoutingCache = res.clients || [];
-    }
-  } catch (e) {
-    box.innerHTML = '<p class="empty-note">Could not load clients: ' + esc(e.message) + '</p>';
-    return;
-  }
-
-  const matches = allClientsForRoutingCache.filter(c =>
-    c.businessName.toLowerCase().includes(q) || c.clientId.toLowerCase().includes(q)
-  ).slice(0, 6);
-
-  if (!matches.length) { box.innerHTML = '<p class="empty-note" style="padding:8px 0">No clients match.</p>'; return; }
-
-  box.innerHTML = matches.map(c => {
-    const buildings = (c.buildings || []).filter(b => !b.archived);
-    if (!buildings.length) {
-      return '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + '</span>' +
-        '<button type="button" class="btn-outline" onclick="addRoutingClientStop(\'' + c.clientId + '\', null)">+ Add (main address)</button></div>';
-    }
-    return buildings.map(b => '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + ' — ' + esc(b.label || b.address) + '</span>' +
-      '<button type="button" class="btn-outline" onclick="addRoutingClientStop(\'' + c.clientId + '\', \'' + b.id + '\')">+ Add</button></div>').join('');
-  }).join('');
-}
-
-async function addRoutingClientStop(clientId, buildingId) {
-  const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
-  if (!c) return;
-  let lat, lon, label;
-
-  if (buildingId) {
-    const b = c.buildings.find(x => x.id === buildingId);
-    label = c.businessName + ' — ' + (b.label || b.address);
-    if (b.latitude != null && b.longitude != null) {
-      lat = b.latitude; lon = b.longitude;
-    } else {
-      const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: b.address, city: b.city, zip: b.zip } });
-      if (!geo.geo) { showToast('Could not locate that address.'); return; }
-      lat = geo.geo.lat; lon = geo.geo.lon;
-    }
-  } else {
-    label = c.businessName + ' (main address)';
-    const geo = await api('/developer-admin', { body: { action: 'geocode-one-address', email: adminUser.email, address: c.address, city: c.city, zip: c.zip } });
-    if (!geo.geo) { showToast('Could not locate that address.'); return; }
-    lat = geo.geo.lat; lon = geo.geo.lon;
-  }
-
-  routingCustomStops.push({
-    OrderID: 'client-' + clientId + '-' + Date.now(),
-    BusinessName: label, ClientID: clientId, Division: '',
-    Latitude: lat, Longitude: lon, isCustomStop: true
-  });
-  document.getElementById('routing-client-search').value = '';
-  document.getElementById('routing-client-results').innerHTML = '';
-  showToast('Added to the map.');
-  loadRouting();
-}
-
-function removeRoutingCustomStop(orderId) {
-  routingCustomStops = routingCustomStops.filter(s => s.OrderID !== orderId);
-  loadRouting();
-}
-
-function onRoutingCheck() {
-  const checked = document.querySelectorAll('.routing-check:checked');
-  const btn = document.getElementById('preview-route-btn');
-  btn.disabled = checked.length < 2;
-  btn.textContent = 'Preview Route (' + checked.length + ' selected)';
-}
-
-async function previewManualRoute() {
-  const ids = Array.from(document.querySelectorAll('.routing-check:checked')).map(c => c.value);
-  const orders = routingQueueWithCoords.filter(o => ids.includes(o.OrderID));
-  const box = document.getElementById('manual-route-preview');
-  box.innerHTML = '<p class="empty-note">Calculating…</p>';
-  const [route, workEstimate] = await Promise.all([
-    fetchOsrmRoute(orders),
-    fetchOrderTimeEstimates(ids)
-  ]);
-  let metaText = orders.length + ' stops';
-  if (route) metaText += ' · ' + route.minutes + ' min drive';
-  if (workEstimate) {
-    const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
-    metaText += ' + ' + Math.round(totalWork) + ' min work';
-    if (route) metaText += ' · ' + Math.round(route.minutes + totalWork) + ' min total';
-  }
-  box.innerHTML = '<div class="order-card" style="border-color:var(--gold);margin-top:10px">' +
-    '<div class="order-card-header"><div class="order-id">Your selection</div><div class="order-meta">' + metaText + '</div></div>' +
-    '<ul style="list-style:none;margin:0 18px;padding:0;font-size:12px">' + orders.map((o, i) =>
-      '<li style="padding:6px 0;border-bottom:1px solid var(--border)"><b style="display:inline-block;width:18px;height:18px;background:var(--black);color:#fff;border-radius:50%;text-align:center;font-size:10px;line-height:18px;margin-right:8px">' + (i + 1) + '</b>' + esc(o.BusinessName || o.ClientID) + '</li>'
-    ).join('') + '</ul>' +
-    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(ids) + ')\'>Assign This Block</button>' +
-    (route ? '<div id="manual-detour" style="margin:0 18px 16px"></div>' : '') +
-    '</div>';
-  if (route) setupDetourWidget('manual-detour', orders, route.minutes);
 }
 
 async function fetchOsrmRoute(orders) {
@@ -6168,15 +6211,11 @@ function renderRoutingUnlocated() {
   const box = document.getElementById('routing-unlocated');
   if (!routingQueueNoCoords.length) { box.innerHTML = ''; return; }
   box.innerHTML = '<div style="background:#F4F4F4;border:1px solid var(--border);color:var(--gray);font-size:12px;padding:12px 14px">' +
-    '<b style="color:var(--black)">' + routingQueueNoCoords.length + ' order(s) could not be located on the map</b> — assign them directly from Orders: ' +
+    '<b style="color:var(--black)">' + routingQueueNoCoords.length + ' order(s) could not be located on the map</b> \u2014 assign them directly from Orders: ' +
     routingQueueNoCoords.map(o => '#' + esc(o.OrderID)).join(', ') +
     '</div>';
 }
 
-/* Manda el bloque a Orders -- ahi es donde SIEMPRE se confirma de
-   verdad (nunca se asigna directo desde Routing). Se abre la primera
-   orden del bloque, y las demas quedan anotadas junto a ella para
-   que se asignen una por una con el mismo mecanismo que ya existe. */
 function assignRoutingBlock(orderIds) {
   pendingRoutingBlockIds = orderIds;
   showSubTab('orders');
