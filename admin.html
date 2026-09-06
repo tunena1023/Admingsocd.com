@@ -390,14 +390,20 @@
        fusionar schedule.html, pero nunca se porto su definicion. */
     .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
 
-    .routing-split-wrap { display: flex; gap: 16px; height: 780px; }
+    .routing-split-wrap { display: flex; gap: 16px; }
     .routing-map-half { flex: 1 1 50%; border: 1px solid var(--border); background: var(--white); padding: 8px; box-sizing: border-box; position: relative; }
     .routing-time-overlay { position: absolute; top: 20px; left: 20px; right: 20px; z-index: 1000; background: rgba(17,17,17,0.92); color: #fff; padding: 14px 18px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
     .routing-time-overlay .rt-big { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
     .routing-time-overlay .rt-sub { font-size: 12px; color: #D8CFA8; margin-top: 2px; }
-    #routing-map { width: 100%; height: 100%; }
+    #routing-map { width: 100%; height: 100%; min-height: 460px; }
+    /* Sin altura fija en el wrap -- align-items:stretch (default de
+       flex) hace que el mapa siempre haga match con lo que mida la
+       columna derecha, sea de 2 o de 3 tarjetas. */
     .routing-right-half { flex: 1 1 50%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-    .routing-panel-card { flex: 1; background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    .routing-panel-card { background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    /* Estas 2 siempre miden lo mismo, no importa si aparece la
+       tercera tarjeta (Route preview) o no. */
+    .routing-add-card, .routing-selected-card { flex: 0 0 260px; }
     .routing-panel-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; background: rgba(201,168,76,0.10); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
     .routing-panel-header.static { cursor: default; background: var(--bg); }
     .routing-panel-header b { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
@@ -716,10 +722,11 @@
             <button class="btn btn-outline" id="preview-route-btn" style="width:100%" onclick="previewManualRoute()" disabled>Preview Route</button>
           </div>
         </div>
+
+        <div id="routing-route-result" style="display:none"></div>
       </div>
     </div>
 
-    <div id="routing-route-result" style="margin-top:16px"></div>
     <div id="routing-unlocated" style="margin-top:16px"></div>
   </div>
   <div class="subpanel" id="subpanel-review">
@@ -6133,8 +6140,31 @@ function refreshRoutingSelectionUI() {
   renderRoutingAddList();
   renderRoutingSuggested();
   renderRoutingSelected();
-  const result = document.getElementById('routing-route-result');
-  if (result) result.innerHTML = '';
+  hideRoutingRouteResult();
+}
+
+/* La tarjeta de Route Preview solo existe cuando hay algo que
+   mostrar -- entra y sale de la columna derecha, y el mapa se
+   reajusta solo (align-items:stretch). invalidateSize() le avisa a
+   Leaflet que el contenedor cambio de tamano, si no se queda con el
+   tamano viejo cacheado y se ve cortado o con espacio de mas. */
+function showRoutingRouteResult(html) {
+  const el = document.getElementById('routing-route-result');
+  el.innerHTML = html;
+  el.style.display = 'block';
+  requestAnimationFrame(() => {
+    setTimeout(() => { if (routingMap) routingMap.invalidateSize(); }, 60);
+  });
+}
+
+function hideRoutingRouteResult() {
+  const el = document.getElementById('routing-route-result');
+  if (!el) return;
+  el.style.display = 'none';
+  el.innerHTML = '';
+  requestAnimationFrame(() => {
+    setTimeout(() => { if (routingMap) routingMap.invalidateSize(); }, 60);
+  });
 }
 
 function renderRoutingSelected() {
@@ -6152,8 +6182,7 @@ function renderRoutingSelected() {
 }
 
 async function previewManualRoute() {
-  const box = document.getElementById('routing-route-result');
-  box.innerHTML = '<p class="empty-note">Calculating\u2026</p>';
+  showRoutingRouteResult('<p class="empty-note">Calculating\u2026</p>');
   showRoutingTimeOverlay('<div class="rt-big">Calculating\u2026</div>');
   const stops = routingSelected.map(s => ({ OrderID: s.key, BusinessName: s.name, Latitude: s.lat, Longitude: s.lon }));
   const realOrderIds = routingSelected.filter(s => !s.isCustomStop).map(s => s.key);
@@ -6186,7 +6215,7 @@ async function previewManualRoute() {
   }
   showRoutingTimeOverlay('<div class="rt-big">' + overlayBig + '</div><div class="rt-sub">' + overlaySub + '</div>');
 
-  box.innerHTML = '<div class="order-card" style="border-color:var(--gold)">' +
+  showRoutingRouteResult('<div class="order-card" style="border-color:var(--gold)">' +
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
     (route && route.legs && route.legs.length ? legBreakdownHtml(stops, route.legs) : '') +
     testingNote +
@@ -6194,7 +6223,7 @@ async function previewManualRoute() {
     (realOrderIds.length
       ? '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(realOrderIds) + ')\'>Assign This Block</button>'
       : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
-    '</div>';
+    '</div>');
 
   if (route) setupDetourWidget('manual-detour', stops, route.minutes);
 }
