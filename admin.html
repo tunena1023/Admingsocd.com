@@ -4262,7 +4262,7 @@ function createOrderFormHtml() {
   return `
     <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
       <div class="field-group">
-        <label>Division</label>
+        <p class="section-sub" style="margin-bottom:10px">Select a division to see its available services.</p>
         <div class="mode-toggle" id="create-division-toggle" style="display:flex;border:1.5px solid var(--border)">
           <button type="button" class="create-div-btn" data-div="Janitorial" onclick="setCreateDivision('Janitorial')" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Janitorial</button>
           <button type="button" class="create-div-btn" data-div="Renovations" onclick="setCreateDivision('Renovations')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Renovations</button>
