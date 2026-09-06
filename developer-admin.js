@@ -25,7 +25,7 @@ const {
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
-  CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST,
+  CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -827,6 +827,90 @@ exports.handler = async (event) => {
       if (!Object.keys(fields).length) return jsonResponse(400, { error: 'Nothing to update.' });
       await updateListItemByItemId(TECHS_LIST, techId, fields);
       return jsonResponse(200, { success: true });
+    }
+
+    if (action === 'list-service-times') {
+      const [catalog, times] = await Promise.all([
+        fetchAll(SERVICES_CATALOG_LIST),
+        fetchAll(SERVICE_TIMES_LIST)
+      ]);
+      const timesBySku = {};
+      times.forEach(it => { if (it.fields && it.fields.SKU) timesBySku[String(it.fields.SKU).trim()] = it; });
+
+      const services = catalog.filter(it => it.fields && it.fields.SKU).map(it => {
+        const f = it.fields;
+        const sku = String(f.SKU).trim();
+        const t = timesBySku[sku];
+        return {
+          sku,
+          serviceName: f.ServiceName || '',
+          division: f.Division || '',
+          propertyType: f.PropertyType || '',
+          level1: t && t.fields.Level1Minutes != null ? Number(t.fields.Level1Minutes) : null,
+          level2: t && t.fields.Level2Minutes != null ? Number(t.fields.Level2Minutes) : null,
+          level3: t && t.fields.Level3Minutes != null ? Number(t.fields.Level3Minutes) : null
+        };
+      }).sort((a, b) => (a.division + a.serviceName).localeCompare(b.division + b.serviceName));
+
+      return jsonResponse(200, { services });
+    }
+
+    if (action === 'save-service-time') {
+      const sku = String(body.sku || '').trim();
+      const serviceName = String(body.serviceName || '').trim();
+      const division = String(body.division || '').trim();
+      if (!sku) return jsonResponse(400, { error: 'sku is required' });
+
+      const times = await fetchAll(SERVICE_TIMES_LIST);
+      const existing = times.find(it => it.fields && String(it.fields.SKU || '').trim() === sku);
+
+      const fields = {
+        Title: sku,
+        SKU: sku,
+        ServiceName: serviceName,
+        Division: division,
+        Level1Minutes: body.level1 !== undefined && body.level1 !== '' ? Number(body.level1) : null,
+        Level2Minutes: body.level2 !== undefined && body.level2 !== '' ? Number(body.level2) : null,
+        Level3Minutes: body.level3 !== undefined && body.level3 !== '' ? Number(body.level3) : null
+      };
+
+      if (existing) {
+        await updateListItemByItemId(SERVICE_TIMES_LIST, existing.id, fields);
+      } else {
+        await createListItem(SERVICE_TIMES_LIST, fields);
+      }
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Rellena con numeros de PRUEBA coherentes (no reales) cualquier
+       servicio del catalogo que todavia no tenga tiempo asignado --
+       nunca pisa uno que ya se haya puesto de verdad. Sirve para ver
+       el calculo de duracion funcionando mientras se miden los
+       tiempos reales; se debe sobreescribir cuando lleguen. */
+    if (action === 'seed-placeholder-service-times') {
+      const [catalog, times] = await Promise.all([
+        fetchAll(SERVICES_CATALOG_LIST),
+        fetchAll(SERVICE_TIMES_LIST)
+      ]);
+      const skusWithTime = new Set(times.filter(it => it.fields && it.fields.SKU).map(it => String(it.fields.SKU).trim()));
+
+      let seeded = 0;
+      const tasks = [];
+      catalog.filter(it => it.fields && it.fields.SKU && !skusWithTime.has(String(it.fields.SKU).trim())).forEach(it => {
+        const f = it.fields;
+        const sku = String(f.SKU).trim();
+        const isJan = String(f.Division || '') === 'Janitorial';
+        const level1 = isJan ? 30 : 45;
+        const level2 = isJan ? Math.round(level1 * 1.35) : null;
+        const level3 = isJan ? Math.round(level2 * 1.20) : null;
+        tasks.push(createListItem(SERVICE_TIMES_LIST, {
+          Title: sku, SKU: sku, ServiceName: f.ServiceName || '', Division: f.Division || '',
+          Level1Minutes: level1, Level2Minutes: level2, Level3Minutes: level3
+        }));
+        seeded++;
+      });
+      await Promise.all(tasks);
+      return jsonResponse(200, { success: true, seeded });
     }
 
     if (action === 'list-staff') {

@@ -127,6 +127,8 @@
     table.staff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.staff-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
     table.staff-table td.role-cell { color: var(--gray); }
+    table.staff-table th { padding: 8px; text-align: left; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
+    table.staff-table input[type=number] { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px; font-family: inherit; }
 
     .toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -227,6 +229,20 @@
       <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
     </div>
     <table class="staff-table" id="techs-table"><tbody></tbody></table>
+  </section>
+
+  <section id="service-times-section" style="display:none">
+    <p class="section-title">Service Times</p>
+    <p class="section-sub">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+      <button class="btn btn-outline" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+    </div>
+    <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
+    <table class="staff-table" id="service-times-table">
+      <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </section>
 
   <section id="password-section" style="display:none">
@@ -365,11 +381,13 @@
     if (myRole === 'Developer') {
       document.getElementById('staff-section').style.display = 'block';
       document.getElementById('techs-section').style.display = 'block';
+      document.getElementById('service-times-section').style.display = 'block';
       document.getElementById('password-section').style.display = 'block';
       document.getElementById('geocode-section').style.display = 'block';
       document.getElementById('debug-section').style.display = 'block';
       loadStaff();
       loadTechs();
+      loadServiceTimes();
     }
 
     loadCatalogBrowse();
@@ -643,6 +661,74 @@
     } catch (e) {
       showToast('Error: ' + e.message);
       loadTechs();
+    }
+  }
+
+  /* ===== Service Times ===== */
+  let allServiceTimes = [];
+  async function loadServiceTimes() {
+    try {
+      const res = await api('list-service-times');
+      allServiceTimes = res.services || [];
+      renderServiceTimes();
+    } catch (e) {
+      document.querySelector('#service-times-table tbody').innerHTML =
+        '<tr><td colspan="5" class="empty-note">Could not load: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderServiceTimes() {
+    const q = (document.getElementById('service-times-search').value || '').trim().toLowerCase();
+    const list = allServiceTimes.filter(s => !q ||
+      s.serviceName.toLowerCase().includes(q) || s.sku.toLowerCase().includes(q));
+    const tbody = document.querySelector('#service-times-table tbody');
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No services match that search.</td></tr>'; return; }
+
+    const missing = allServiceTimes.filter(s => s.level1 == null).length;
+    const note = document.getElementById('service-times-note');
+    if (missing) {
+      note.style.display = 'block';
+      note.textContent = missing + ' service' + (missing === 1 ? '' : 's') + ' still without a time — use "Fill missing with placeholder times" to test with something, or set them by hand below.';
+    } else {
+      note.style.display = 'none';
+    }
+
+    tbody.innerHTML = list.map(s => {
+      const isJan = s.division === 'Janitorial';
+      return '<tr>' +
+        '<td>' + esc(s.serviceName) + '<div style="font-size:11px;color:var(--gray)">' + esc(s.sku) + '</div></td>' +
+        '<td class="role-cell">' + esc(s.division) + '</td>' +
+        '<td><input type="number" min="0" value="' + (s.level1 != null ? s.level1 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level1\',this.value)"></td>' +
+        '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level2 != null ? s.level2 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level2\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
+        '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level3 != null ? s.level3 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level3\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  async function saveServiceTime(sku, field, value) {
+    const s = allServiceTimes.find(x => x.sku === sku);
+    if (!s) return;
+    const payload = { sku: s.sku, serviceName: s.serviceName, division: s.division, level1: s.level1, level2: s.level2, level3: s.level3 };
+    payload[field] = value === '' ? '' : Number(value);
+    try {
+      await api('save-service-time', payload);
+      s[field] = value === '' ? null : Number(value);
+      showToast('Saved.');
+      renderServiceTimes();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      loadServiceTimes();
+    }
+  }
+
+  async function seedPlaceholderServiceTimes() {
+    if (!confirm('This fills in a placeholder time (not real) for every service that has none yet, so you can test the calculation. It never overwrites a time you already set. Continue?')) return;
+    try {
+      const res = await api('seed-placeholder-service-times');
+      showToast(res.seeded + ' placeholder time(s) added.');
+      loadServiceTimes();
+    } catch (e) {
+      showToast('Error: ' + e.message);
     }
   }
 
