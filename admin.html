@@ -6227,13 +6227,9 @@ async function previewManualRoute() {
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
     (route && route.legs && route.legs.length ? legBreakdownHtml(stops, route.legs) : '') +
     testingNote +
-    (route ? '<div id="manual-detour" style="margin:0 18px 16px"></div>' : '') +
-    (realOrderIds.length
-      ? '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" onclick=\'assignRoutingBlock(' + JSON.stringify(realOrderIds) + ')\'>Assign This Block</button>'
-      : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
+    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" ' + (realOrderIds.length ? '' : 'disabled title="Only test clients selected \u2014 nothing real to assign yet."') + ' onclick=\'assignRoutingBlock(' + JSON.stringify(realOrderIds) + ')\'>Assign This Block</button>' +
+    (realOrderIds.length ? '' : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
     '</div>');
-
-  if (route) setupDetourWidget('manual-detour', stops, route.minutes);
 }
 
 /* Desglose "de aqui a alla, tantos minutos" -- a prueba de cualquiera,
@@ -6254,66 +6250,6 @@ function legBreakdownHtml(stops, legMinutes) {
     rows +
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:rgba(201,168,76,0.10)"><b style="font-size:12px">Total drive time</b><b style="font-size:14px">' + total + ' min</b></div>' +
     '</div>';
-}
-
-let routingDetourContext = null;
-
-function detourWidgetHtml(widgetId) {
-  return '<div style="padding-top:14px;border-top:1px solid var(--border)">' +
-    '<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Add a stop to this route?</div>' +
-    '<input type="text" id="' + widgetId + '-search" placeholder="Search a client to see the detour cost\u2026" oninput="searchDetourCandidate(\'' + widgetId + '\')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit">' +
-    '<div id="' + widgetId + '-results"></div>' +
-    '</div>';
-}
-
-function setupDetourWidget(containerId, stops, baseMinutes) {
-  routingDetourContext = { stops, baseMinutes };
-  const el = document.getElementById(containerId);
-  if (el) el.innerHTML = detourWidgetHtml(containerId);
-}
-
-async function searchDetourCandidate(widgetId) {
-  const q = document.getElementById(widgetId + '-search').value.trim().toLowerCase();
-  const box = document.getElementById(widgetId + '-results');
-  if (!q) { box.innerHTML = ''; return; }
-  if (!allClientsForRoutingCache) return;
-  const matches = allClientsForRoutingCache.filter(c => c.businessName.toLowerCase().includes(q)).slice(0, 5);
-  box.innerHTML = matches.map(c => {
-    const b = (c.buildings || []).find(x => !x.archived && x.latitude != null) || null;
-    return '<div class="candidate-row"><span class="candidate-name">' + esc(c.businessName) + '</span>' +
-      '<button type="button" class="btn-outline" onclick="calcDetourFor(\'' + widgetId + '\',\'' + c.clientId + '\',\'' + (b ? b.id : '') + '\')">See detour cost</button></div>';
-  }).join('');
-}
-
-async function calcDetourFor(widgetId, clientId, buildingId) {
-  const box = document.getElementById(widgetId + '-results');
-  box.innerHTML = '<p class="empty-note">Calculating\u2026</p>';
-  const c = allClientsForRoutingCache.find(x => x.clientId === clientId);
-  let lat, lon;
-  if (buildingId) {
-    const b = c.buildings.find(x => x.id === buildingId);
-    lat = b.latitude; lon = b.longitude;
-  } else {
-    const geo = await throttledGeocode(c.address, c.city, c.zip);
-    if (!geo.geo) { box.innerHTML = '<p class="empty-note">Could not locate that address.</p>'; return; }
-    lat = geo.geo.lat; lon = geo.geo.lon;
-  }
-
-  const candidate = { OrderID: 'candidate', BusinessName: c.businessName, Latitude: lat, Longitude: lon };
-  const best = await computeBestInsertion(routingDetourContext.stops, candidate);
-  if (!best) { box.innerHTML = '<p class="empty-note">Could not calculate that detour.</p>'; return; }
-  const added = Math.round(best.minutes - routingDetourContext.baseMinutes);
-  box.innerHTML = '<p class="order-meta"><b>' + esc(c.businessName) + '</b> would add about <b>' + added + ' min</b> of drive time to this route (best inserted at stop #' + (best.position + 1) + ' of ' + (routingDetourContext.stops.length + 1) + ').</p>';
-}
-
-async function computeBestInsertion(currentStops, candidate) {
-  let best = null;
-  for (let i = 0; i <= currentStops.length; i++) {
-    const seq = currentStops.slice(0, i).concat([candidate]).concat(currentStops.slice(i));
-    const route = await fetchOsrmRoute(seq);
-    if (route && (!best || route.minutes < best.minutes)) best = { minutes: route.minutes, position: i };
-  }
-  return best;
 }
 
 async function fetchOrderTimeEstimates(orderIds) {
