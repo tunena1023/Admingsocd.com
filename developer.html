@@ -220,6 +220,15 @@
     </div>
   </section>
 
+  <section id="techs-section" style="display:none">
+    <p class="section-title">Techs &amp; Roles</p>
+    <p class="section-sub">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
+    <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
+      <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+    </div>
+    <table class="staff-table" id="techs-table"><tbody></tbody></table>
+  </section>
+
   <section id="password-section" style="display:none">
     <p class="section-title">Operations Director Password</p>
     <p class="section-sub">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
@@ -355,10 +364,12 @@
 
     if (myRole === 'Developer') {
       document.getElementById('staff-section').style.display = 'block';
+      document.getElementById('techs-section').style.display = 'block';
       document.getElementById('password-section').style.display = 'block';
       document.getElementById('geocode-section').style.display = 'block';
       document.getElementById('debug-section').style.display = 'block';
       loadStaff();
+      loadTechs();
     }
 
     loadCatalogBrowse();
@@ -572,6 +583,66 @@
       renderStaff();
     } catch (e) {
       document.getElementById('staff-table').innerHTML = '<tr><td class="empty-note">Could not load staff: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  let allTechs = [];
+  async function loadTechs() {
+    try {
+      const res = await api('list-techs');
+      allTechs = res.techs || [];
+      renderTechs();
+    } catch (e) {
+      document.getElementById('techs-table').innerHTML = '<tr><td class="empty-note">Could not load techs: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderTechs() {
+    const q = (document.getElementById('techs-search').value || '').trim().toLowerCase();
+    const list = allTechs.filter(t => !q ||
+      (t.firstName + ' ' + t.lastName).toLowerCase().includes(q) ||
+      t.phone.toLowerCase().includes(q) ||
+      t.email.toLowerCase().includes(q)
+    );
+    const tbody = document.querySelector('#techs-table tbody');
+    if (!list.length) { tbody.innerHTML = '<tr><td class="empty-note">No techs match that search.</td></tr>'; return; }
+
+    const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors'];
+    tbody.innerHTML = list.map(t => `
+      <tr>
+        <td>
+          <div>${esc(t.firstName)} ${esc(t.lastName)}</div>
+          <div style="font-size:11px;color:var(--gray)">${esc(t.phone)}${t.email ? ' · ' + esc(t.email) : ''}</div>
+        </td>
+        <td class="role-cell">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : '<span style="color:#B06A2A">No payroll ID yet</span>'}</td>
+        <td>
+          <select onchange="updateTech('${t.id}','role',this.value)">
+            <option value="Employee" ${t.role === 'Employee' ? 'selected' : ''}>Employee</option>
+            <option value="Supervisor" ${t.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
+          </select>
+        </td>
+        <td>
+          <select onchange="updateTech('${t.id}','division',this.value)">
+            ${divisionOpts.map(d => '<option value="' + d + '"' + (t.division === d ? ' selected' : '') + '>' + (d || 'No division') + '</option>').join('')}
+          </select>
+        </td>
+        <td>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)">
+            <input type="checkbox" ${t.active ? 'checked' : ''} onchange="updateTech('${t.id}','active',this.checked)"> Active
+          </label>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function updateTech(techId, field, value) {
+    try {
+      await api('update-tech', { techId, [field]: value });
+      const t = allTechs.find(x => x.id === techId);
+      if (t) t[field] = value;
+      showToast('Saved.');
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      loadTechs();
     }
   }
 

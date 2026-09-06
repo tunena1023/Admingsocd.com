@@ -25,7 +25,7 @@ const {
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
-  CLIENT_ADDRESSES_LIST, geocodeAddress,
+  CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -730,6 +730,43 @@ exports.handler = async (event) => {
       } else {
         await createListItem(SETTINGS_LIST, { Title: key, Key: key, Value: value || '' });
       }
+      return jsonResponse(200, { success: true });
+    }
+
+    if (action === 'list-techs') {
+      const rows = await fetchAll(TECHS_LIST);
+      const techs = rows.filter(it => it.fields).map(it => ({
+        id: it.id,
+        firstName: it.fields.FirstName || '',
+        lastName: it.fields.LastName || '',
+        phone: it.fields.Phone || '',
+        email: it.fields.Email || '',
+        tempId: it.fields.TempID || '',
+        payrollId: it.fields.PayrollID || '',
+        role: it.fields.Role || 'Employee',
+        division: it.fields.Division || '',
+        active: it.fields.Active === undefined ? true : (it.fields.Active === true || it.fields.Active === 'true')
+      })).sort((a, b) => (a.firstName + a.lastName).localeCompare(b.firstName + b.lastName));
+      return jsonResponse(200, { techs });
+    }
+
+    if (action === 'update-tech') {
+      const techId = String(body.techId || '').trim();
+      if (!techId) return jsonResponse(400, { error: 'techId is required' });
+      const validRoles = ['Employee', 'Supervisor'];
+      const validDivisions = ['Janitorial', 'Renovations', 'Exteriors'];
+      const fields = {};
+      if (body.role !== undefined) {
+        if (validRoles.indexOf(body.role) === -1) return jsonResponse(400, { error: 'Invalid role.' });
+        fields.Role = body.role;
+      }
+      if (body.division !== undefined) {
+        if (body.division !== '' && validDivisions.indexOf(body.division) === -1) return jsonResponse(400, { error: 'Invalid division.' });
+        fields.Division = body.division;
+      }
+      if (body.active !== undefined) fields.Active = !!body.active;
+      if (!Object.keys(fields).length) return jsonResponse(400, { error: 'Nothing to update.' });
+      await updateListItemByItemId(TECHS_LIST, techId, fields);
       return jsonResponse(200, { success: true });
     }
 

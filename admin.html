@@ -457,7 +457,6 @@
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('assigned')">Assigned</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
-  <button class="tab" onclick="showTab('techs')">Techs</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
   <button class="tab" onclick="showTab('schedule')">Schedule</button>
   <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
@@ -570,16 +569,6 @@
     <div id="create-toolbar"></div>
     <div id="create-client-result"><p class="empty-note">Loading…</p></div>
   </div>
-</div>
-
-<!-- TECHS -->
-<div class="panel" id="panel-techs">
-  <h2 class="section-title">Techs</h2>
-  <p class="section-sub">Everyone who has registered on the tech portal. New accounts start as Employee with no division until assigned here.</p>
-  <div class="search-bar">
-    <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()">
-  </div>
-  <div id="techs-list"><p class="empty-note">Loading…</p></div>
 </div>
 
 <!-- SCHEDULE -->
@@ -808,12 +797,11 @@ function showTab(tab) {
      viejo (favorito, ?tab=create) todavia apunta al nombre anterior. */
   if (tab === 'create') { showTab('clients'); showClientsSubTab('create'); return; }
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','assigned','clients','techs', null, 'schedule'];
+    const tabs = ['approvals','review','active','history','assigned','clients', null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
-  if (tab === 'techs' && typeof loadTechs === 'function') loadTechs();
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
   if (tab === 'assigned' && typeof loadAssigned === 'function') loadAssigned();
 }
@@ -5976,68 +5964,6 @@ document.getElementById('routing-division-pills').querySelectorAll('.pill').forE
 ============================================================ */
 let assignedOverviewCache = [];
 let assignedDivisionFilter = '';
-
-/* ===== Techs (tech.gsocd.com) =====
-   Nadie se auto-asigna Rol ni Division al registrarse -- se hace
-   aqui. Cambios se guardan al instante (onchange), sin boton de
-   guardar aparte. */
-let techsCache = [];
-
-async function loadTechs() {
-  try {
-    const data = await api('/admin-get-techs', { method: 'POST', body: {} });
-    techsCache = data.techs || [];
-    renderTechs();
-  } catch (e) {
-    document.getElementById('techs-list').innerHTML = '<p class="empty-note">Could not load techs: ' + esc(e.message) + '</p>';
-  }
-}
-
-function renderTechs() {
-  const q = (document.getElementById('techs-search').value || '').trim().toLowerCase();
-  const list = techsCache.filter(t => !q ||
-    (t.firstName + ' ' + t.lastName).toLowerCase().includes(q) ||
-    t.phone.toLowerCase().includes(q) ||
-    t.email.toLowerCase().includes(q)
-  );
-  const box = document.getElementById('techs-list');
-  if (!list.length) { box.innerHTML = '<p class="empty-note">No techs match that search.</p>'; return; }
-
-  const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors'];
-  box.innerHTML = list.map(t => `
-    <div class="order-card">
-      <div class="order-card-header" style="cursor:default;align-items:center">
-        <div>
-          <div class="order-id">${esc(t.firstName)} ${esc(t.lastName)}</div>
-          <div class="order-meta">${esc(t.phone)}${t.email ? ' · ' + esc(t.email) : ''} · ${t.payrollId ? 'Payroll #' + esc(t.payrollId) : '<span style="color:#B06A2A">No payroll ID yet</span>'}</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <select onchange="updateTech('${t.id}','role',this.value)">
-            <option value="Employee" ${t.role === 'Employee' ? 'selected' : ''}>Employee</option>
-            <option value="Supervisor" ${t.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
-          </select>
-          <select onchange="updateTech('${t.id}','division',this.value)">
-            ${divisionOpts.map(d => '<option value="' + d + '"' + (t.division === d ? ' selected' : '') + '>' + (d || 'No division') + '</option>').join('')}
-          </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)">
-            <input type="checkbox" ${t.active ? 'checked' : ''} onchange="updateTech('${t.id}','active',this.checked)"> Active
-          </label>
-        </div>
-      </div>
-    </div>`).join('');
-}
-
-async function updateTech(techId, field, value) {
-  try {
-    await api('/admin-update-tech', { method: 'POST', body: { techId, [field]: value } });
-    const t = techsCache.find(x => x.id === techId);
-    if (t) t[field] = value;
-    showToast('Saved.');
-  } catch (e) {
-    showToast('Error: ' + e.message);
-    loadTechs();
-  }
-}
 
 async function loadAssigned() {
   const box = document.getElementById('assigned-list');
