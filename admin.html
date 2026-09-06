@@ -395,6 +395,12 @@
     .routing-time-overlay { position: absolute; top: 20px; left: 20px; right: 20px; z-index: 1000; background: rgba(17,17,17,0.92); color: #fff; padding: 14px 18px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
     .routing-time-overlay .rt-big { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
     .routing-time-overlay .rt-sub { font-size: 12px; color: #D8CFA8; margin-top: 2px; }
+    /* Globito fijo junto a cada pin numerado del mapa -- se ve
+       siempre, no nomas al pasar el mouse. Leaflet mete su propia
+       flechita/borde por default, se sobreescriben para que combine
+       con el resto (fondo negro, letra clara, sin la flechita rara). */
+    .leaflet-tooltip.routing-marker-label { background: rgba(17,17,17,0.92); color: #fff; border: none; border-radius: 3px; font-size: 11px; font-weight: 700; padding: 4px 8px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+    .leaflet-tooltip.routing-marker-label::before { display: none; }
     #routing-map { width: 100%; height: 100%; min-height: 460px; }
     /* Sin altura fija en el wrap -- align-items:stretch (default de
        flex) hace que el mapa siempre haga match con lo que mida la
@@ -5962,7 +5968,9 @@ function renderRoutingMap() {
         iconSize: [24, 24], iconAnchor: [12, 12]
       })
     }).addTo(routingMap);
-    marker.bindTooltip(s.name + (s.isCustomStop ? ' (added for testing)' : ''));
+    marker.bindTooltip((i + 1) + '. ' + s.name, {
+      permanent: true, direction: 'top', offset: [0, -14], className: 'routing-marker-label'
+    });
     routingSelectedMarkers.push(marker);
     bounds.push([s.lat, s.lon]);
   });
