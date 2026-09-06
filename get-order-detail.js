@@ -157,6 +157,7 @@ exports.handler = async (event) => {
         ServiceName: it.fields.ServiceName || '',
         SubOption:   it.fields.SubOption   || '',
         Division:    it.fields.Division    || order.Division,
+        Level:       it.fields.Level       || '',
         /* Columnas nuevas 28/08/2026: servicio no realizado + motivo */
         NotCompleted:       it.fields.NotCompleted === true
                             || String(it.fields.NotCompleted) === 'true',

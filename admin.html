@@ -61,6 +61,27 @@
     .svc-row-reason { display: none; margin-top: 6px; }
     .svc-row-reason.show { display: block; }
     .svc-row-reason input { width: 100%; font-size: 13px; padding: 6px 8px; }
+
+    /* Picker de Janitorial: fila completa + L1/L2/L3 al final, en vez
+       del grid de chips (que sigue siendo para Renovations/Exteriors).
+       Nombres distintos a .svc-row (esa ya es la lista "Selected for
+       this order" de Active, con otro estilo). */
+    .jan-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 3px; margin-bottom: 8px; background: var(--white); transition: border-color .15s, background .15s; }
+    .jan-row.selected { border-color: var(--gold); background: #FEFBF3; }
+    .jan-row-name { font-size: 13px; }
+    .lvl-group { display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; flex-shrink: 0; }
+    .lvl-btn { width: 34px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; background: var(--white); color: var(--gray); border-right: 1px solid var(--border); }
+    .lvl-btn:last-child { border-right: none; }
+    .lvl-btn.active { background: var(--gold); color: var(--black); }
+    .lvl-btn:hover:not(.active) { background: var(--bg); }
+
+    .svc-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .svc-toolbar .svc-search { flex: 1; min-width: 160px; margin-bottom: 0; }
+    .selall-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
+    .lvl-toggle3 { position: relative; display: flex; width: 180px; height: 34px; background: var(--border); border-radius: 17px; padding: 3px; flex-shrink: 0; }
+    .lvl-toggle3-thumb { position: absolute; top: 3px; left: 3px; width: calc(33.333% - 2px); height: calc(100% - 6px); background: var(--gold); border-radius: 14px; transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); opacity: 0; }
+    .lvl-toggle3-opt { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--gray); cursor: pointer; z-index: 1; transition: color .25s; }
+    .lvl-toggle3-opt.active { color: var(--black); }
     .svc-remove-btn { background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 3px 6px; }
 
     /* NAV */
@@ -1814,7 +1835,7 @@ function apprInferPropType(orderId, division) {
   for (const c of Object.keys(sel)) {
     for (const svcName in (sel[c] || {})) {
       const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division === division);
+      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division.toLowerCase() === String(division).toLowerCase());
       if (found) return found.propertyType;
     }
   }
@@ -1840,7 +1861,7 @@ function apprChipsHtml(orderId, division) {
   const propType = window['apprPropType_' + orderId] || 'Commercial';
   const sel = window['apprSvc_' + orderId] || {};
   const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  let list = (activeCatalogCache || []).filter(s => s.division === division && s.propertyType === propType);
+  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
   if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
@@ -3005,7 +3026,7 @@ function inferPropType(orderId, division) {
   for (const c of Object.keys(sel)) {
     for (const svcName in (sel[c] || {})) {
       const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division === division);
+      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division.toLowerCase() === String(division).toLowerCase());
       if (found) return found.propertyType;
     }
   }
@@ -3031,7 +3052,7 @@ function buildAdminChipsHtml(orderId, division) {
   const propType = window['adminPropType_' + orderId] || 'Residential';
   const sel = window['adminSvc_' + orderId] || {};
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  let list = (activeCatalogCache || []).filter(s => s.division === division && s.propertyType === propType);
+  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
   if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
@@ -4235,8 +4256,8 @@ function createOrderFormHtml() {
         <select id="create-division" onchange="loadCreateServices()">
           <option value="">Select division…</option>
           <option value="Janitorial">Janitorial</option>
-          <option value="renovations">Renovations</option>
-          <option value="exteriors">Exteriors</option>
+          <option value="Renovations">Renovations</option>
+          <option value="Exteriors">Exteriors</option>
         </select>
       </div>
       <div id="create-services-wrap" style="display:none">
@@ -4249,8 +4270,17 @@ function createOrderFormHtml() {
           </label>
           <span class="res-toggle-label">Residential</span>
         </div>
-        <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
-        <div class="svc-chip-grid" id="create-services-list"></div>
+        <div class="svc-toolbar">
+          <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
+          <span class="selall-label" id="create-selall-label" style="display:none">Select all</span>
+          <div class="lvl-toggle3" id="createSelAllToggle" style="display:none">
+            <div class="lvl-toggle3-thumb" id="createSelAllThumb"></div>
+            <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 1',0)">L1</div>
+            <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 2',1)">L2</div>
+            <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 3',2)">L3</div>
+          </div>
+        </div>
+        <div id="create-services-list"></div>
       </div>
 
       <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
@@ -4375,6 +4405,7 @@ function renumberCreateUnitCards() {
    chips -- nunca se muestra el SKU, solo el nombre. ===== */
 let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas una vez
 let createPropertyType = 'Commercial';
+let createSelAllActive = null;   // 0/1/2 = L1/L2/L3 activo arriba (solo Janitorial), null = nada
 
 async function loadCreateServices() {
   const div = document.getElementById('create-division').value;
@@ -4391,6 +4422,13 @@ async function loadCreateServices() {
   const cb = document.querySelector('#create-svc-toggle input[type=checkbox]');
   if (cb) cb.checked = false;
   document.getElementById('create-svc-search').value = '';
+  createSelAllActive = null;
+  const thumb = document.getElementById('createSelAllThumb');
+  if (thumb) thumb.style.opacity = '0';
+  document.querySelectorAll('#createSelAllToggle .lvl-toggle3-opt').forEach(el => el.classList.remove('active'));
+  const isJan = div.toLowerCase() === 'janitorial';
+  document.getElementById('create-selall-label').style.display = isJan ? '' : 'none';
+  document.getElementById('createSelAllToggle').style.display = isJan ? '' : 'none';
   wrap.style.display = 'block';
   renderCreateServiceChips();
 }
@@ -4400,21 +4438,42 @@ function setCreatePropertyType(type) {
   renderCreateServiceChips();
 }
 
+/* Janitorial se ve como filas con L1/L2/L3 al final; Renovations y
+   Exteriors se quedan como el grid de chips de siempre -- esos no se
+   miden por nivel. */
 function renderCreateServiceChips() {
-  const grid = document.getElementById('create-services-list');
+  const listBox = document.getElementById('create-services-list');
   const div = document.getElementById('create-division').value;
+  const isJan = div.toLowerCase() === 'janitorial';
   if (!createCatalogCache || !createCatalogCache.length) {
-    grid.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
+    listBox.className = '';
+    listBox.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
     return;
   }
   const q = (document.getElementById('create-svc-search').value || '').trim().toLowerCase();
-  let list = createCatalogCache.filter(s => s.division === div && s.propertyType === createPropertyType);
+  let list = createCatalogCache.filter(s => s.division.toLowerCase() === String(div).toLowerCase() && s.propertyType === createPropertyType);
   if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) { grid.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
-  grid.innerHTML = list.map(s =>
-    '<button type="button" class="svc-chip' + (createSelected.has(s.sku) ? ' active' : '') + '" onclick="toggleCreateChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
-  ).join('');
+  if (!list.length) { listBox.className = ''; listBox.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
+
+  if (isJan) {
+    listBox.className = '';
+    const levels = ['Level 1', 'Level 2', 'Level 3'];
+    listBox.innerHTML = list.map(s => {
+      const sel = createSelected.get(s.sku);
+      const lvl = sel ? sel.level : null;
+      return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
+        '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
+        '<div class="lvl-group">' +
+          levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickCreateLevel(\'' + s.sku.replace(/'/g, "\\'") + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+        '</div></div>';
+    }).join('');
+  } else {
+    listBox.className = 'svc-chip-grid';
+    listBox.innerHTML = list.map(s =>
+      '<button type="button" class="svc-chip' + (createSelected.has(s.sku) ? ' active' : '') + '" onclick="toggleCreateChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
+    ).join('');
+  }
 }
 
 function toggleCreateChip(sku) {
@@ -4427,22 +4486,55 @@ function toggleCreateChip(sku) {
   renderCreateServiceChips();
 }
 
+function pickCreateLevel(sku, level) {
+  const existing = createSelected.get(sku);
+  if (existing && existing.level === level) {
+    createSelected.delete(sku);
+  } else {
+    const svc = createCatalogCache.find(s => s.sku === sku);
+    if (svc) createSelected.set(sku, Object.assign({}, svc, { level }));
+  }
+  renderCreateServiceChips();
+}
+
+/* "Select all" de arriba (solo Janitorial) -- toggle redondito de 3
+   posiciones. Clic aplica ese nivel a todo lo visible (respeta el
+   buscador y el toggle Residential/Commercial); clic en la posicion
+   ya activa deshace la seleccion masiva. */
+function createSelectAllLevel(level, idx) {
+  const div = document.getElementById('create-division').value;
+  const q = (document.getElementById('create-svc-search').value || '').trim().toLowerCase();
+  const visible = createCatalogCache.filter(s =>
+    s.division.toLowerCase() === String(div).toLowerCase() && s.propertyType === createPropertyType &&
+    (!q || s.serviceName.toLowerCase().includes(q)));
+  const thumb = document.getElementById('createSelAllThumb');
+
+  if (createSelAllActive === idx) {
+    visible.forEach(s => createSelected.delete(s.sku));
+    createSelAllActive = null;
+    thumb.style.opacity = '0';
+  } else {
+    visible.forEach(s => createSelected.set(s.sku, Object.assign({}, s, { level })));
+    createSelAllActive = idx;
+    thumb.style.opacity = '1';
+    thumb.style.transform = 'translateX(' + (idx * 100) + '%)';
+  }
+  document.querySelectorAll('#createSelAllToggle .lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === createSelAllActive));
+  renderCreateServiceChips();
+}
+
 async function submitCreateOrder() {
   if (!createSelectedClient) { showToast('Select a client first.'); return; }
   const division = document.getElementById('create-division').value;
   if (!division) { showToast('Select a division.'); return; }
   /* El renglon guardado en OrderServices sigue usando los mismos 4
-     campos de siempre (Category/ServiceName/SubOption/Division) --
-     no se toco ese esquema para no tener que tocar tambien
-     submit-order.js, admin-update-order.js, admin-approve-order.js,
-     get-order-detail.js y admin-get-orders.js en este mismo paso.
-     Del catalogo nuevo: Category ahora lleva el PropertyType
-     (Residential/Commercial) y SubOption lleva el SKU, para no perder
-     ese dato -- Active/Approvals lo van a necesitar cuando les toque
-     su turno en la migracion. */
+     campos de siempre (Category/ServiceName/SubOption/Division), mas
+     el campo Level cuando aplica (solo Janitorial trae nivel).
+     Del catalogo nuevo: Category lleva el PropertyType
+     (Residential/Commercial) y SubOption lleva el SKU. */
   const services = [];
   createSelected.forEach((svc, sku) => {
-    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: division });
+    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: division, Level: svc.level || '' });
   });
   if (!services.length) { showToast('Select at least one service.'); return; }
 

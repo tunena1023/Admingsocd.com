@@ -115,7 +115,8 @@ function resolveServices(raw, division) {
       Category:    s.Category    || '',
       ServiceName: s.ServiceName || '',
       SubOption:   s.SubOption   || '',
-      Division:    s.Division    || division
+      Division:    s.Division    || division,
+      Level:       s.Level       || ''
     })).filter(s => s.Category || s.ServiceName);
   }
   return parseServicesString(raw, division);
@@ -592,7 +593,8 @@ exports.handler = async (event) => {
         Category:    s.Category,
         ServiceName: s.ServiceName,
         SubOption:   s.SubOption,
-        Division:    s.Division
+        Division:    s.Division,
+        Level:       s.Level || ''
       })
     ));
 
