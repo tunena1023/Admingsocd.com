@@ -396,6 +396,7 @@ exports.handler = async (event) => {
             ServiceName:        s.ServiceName || s.service  || '',
             SubOption:          s.SubOption   || s.subOption || '',
             Division:           s.Division    || (f.Division || ''),
+            Level:              s.Level       || s.level || '',
             NotCompleted:       truthy(s.NotCompleted),
             NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
           })
@@ -476,6 +477,7 @@ exports.handler = async (event) => {
             ServiceName:        s.ServiceName || s.service  || '',
             SubOption:          s.SubOption   || s.subOption || '',
             Division:           s.Division    || division,
+            Level:              s.Level       || s.level || '',
             NotCompleted:       truthy(s.NotCompleted),
             NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
           })

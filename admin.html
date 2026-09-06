@@ -1698,11 +1698,14 @@ function approvalDetailHtml(card, o, services, history) {
        catalogo (con categorias vacias incluidas) solo aparece al
        darle "Update", para cuando de verdad se va a cambiar algo. */
     const sel = {};
+    const levelSeed = {};
     services.forEach(s => {
       if (!sel[s.Category]) sel[s.Category] = {};
       sel[s.Category][s.ServiceName] = s.SubOption;
+      if (s.Level) levelSeed[ncKey(s.Category, s.ServiceName)] = s.Level;
     });
     window['apprSvc_' + card.OrderID] = sel;
+    window['apprLevel_' + card.OrderID] = levelSeed;
     window['apprDiv_' + card.OrderID] = o.Division || '';
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
     rows.push('<button type="button" class="btn btn-outline" style="margin-top:10px;padding:4px 12px;font-size:12px" '
@@ -1779,10 +1782,11 @@ function reviewSvcTableHtml(services) {
 ============================================================ */
 function apprServicesArray(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
+  const levelState = window['apprLevel_' + orderId] || {};
   const out = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      out.push({ Category: cat, ServiceName: svcName, SubOption: sub });
+      out.push({ Category: cat, ServiceName: svcName, SubOption: sub, Level: levelState[ncKey(cat, svcName)] || '' });
     });
   });
   return out;
@@ -1795,10 +1799,13 @@ function apprServicesArray(orderId) {
    recargar la tarjeta completa. */
 function apprReadOnlySvcHtml(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
+  const levelState = window['apprLevel_' + orderId] || {};
   const svcRows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub], i) => {
-      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: isCatalogSku(sub) ? '' : (sub || '') });
+      const lvl = levelState[ncKey(cat, svcName)];
+      const subTxt = isCatalogSku(sub) ? (lvl || '') : (sub || '');
+      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
@@ -1816,7 +1823,7 @@ function apprReadOnlySvcHtml(orderId) {
    darle "Update" -- por defecto solo se ve el resumen limpio de
    arriba, para no saturar la tarjeta. Mismo patron de Recurring/
    Create Order/Active: toggle Residential/Commercial + buscador +
-   chips, solo el nombre visible. */
+   chips (o filas+niveles en Janitorial), solo el nombre visible. */
 function toggleApprSvcUpdate(orderId, division) {
   const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
   const readonlyBox = document.getElementById(apprDomId(orderId) + '-svcreadonly');
@@ -1882,11 +1889,37 @@ function apprChipsHtml(orderId, division) {
   }).join('');
 }
 
+/* Filas + L1/L2/L3 -- solo Janitorial, mismo patron que Active/Create
+   Order/Recurring. apprLevel_<orderId> es el mapa aparte del nivel,
+   clave ncKey igual que en Active. */
+function apprJanRowsHtml(orderId, division) {
+  const propType = window['apprPropType_' + orderId] || 'Commercial';
+  const sel = window['apprSvc_' + orderId] || {};
+  const levelState = window['apprLevel_' + orderId] || {};
+  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
+  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  const levels = ['Level 1', 'Level 2', 'Level 3'];
+  return list.map(s => {
+    const isSel = (sel[propType] || {})[s.serviceName] === s.sku;
+    const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
+    return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
+      '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
+      '<div class="lvl-group">' +
+        levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickApprLevel(\'' +
+          jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+      '</div></div>';
+  }).join('');
+}
+
 function apprServiceEditorHtml(orderId, division) {
   if (window['apprPropType_' + orderId] === undefined) {
     window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
   const propType = window['apprPropType_' + orderId];
+  const isJan = String(division).toLowerCase() === 'janitorial';
   return apprLegacyNote(orderId) +
     `<div class="res-toggle-wrap" id="appr-svc-toggle-${orderId}">
       <span class="res-toggle-label">Commercial</span>
@@ -1896,8 +1929,19 @@ function apprServiceEditorHtml(orderId, division) {
       </label>
       <span class="res-toggle-label">Residential</span>
     </div>
-    <input type="text" class="svc-search" id="appr-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderApprChips('${jsStr(orderId)}')">
-    <div class="svc-chip-grid" id="appr-svc-grid-${orderId}">${apprChipsHtml(orderId, division)}</div>`;
+    <div class="svc-toolbar">
+      <input type="text" class="svc-search" id="appr-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderApprChips('${jsStr(orderId)}')">
+      <div class="svc-toolbar-selall" style="display:${isJan ? '' : 'none'}">
+        <span class="selall-label">Select all</span>
+        <div class="lvl-toggle3" id="apprSelAllToggle-${orderId}">
+          <div class="lvl-toggle3-thumb" id="apprSelAllThumb-${orderId}"></div>
+          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 1',0)">L1</div>
+          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 2',1)">L2</div>
+          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 3',2)">L3</div>
+        </div>
+      </div>
+    </div>
+    <div class="${isJan ? 'jan-row-grid' : 'svc-chip-grid'}" id="appr-svc-grid-${orderId}">${isJan ? apprJanRowsHtml(orderId, division) : apprChipsHtml(orderId, division)}</div>`;
 }
 
 function setApprPropType(orderId, type) {
@@ -1907,8 +1951,9 @@ function setApprPropType(orderId, type) {
 
 function rerenderApprChips(orderId) {
   const division = window['apprDiv_' + orderId] || '';
+  const isJan = String(division).toLowerCase() === 'janitorial';
   const grid = document.getElementById('appr-svc-grid-' + orderId);
-  if (grid) grid.innerHTML = apprChipsHtml(orderId, division);
+  if (grid) grid.innerHTML = isJan ? apprJanRowsHtml(orderId, division) : apprChipsHtml(orderId, division);
 }
 
 function toggleApprChip(orderId, propType, svcName, sku) {
@@ -1920,6 +1965,59 @@ function toggleApprChip(orderId, propType, svcName, sku) {
   } else {
     sel[propType][svcName] = sku;
   }
+  rerenderApprChips(orderId);
+}
+
+/* Janitorial: elegir un nivel selecciona el servicio a ese nivel de
+   una vez; clic en el nivel ya activo lo deselecciona por completo. */
+function pickApprLevel(orderId, propType, svcName, sku, level) {
+  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
+  const levelState = window['apprLevel_' + orderId] || (window['apprLevel_' + orderId] = {});
+  const k = ncKey(propType, svcName);
+  if (!sel[propType]) sel[propType] = {};
+  const already = sel[propType][svcName] === sku && levelState[k] === level;
+  if (already) {
+    delete sel[propType][svcName];
+    if (!Object.keys(sel[propType]).length) delete sel[propType];
+    delete levelState[k];
+  } else {
+    sel[propType][svcName] = sku;
+    levelState[k] = level;
+  }
+  rerenderApprChips(orderId);
+}
+
+/* "Select all" de arriba (solo Janitorial), un toggle por orden. */
+function apprSelectAllLevel(orderId, level, idx) {
+  const division = window['apprDiv_' + orderId] || '';
+  const propType = window['apprPropType_' + orderId] || 'Commercial';
+  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  const visible = (activeCatalogCache || []).filter(s =>
+    s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType &&
+    (!q || s.serviceName.toLowerCase().includes(q)));
+  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
+  const levelState = window['apprLevel_' + orderId] || (window['apprLevel_' + orderId] = {});
+  const activeKey = 'apprSelAllActive_' + orderId;
+  const thumb = document.getElementById('apprSelAllThumb-' + orderId);
+
+  if (window[activeKey] === idx) {
+    visible.forEach(s => {
+      if (sel[propType]) delete sel[propType][s.serviceName];
+      delete levelState[ncKey(propType, s.serviceName)];
+    });
+    window[activeKey] = null;
+    if (thumb) thumb.style.opacity = '0';
+  } else {
+    if (!sel[propType]) sel[propType] = {};
+    visible.forEach(s => {
+      sel[propType][s.serviceName] = s.sku;
+      levelState[ncKey(propType, s.serviceName)] = level;
+    });
+    window[activeKey] = idx;
+    if (thumb) { thumb.style.opacity = '1'; thumb.style.transform = 'translateX(' + (idx * 100) + '%)'; }
+  }
+  const toggleBox = document.getElementById('apprSelAllToggle-' + orderId);
+  if (toggleBox) toggleBox.querySelectorAll('.lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === window[activeKey]));
   rerenderApprChips(orderId);
 }
 
@@ -2721,6 +2819,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
   const adminNCInit = {};
+  const adminLevelInit = {};
   services.forEach(s => {
     if (!adminSvcSelected[s.Category]) adminSvcSelected[s.Category] = {};
     adminSvcSelected[s.Category][s.ServiceName] = s.SubOption;
@@ -2732,9 +2831,11 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     if (isNC || s.NotCompletedReason) {
       adminNCInit[ncKey(s.Category, s.ServiceName)] = { nc: isNC, reason: s.NotCompletedReason || '' };
     }
+    if (s.Level) adminLevelInit[ncKey(s.Category, s.ServiceName)] = s.Level;
   });
   window['adminSvc_' + o.OrderID] = adminSvcSelected;
   window['adminNC_' + o.OrderID] = adminNCInit;
+  window['adminLevel_' + o.OrderID] = adminLevelInit;
   /* Snapshot congelado de como estaban los servicios al abrir el editor.
      Se compara contra esto (nunca contra las fechas, que no aplican aqui)
      para decidir si el boton "Request Confirmation" debe verse. */
@@ -2744,6 +2845,10 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
      eso como algo que el cliente deba confirmar (Request Confirmation
      sigue dependiendo solo de adminSvcOriginal_, sin tocar). */
   window['adminNCOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminNCInit));
+  /* Snapshot del nivel (L1/L2/L3) al abrir el editor -- un cambio de
+     nivel SI cuenta como cambio de servicio real (svcSelectionChanged
+     ya lo incluye), a diferencia de Not Completed que es interno. */
+  window['adminLevelOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminLevelInit));
   window['adminDiv_' + o.OrderID] = o.Division || '';
   /* Snapshot de TODOS los campos editables (no solo servicios), para que
      "Save Changes" solo aparezca cuando de verdad hay algo que guardar
@@ -3059,7 +3164,7 @@ function buildAdminLegacyNote(orderId) {
 }
 
 function buildAdminChipsHtml(orderId, division) {
-  const propType = window['adminPropType_' + orderId] || 'Residential';
+  const propType = window['adminPropType_' + orderId] || 'Commercial';
   const sel = window['adminSvc_' + orderId] || {};
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
   let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
@@ -3073,9 +3178,36 @@ function buildAdminChipsHtml(orderId, division) {
   }).join('');
 }
 
+/* Filas + L1/L2/L3 -- solo cuando la division es Janitorial. Mismo
+   patron que Create Order/Recurring: el nivel se guarda aparte
+   (adminLevel_<orderId>, clave ncKey igual que Not Completed), la
+   estructura de seleccion (adminSvc_) no cambia. */
+function buildAdminJanRowsHtml(orderId, division) {
+  const propType = window['adminPropType_' + orderId] || 'Commercial';
+  const sel = window['adminSvc_' + orderId] || {};
+  const levelState = window['adminLevel_' + orderId] || {};
+  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
+  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  const levels = ['Level 1', 'Level 2', 'Level 3'];
+  return list.map(s => {
+    const isSel = (sel[propType] || {})[s.serviceName] === s.sku;
+    const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
+    return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
+      '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
+      '<div class="lvl-group">' +
+        levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickAdminLevel(\'' +
+          jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+      '</div></div>';
+  }).join('');
+}
+
 function buildAdminSelectedListHtml(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const ncState = window['adminNC_' + orderId] || {};
+  const levelState = window['adminLevel_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => rows.push({ cat, svcName, sub }));
@@ -3084,11 +3216,12 @@ function buildAdminSelectedListHtml(orderId) {
   const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
   return rows.map(r => {
     const st = ncState[ncKey(r.cat, r.svcName)] || { nc: false, reason: '' };
+    const lvl = levelState[ncKey(r.cat, r.svcName)];
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
     const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
     return `<div class="svc-row">
-      <b style="font-size:13px">${esc(r.svcName)}</b>
+      <b style="font-size:13px">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}</b>
       <div class="svc-row-nc">
         <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
           onchange="toggleNotCompleted('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this,'${rid}')">
@@ -3110,6 +3243,7 @@ function buildServiceRows(orderId, division) {
   if (!activeCatalogCache || !activeCatalogCache.length) {
     return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
   }
+  const isJan = String(division).toLowerCase() === 'janitorial';
   return buildAdminLegacyNote(orderId) +
     `<div class="res-toggle-wrap" id="admin-svc-toggle-${orderId}">
       <span class="res-toggle-label">Commercial</span>
@@ -3119,8 +3253,19 @@ function buildServiceRows(orderId, division) {
       </label>
       <span class="res-toggle-label">Residential</span>
     </div>
-    <input type="text" class="svc-search" id="admin-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderAdminServiceRows('${jsStr(orderId)}')">
-    <div class="svc-chip-grid" id="admin-svc-grid-${orderId}">${buildAdminChipsHtml(orderId, division)}</div>
+    <div class="svc-toolbar">
+      <input type="text" class="svc-search" id="admin-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderAdminServiceRows('${jsStr(orderId)}')">
+      <div class="svc-toolbar-selall" style="display:${isJan ? '' : 'none'}">
+        <span class="selall-label">Select all</span>
+        <div class="lvl-toggle3" id="adminSelAllToggle-${orderId}">
+          <div class="lvl-toggle3-thumb" id="adminSelAllThumb-${orderId}"></div>
+          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 1',0)">L1</div>
+          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 2',1)">L2</div>
+          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 3',2)">L3</div>
+        </div>
+      </div>
+    </div>
+    <div class="${isJan ? 'jan-row-grid' : 'svc-chip-grid'}" id="admin-svc-grid-${orderId}">${isJan ? buildAdminJanRowsHtml(orderId, division) : buildAdminChipsHtml(orderId, division)}</div>
     <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
     <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
 }
@@ -3132,8 +3277,9 @@ function setAdminPropType(orderId, type) {
 
 function rerenderAdminServiceRows(orderId) {
   const division = window['adminDiv_' + orderId] || '';
+  const isJan = String(division).toLowerCase() === 'janitorial';
   const grid = document.getElementById('admin-svc-grid-' + orderId);
-  if (grid) grid.innerHTML = buildAdminChipsHtml(orderId, division);
+  if (grid) grid.innerHTML = isJan ? buildAdminJanRowsHtml(orderId, division) : buildAdminChipsHtml(orderId, division);
 }
 
 function toggleAdminSvcChip(orderId, propType, svcName, sku) {
@@ -3154,6 +3300,73 @@ function toggleAdminSvcChip(orderId, propType, svcName, sku) {
   refreshSaveBtn(orderId);
 }
 
+/* Janitorial: elegir un nivel selecciona el servicio a ese nivel de
+   una vez (no hace falta elegir el servicio aparte); clic en el nivel
+   ya activo lo deselecciona por completo. */
+function pickAdminLevel(orderId, propType, svcName, sku, level) {
+  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+  const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
+  const k = ncKey(propType, svcName);
+  if (!sel[propType]) sel[propType] = {};
+  const already = sel[propType][svcName] === sku && levelState[k] === level;
+  if (already) {
+    delete sel[propType][svcName];
+    if (!Object.keys(sel[propType]).length) delete sel[propType];
+    delete levelState[k];
+    const ncState = window['adminNC_' + orderId] || {};
+    delete ncState[k];
+  } else {
+    sel[propType][svcName] = sku;
+    levelState[k] = level;
+  }
+  rerenderAdminServiceRows(orderId);
+  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
+  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+  refreshConfirmBtn(orderId);
+  refreshSaveBtn(orderId);
+}
+
+/* "Select all" de arriba (solo Janitorial) -- toggle redondito de 3
+   posiciones, uno por orden abierta. Clic aplica ese nivel a todo lo
+   visible (respeta buscador + toggle Residential/Commercial); clic en
+   la posicion ya activa deshace la seleccion masiva. */
+function adminSelectAllLevel(orderId, level, idx) {
+  const division = window['adminDiv_' + orderId] || '';
+  const propType = window['adminPropType_' + orderId] || 'Commercial';
+  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  const visible = (activeCatalogCache || []).filter(s =>
+    s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType &&
+    (!q || s.serviceName.toLowerCase().includes(q)));
+  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+  const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
+  const activeKey = 'adminSelAllActive_' + orderId;
+  const thumb = document.getElementById('adminSelAllThumb-' + orderId);
+
+  if (window[activeKey] === idx) {
+    visible.forEach(s => {
+      if (sel[propType]) delete sel[propType][s.serviceName];
+      delete levelState[ncKey(propType, s.serviceName)];
+    });
+    window[activeKey] = null;
+    if (thumb) thumb.style.opacity = '0';
+  } else {
+    if (!sel[propType]) sel[propType] = {};
+    visible.forEach(s => {
+      sel[propType][s.serviceName] = s.sku;
+      levelState[ncKey(propType, s.serviceName)] = level;
+    });
+    window[activeKey] = idx;
+    if (thumb) { thumb.style.opacity = '1'; thumb.style.transform = 'translateX(' + (idx * 100) + '%)'; }
+  }
+  const toggleBox = document.getElementById('adminSelAllToggle-' + orderId);
+  if (toggleBox) toggleBox.querySelectorAll('.lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === window[activeKey]));
+  rerenderAdminServiceRows(orderId);
+  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
+  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+  refreshConfirmBtn(orderId);
+  refreshSaveBtn(orderId);
+}
+
 /* Muestra/oculta "Request Confirmation" segun si los servicios
    seleccionados ahora mismo son distintos a los que tenia la orden al
    abrir el editor. Las fechas nunca activan este boton (el cliente ya
@@ -3162,7 +3375,10 @@ function toggleAdminSvcChip(orderId, propType, svcName, sku) {
 function svcSelectionChanged(orderId) {
   const now  = window['adminSvc_' + orderId] || {};
   const orig = window['adminSvcOriginal_' + orderId] || {};
-  return JSON.stringify(normalizeSvcSel(now)) !== JSON.stringify(normalizeSvcSel(orig));
+  const levelNow  = window['adminLevel_' + orderId] || {};
+  const levelOrig = window['adminLevelOriginal_' + orderId] || {};
+  return JSON.stringify(normalizeSvcSel(now)) !== JSON.stringify(normalizeSvcSel(orig)) ||
+    JSON.stringify(levelNow) !== JSON.stringify(levelOrig);
 }
 
 /* Ordena categorias y servicios para que la comparacion de JSON no
@@ -3266,12 +3482,14 @@ function buildServicesPayload(orderId) {
   if (!sel) return null;
   const division = window['adminDiv_' + orderId] || '';
   const ncState = window['adminNC_' + orderId] || {};
+  const levelState = window['adminLevel_' + orderId] || {};
   const services = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, subOption]) => {
       const st = ncState[ncKey(cat, svcName)] || { nc: false, reason: '' };
       services.push({
         Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
+        Level: levelState[ncKey(cat, svcName)] || '',
         NotCompleted: !!st.nc,
         NotCompletedReason: st.nc ? (st.reason || '') : ''
       });

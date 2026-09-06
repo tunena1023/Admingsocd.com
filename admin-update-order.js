@@ -77,6 +77,7 @@ function serviceMap(list) {
   (list || []).forEach(s => {
     m[(s.Category || '') + '|' + (s.ServiceName || '')] = JSON.stringify({
       o: s.SubOption || '',
+      l: s.Level || '',
       n: truthy(s.NotCompleted),
       r: s.NotCompletedReason || ''
     });
@@ -100,6 +101,7 @@ function snapshotServices(svcRows, division) {
     ServiceName:        it.fields.ServiceName || '',
     SubOption:          it.fields.SubOption   || '',
     Division:           it.fields.Division    || division,
+    Level:              it.fields.Level       || '',
     NotCompleted:       truthy(it.fields.NotCompleted),
     NotCompletedReason: it.fields.NotCompletedReason || ''
   }));
@@ -198,6 +200,7 @@ exports.handler = async (event) => {
             ServiceName:        s.ServiceName || '',
             SubOption:          s.SubOption   || '',
             Division:           s.Division    || division,
+            Level:              s.Level       || '',
             NotCompleted:       truthy(s.NotCompleted),
             NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
           })
@@ -365,6 +368,7 @@ exports.handler = async (event) => {
           ServiceName:        s.ServiceName || '',
           SubOption:          s.SubOption   || '',
           Division:           s.Division    || division,
+          Level:              s.Level       || '',
           NotCompleted:       truthy(s.NotCompleted),
           NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
         })
