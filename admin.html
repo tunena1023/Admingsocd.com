@@ -453,8 +453,6 @@
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('assigned')">Assigned</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
-  <button class="tab" onclick="showTab('create')">Create Order</button>
-  <button class="tab" onclick="location.href='recurring.html'">Recurring</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
   <button class="tab" onclick="showTab('schedule')">Schedule</button>
   <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
@@ -527,40 +525,46 @@
 <!-- CLIENTS -->
 <div class="panel" id="panel-clients">
   <h2 class="section-title">Clients</h2>
-  <div class="search-bar">
-    <input type="text" id="client-search" placeholder="Search by name, ID or email…" oninput="filterClients()">
-    <button class="btn btn-gold" onclick="showAddClient()">+ Add Client</button>
+  <div class="subtabs">
+    <button class="subtab clients-subtab active" data-clientstab="list" onclick="showClientsSubTab('list')">Clients</button>
+    <button class="subtab clients-subtab" data-clientstab="create" onclick="showClientsSubTab('create')">Create Order</button>
+    <button class="subtab clients-subtab" data-clientstab="recurring" onclick="location.href='recurring.html'">Recurring</button>
   </div>
-  <div id="add-client-form" style="display:none;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:20px">
-    <p class="detail-label" style="margin-bottom:16px">New Client</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="field-group"><label>Business Name</label><input type="text" id="new-business"></div>
-      <div class="field-group"><label>Contact Person</label><input type="text" id="new-contact"></div>
-      <div class="field-group"><label>Email</label><input type="text" id="new-email"></div>
-      <div class="field-group"><label>Phone</label><input type="text" id="new-phone"></div>
-      <div class="field-group"><label>Address</label><input type="text" id="new-address"></div>
-      <div class="field-group"><label>Suite (optional)</label><input type="text" id="new-suite"></div>
-      <div class="field-group"><label>City</label><input type="text" id="new-city"></div>
-      <div class="field-group"><label>Zip</label><input type="text" id="new-zip"></div>
-    </div>
-    <div class="btn-actions">
-      <button class="btn btn-gold" onclick="saveNewClient()">Save Client</button>
-      <button class="btn btn-outline" onclick="showAddClient()">Cancel</button>
-    </div>
-    <p id="new-client-error" style="font-size:12px;color:var(--red);margin-top:8px"></p>
-  </div>
-  <div id="client-list"><p class="empty-note">Loading…</p></div>
-</div>
 
-<!-- CREATE -->
-<div class="panel" id="panel-create">
-  <h2 class="section-title">Create Order</h2>
-  <p class="section-sub">Find a client, click "+ Add Order" and fill in the new order.</p>
-  <div class="search-bar">
-    <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="renderCreateClientList()">
+  <div class="subpanel clients-subpanel active" id="clientssub-list">
+    <div class="search-bar">
+      <input type="text" id="client-search" placeholder="Search by name, ID or email…" oninput="filterClients()">
+      <button class="btn btn-gold" onclick="showAddClient()">+ Add Client</button>
+    </div>
+    <div id="add-client-form" style="display:none;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:20px">
+      <p class="detail-label" style="margin-bottom:16px">New Client</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="field-group"><label>Business Name</label><input type="text" id="new-business"></div>
+        <div class="field-group"><label>Contact Person</label><input type="text" id="new-contact"></div>
+        <div class="field-group"><label>Email</label><input type="text" id="new-email"></div>
+        <div class="field-group"><label>Phone</label><input type="text" id="new-phone"></div>
+        <div class="field-group"><label>Address</label><input type="text" id="new-address"></div>
+        <div class="field-group"><label>Suite (optional)</label><input type="text" id="new-suite"></div>
+        <div class="field-group"><label>City</label><input type="text" id="new-city"></div>
+        <div class="field-group"><label>Zip</label><input type="text" id="new-zip"></div>
+      </div>
+      <div class="btn-actions">
+        <button class="btn btn-gold" onclick="saveNewClient()">Save Client</button>
+        <button class="btn btn-outline" onclick="showAddClient()">Cancel</button>
+      </div>
+      <p id="new-client-error" style="font-size:12px;color:var(--red);margin-top:8px"></p>
+    </div>
+    <div id="client-list"><p class="empty-note">Loading…</p></div>
   </div>
-  <div id="create-toolbar"></div>
-  <div id="create-client-result"><p class="empty-note">Loading…</p></div>
+
+  <div class="subpanel clients-subpanel" id="clientssub-create">
+    <p class="section-sub">Find a client, click "+ Add Order" and fill in the new order.</p>
+    <div class="search-bar">
+      <input type="text" id="create-client-search" placeholder="Search client by name, ID or email…" oninput="renderCreateClientList()">
+    </div>
+    <div id="create-toolbar"></div>
+    <div id="create-client-result"><p class="empty-note">Loading…</p></div>
+  </div>
 </div>
 
 <!-- SCHEDULE -->
@@ -784,15 +788,29 @@ let createUnitCardCounter = 0;
    TABS
 ============================================================ */
 function showTab(tab) {
+  /* 'create' ya no es un tab de primer nivel -- ahora vive como
+     sub-tab dentro de Clients. Se redirige aqui por si algun link
+     viejo (favorito, ?tab=create) todavia apunta al nombre anterior. */
+  if (tab === 'create') { showTab('clients'); showClientsSubTab('create'); return; }
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','assigned','clients','create', null, null, 'schedule'];
+    const tabs = ['approvals','review','active','history','assigned','clients', null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
-  if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
   if (tab === 'assigned' && typeof loadAssigned === 'function') loadAssigned();
+}
+
+/* Sub-tabs de Clients (Clients / Create Order) -- namespaced con sus
+   propias clases (clients-subtab / clients-subpanel) para no chocar
+   con el mismo mecanismo que ya usa Schedule (.subtab / .subpanel a
+   secas). 'Recurring' no entra aqui: es solo un link a recurring.html,
+   nunca cambia de sub-panel. */
+function showClientsSubTab(tab) {
+  document.querySelectorAll('.clients-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.clientstab === tab));
+  document.querySelectorAll('.clients-subpanel').forEach(p => p.classList.toggle('active', p.id === 'clientssub-' + tab));
+  if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
 }
 
 /* ============================================================
@@ -4963,8 +4981,8 @@ function goToScheduleForOrder(orderId) {
 let pendingDirectLinkOrderId = null;
 
   function showSubTab(tab) {
-    document.querySelectorAll('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
-    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
+    document.querySelectorAll('#panel-schedule .subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('#panel-schedule .subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
     if (tab === 'reports') loadUploadHistory();
     if (tab === 'hours') loadHoursOverview();
     if (tab === 'orders') loadOrdersQueue();
@@ -5498,7 +5516,7 @@ let pendingDirectLinkOrderId = null;
       await api('/admin-update-order', {
         body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
       });
-      const activeTab = document.querySelector('.subtab.active');
+      const activeTab = document.querySelector('#panel-schedule .subtab.active');
       if (activeTab && activeTab.dataset.tab === 'review') loadReview();
       else loadOrdersQueue();
     } catch (e) {
