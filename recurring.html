@@ -42,6 +42,15 @@
   .svc-cat-body { border:1px solid var(--border); border-top:none; padding:12px 14px; font-size:12px; display:none; }
   .svc-cat-body.open { display:block; }
   .svc-cat-body label { display:block; margin-bottom:6px; font-weight:400; text-transform:none; letter-spacing:normal; color:var(--black); font-size:12px; }
+
+  .pill-row { display:flex; gap:8px; margin-bottom:12px; }
+  .pill { padding:7px 14px; border:1px solid var(--border); font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; background:var(--white); color:var(--gray); font-family:Arial, sans-serif; }
+  .pill.active { background:var(--gold); color:var(--black); border-color:var(--gold); }
+  .svc-search { width:100%; max-width:280px; padding:8px 10px; border:1px solid var(--border); font-size:12px; margin-bottom:12px; font-family:Arial, sans-serif; display:block; }
+  .svc-chip-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .svc-chip { border:1px solid var(--border); background:var(--white); padding:10px 12px; font-size:12px; text-align:left; cursor:pointer; border-radius:2px; font-family:Arial, sans-serif; color:var(--black); }
+  .svc-chip.active { background:var(--gold); border-color:var(--gold); font-weight:700; }
+  @media (max-width:640px) { .svc-chip-grid { grid-template-columns:1fr; } }
   .add-more-link { font-size:11px; color:#8C6F2A; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:.04em; display:inline-block; margin:8px 0 4px; }
 
   .assign-row { display:grid; grid-template-columns:1fr 100px 32px; gap:10px; margin-bottom:8px; align-items:end; }
@@ -114,7 +123,15 @@
       <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
       <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
     </div>
-    <div id="svc-area" style="display:none;margin-bottom:16px"></div>
+    <div id="svc-area" style="display:none;margin-bottom:16px">
+      <div class="pill-row" id="rc-svc-toggle">
+        <button type="button" class="pill active" data-type="Residential" onclick="setSvcPropertyType('Residential')">Residential</button>
+        <button type="button" class="pill" data-type="Commercial" onclick="setSvcPropertyType('Commercial')">Commercial</button>
+      </div>
+      <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
+      <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
+      <div class="svc-chip-grid" id="svc-chip-grid"></div>
+    </div>
 
     <div class="field-row">
       <div class="field-group">
@@ -204,64 +221,88 @@
     wrap.appendChild(row);
   }
 
-  /* ===== Services accordion (mismo catalogo, categorias = cuartos/areas) ===== */
-  function renderServiceCategories() {
-    const area = document.getElementById('svc-area');
-    if (!servicesCache || !servicesCache.Janitorial) { area.innerHTML = '<p class="empty-note">No services found.</p>'; return; }
-    const cats = servicesCache.Janitorial.categories || {};
-    area.innerHTML = Object.keys(cats).map(cat => {
-      const rows = cats[cat].map(s => {
-        const subsHtml = (s.subs || []).map(sub =>
-          '<label><input type="checkbox" class="svc-check" data-cat="' + escAttr(cat) + '" data-name="' + escAttr(s.name) + '" data-sub="' + escAttr(sub) + '" style="width:auto;margin-right:6px">' + esc(s.name) + (sub ? ' — ' + esc(sub) : '') + '</label>'
-        ).join('');
-        return subsHtml;
-      }).join('');
-      return '<div class="svc-cat-header" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span>' + esc(cat) + '</span><span>▾</span></div>' +
-             '<div class="svc-cat-body">' + rows + '</div>';
-    }).join('');
+  /* ===== Services (catalogo nuevo ServicesCatalog -- division fija en
+     Janitorial porque Recurring nunca es de otra division, toggle
+     Residential/Commercial + buscador + chips, solo el nombre visible,
+     el SKU nunca se muestra) ===== */
+  let rcPropertyType = 'Residential';
+  let rcSelectedSkus = new Set();
+  let rcServiceNameBySku = {};
+
+  function setSvcPropertyType(type) {
+    rcPropertyType = type;
+    document.querySelectorAll('#rc-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+    renderServiceChips();
+  }
+
+  function renderServiceChips() {
+    const grid = document.getElementById('svc-chip-grid');
+    if (!servicesCache || !servicesCache.length) {
+      grid.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
+      return;
+    }
+    const q = (document.getElementById('rc-svc-search').value || '').trim().toLowerCase();
+    let list = servicesCache.filter(s => s.propertyType === rcPropertyType);
+    if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+    list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    if (!list.length) { grid.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
+    grid.innerHTML = list.map(s =>
+      '<button type="button" class="svc-chip' + (rcSelectedSkus.has(s.sku) ? ' active' : '') + '" onclick="toggleSvcChip(\'' + escAttr(s.sku) + '\')">' + esc(s.serviceName) + '</button>'
+    ).join('');
+  }
+
+  function toggleSvcChip(sku) {
+    if (rcSelectedSkus.has(sku)) rcSelectedSkus.delete(sku); else rcSelectedSkus.add(sku);
+    renderServiceChips();
   }
 
   function collectSelectedServices() {
-    return Array.from(document.querySelectorAll('.svc-check:checked')).map(c => ({
-      category: c.dataset.cat, name: c.dataset.name, sub: c.dataset.sub
-    }));
+    return Array.from(rcSelectedSkus).map(sku => ({ sku, serviceName: rcServiceNameBySku[sku] || sku }));
   }
 
-  /* Marca los checkboxes que ya estaban guardados (para Edit) y abre
-     las categorias correspondientes para que se vean sin tener que
-     buscarlas una por una. */
+  /* Marca los chips que ya estaban guardados (para Edit). Si el
+     renglon guardado es del formato viejo (por cuarto: category/name/sub,
+     sin sku), no se puede mapear a un chip -- se avisa con la nota y no
+     se pierde nada mientras no se le de Save de nuevo a este contrato. */
   function applySelectedServices(servicesJson) {
-    document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
-    document.querySelectorAll('.svc-cat-body').forEach(b => b.classList.remove('open'));
+    rcSelectedSkus = new Set();
     let services = [];
     try { services = JSON.parse(servicesJson || '[]'); } catch (e) {}
+    let hasLegacy = false;
+    let firstType = null;
     services.forEach(s => {
-      const sel = '.svc-check[data-cat="' + CSS.escape(s.category || '') + '"][data-name="' + CSS.escape(s.name || '') + '"][data-sub="' + CSS.escape(s.sub || '') + '"]';
-      const check = document.querySelector(sel);
-      if (check) {
-        check.checked = true;
-        const body = check.closest('.svc-cat-body');
-        if (body) body.classList.add('open');
+      if (s && s.sku) {
+        rcSelectedSkus.add(s.sku);
+        if (!firstType) {
+          const found = servicesCache.find(c => c.sku === s.sku);
+          if (found) firstType = found.propertyType;
+        }
+      } else {
+        hasLegacy = true;
       }
     });
+    document.getElementById('rc-svc-legacy-note').style.display = hasLegacy ? 'block' : 'none';
+    setSvcPropertyType(firstType || 'Residential');
   }
 
   /* ===== Cargar datos iniciales ===== */
   async function loadInitialData() {
     try {
-      const [clientsRes, servicesRes, employeesRes] = await Promise.all([
+      const [clientsRes, catalogRes, employeesRes] = await Promise.all([
         api('/admin-get-clients', { body: {} }),
-        api('/get-services', { body: {} }),
+        api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }),
         api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
       ]);
       clientsCache = clientsRes.clients || [];
-      servicesCache = servicesRes;
+      servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
+      rcServiceNameBySku = {};
+      servicesCache.forEach(s => { rcServiceNameBySku[s.sku] = s.serviceName; });
       employeesCache = employeesRes.employees || [];
 
       document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
 
-      renderServiceCategories();
+      renderServiceChips();
       addAssignRow();
       loadRecurringList();
     } catch (e) {
