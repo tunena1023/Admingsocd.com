@@ -32,7 +32,7 @@
       text-decoration: none;
     }
 
-    .wrap { max-width: 840px; margin: 0 auto; padding: 40px 24px 80px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
     .stub-wrap { max-width: 640px; margin: 90px auto; padding: 0 24px; text-align: center; }
     .stub-icon { font-size: 40px; margin-bottom: 20px; }
     .stub-wrap h1 { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; }
@@ -44,6 +44,20 @@
     section { margin-bottom: 44px; }
     .section-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gray); margin-bottom: 6px; }
     .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 18px; }
+    /* Menu lateral -- reemplaza la lista plana de secciones apiladas.
+       Solo se ve una categoria a la vez del lado derecho. */
+    .dev-layout { display: flex; gap: 32px; align-items: flex-start; }
+    .dev-sidebar { width: 180px; flex-shrink: 0; position: sticky; top: 24px; }
+    .dev-side-item { padding: 11px 16px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--gray); border-left: 3px solid transparent; border-radius: 0 3px 3px 0; }
+    .dev-side-item:hover { background: var(--bg); }
+    .dev-side-item.active { color: var(--black); border-left-color: var(--gold); background: rgba(201,168,76,0.08); }
+    .dev-content { flex: 1; min-width: 0; }
+    @media (max-width: 700px) {
+      .dev-layout { flex-direction: column; }
+      .dev-sidebar { width: 100%; position: static; display: flex; overflow-x: auto; gap: 4px; }
+      .dev-side-item { flex-shrink: 0; border-left: none; border-bottom: 3px solid transparent; white-space: nowrap; }
+      .dev-side-item.active { border-left-color: transparent; border-bottom-color: var(--gold); }
+    }
     /* Traido de admin.html junto con Reports -- mismo lenguaje visual */
     .upload-card { border: 1px solid var(--border); background: var(--white); padding: 24px; margin-bottom: 16px; }
     .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
@@ -200,7 +214,16 @@
   <h1 class="page-title">Developer</h1>
   <p class="role-note" id="role-note"></p>
 
-  <section id="import-section" style="display:none">
+  <div class="dev-layout">
+    <div class="dev-sidebar" id="dev-sidebar">
+      <div class="dev-side-item active" data-cat="services" onclick="switchDevCategory('services')">Services</div>
+      <div class="dev-side-item" data-cat="customers" onclick="switchDevCategory('customers')">Customers</div>
+      <div class="dev-side-item" data-cat="reports" onclick="switchDevCategory('reports')">Reports</div>
+      <div class="dev-side-item" data-cat="settings" onclick="switchDevCategory('settings')">Settings</div>
+    </div>
+    <div class="dev-content" id="dev-content">
+
+  <section id="import-section" data-category="services" style="display:none">
     <p class="section-title">Import from QuickBooks</p>
     <p class="section-sub">
       Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
@@ -215,14 +238,14 @@
     <div id="catalog-preview"></div>
   </section>
 
-  <section id="browse-section">
+  <section id="browse-section" data-category="services">
     <p class="section-title">Service Catalog</p>
     <p class="section-sub" id="browse-sub">Loading…</p>
     <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
     <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
   </section>
 
-  <section id="staff-section" style="display:none">
+  <section id="staff-section" data-category="settings" style="display:none">
     <p class="section-title">Staff &amp; Roles</p>
     <p class="section-sub">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
     <table class="staff-table" id="staff-table"><tbody></tbody></table>
@@ -231,7 +254,7 @@
     </div>
   </section>
 
-  <section id="techs-section" style="display:none">
+  <section id="techs-section" data-category="settings" style="display:none">
     <p class="section-title">Techs &amp; Roles</p>
     <p class="section-sub">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
     <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
@@ -240,7 +263,7 @@
     <table class="staff-table" id="techs-table"><tbody></tbody></table>
   </section>
 
-  <section id="service-times-section" style="display:none">
+  <section id="service-times-section" data-category="services" style="display:none">
     <p class="section-title">Service Times</p>
     <p class="section-sub">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
@@ -254,7 +277,7 @@
     </table>
   </section>
 
-  <section id="password-section" style="display:none">
+  <section id="password-section" data-category="settings" style="display:none">
     <p class="section-title">Operations Director Password</p>
     <p class="section-sub">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
     <div class="field-row" style="max-width:440px">
@@ -268,7 +291,7 @@
     </div>
   </section>
 
-  <section id="reports-section" style="display:none">
+  <section id="reports-section" data-category="reports" style="display:none">
     <p class="section-title">Reports</p>
     <div class="upload-card">
       <h3>Employee Report</h3>
@@ -303,7 +326,7 @@
     </div>
   </section>
 
-  <section id="bulk-clients-section" style="display:none">
+  <section id="bulk-clients-section" data-category="customers" style="display:none">
     <p class="section-title">Bulk Import Clients</p>
     <p class="section-sub">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
     <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
@@ -312,7 +335,7 @@
     <div id="bulk-clients-preview" style="margin-top:16px"></div>
   </section>
 
-  <section id="geocode-section" style="display:none">
+  <section id="geocode-section" data-category="settings" style="display:none">
     <p class="section-title">Scheduling — Building Coordinates</p>
     <p class="section-sub">One-time backfill: resolves Latitude/Longitude (via Nominatim/OpenStreetMap, free) for any saved building that doesn't have them yet. New buildings created from now on geocode themselves automatically — this is only for the ones that already existed before that.</p>
     <div class="btn-actions">
@@ -321,13 +344,16 @@
     <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
   </section>
 
-  <section id="debug-section" style="display:none;border:1px solid #B33A3A;padding:20px;background:#FFF5F5">
+  <section id="debug-section" data-category="settings" style="display:none;border:1px solid #B33A3A;padding:20px;background:#FFF5F5">
     <p class="section-title" style="color:#B33A3A">⚠ Debug — Wipe Test Data</p>
     <p class="section-sub">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
     <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
     <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
     <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
   </section>
+
+    </div>
+  </div>
 </div>
 
 <div id="staff-modal-overlay" class="modal-overlay" style="display:none">
@@ -419,23 +445,36 @@
 
     const canEdit = myRole === 'Director' || myRole === 'Developer';
     canEditCatalog = canEdit;
-    if (canEdit) document.getElementById('import-section').style.display = 'block';
-    if (canEdit) document.getElementById('bulk-clients-section').style.display = 'block';
-    if (canEdit) document.getElementById('reports-section').style.display = 'block';
+    document.getElementById('browse-section').classList.add('role-eligible');
+    if (canEdit) {
+      document.getElementById('import-section').classList.add('role-eligible');
+      document.getElementById('bulk-clients-section').classList.add('role-eligible');
+      document.getElementById('reports-section').classList.add('role-eligible');
+    }
 
     if (myRole === 'Developer') {
-      document.getElementById('staff-section').style.display = 'block';
-      document.getElementById('techs-section').style.display = 'block';
-      document.getElementById('service-times-section').style.display = 'block';
-      document.getElementById('password-section').style.display = 'block';
-      document.getElementById('geocode-section').style.display = 'block';
-      document.getElementById('debug-section').style.display = 'block';
+      ['staff-section', 'techs-section', 'service-times-section', 'password-section', 'geocode-section', 'debug-section']
+        .forEach(id => document.getElementById(id).classList.add('role-eligible'));
       loadStaff();
       loadTechs();
       loadServiceTimes();
     }
 
     loadCatalogBrowse();
+    switchDevCategory('services');
+  }
+
+  /* Menu lateral -- solo se ve una categoria a la vez. Una seccion
+     se muestra si su categoria coincide CON la seleccionada Y es
+     elegible para el rol de quien esta viendo la pagina (las 2
+     condiciones, no solo una). */
+  function switchDevCategory(cat) {
+    document.querySelectorAll('.dev-side-item').forEach(item => item.classList.toggle('active', item.dataset.cat === cat));
+    document.querySelectorAll('#dev-content > section').forEach(sec => {
+      const matches = sec.dataset.category === cat;
+      const eligible = sec.classList.contains('role-eligible');
+      sec.style.display = (matches && eligible) ? 'block' : 'none';
+    });
   }
 
   /* ============================================================
