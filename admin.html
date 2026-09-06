@@ -1667,7 +1667,7 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
     rows.push('<button type="button" class="btn btn-outline" style="margin-top:10px;padding:4px 12px;font-size:12px" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
-    rows.push('<div id="' + dom + '-svceditor" class="svc-cols" style="display:none;margin-top:12px"></div>');
+    rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
     rows.push(reviewSvcTableHtml(services));
   }
@@ -1696,13 +1696,24 @@ function approvalDetailHtml(card, o, services, history) {
    necesita verlos de una vez para decidir, no esconderlos). Mismo
    formato que Active/History/Approvals para que se lea igual en
    cualquier pantalla del sistema. */
+function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+/* Un SubOption que coincide con un SKU real del catalogo nuevo es
+   puramente interno -- nunca se le muestra el codigo al staff en las
+   tablas de solo lectura, solo el nombre del servicio (que ya viaja
+   aparte en ServiceName). Las ordenes viejas en formato por-cuarto
+   siguen mostrando su SubOption real (texto legible) sin cambio. */
+function isCatalogSku(sub) {
+  return (activeCatalogCache || []).some(s => s.sku === sub);
+}
+
 function reviewSvcTableHtml(services) {
   if (!services.length) return '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
   const byCat = {};
   services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: s.SubOption || '', nc: s }));
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), nc: s }));
   });
   return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">' +
     '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -1747,7 +1758,7 @@ function apprReadOnlySvcHtml(orderId) {
   const svcRows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub], i) => {
-      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: sub || '' });
+      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: isCatalogSku(sub) ? '' : (sub || '') });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
@@ -1761,16 +1772,17 @@ function apprReadOnlySvcHtml(orderId) {
     '</table></div>';
 }
 
-/* El acordeon completo del catalogo (con categorias vacias incluidas)
-   solo se carga y se muestra al darle "Update" -- por defecto solo se
-   ve el resumen limpio de arriba, para no saturar la tarjeta con
-   categorias que la orden ni siquiera toco. */
-async function toggleApprSvcUpdate(orderId, division) {
+/* El picker completo del catalogo nuevo solo se carga y se muestra al
+   darle "Update" -- por defecto solo se ve el resumen limpio de
+   arriba, para no saturar la tarjeta. Mismo patron de Recurring/
+   Create Order/Active: toggle Residential/Commercial + buscador +
+   chips, solo el nombre visible. */
+function toggleApprSvcUpdate(orderId, division) {
   const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
   const readonlyBox = document.getElementById(apprDomId(orderId) + '-svcreadonly');
   if (!editorBox) return;
 
-  if (editorBox.style.display === 'grid') {
+  if (editorBox.style.display === 'block') {
     editorBox.style.display = 'none';
     if (readonlyBox) {
       readonlyBox.style.display = '';
@@ -1779,65 +1791,94 @@ async function toggleApprSvcUpdate(orderId, division) {
     return;
   }
 
-  if (!allServices) {
-    try { allServices = await api('/get-services', { method: 'GET' }); }
-    catch (e) { showToast('Could not load the service catalog.'); return; }
+  if (!activeCatalogCache || !activeCatalogCache.length) {
+    showToast('No catalog imported yet — import it in Service Catalog first.');
+    return;
   }
-  const divData = allServices[division];
-  if (!divData) { showToast('No service catalog for this division.'); return; }
-  editorBox.innerHTML = apprServiceEditorHtml(orderId, divData);
-  editorBox.style.display = 'grid';
+  editorBox.innerHTML = apprServiceEditorHtml(orderId, division);
+  editorBox.style.display = 'block';
   if (readonlyBox) readonlyBox.style.display = 'none';
 }
 
-/* Mismo estilo que usa el cliente: categorias en acordeon, opciones tipo
-   pill. La pill activa refleja lo que ya esta elegido para ese servicio. */
-function apprServiceEditorHtml(orderId, divData) {
+function apprInferPropType(orderId, division) {
   const sel = window['apprSvc_' + orderId] || {};
-  const cats = divData.categories || {};
-  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
-  return Object.entries(cats).map(([cat, svcs]) => {
-    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
-    const bodyId = 'appr-svc-cat-body-' + safe + '-' + catSafe;
-    const selectedCount = Object.keys(sel[cat] || {}).length;
-    const body = svcs.map(svc => {
-      const current = (sel[cat] || {})[svc.name] || '';
-      return `<div style="margin-bottom:10px">
-        <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-          ${(svc.subs || []).map(sub => {
-            const active = sub === current;
-            return `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
-              style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
-              onclick="toggleApprChip('${esc(orderId)}','${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`;
-          }).join('')}
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
-      <div class="svc-cat-header" onclick="accToggleCategory('${apprDomId(orderId)}-svceditor','appr-${esc(orderId)}','${esc(cat)}',this)" ondblclick="accPinCategory('appr-${esc(orderId)}','${esc(cat)}',this)">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('appr-' + orderId, cat).pinIcon}</span></span>
-        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('appr-' + orderId, cat).rotate}">▼</span>
-      </div>
-      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('appr-' + orderId, cat).display}">${body}</div>
-    </div>`;
+  for (const c of Object.keys(sel)) {
+    for (const svcName in (sel[c] || {})) {
+      const sku = sel[c][svcName];
+      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division === division);
+      if (found) return found.propertyType;
+    }
+  }
+  return 'Residential';
+}
+
+function apprLegacyNote(orderId) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const legacyNames = [];
+  Object.entries(sel).forEach(([, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      const known = (activeCatalogCache || []).some(s => s.sku === sub);
+      if (!known) legacyNames.push(svcName);
+    });
+  });
+  if (!legacyNames.length) return '';
+  return '<p class="empty-note" style="text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">' +
+    'This order still has services saved in the old catalog format: ' + esc(legacyNames.join(', ')) +
+    '. They stay on the order exactly as they are — re-select the matching service below to move them to the new catalog.</p>';
+}
+
+function apprChipsHtml(orderId, division) {
+  const propType = window['apprPropType_' + orderId] || 'Residential';
+  const sel = window['apprSvc_' + orderId] || {};
+  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  let list = (activeCatalogCache || []).filter(s => s.division === division && s.propertyType === propType);
+  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  return list.map(s => {
+    const active = (sel[propType] || {})[s.serviceName] === s.sku;
+    return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleApprChip(\'' +
+      jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
   }).join('');
 }
 
-function toggleApprChip(orderId, cat, svcName, sub) {
-  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
-  if (!sel[cat]) sel[cat] = {};
-  if (sel[cat][svcName] === sub) {
-    delete sel[cat][svcName];
-    if (!Object.keys(sel[cat]).length) delete sel[cat];
-  } else {
-    sel[cat][svcName] = sub;
+function apprServiceEditorHtml(orderId, division) {
+  if (window['apprPropType_' + orderId] === undefined) {
+    window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
+  const propType = window['apprPropType_' + orderId];
+  return apprLegacyNote(orderId) +
+    `<div class="pill-row" id="appr-svc-toggle-${orderId}">
+      <div class="pill${propType === 'Residential' ? ' active' : ''}" data-type="Residential" onclick="setApprPropType('${jsStr(orderId)}','Residential')">Residential</div>
+      <div class="pill${propType === 'Commercial' ? ' active' : ''}" data-type="Commercial" onclick="setApprPropType('${jsStr(orderId)}','Commercial')">Commercial</div>
+    </div>
+    <input type="text" class="svc-search" id="appr-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderApprChips('${jsStr(orderId)}')">
+    <div class="svc-chip-grid" id="appr-svc-grid-${orderId}">${apprChipsHtml(orderId, division)}</div>`;
+}
+
+function setApprPropType(orderId, type) {
+  window['apprPropType_' + orderId] = type;
+  const toggleBox = document.getElementById('appr-svc-toggle-' + orderId);
+  if (toggleBox) toggleBox.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+  rerenderApprChips(orderId);
+}
+
+function rerenderApprChips(orderId) {
   const division = window['apprDiv_' + orderId] || '';
-  const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
-  if (editorBox && allServices && allServices[division]) {
-    editorBox.innerHTML = apprServiceEditorHtml(orderId, allServices[division]);
+  const grid = document.getElementById('appr-svc-grid-' + orderId);
+  if (grid) grid.innerHTML = apprChipsHtml(orderId, division);
+}
+
+function toggleApprChip(orderId, propType, svcName, sku) {
+  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
+  if (!sel[propType]) sel[propType] = {};
+  if (sel[propType][svcName] === sku) {
+    delete sel[propType][svcName];
+    if (!Object.keys(sel[propType]).length) delete sel[propType];
+  } else {
+    sel[propType][svcName] = sku;
   }
+  rerenderApprChips(orderId);
 }
 
 /* ============================================================
@@ -2423,14 +2464,19 @@ function historyChangeLines(h) {
   newSvcs.forEach(s => {
     const k = keyOf(s);
     const sub = s.SubOption || '';
+    const subTxt = isCatalogSku(sub) ? '' : (sub ? ' &mdash; ' + esc(sub) : '');
     if (!(k in oldMap)) {
-      lines.push('&#9989; Added: <b>' + esc(s.ServiceName || '') + '</b> &mdash; ' + esc(sub));
+      lines.push('&#9989; Added: <b>' + esc(s.ServiceName || '') + '</b>' + subTxt);
       return;
     }
     const prev = oldMap[k];
     if ((prev.SubOption || '') !== sub) {
-      lines.push('&#128260; Changed: <b>' + esc(s.ServiceName || '') + '</b> from ' +
-                 esc(prev.SubOption || '(none)') + ' to ' + esc(sub || '(none)'));
+      if (isCatalogSku(sub) || isCatalogSku(prev.SubOption || '')) {
+        lines.push('&#128260; Changed: <b>' + esc(s.ServiceName || '') + '</b>');
+      } else {
+        lines.push('&#128260; Changed: <b>' + esc(s.ServiceName || '') + '</b> from ' +
+                   esc(prev.SubOption || '(none)') + ' to ' + esc(sub || '(none)'));
+      }
     }
     /* Marcar un servicio como no realizado tambien es un cambio que debe verse */
     if (isNC(prev) !== isNC(s)) {
@@ -2447,8 +2493,8 @@ function historyChangeLines(h) {
   oldSvcs.forEach(s => {
     const k = keyOf(s);
     if (!(k in newMap)) {
-      lines.push('&#10060; Removed: <b>' + esc(s.ServiceName || '') + '</b> &mdash; ' +
-                 esc(s.SubOption || ''));
+      const subTxt = isCatalogSku(s.SubOption) ? '' : (s.SubOption ? ' &mdash; ' + esc(s.SubOption) : '');
+      lines.push('&#10060; Removed: <b>' + esc(s.ServiceName || '') + '</b>' + subTxt);
     }
   });
   const dOld = (oldPay && oldPay.dirtLevel) || '';
@@ -2771,7 +2817,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: s.SubOption || '' }));
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || '') }));
   });
   const svcTableHtml = svcRows.length
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -2943,8 +2989,6 @@ function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
    sub=Deep Clean, sin match de SKU) se detectan y se muestran aparte
    como nota informativa -- se quedan en la orden tal cual hasta que
    alguien las vuelva a elegir con el picker nuevo y le de Save. */
-function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-
 function inferPropType(orderId, division) {
   const sel = window['adminSvc_' + orderId] || {};
   for (const c of Object.keys(sel)) {
@@ -3340,7 +3384,7 @@ async function printOrder(orderId) {
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
   const svcHtml = Object.entries(byCat).map(([cat,list]) =>
-    `<tr><td><b>${cat}</b></td><td>${list.map(s=>s.ServiceName+' — '+s.SubOption).join('<br>')}</td></tr>`
+    `<tr><td><b>${esc(cat)}</b></td><td>${list.map(s => esc(s.ServiceName) + (isCatalogSku(s.SubOption) ? '' : ' — ' + esc(s.SubOption || ''))).join('<br>')}</td></tr>`
   ).join('');
   /* Print view: change detail is always visible (no click-to-expand on paper) */
   const histHtml = history.map(h => {
