@@ -5936,8 +5936,12 @@ function isRoutingStopSelected(key) { return routingSelected.some(s => s.key ===
 function renderRoutingMap() {
   if (!routingMap) {
     routingMap = L.map('routing-map');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    /* CartoDB Voyager -- gratis, sin API key, se ve mucho mas limpio
+       y moderno que las tiles crudas de OSM (menos colores chillones,
+       calles/etiquetas mas claras). */
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 19
     }).addTo(routingMap);
   }
   routingMarkers.forEach(m => routingMap.removeLayer(m));
@@ -5989,7 +5993,7 @@ function clearRoutingPath() {
 function drawRoutingPath(path) {
   clearRoutingPath();
   if (!path || !path.length) return;
-  routingRouteLine = L.polyline(path, { color: '#C9A84C', weight: 5, opacity: 0.85 }).addTo(routingMap);
+  routingRouteLine = L.polyline(path, { color: '#2563EB', weight: 5, opacity: 0.85 }).addTo(routingMap);
   /* NUNCA reencuadrar a la linea de la ruta -- si el camino real por
      calles da una vuelta larga para llegar a algun punto, esto
      alejaba el mapa muchisimo y se veia como un loop sin sentido. El
