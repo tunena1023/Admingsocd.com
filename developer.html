@@ -78,6 +78,37 @@
     }
     .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
     .svc-cat-pin { font-size: 11px; margin-left: 4px; }
+
+    /* Catalogo nuevo (ServicesCatalog) -- import de QuickBooks + tabla
+       con toggle on/off, movido aqui desde la pagina aparte que ya
+       no existe. */
+    .diff-card { border: 1px solid var(--border); border-radius: 4px; margin-top: 20px; background: var(--white); }
+    .diff-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+    .diff-count { background: var(--bg); border-radius: 20px; padding: 2px 10px; font-size: 12px; color: var(--gray); }
+    .diff-row { padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+    .diff-row:last-child { border-bottom: none; }
+    .diff-row label { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; }
+    .diff-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gold); }
+    .diff-sku { color: var(--gray); font-size: 12px; }
+    .diff-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .tag-create { background: #EAF4EC; color: var(--green, #3F7D4F); }
+    .tag-update { background: #F0F0F0; color: var(--gray); }
+    .tag-reactivate { background: #FDF3E0; color: #8C6F2A; }
+    .tag-deactivate { background: #FBEAEA; color: var(--red, #B33A3A); }
+    .warn-box { border: 1px solid var(--gold); background: #FDF8EC; border-radius: 4px; padding: 14px 18px; font-size: 13px; margin-top: 20px; line-height: 1.6; }
+    .skip-note { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
+    table.cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+    table.cat-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    table.cat-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    table.cat-table tr.inactive td { color: var(--gray); }
+    .search-input { width: 100%; max-width: 320px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; margin-bottom: 4px; }
+    .svc-toggle { position: relative; display: inline-block; width: 40px; height: 22px; vertical-align: middle; cursor: pointer; }
+    .svc-toggle input { opacity: 0; width: 0; height: 0; }
+    .svc-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; transition: background .2s; }
+    .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+    .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
+    .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
+    .svc-toggle input:disabled + .svc-toggle-track { opacity: .5; cursor: not-allowed; }
     .svc-cat-body { display: none; padding: 4px 16px 14px; background: var(--bg); }
 
     .svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -143,7 +174,6 @@
   <a class="tab" href="quickbooks.html">QuickBooks</a>
   <a class="tab" href="recurring.html">Recurring</a>
   <a class="tab" href="admin.html?tab=schedule">Schedule</a>
-  <a class="tab" href="service-catalog.html">Service Catalog</a>
   <a class="tab active" href="developer.html">Developer</a>
 </div>
 
@@ -161,21 +191,26 @@
   <h1 class="page-title">Developer</h1>
   <p class="role-note" id="role-note"></p>
 
-  <section id="catalog-section">
+  <section id="import-section" style="display:none">
+    <p class="section-title">Import from QuickBooks</p>
+    <p class="section-sub">
+      Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
+      100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
+      Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
+      list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
+      never edited by hand here.
+    </p>
+    <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
+    <button class="btn btn-outline" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
+    <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+    <div id="catalog-preview"></div>
+  </section>
+
+  <section id="browse-section">
     <p class="section-title">Service Catalog</p>
-    <p class="section-sub">Add, edit or turn off services shown across Create Order, Active and the client portal.</p>
-    <div class="field-group" style="max-width:280px">
-      <label>Division</label>
-      <select id="division-select" onchange="renderCatalog()">
-        <option value="Janitorial">Janitorial</option>
-        <option value="renovations">Renovations</option>
-        <option value="exteriors">Exteriors</option>
-      </select>
-    </div>
-    <div id="catalog-accordion"><p class="empty-note">Loading catalog…</p></div>
-    <div class="btn-actions">
-      <button class="btn btn-gold" id="add-service-btn" style="display:none" onclick="openServiceModal(null)">+ Add Service</button>
-    </div>
+    <p class="section-sub" id="browse-sub">Loading…</p>
+    <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
+    <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
   </section>
 
   <section id="staff-section" style="display:none">
@@ -228,45 +263,6 @@
   </section>
 </div>
 
-<div id="service-modal-overlay" class="modal-overlay" style="display:none">
-  <div class="modal-box">
-    <h3 id="service-modal-title">Add Service</h3>
-    <input type="hidden" id="svc-id">
-    <div class="field-group">
-      <label>Category</label>
-      <input type="text" id="svc-category" placeholder="e.g. Kitchen, Doors &amp; Hardware">
-    </div>
-    <div class="field-group">
-      <label>Service name</label>
-      <input type="text" id="svc-name" placeholder="e.g. Blinds">
-    </div>
-    <div class="field-group">
-      <label>Sub-option</label>
-      <input type="text" id="svc-sub" placeholder="e.g. Installation">
-    </div>
-    <div class="field-group">
-      <label>Description (optional)</label>
-      <input type="text" id="svc-desc">
-    </div>
-    <div class="field-row">
-      <div class="field-group">
-        <label>Sort order</label>
-        <input type="number" id="svc-sort" value="0">
-      </div>
-      <div class="field-group">
-        <label style="text-transform:none;font-weight:400;color:var(--black);display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px">
-          <input type="checkbox" id="svc-active" checked style="width:auto"> Active
-        </label>
-      </div>
-    </div>
-    <div class="btn-actions">
-      <button class="btn btn-gold" onclick="saveService()">Save</button>
-      <button class="btn btn-outline" onclick="closeServiceModal()">Cancel</button>
-      <button class="btn btn-danger" id="svc-delete-btn" style="display:none;margin-left:auto" onclick="deleteServiceFromModal()">Delete</button>
-    </div>
-  </div>
-</div>
-
 <div id="staff-modal-overlay" class="modal-overlay" style="display:none">
   <div class="modal-box">
     <h3 id="staff-modal-title">Add Staff</h3>
@@ -296,8 +292,11 @@
 <script>
   let adminUser = null;
   let myRole = null;
-  let allServicesFlat = [];
   let allStaff = [];
+  let allCatalogRows = [];
+  let canEditCatalog = false;
+  let currentPreview = null;   // { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized }
+  let currentRows = null;      // filas validas que se mandaron a preview, para reusarlas en apply si hiciera falta
 
   const stored = sessionStorage.getItem('admin_account');
   if (!stored) {
@@ -352,7 +351,8 @@
     document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
 
     const canEdit = myRole === 'Director' || myRole === 'Developer';
-    if (canEdit) document.getElementById('add-service-btn').style.display = '';
+    canEditCatalog = canEdit;
+    if (canEdit) document.getElementById('import-section').style.display = 'block';
     if (canEdit) document.getElementById('bulk-clients-section').style.display = 'block';
 
     if (myRole === 'Developer') {
@@ -363,167 +363,206 @@
       loadStaff();
     }
 
-    loadCatalog();
+    loadCatalogBrowse();
   }
 
   /* ============================================================
-     CATALOGO
+     CATALOGO (ServicesCatalog) -- import de QuickBooks + tabla con
+     toggle on/off. Antes vivia en una pagina aparte (service-catalog.html,
+     ya eliminada); se movio directo a Developer, y el selector viejo
+     por-cuarto (Category/ServiceName/SubOption, con Add/Edit/Delete a
+     mano) se retiro por completo -- ya no se usa.
   ============================================================ */
-  async function loadCatalog() {
+  async function loadCatalogBrowse() {
     try {
-      const res = await api('list-services');
-      allServicesFlat = res.services || [];
-      renderCatalog();
+      const res = await api('list-catalog');
+      allCatalogRows = res.services || [];
+      const activeCount = allCatalogRows.filter(s => s.active).length;
+      document.getElementById('browse-sub').textContent =
+        allCatalogRows.length
+          ? activeCount + ' active of ' + allCatalogRows.length + ' total services in ServicesCatalog.'
+          : 'Nothing imported yet -- upload a QuickBooks report above to get started.';
+      renderCatalogTable();
     } catch (e) {
-      document.getElementById('catalog-accordion').innerHTML =
+      document.getElementById('catalog-table-wrap').innerHTML =
         '<p class="empty-note">Could not load the catalog: ' + esc(e.message) + '</p>';
     }
   }
 
-  /* Mismo comportamiento de acordeon (single-open + doble clic fija)
-     que ya usan Active/Approvals/Create Order en admin.html -- una
-     sola instancia aqui (key fija por categoria), no una por orden. */
-  function accState() {
-    return window.__accState || (window.__accState = { open: null, pinned: {} });
+  async function toggleCatalogActive(id, active) {
+    const row = allCatalogRows.find(r => r.id === id);
+    const prevActive = row ? row.active : !active;
+    if (row) row.active = active;
+    try {
+      await api('toggle-catalog-active', { id, active });
+      renderCatalogTable();
+    } catch (e) {
+      if (row) row.active = prevActive;
+      renderCatalogTable();
+      showToast('Could not update: ' + e.message);
+    }
   }
-  function accToggleCategory(cat, headerEl) {
-    const wrap = document.getElementById('catalog-accordion');
-    const group = headerEl.closest('.svc-cat-group');
-    if (!wrap || !group) return;
-    const st = accState();
-    const body = group.querySelector('.svc-cat-body');
-    const arrow = headerEl.querySelector('.svc-cat-arrow');
-    const isOpen = body.style.display === 'block';
-    if (st.pinned[cat]) return;
-    if (isOpen) {
-      body.style.display = 'none';
-      if (arrow) arrow.style.transform = '';
-      if (st.open === cat) st.open = null;
+
+  function renderCatalogTable() {
+    const wrap = document.getElementById('catalog-table-wrap');
+    const q = (document.getElementById('catalog-search').value || '').trim().toLowerCase();
+    let rows = allCatalogRows.slice().sort((a, b) =>
+      a.division.localeCompare(b.division) || a.propertyType.localeCompare(b.propertyType) || a.serviceName.localeCompare(b.serviceName));
+    if (q) {
+      rows = rows.filter(r =>
+        r.serviceName.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q));
+    }
+    if (!rows.length) {
+      wrap.innerHTML = '<p class="empty-note">No services match.</p>';
       return;
     }
-    wrap.querySelectorAll('.svc-cat-group').forEach(g => {
-      if (g === group) return;
-      const gCat = g.dataset.cat;
-      if (st.pinned[gCat]) return;
-      const b = g.querySelector('.svc-cat-body');
-      const a = g.querySelector('.svc-cat-arrow');
-      if (b) b.style.display = 'none';
-      if (a) a.style.transform = '';
-    });
-    body.style.display = 'block';
-    if (arrow) arrow.style.transform = 'rotate(180deg)';
-    st.open = cat;
-  }
-  function accPinCategory(cat, headerEl) {
-    const group = headerEl.closest('.svc-cat-group');
-    if (!group) return;
-    const st = accState();
-    const body = group.querySelector('.svc-cat-body');
-    const arrow = headerEl.querySelector('.svc-cat-arrow');
-    const pinEl = headerEl.querySelector('.svc-cat-pin');
-    st.pinned[cat] = !st.pinned[cat];
-    if (st.pinned[cat]) {
-      body.style.display = 'block';
-      if (arrow) arrow.style.transform = 'rotate(180deg)';
-      st.open = cat;
-      if (pinEl) pinEl.innerHTML = '&#128274;';
-    } else if (pinEl) pinEl.innerHTML = '';
-  }
-  function accInitialAttrs(cat) {
-    const st = accState();
-    const isPinned = !!st.pinned[cat];
-    const isOpen = isPinned || st.open === cat;
-    return { display: isOpen ? 'block' : 'none', rotate: isOpen ? 'rotate(180deg)' : '', pinIcon: isPinned ? '&#128274;' : '' };
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Price</th><th>Active</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
+        '<td>' + esc(r.serviceName) + '</td>' +
+        '<td class="diff-sku">' + esc(r.sku) + '</td>' +
+        '<td>' + esc(r.division) + '</td>' +
+        '<td>' + esc(r.propertyType) + '</td>' +
+        '<td>' + (r.price != null ? '$' + Number(r.price).toFixed(2) : '\u2014') + '</td>' +
+        '<td><label class="svc-toggle">' +
+          '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
+          ' onchange="toggleCatalogActive(\'' + r.id + '\', this.checked)">' +
+          '<span class="svc-toggle-track"></span>' +
+        '</label></td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
   }
 
-  function renderCatalog() {
-    const div = document.getElementById('division-select').value;
-    const canEdit = myRole === 'Director' || myRole === 'Developer';
-    const items = allServicesFlat.filter(s => s.Division === div);
-    const byCat = {};
-    items.forEach(s => { if (!byCat[s.Category]) byCat[s.Category] = []; byCat[s.Category].push(s); });
-    Object.keys(byCat).forEach(c => byCat[c].sort((a,b) => a.SortOrder - b.SortOrder));
-
-    const wrap = document.getElementById('catalog-accordion');
-    const cats = Object.keys(byCat).sort();
-    if (!cats.length) { wrap.innerHTML = '<p class="empty-note">No services in this division yet.</p>'; return; }
-
-    wrap.innerHTML = cats.map(cat => {
-      const list = byCat[cat];
-      const bodyId = 'cat-body-' + cat.replace(/[^a-z0-9]/gi, '_');
-      const attrs = accInitialAttrs(cat);
-      const rows = list.map(s => `
-        <div class="svc-row${s.Active ? '' : ' svc-row-inactive'}">
-          <div class="svc-row-name"><b>${esc(s.ServiceName)}</b> <span class="svc-row-sub">— ${esc(s.SubOption)}</span>${s.Active ? '' : ' <span class="svc-row-sub">(inactive)</span>'}</div>
-          ${canEdit ? `<div class="svc-row-actions"><button onclick="openServiceModal('${esc(s.id)}')">Edit</button></div>` : ''}
-        </div>`).join('');
-      return `<div class="svc-cat-group" data-cat="${esc(cat)}">
-        <div class="svc-cat-header" onclick="accToggleCategory('${esc(cat)}',this)" ondblclick="accPinCategory('${esc(cat)}',this)">
-          <span><span class="svc-cat-name">${esc(cat)}</span><span class="svc-cat-count">${list.length}</span><span class="svc-cat-pin">${attrs.pinIcon}</span></span>
-          <span class="svc-cat-arrow" style="transform:${attrs.rotate}">▼</span>
-        </div>
-        <div class="svc-cat-body" id="${bodyId}" style="display:${attrs.display}">${rows}</div>
-      </div>`;
-    }).join('');
+  function findCol(headers, keywords) {
+    return headers.findIndex(h => keywords.some(k => String(h || '').toLowerCase().includes(k)));
   }
 
-  function openServiceModal(id) {
-    const s = id ? allServicesFlat.find(x => x.id === id) : null;
-    document.getElementById('service-modal-title').textContent = s ? 'Edit Service' : 'Add Service';
-    document.getElementById('svc-id').value = s ? s.id : '';
-    document.getElementById('svc-category').value = s ? s.Category : '';
-    document.getElementById('svc-name').value = s ? s.ServiceName : '';
-    document.getElementById('svc-sub').value = s ? s.SubOption : '';
-    document.getElementById('svc-desc').value = s ? s.Description : '';
-    document.getElementById('svc-sort').value = s ? s.SortOrder : 0;
-    document.getElementById('svc-active').checked = s ? !!s.Active : true;
-    document.getElementById('svc-delete-btn').style.display = s ? '' : 'none';
-    document.getElementById('service-modal-overlay').style.display = 'flex';
-  }
-  function closeServiceModal() {
-    document.getElementById('service-modal-overlay').style.display = 'none';
-  }
+  function onCatalogFileChosen() {
+    const input = document.getElementById('catalog-file');
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('catalog-file-name').textContent = file.name;
+    currentPreview = null;
 
-  async function saveService() {
-    const id = document.getElementById('svc-id').value || null;
-    const division = document.getElementById('division-select').value;
-    const service = {
-      id: id || undefined,
-      Division: division,
-      Category: document.getElementById('svc-category').value.trim(),
-      ServiceName: document.getElementById('svc-name').value.trim(),
-      SubOption: document.getElementById('svc-sub').value.trim(),
-      Description: document.getElementById('svc-desc').value.trim(),
-      SortOrder: Number(document.getElementById('svc-sort').value) || 0,
-      Active: document.getElementById('svc-active').checked
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        if (!rows.length) throw new Error('File is empty.');
+
+        const headers = rows[0];
+        const colName = findCol(headers, ['product/service name', 'product', 'service name']);
+        const colSku = findCol(headers, ['sku']);
+        const colPrice = findCol(headers, ['price']);
+        const colDesc = findCol(headers, ['sales description', 'description']);
+
+        const parsed = rows.slice(1)
+          .filter(r => r && r.length)
+          .map(r => ({
+            serviceName: String((colName >= 0 ? r[colName] : '') || '').trim(),
+            sku: String((colSku >= 0 ? r[colSku] : '') || '').trim(),
+            price: colPrice >= 0 ? String(r[colPrice] || '').replace(/[^0-9.\-]/g, '') : '',
+            description: String((colDesc >= 0 ? r[colDesc] : '') || '').trim()
+          }))
+          .filter(r => r.serviceName);
+
+        if (!parsed.length) throw new Error('No usable rows found -- check the file has a "Product/Service Name" column.');
+
+        currentRows = parsed;
+        document.getElementById('catalog-preview').innerHTML = '<p class="empty-note">Comparing against the current catalog...</p>';
+        const preview = await api('preview-catalog-import', { rows: parsed });
+        currentPreview = preview;
+        renderCatalogPreview();
+      } catch (e) {
+        document.getElementById('catalog-preview').innerHTML =
+          '<p class="empty-note">' + esc(e.message) + '</p>';
+      }
     };
-    if (!service.Category || !service.ServiceName || !service.SubOption) {
-      showToast('Category, service name and sub-option are required.');
-      return;
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderCatalogPreview() {
+    const p = currentPreview;
+    const box = document.getElementById('catalog-preview');
+    if (!p) { box.innerHTML = ''; return; }
+
+    const nothing = !p.toCreate.length && !p.toUpdate.length && !p.toReactivate.length && !p.toDeactivate.length;
+    let html = '';
+
+    if (p.toCreate.length) {
+      html += catalogDiffCard('New services', 'tag-create', p.toCreate, false, 'create');
     }
+    if (p.toUpdate.length) {
+      html += catalogDiffCard('Will be updated (name, price or description changed)', 'tag-update', p.toUpdate, false, 'update');
+    }
+    if (p.toReactivate.length) {
+      html += '<div class="warn-box">These services were turned off before, and reappeared in this report. Uncheck any you don\'t want to turn back on.</div>' +
+        catalogDiffCard('Reactivate', 'tag-reactivate', p.toReactivate, true, 'reactivate');
+    }
+    if (p.toDeactivate.length) {
+      html += '<div class="warn-box">These active services did not appear anywhere in this report. Uncheck any you want to keep active anyway.</div>' +
+        catalogDiffCard('Turn off (missing from this report)', 'tag-deactivate', p.toDeactivate, true, 'deactivate');
+    }
+    if (p.skippedNoSku.length || p.skippedUnrecognized.length) {
+      html += '<p class="skip-note">' +
+        (p.skippedNoSku.length ? 'Skipped, no SKU: ' + p.skippedNoSku.map(esc).join(', ') + '. ' : '') +
+        (p.skippedUnrecognized.length ? 'Skipped, unrecognized SKU prefix: ' + p.skippedUnrecognized.map(esc).join(', ') + '.' : '') +
+        '</p>';
+    }
+    if (nothing) {
+      html += '<p class="empty-note">No changes -- this report matches the catalog already on file.</p>';
+    } else {
+      html += '<div class="btn-actions"><button class="btn btn-gold" onclick="confirmCatalogImport()">Confirm Import</button></div>';
+    }
+    html += '<div id="catalog-import-result" style="margin-top:14px;font-size:13px"></div>';
+    box.innerHTML = html;
+  }
+
+  function catalogDiffCard(title, tagClass, items, withCheckbox, kind) {
+    return '<div class="diff-card"><div class="diff-card-header">' +
+      '<span>' + esc(title) + '</span><span class="diff-count">' + items.length + '</span></div>' +
+      items.map((it, i) => '<div class="diff-row">' +
+        (withCheckbox
+          ? '<label><input type="checkbox" class="diff-check" data-kind="' + kind + '" data-idx="' + i + '" checked>' +
+            '<span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span></label>'
+          : '<span><span class="diff-tag ' + tagClass + '"></span> ' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>'
+        ) +
+        '</div>').join('') +
+      '</div>';
+  }
+
+  async function confirmCatalogImport() {
+    if (!currentPreview) return;
+    const resultBox = document.getElementById('catalog-import-result');
+    const confirmedReactivate = currentPreview.toReactivate.filter((it, i) =>
+      document.querySelector('.diff-check[data-kind="reactivate"][data-idx="' + i + '"]').checked);
+    const confirmedDeactivate = currentPreview.toDeactivate.filter((it, i) =>
+      document.querySelector('.diff-check[data-kind="deactivate"][data-idx="' + i + '"]').checked);
+
     try {
-      await api('save-service', { service });
-      showToast('Service saved.');
-      closeServiceModal();
-      loadCatalog();
+      const res = await api('apply-catalog-import', {
+        toCreate: currentPreview.toCreate,
+        toUpdate: currentPreview.toUpdate,
+        confirmedReactivate,
+        confirmedDeactivate
+      });
+      showToast('Catalog updated.');
+      resultBox.innerHTML = res.created + ' created, ' + res.updated + ' updated, ' +
+        res.reactivated + ' reactivated, ' + res.deactivated + ' turned off.';
+      document.getElementById('catalog-file').value = '';
+      document.getElementById('catalog-file-name').textContent = '';
+      currentPreview = null;
+      currentRows = null;
+      loadCatalogBrowse();
     } catch (e) {
-      showToast('Error: ' + e.message);
+      resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
     }
   }
 
-  async function deleteServiceFromModal() {
-    const id = document.getElementById('svc-id').value;
-    if (!id) return;
-    if (!confirm('Delete this service option? This cannot be undone.')) return;
-    try {
-      await api('delete-service', { id });
-      showToast('Service deleted.');
-      closeServiceModal();
-      loadCatalog();
-    } catch (e) {
-      showToast('Error: ' + e.message);
-    }
-  }
 
   /* ============================================================
      STAFF & ROLES (solo Developer)

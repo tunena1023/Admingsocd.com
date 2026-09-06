@@ -21,7 +21,7 @@
 ============================================================ */
 
 const {
-  SERVICES_LIST, SERVICES_CATALOG_LIST, STAFF_LIST, SETTINGS_LIST,
+  SERVICES_CATALOG_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
@@ -139,54 +139,13 @@ exports.handler = async (event) => {
       return jsonResponse(403, { error: 'You do not have access to the Developer tab.' });
     }
 
-    /* ---- Catalogo de servicios: ver (cualquier rol con acceso) ---- */
-    if (action === 'list-services') {
-      const rows = await fetchAll(SERVICES_LIST);
-      const services = rows.filter(it => it.fields).map(it => ({
-        id:          it.id,
-        Title:       it.fields.Title || '',
-        Division:    it.fields.Division || '',
-        Category:    it.fields.Category || '',
-        ServiceName: it.fields.ServiceName || '',
-        SubOption:   it.fields.SubOption || '',
-        Description: it.fields.Description || '',
-        Active:      it.fields.Active === undefined ? true : truthy(it.fields.Active),
-        SortOrder:   Number(it.fields.SortOrder) || 0
-      }));
-      return jsonResponse(200, { services });
-    }
-
-    /* ---- Catalogo: crear/editar/borrar (Director/Developer) ---- */
-    if (action === 'save-service') {
-      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
-      const s = body.service || {};
-      if (!s.Division || !s.Category || !s.ServiceName || !s.SubOption) {
-        return jsonResponse(400, { error: 'Division, Category, ServiceName and SubOption are required.' });
-      }
-      const fields = {
-        Title:       s.ServiceName,
-        Division:    s.Division,
-        Category:    s.Category,
-        ServiceName: s.ServiceName,
-        SubOption:   s.SubOption,
-        Description: s.Description || '',
-        Active:      s.Active !== false,
-        SortOrder:   Number(s.SortOrder) || 0
-      };
-      if (s.id) {
-        await updateListItemByItemId(SERVICES_LIST, s.id, fields);
-        return jsonResponse(200, { success: true, id: s.id });
-      }
-      const created = await createListItem(SERVICES_LIST, fields);
-      return jsonResponse(200, { success: true, id: created.id });
-    }
-
-    if (action === 'delete-service') {
-      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
-      if (!body.id) return jsonResponse(400, { error: 'id is required' });
-      await deleteListItem(SERVICES_LIST, body.id);
-      return jsonResponse(200, { success: true });
-    }
+    /* ---- Catalogo viejo (Services, por-cuarto) retirado -- ya no
+       tiene UI que lo use, se reemplazo por completo con
+       ServicesCatalog (list-catalog/preview-catalog-import/
+       apply-catalog-import/toggle-catalog-active mas abajo). La lista
+       "Services" en SharePoint y get-services.js siguen intactos --
+       services.html y customer.html (repo ordersgsocd.com) todavia
+       leen de ahi hasta que les toque su turno de migracion. ---- */
 
     /* ============================================================
        CATALOGO NUEVO (ServicesCatalog) -- viene del reporte de
