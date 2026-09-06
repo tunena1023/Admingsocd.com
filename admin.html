@@ -5131,9 +5131,6 @@ let pendingDirectLinkOrderId = null;
       const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
 
       const gaugeHtml = (() => {
-        if (!e.hasWeekData) {
-          return '<div class="hours-caption">No hours data for this week yet — upload a more recent Hours Report.</div>';
-        }
         const pct = Math.min(e.hoursThisWeek / 40 * 100, 100);
         const overPct = e.hoursThisWeek > 40 ? Math.min((e.hoursThisWeek / 40 - 1) * 100, 100) : 0;
         const fillColor = e.hoursThisWeek >= 40 ? '#B33A3A' : (e.hoursThisWeek >= 34 ? '#B8862E' : 'var(--gold)');
@@ -5148,7 +5145,7 @@ let pendingDirectLinkOrderId = null;
 
       const historyHtml =
         '<div class="hours-hist-row"><div><div class="hours-hist-label">This week</div><div class="hours-hist-date">' + curRange + '</div></div>' +
-        '<div style="text-align:right"><span class="hours-hist-val" style="color:var(--black)">' + (e.hasWeekData ? e.hoursThisWeek.toFixed(1) + ' hrs' : '—') + '</span>' +
+        '<div style="text-align:right"><span class="hours-hist-val" style="color:var(--black)">' + e.hoursThisWeek.toFixed(1) + ' hrs</span>' +
         '<div class="hours-hist-services">' + e.assignedOrdersThisWeek + ' service' + (e.assignedOrdersThisWeek === 1 ? '' : 's') + '</div></div></div>' +
         '<div class="hours-hist-row"><div><div class="hours-hist-label" style="color:var(--gray)">Last week</div><div class="hours-hist-date">' + prevRange + '</div></div>' +
         '<div style="text-align:right"><span class="hours-hist-val" style="color:var(--gray)">' + (e.hoursLastWeek != null ? e.hoursLastWeek.toFixed(1) + ' hrs' : '—') + '</span>' +
@@ -5558,7 +5555,7 @@ let pendingDirectLinkOrderId = null;
       <div class="candidate-row">
         <input type="checkbox" value="${escAttr(c.payrollNumber)}" class="cand-check" style="width:auto">
         <span class="candidate-name">${esc(c.name)}</span>
-        <span class="candidate-stat">${c.hasWeekData ? ('Hours this week: <b>' + c.hoursThisWeek.toFixed(1) + '</b>') : '<span style="color:var(--gray)">No hours data this week</span>'}</span>
+        <span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span>
         <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
       </div>`).join('');
 
