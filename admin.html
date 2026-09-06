@@ -391,7 +391,10 @@
     .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
 
     .routing-split-wrap { display: flex; gap: 16px; height: 640px; }
-    .routing-map-half { flex: 1 1 50%; border: 1px solid var(--border); background: var(--white); padding: 8px; box-sizing: border-box; }
+    .routing-map-half { flex: 1 1 50%; border: 1px solid var(--border); background: var(--white); padding: 8px; box-sizing: border-box; position: relative; }
+    .routing-time-overlay { position: absolute; top: 20px; left: 20px; right: 20px; z-index: 1000; background: rgba(17,17,17,0.92); color: #fff; padding: 14px 18px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+    .routing-time-overlay .rt-big { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+    .routing-time-overlay .rt-sub { font-size: 12px; color: #D8CFA8; margin-top: 2px; }
     #routing-map { width: 100%; height: 100%; }
     .routing-right-half { flex: 1 1 50%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
     .routing-panel-card { flex: 1; background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
@@ -692,6 +695,7 @@
     <div class="routing-split-wrap">
       <div class="routing-map-half">
         <div id="routing-map"></div>
+        <div id="routing-time-overlay" class="routing-time-overlay" style="display:none"></div>
       </div>
       <div class="routing-right-half">
         <div class="routing-panel-card routing-add-card">
@@ -5856,6 +5860,7 @@ function onScheduleTabOpened() {
 let routingMap = null;
 let routingMarkers = [];
 let routingSelectedMarkers = [];
+let routingRouteLine = null;
 let routingDivisionFilter = '';
 let routingQueueWithCoords = [];
 let routingQueueNoCoords = [];
@@ -5926,6 +5931,8 @@ function renderRoutingMap() {
   routingMarkers = [];
   routingSelectedMarkers.forEach(m => routingMap.removeLayer(m));
   routingSelectedMarkers = [];
+  clearRoutingPath();
+  hideRoutingTimeOverlay();
 
   const bounds = [];
 
@@ -5955,6 +5962,31 @@ function renderRoutingMap() {
 
   if (!bounds.length) { routingMap.setView([41.6, -93.6], 10); return; }
   routingMap.fitBounds(bounds, { padding: [30, 30] });
+}
+
+/* La linea del trayecto y el aviso de tiempo se dibujan encima del
+   mapa mismo -- no alcanza con un texto chico allá abajo, esto tiene
+   que verse de inmediato sin que nadie tenga que buscarlo. */
+function clearRoutingPath() {
+  if (routingRouteLine) { routingMap.removeLayer(routingRouteLine); routingRouteLine = null; }
+}
+
+function drawRoutingPath(path) {
+  clearRoutingPath();
+  if (!path || !path.length) return;
+  routingRouteLine = L.polyline(path, { color: '#C9A84C', weight: 5, opacity: 0.85 }).addTo(routingMap);
+  routingMap.fitBounds(routingRouteLine.getBounds(), { padding: [30, 30] });
+}
+
+function showRoutingTimeOverlay(html) {
+  const el = document.getElementById('routing-time-overlay');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function hideRoutingTimeOverlay() {
+  const el = document.getElementById('routing-time-overlay');
+  if (el) el.style.display = 'none';
 }
 
 function suggestBlock() {
@@ -6117,6 +6149,7 @@ function renderRoutingSelected() {
 async function previewManualRoute() {
   const box = document.getElementById('routing-route-result');
   box.innerHTML = '<p class="empty-note">Calculating\u2026</p>';
+  showRoutingTimeOverlay('<div class="rt-big">Calculating\u2026</div>');
   const stops = routingSelected.map(s => ({ OrderID: s.key, BusinessName: s.name, Latitude: s.lat, Longitude: s.lon }));
   const realOrderIds = routingSelected.filter(s => !s.isCustomStop).map(s => s.key);
 
@@ -6125,18 +6158,28 @@ async function previewManualRoute() {
     realOrderIds.length ? fetchOrderTimeEstimates(realOrderIds) : Promise.resolve(null)
   ]);
 
+  if (route) drawRoutingPath(route.path); else clearRoutingPath();
+
   let metaText = stops.length + ' stops';
   if (route) metaText += ' \u00b7 ' + route.minutes + ' min drive';
   let testingNote = '';
+  let overlayBig = route ? (route.minutes + ' min drive') : 'Drive time unavailable';
+  let overlaySub = stops.length + ' stop' + (stops.length === 1 ? '' : 's');
   if (workEstimate) {
     const totalWork = Object.values(workEstimate).reduce((s, e) => s + e.minutes, 0);
     const missingCount = Object.values(workEstimate).reduce((s, e) => s + e.missing, 0);
     metaText += ' + ' + Math.round(totalWork) + ' min work' +
       (missingCount ? ' <span style="color:#B06A2A">(' + missingCount + ' service' + (missingCount === 1 ? '' : 's') + ' without a time set)</span>' : '');
-    if (route) metaText += ' \u00b7 <b>' + Math.round(route.minutes + totalWork) + ' min total</b>';
+    if (route) {
+      metaText += ' \u00b7 <b>' + Math.round(route.minutes + totalWork) + ' min total</b>';
+      overlayBig = Math.round(route.minutes + totalWork) + ' min total';
+      overlaySub = route.minutes + ' min drive + ' + Math.round(totalWork) + ' min work \u00b7 ' + overlaySub +
+        (missingCount ? ' \u2014 ' + missingCount + ' service' + (missingCount === 1 ? '' : 's') + ' without a time set' : '');
+    }
   } else if (realOrderIds.length < stops.length) {
     testingNote = '<p class="order-meta" style="margin:0 18px 12px;color:var(--gray)">Test clients don\'t have services chosen, so only drive time counts for them.</p>';
   }
+  showRoutingTimeOverlay('<div class="rt-big">' + overlayBig + '</div><div class="rt-sub">' + overlaySub + '</div>');
 
   box.innerHTML = '<div class="order-card" style="border-color:var(--gold)">' +
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
@@ -6223,10 +6266,16 @@ async function fetchOsrmRoute(orders) {
   if (orders.length < 2) return null;
   try {
     const coords = orders.map(o => o.Longitude + ',' + o.Latitude).join(';');
-    const res = await fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=false');
+    const res = await fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson');
     const data = await res.json();
     if (!data.routes || !data.routes[0]) return null;
-    return { minutes: Math.round(data.routes[0].duration / 60) };
+    const r = data.routes[0];
+    return {
+      minutes: Math.round(r.duration / 60),
+      /* Coordenadas del trazo real siguiendo calles -- vienen como
+         [lon,lat] (GeoJSON), Leaflet las quiere al reves [lat,lon]. */
+      path: (r.geometry && r.geometry.coordinates || []).map(c => [c[1], c[0]])
+    };
   } catch (e) { return null; }
 }
 
