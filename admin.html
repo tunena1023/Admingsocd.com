@@ -77,7 +77,9 @@
 
     .svc-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
     .svc-toolbar .svc-search { flex: 1; min-width: 160px; margin-bottom: 0; }
-    .selall-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
+    .svc-toolbar-row { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
+    .svc-search-wide { max-width: none; width: 100%; }
+    .selall-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); margin-right: 10px; }
     .lvl-toggle3 { position: relative; display: flex; width: 180px; height: 34px; background: var(--border); border-radius: 17px; padding: 3px; flex-shrink: 0; }
     .lvl-toggle3-thumb { position: absolute; top: 3px; left: 3px; width: calc(33.333% - 2px); height: calc(100% - 6px); background: var(--gold); border-radius: 14px; transition: transform .25s cubic-bezier(.4,0,.2,1), opacity .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); opacity: 0; }
     .lvl-toggle3-opt { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--gray); cursor: pointer; z-index: 1; transition: color .25s; }
@@ -4253,12 +4255,12 @@ function createOrderFormHtml() {
     <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
       <div class="field-group">
         <label>Division</label>
-        <select id="create-division" onchange="loadCreateServices()">
-          <option value="">Select division…</option>
-          <option value="Janitorial">Janitorial</option>
-          <option value="Renovations">Renovations</option>
-          <option value="Exteriors">Exteriors</option>
-        </select>
+        <div class="mode-toggle" id="create-division-toggle" style="display:flex;border:1.5px solid var(--border)">
+          <button type="button" class="create-div-btn" data-div="Janitorial" onclick="setCreateDivision('Janitorial')" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Janitorial</button>
+          <button type="button" class="create-div-btn" data-div="Renovations" onclick="setCreateDivision('Renovations')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Renovations</button>
+          <button type="button" class="create-div-btn" data-div="Exteriors" onclick="setCreateDivision('Exteriors')" style="flex:1;padding:12px;border:none;border-left:1.5px solid var(--border);background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Exteriors</button>
+        </div>
+        <input type="hidden" id="create-division" value="">
       </div>
       <div id="create-services-wrap" style="display:none">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
@@ -4270,16 +4272,16 @@ function createOrderFormHtml() {
           </label>
           <span class="res-toggle-label">Residential</span>
         </div>
-        <div class="svc-toolbar">
-          <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
-          <span class="selall-label" id="create-selall-label" style="display:none">Select all</span>
-          <div class="lvl-toggle3" id="createSelAllToggle" style="display:none">
+        <div class="svc-toolbar-row" id="create-selall-row" style="display:none">
+          <span class="selall-label">Select all</span>
+          <div class="lvl-toggle3" id="createSelAllToggle">
             <div class="lvl-toggle3-thumb" id="createSelAllThumb"></div>
             <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 1',0)">L1</div>
             <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 2',1)">L2</div>
             <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 3',2)">L3</div>
           </div>
         </div>
+        <input type="text" class="svc-search svc-search-wide" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
         <div id="create-services-list"></div>
       </div>
 
@@ -4407,6 +4409,17 @@ let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas 
 let createPropertyType = 'Commercial';
 let createSelAllActive = null;   // 0/1/2 = L1/L2/L3 activo arriba (solo Janitorial), null = nada
 
+function setCreateDivision(div) {
+  document.getElementById('create-division').value = div;
+  document.querySelectorAll('.create-div-btn').forEach(btn => {
+    const active = btn.dataset.div === div;
+    btn.classList.toggle('active', active);
+    btn.style.background = active ? 'var(--gold)' : 'var(--white)';
+    btn.style.color = active ? 'var(--black)' : 'var(--gray)';
+  });
+  loadCreateServices();
+}
+
 async function loadCreateServices() {
   const div = document.getElementById('create-division').value;
   const wrap = document.getElementById('create-services-wrap');
@@ -4427,8 +4440,7 @@ async function loadCreateServices() {
   if (thumb) thumb.style.opacity = '0';
   document.querySelectorAll('#createSelAllToggle .lvl-toggle3-opt').forEach(el => el.classList.remove('active'));
   const isJan = div.toLowerCase() === 'janitorial';
-  document.getElementById('create-selall-label').style.display = isJan ? '' : 'none';
-  document.getElementById('createSelAllToggle').style.display = isJan ? '' : 'none';
+  document.getElementById('create-selall-row').style.display = isJan ? '' : 'none';
   wrap.style.display = 'block';
   renderCreateServiceChips();
 }
