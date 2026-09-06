@@ -6183,6 +6183,7 @@ async function previewManualRoute() {
 
   box.innerHTML = '<div class="order-card" style="border-color:var(--gold)">' +
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
+    (route && route.legs && route.legs.length ? legBreakdownHtml(stops, route.legs) : '') +
     testingNote +
     (route ? '<div id="manual-detour" style="margin:0 18px 16px"></div>' : '') +
     (realOrderIds.length
@@ -6191,6 +6192,26 @@ async function previewManualRoute() {
     '</div>';
 
   if (route) setupDetourWidget('manual-detour', stops, route.minutes);
+}
+
+/* Desglose "de aqui a alla, tantos minutos" -- a prueba de cualquiera,
+   no nomas el total. Un renglon por cada tramo entre 2 paradas
+   consecutivas, y el total de manejo bien marcado al final. */
+function legBreakdownHtml(stops, legMinutes) {
+  const rows = legMinutes.map((mins, i) => {
+    const from = stops[i], to = stops[i + 1];
+    if (!from || !to) return '';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px">' +
+      '<div style="flex:1;min-width:0"><b>' + esc(from.BusinessName) + '</b> <span style="color:var(--gray)">\u2192</span> <b>' + esc(to.BusinessName) + '</b></div>' +
+      '<div style="white-space:nowrap;margin-left:14px;font-weight:700">' + mins + ' min</div>' +
+      '</div>';
+  }).join('');
+  const total = legMinutes.reduce((s, m) => s + m, 0);
+  return '<div style="border-top:1px solid var(--border)">' +
+    '<div style="padding:8px 18px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);background:var(--bg)">Drive time, stop by stop</div>' +
+    rows +
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:rgba(201,168,76,0.10)"><b style="font-size:12px">Total drive time</b><b style="font-size:14px">' + total + ' min</b></div>' +
+    '</div>';
 }
 
 let routingDetourContext = null;
@@ -6274,7 +6295,12 @@ async function fetchOsrmRoute(orders) {
       minutes: Math.round(r.duration / 60),
       /* Coordenadas del trazo real siguiendo calles -- vienen como
          [lon,lat] (GeoJSON), Leaflet las quiere al reves [lat,lon]. */
-      path: (r.geometry && r.geometry.coordinates || []).map(c => [c[1], c[0]])
+      path: (r.geometry && r.geometry.coordinates || []).map(c => [c[1], c[0]]),
+      /* Un tramo por cada par de paradas consecutivas -- OSRM ya los
+         trae listos, nomas no se estaban usando. Sirve para el
+         desglose "de aqui a alla, tantos minutos" a prueba de
+         cualquiera, no nomas el total. */
+      legs: (r.legs || []).map(l => Math.round(l.duration / 60))
     };
   } catch (e) { return null; }
 }
