@@ -80,8 +80,9 @@
   .lvl-btn.active { background:var(--gold); color:var(--black); }
   .lvl-btn:hover:not(.active) { background:var(--bg); }
 
-  .svc-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
-  .svc-toolbar .svc-search { flex:1; min-width:160px; margin-bottom:0; }
+  .svc-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .svc-toolbar .svc-search { flex:1; min-width:160px; max-width:none; margin-bottom:0; }
+  .svc-toolbar-selall { display:flex; align-items:center; gap:10px; flex-shrink:0; }
   .selall-label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray); }
   .lvl-toggle3 { position:relative; display:flex; width:180px; height:34px; background:var(--border); border-radius:17px; padding:3px; flex-shrink:0; }
   .lvl-toggle3-thumb { position:absolute; top:3px; left:3px; width:calc(33.333% - 2px); height:calc(100% - 6px); background:var(--gold); border-radius:14px; transition:transform .25s cubic-bezier(.4,0,.2,1), opacity .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); opacity:0; }
@@ -169,12 +170,14 @@
       </div>
       <div class="svc-toolbar">
         <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
-        <span class="selall-label">Select all</span>
-        <div class="lvl-toggle3" id="rcSelAllToggle">
-          <div class="lvl-toggle3-thumb" id="rcSelAllThumb"></div>
-          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 1',0)">L1</div>
-          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 2',1)">L2</div>
-          <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 3',2)">L3</div>
+        <div class="svc-toolbar-selall">
+          <span class="selall-label">Select all</span>
+          <div class="lvl-toggle3" id="rcSelAllToggle">
+            <div class="lvl-toggle3-thumb" id="rcSelAllThumb"></div>
+            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 1',0)">L1</div>
+            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 2',1)">L2</div>
+            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 3',2)">L3</div>
+          </div>
         </div>
       </div>
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
