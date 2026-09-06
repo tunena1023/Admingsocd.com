@@ -620,7 +620,7 @@
   <div class="subpanel active" id="subpanel-reports">
     <div class="upload-card">
       <h3>Employee Report</h3>
-      <p>Name + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees).</p>
+      <p>Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
       <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
       <button class="btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
       <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
@@ -5206,13 +5206,19 @@ let pendingDirectLinkOrderId = null;
     reader.onload = () => {
       try {
         const rows = parseCSV(reader.result);
+        /* Columnas confirmadas con el reporte real (2026-09-06):
+           First Name, Last Name, Email, Phone, Department Name,
+           Department Code, Payroll Number, Active Status -- Email y
+           Phone son nuevas, antes el reporte no las traia. */
         employeeRows = rows.slice(1).filter(r => r.length > 1 && r[0].trim()).map(r => ({
           firstName: r[0].trim(),
           lastName: r[1].trim(),
-          departmentName: r[2].trim(),
-          departmentCode: r[3].trim(),
-          payrollNumber: r[4].trim(),
-          activeStatus: r[5].trim()
+          email: (r[2] || '').trim(),
+          phone: (r[3] || '').trim(),
+          departmentName: (r[4] || '').trim(),
+          departmentCode: (r[5] || '').trim(),
+          payrollNumber: (r[6] || '').trim(),
+          activeStatus: (r[7] || '').trim()
         }));
         document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
       } catch (e) {
@@ -5231,7 +5237,12 @@ let pendingDirectLinkOrderId = null;
       const box = document.getElementById('employee-result');
       box.style.display = 'block';
       box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
-        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>';
+        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>' +
+        '<div style="margin-top:6px">Tech portal: <b>' + res.techsCreated + '</b> new accounts · <b>' + res.techsUpdated + '</b> updated</div>';
+      if (res.missingPhone && res.missingPhone.length) {
+        box.innerHTML += '<div class="warn-list"><b>No valid phone number</b> — no tech portal account was created for these (needs the last 4 digits to log in):<br>' +
+          res.missingPhone.map(n => '• ' + n).join('<br>') + '</div>';
+      }
       if (res.missingPayroll && res.missingPayroll.length) {
         box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
           res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';

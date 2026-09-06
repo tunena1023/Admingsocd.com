@@ -352,9 +352,12 @@ exports.handler = async (event) => {
       if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
 
       const existing = await fetchAll(FIELD_EMPLOYEES_LIST);
+      const existingTechs = await fetchAll(TECHS_LIST);
       const seenIds = new Set();
       const missingPayroll = [];
       let created = 0, updated = 0, officeCount = 0;
+      let techsCreated = 0, techsUpdated = 0;
+      const missingPhone = [];
 
       for (const r of rows) {
         const firstName = String(r.firstName || '').trim();
@@ -367,6 +370,8 @@ exports.handler = async (event) => {
 
         const payrollNumber = String(r.payrollNumber || '').trim();
         const active = String(r.activeStatus || '').trim().toUpperCase() === 'ACTIVE';
+        const email = String(r.email || '').trim();
+        const phone = String(r.phone || '').trim();
 
         /* La gente de oficina SI se guarda en FieldEmployees -- si no,
            el Hours Report nunca puede cruzarla, y siempre saldria como
@@ -413,6 +418,53 @@ exports.handler = async (event) => {
         }
 
         if (!payrollNumber) missingPayroll.push((firstName + ' ' + lastName).trim());
+
+        /* Cuenta de tech.gsocd.com automatica -- para que nadie de
+           campo tenga que registrarse a mano. Solo gente de campo
+           (Janitorial/Renovations/Exteriors), la oficina no necesita
+           el portal de tecnicos.
+
+           Cruce por NOMBRE normalizado nomas (no por telefono/TempID):
+           si esta persona YA se registro sola en tech.gsocd.com antes
+           de que subieras este reporte, su TempID (el que ya esta
+           usando para entrar) y su Role (si ya se lo cambiaste a
+           Supervisor) NUNCA se tocan aqui -- solo se le rellena el
+           PayrollID real y se actualiza su Division segun este
+           reporte. Si es la primera vez que aparece, se crea de cero
+           con un TempID calculado del telefono del reporte. */
+        if (!isOffice) {
+          const division = janitorial ? 'Janitorial' : renovations ? 'Renovations' : exteriors ? 'Exteriors' : '';
+          const wantedName = normalizeName(firstName + ' ' + lastName);
+          const techMatch = existingTechs.find(it => it.fields &&
+            normalizeName(String(it.fields.FirstName || '') + ' ' + String(it.fields.LastName || '')) === wantedName);
+
+          if (techMatch) {
+            const techFields = { PayrollID: payrollNumber, Division: division };
+            if (email) techFields.Email = email;
+            if (phone) techFields.Phone = phone;
+            await updateListItemByItemId(TECHS_LIST, techMatch.id, techFields);
+            techsUpdated++;
+          } else {
+            const tempId = String(phone).replace(/\D/g, '').slice(-4);
+            if (tempId.length !== 4) {
+              missingPhone.push((firstName + ' ' + lastName).trim());
+            } else {
+              await createListItem(TECHS_LIST, {
+                Title: firstName + ' ' + lastName,
+                FirstName: firstName,
+                LastName: lastName,
+                Phone: phone,
+                Email: email,
+                TempID: tempId,
+                PayrollID: payrollNumber,
+                Role: 'Employee',
+                Division: division,
+                Active: active
+              });
+              techsCreated++;
+            }
+          }
+        }
       }
 
       /* Quien ya no aparecio en este reporte, se desactiva (no se
@@ -423,7 +475,9 @@ exports.handler = async (event) => {
       deactivated = toDeactivate.length;
 
       const summary = created + ' agregados, ' + updated + ' actualizados, ' + deactivated + ' desactivados, ' +
-        officeCount + ' de oficina (guardados, nunca asignables)' +
+        officeCount + ' de oficina (guardados, nunca asignables). Tech portal: ' +
+        techsCreated + ' cuentas nuevas, ' + techsUpdated + ' actualizadas' +
+        (missingPhone.length ? '. Sin telefono valido (sin cuenta creada): ' + missingPhone.join(', ') : '') +
         (missingPayroll.length ? '. Falta Payroll Number: ' + missingPayroll.join(', ') : '');
 
       await createListItem(REPORT_UPLOADS_LIST, {
@@ -433,7 +487,7 @@ exports.handler = async (event) => {
         Summary: summary
       });
 
-      return jsonResponse(200, { success: true, created, updated, deactivated, officeCount, missingPayroll });
+      return jsonResponse(200, { success: true, created, updated, deactivated, officeCount, techsCreated, techsUpdated, missingPhone, missingPayroll });
     }
 
     /* Hours Report (Average Hours) -> reemplaza WeeklyHours completo.
