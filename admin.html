@@ -28,6 +28,15 @@
     }
     .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
     .svc-cat-pin { font-size: 11px; margin-left: 4px; }
+
+    /* Picker del catalogo nuevo (ServicesCatalog) -- mismo patron que
+       recurring.html: toggle Residential/Commercial + buscador + chips
+       en grid de 2 columnas, solo el nombre visible, nunca el SKU. */
+    .svc-search { width: 100%; max-width: 280px; padding: 8px 10px; border: 1px solid var(--border); font-size: 12px; margin-bottom: 12px; font-family: 'Inter', sans-serif; display: block; }
+    .svc-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .svc-chip { border: 1px solid var(--border); background: var(--white); padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; border-radius: 2px; font-family: 'Inter', sans-serif; color: var(--black); }
+    .svc-chip.active { background: var(--gold); border-color: var(--gold); font-weight: 700; }
+    @media (max-width: 640px) { .svc-chip-grid { grid-template-columns: 1fr; } }
     .svc-cat-body { display: none; padding: 4px 16px 12px; background: var(--bg); }
     .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
     .svc-row:last-child { border-bottom: none; }
@@ -720,7 +729,7 @@ let allServices = null;
    loadAll() (cualquier accion que cambie datos ya llama a loadAll). */
 let orderDetailCache = {};
 let createSelectedClient = null;
-let createSelected = {};
+let createSelected = new Map();   // sku -> fila del catalogo { serviceName, division, propertyType }
 let createMultiOn = false;
 let createUnitCardCounter = 0;
 
@@ -4121,7 +4130,12 @@ function createOrderFormHtml() {
       </div>
       <div id="create-services-wrap" style="display:none">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div id="create-services-list"></div>
+        <div class="pill-row" id="create-svc-toggle">
+          <div class="pill active" data-type="Residential" onclick="setCreatePropertyType('Residential')">Residential</div>
+          <div class="pill" data-type="Commercial" onclick="setCreatePropertyType('Commercial')">Commercial</div>
+        </div>
+        <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
+        <div class="svc-chip-grid" id="create-services-list"></div>
       </div>
 
       <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
@@ -4162,7 +4176,7 @@ function startCreateOrderFor(clientId) {
   const c = allClients.find(x => x.clientId === clientId);
   if (!c) return;
   createSelectedClient = c;
-  createSelected = {};
+  createSelected = new Map();
   const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const content = document.getElementById(cid + '-content');
   if (!content) return;
@@ -4238,88 +4252,82 @@ function renumberCreateUnitCards() {
   });
 }
 
+/* ===== Picker del catalogo nuevo (ServicesCatalog) para Create Order.
+   El viejo /get-services (por cuarto, con sub-opciones) se reemplaza
+   por el catalogo nuevo (por SKU, un servicio = un chip). El division
+   select de arriba sigue igual (Janitorial/renovations/exteriors),
+   pero abajo ahora hay toggle Residential/Commercial + buscador +
+   chips -- nunca se muestra el SKU, solo el nombre. ===== */
+let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas una vez
+let createPropertyType = 'Residential';
+
 async function loadCreateServices() {
   const div = document.getElementById('create-division').value;
   const wrap = document.getElementById('create-services-wrap');
   if (!div) { wrap.style.display = 'none'; return; }
-  if (!allServices) {
-    try { allServices = await api('/get-services', { method: 'GET' }); } catch(e) { return; }
+  if (!createCatalogCache) {
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } });
+      createCatalogCache = (res.services || []).filter(s => s.active);
+    } catch (e) { showToast('Could not load the service catalog.'); return; }
   }
-  const divData = allServices[div];
-  if (!divData) { wrap.style.display = 'none'; return; }
-  createSelected = {};
-  /* Cambiar de division es un catalogo completamente distinto -- el
-     estado de que categoria estaba abierta/fijada ya no aplica. */
-  if (window['__accState']) delete window['__accState']['create'];
-  const cats = divData.categories || {};
+  createSelected = new Map();
+  createPropertyType = 'Residential';
+  document.querySelectorAll('#create-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === 'Residential'));
+  document.getElementById('create-svc-search').value = '';
   wrap.style.display = 'block';
-  /* Mismo acordeon colapsable por categoria que usa el editor de Active
-     (.svc-cat-group / .svc-cat-header / .svc-cat-body), con las opciones
-     como pills en vez de filas con dropdown, porque aqui no hay servicios
-     ya guardados que editar — solo se estan eligiendo. En 2 columnas
-     (.svc-cols), igual que Active/Approvals/Review. */
-  document.getElementById('create-services-list').className = 'svc-cols';
-  document.getElementById('create-services-list').innerHTML = buildCreateServicesHtml(cats);
+  renderCreateServiceChips();
 }
 
-/* Reconstruye el HTML del acordeon de Create Order. Se llama al elegir
-   division, y de nuevo cada vez que se toca una pastilla, para que el
-   circulo dorado de conteo refleje lo que de verdad esta seleccionado
-   -- antes se calculaba una sola vez con el total del catalogo y nunca
-   se volvia a actualizar. */
-function buildCreateServicesHtml(cats) {
-  return Object.entries(cats).map(([cat, svcs]) => {
-    const catSafe = cat.replace(/[^a-z0-9]/gi, '_');
-    const bodyId = 'create-svc-cat-body-' + catSafe;
-    const selectedCount = Object.keys(createSelected[cat] || {}).length;
-    const body = svcs.map(svc => {
-      const current = (createSelected[cat] || {})[svc.name] || '';
-      return `<div style="margin-bottom:10px">
-        <span style="font-size:13px;font-weight:500">${esc(svc.name)}</span>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-          ${(svc.subs||[]).map(sub => {
-            const active = sub === current;
-            return `<button type="button" class="create-chip" data-cat="${esc(cat)}" data-svc="${esc(svc.name)}" data-sub="${esc(sub)}"
-              style="padding:4px 12px;border-radius:20px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'var(--gold)' : 'var(--white)'};color:${active ? 'var(--white)' : 'var(--black)'};font-size:12px;cursor:pointer;font-family:Inter,sans-serif"
-              onclick="toggleCreateChip('${esc(cat)}','${esc(svc.name)}','${esc(sub)}')">${esc(sub)}</button>`;
-          }).join('')}
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="svc-cat-group" data-cat="${esc(cat)}">
-      <div class="svc-cat-header" onclick="accToggleCategory('create-services-list','create','${esc(cat)}',this)" ondblclick="accPinCategory('create','${esc(cat)}',this)">
-        <span><span class="svc-cat-name">${esc(cat)}</span>${selectedCount ? `<span class="svc-cat-count">${selectedCount}</span>` : ''}<span class="svc-cat-pin">${accInitialAttrs('create', cat).pinIcon}</span></span>
-        <span class="svc-cat-arrow" style="transform:${accInitialAttrs('create', cat).rotate}">▼</span>
-      </div>
-      <div class="svc-cat-body" id="${bodyId}" style="display:${accInitialAttrs('create', cat).display}">${body}</div>
-    </div>`;
-  }).join('');
+function setCreatePropertyType(type) {
+  createPropertyType = type;
+  document.querySelectorAll('#create-svc-toggle .pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+  renderCreateServiceChips();
 }
 
-function toggleCreateChip(cat, svc, sub) {
-  if (!createSelected[cat]) createSelected[cat] = {};
-  if (createSelected[cat][svc] === sub) {
-    delete createSelected[cat][svc];
-    if (!Object.keys(createSelected[cat]).length) delete createSelected[cat];
-  } else {
-    createSelected[cat][svc] = sub;
-  }
+function renderCreateServiceChips() {
+  const grid = document.getElementById('create-services-list');
   const div = document.getElementById('create-division').value;
-  const divData = allServices && allServices[div];
-  if (divData) {
-    document.getElementById('create-services-list').innerHTML = buildCreateServicesHtml(divData.categories || {});
+  if (!createCatalogCache || !createCatalogCache.length) {
+    grid.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
+    return;
   }
+  const q = (document.getElementById('create-svc-search').value || '').trim().toLowerCase();
+  let list = createCatalogCache.filter(s => s.division === div && s.propertyType === createPropertyType);
+  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+  if (!list.length) { grid.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
+  grid.innerHTML = list.map(s =>
+    '<button type="button" class="svc-chip' + (createSelected.has(s.sku) ? ' active' : '') + '" onclick="toggleCreateChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
+  ).join('');
+}
+
+function toggleCreateChip(sku) {
+  if (createSelected.has(sku)) {
+    createSelected.delete(sku);
+  } else {
+    const svc = createCatalogCache.find(s => s.sku === sku);
+    if (svc) createSelected.set(sku, svc);
+  }
+  renderCreateServiceChips();
 }
 
 async function submitCreateOrder() {
   if (!createSelectedClient) { showToast('Select a client first.'); return; }
   const division = document.getElementById('create-division').value;
   if (!division) { showToast('Select a division.'); return; }
+  /* El renglon guardado en OrderServices sigue usando los mismos 4
+     campos de siempre (Category/ServiceName/SubOption/Division) --
+     no se toco ese esquema para no tener que tocar tambien
+     submit-order.js, admin-update-order.js, admin-approve-order.js,
+     get-order-detail.js y admin-get-orders.js en este mismo paso.
+     Del catalogo nuevo: Category ahora lleva el PropertyType
+     (Residential/Commercial) y SubOption lleva el SKU, para no perder
+     ese dato -- Active/Approvals lo van a necesitar cuando les toque
+     su turno en la migracion. */
   const services = [];
-  Object.entries(createSelected).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, subOption]) => {
-      services.push({ Category: cat, ServiceName: svcName, SubOption: subOption, Division: division });
-    });
+  createSelected.forEach((svc, sku) => {
+    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: division });
   });
   if (!services.length) { showToast('Select at least one service.'); return; }
 
@@ -4400,7 +4408,7 @@ async function submitCreateOrder() {
 function cancelCreate() {
   const clientId = createSelectedClient ? createSelectedClient.clientId : null;
   createSelectedClient = null;
-  createSelected = {};
+  createSelected = new Map();
   createMultiOn = false;
   createUnitCardCounter = 0;
   if (clientId) {
