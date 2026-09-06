@@ -147,7 +147,14 @@ exports.handler = async (event) => {
       OrderNotifyUpdates:        f.OrderNotifyUpdates        || '',
       OrderContactId:            f.OrderContactId            || '',
       BatchId:    f.BatchId    || '',
-      BuildingId: f.BuildingId || ''
+      BuildingId: f.BuildingId || '',
+      /* Renovations: aviso del cliente de que el material ya esta listo
+         para que entremos. MaterialsReadySeen controla la burbuja de
+         Review (default true en filas viejas sin la columna todavia). */
+      ExpectedReadyDate: f.ExpectedReadyDate || '',
+      MaterialsReady: f.MaterialsReady === true || f.MaterialsReady === 'true',
+      MaterialsReadySeen: f.MaterialsReadySeen === undefined ? true : (f.MaterialsReadySeen === true || f.MaterialsReadySeen === 'true'),
+      EntryTime: f.EntryTime || ''
     };
 
     const services = svcRows

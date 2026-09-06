@@ -77,6 +77,14 @@ exports.handler = async (event) => {
           BuildingId: f.BuildingId || '',
           Latitude:   f.Latitude   != null ? f.Latitude  : null,
           Longitude:  f.Longitude  != null ? f.Longitude : null,
+          /* Renovations: cliente avisa cuando el material ya esta listo
+             para que entremos, con hora opcional. MaterialsReadySeen
+             controla la burbuja de aviso en Review (Sí = ya lo vio el
+             staff, No = pendiente). */
+          ExpectedReadyDate: f.ExpectedReadyDate || '',
+          MaterialsReady: f.MaterialsReady === true || f.MaterialsReady === 'true',
+          MaterialsReadySeen: f.MaterialsReadySeen === undefined ? true : (f.MaterialsReadySeen === true || f.MaterialsReadySeen === 'true'),
+          EntryTime: f.EntryTime || '',
           Services: servicesByOrder[f.OrderID || f.Title] || []
         };
       })

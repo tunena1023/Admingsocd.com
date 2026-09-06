@@ -168,6 +168,27 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
+    /* ---- Renovations: Mark as Seen -- el staff reconoce el aviso de
+       "materials ready" que mando el cliente. No es una decision (no
+       hay Approve/Reject), solo apaga la burbuja de Review. Cualquier
+       rol con acceso puede hacerlo, no solo Director/Developer. ---- */
+    if (action === 'mark-materials-seen') {
+      if (!body.orderId) return jsonResponse(400, { error: 'orderId is required' });
+      const rows = await fetchAll(ORDERS_LIST);
+      const orderItem = rows.find(it => it.fields && String(it.fields.OrderID || it.fields.Title || '') === String(body.orderId));
+      if (!orderItem) return jsonResponse(404, { error: 'Order not found.' });
+      await updateListItemByItemId(ORDERS_LIST, orderItem.id, { MaterialsReadySeen: true });
+      await createListItem(ORDER_HISTORY_LIST, {
+        Title: body.orderId + '-seen',
+        OrderID: body.orderId,
+        ChangeType: 'Materials Ready Seen',
+        ChangedBy: (email || 'Staff'),
+        ChangeDate: new Date().toISOString(),
+        Notes: ''
+      });
+      return jsonResponse(200, { success: true });
+    }
+
     if (action === 'list-catalog') {
       const rows = await fetchAll(SERVICES_CATALOG_LIST);
       const services = rows.filter(it => it.fields).map(it => ({

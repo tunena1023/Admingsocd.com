@@ -448,7 +448,7 @@
 
 <div class="tab-bar">
   <button class="tab active" onclick="showTab('approvals')">Approvals<span class="tab-count zero" id="appr-count">0</span></button>
-  <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span></button>
+  <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span></button>
   <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('assigned')">Assigned</button>
@@ -480,6 +480,12 @@
   </div>
   <div id="review-toolbar"></div>
   <div id="review-list"><p class="empty-note">Loading…</p></div>
+
+  <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
+    <h2 class="section-title">Materials Ready</h2>
+    <p class="section-sub">Renovations clients letting us know their materials are on site and we're clear to enter. Nothing to decide here — just acknowledge it.</p>
+    <div id="materials-ready-list"><p class="empty-note">Nothing pending.</p></div>
+  </div>
 </div>
 
 <!-- ACTIVE -->
@@ -2055,6 +2061,53 @@ function renderReview() {
   }
   renderSortFilterToolbar('review', all, 'filterReview');
   filterReview();
+  renderMaterialsReadyReview();
+}
+
+/* Renovations: avisos de "materials ready" sin marcar como vistos.
+   No es una decision (no hay Approve/Reject) -- solo enterarse. Cuenta
+   aparte de la burbuja de decisiones, y su propia seccion en la
+   pantalla, para no mezclar dos cosas de naturaleza distinta. */
+function materialsReadyPending() {
+  return allOrders.filter(o =>
+    ACTIVE_STATUSES.includes(o.Status) &&
+    String(o.Division || '').toLowerCase() === 'renovations' &&
+    o.MaterialsReady && !o.MaterialsReadySeen
+  );
+}
+
+function renderMaterialsReadyReview() {
+  const list = materialsReadyPending();
+  const badge = document.getElementById('review-materials-count');
+  if (badge) {
+    badge.textContent = list.length;
+    badge.classList.toggle('zero', list.length === 0);
+  }
+  const box = document.getElementById('materials-ready-list');
+  if (!box) return;
+  box.innerHTML = list.length
+    ? list.map(o => `
+      <div class="order-card">
+        <div class="order-card-header" style="align-items:center">
+          <div>
+            <div class="order-id">#${esc(o.OrderID)}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)}${o.EntryTime ? ' · Ready — ' + esc(o.EntryTime) : ' · Ready'}</div>
+          </div>
+          <button class="btn btn-gold" style="border-radius:20px" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
+        </div>
+      </div>`).join('')
+    : '<p class="empty-note">Nothing pending.</p>';
+}
+
+async function markMaterialsSeen(orderId) {
+  try {
+    await api('/developer-admin', { body: { action: 'mark-materials-seen', email: adminUser.email, orderId } });
+    const o = allOrders.find(x => x.OrderID === orderId);
+    if (o) o.MaterialsReadySeen = true;
+    renderMaterialsReadyReview();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
 }
 
 function filterReview() {
@@ -2781,6 +2834,21 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
    aparece ningun renglon extra. De SOLO LECTURA: cambiar esto es
    cosa del cliente desde su propio portal (boton Notifications en
    tracking.html), no del admin. */
+/* Renovations: pill de solo lectura con el aviso de "materials ready"
+   que mando el cliente -- staff nunca tiene que preguntar, ya lo ve
+   aqui. Nunca se muestra fuera de Renovations. */
+function materialsReadyPillHtml(o) {
+  if (String(o.Division || '').toLowerCase() !== 'renovations') return '';
+  if (!o.MaterialsReady && !o.ExpectedReadyDate) return '';
+  if (o.MaterialsReady) {
+    return '<p class="meta-line" style="margin-bottom:16px">' +
+      '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#FDF3E0;color:#8C6F2A;padding:4px 10px;border-radius:20px">' +
+      '<span style="width:6px;height:6px;border-radius:50%;background:#8C6F2A"></span>Materials Ready' +
+      (o.EntryTime ? ' — ' + esc(o.EntryTime) : '') + '</span></p>';
+  }
+  return '<p class="meta-line" style="margin-bottom:16px;color:var(--gray)">Expected ready: ' + esc(o.ExpectedReadyDate) + '</p>';
+}
+
 function orderNotificationsLineHtml(o) {
   const enabled = o.OrderNotificationsEnabled || '';
   const confirmVal = o.OrderNotifyConfirmations || '';
@@ -2986,6 +3054,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           ${esc(o.Contact||'')}
         </p>
         ${orderNotificationsLineHtml(o)}
+        ${materialsReadyPillHtml(o)}
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDateTime(o.EntryDate)}</div></div>
