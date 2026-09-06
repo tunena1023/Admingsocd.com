@@ -425,6 +425,23 @@
     .routing-stop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
     .routing-stop-row:last-child { border-bottom: none; }
     .routing-stop-name { font-weight: 700; }
+    /* Lista de "Add Stops" en 2 columnas -- ahorra espacio, se ven
+       muchos mas clientes sin tener que hacer tanto scroll. */
+    #routing-add-list { display: grid; grid-template-columns: 1fr 1fr; }
+    #routing-add-list .routing-stop-row { border-right: 1px solid var(--border); }
+    #routing-add-list .routing-stop-row:nth-child(2n) { border-right: none; }
+    /* Toggle redondito -- mismo lenguaje visual en toda la app para
+       cualquier interruptor Si/No. */
+    .routing-toggle { position: relative; display: inline-block; width: 38px; height: 21px; flex-shrink: 0; }
+    .routing-toggle input { opacity: 0; width: 0; height: 0; }
+    .routing-toggle .routing-toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); transition: .2s; border-radius: 21px; }
+    .routing-toggle .routing-toggle-slider:before { content: ""; position: absolute; height: 15px; width: 15px; left: 3px; bottom: 3px; background: #fff; transition: .2s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+    .routing-toggle input:checked + .routing-toggle-slider { background: var(--gold); }
+    .routing-toggle input:checked + .routing-toggle-slider:before { transform: translateX(17px); }
+    .routing-office-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; background: var(--bg); }
+    .routing-reorder-btns { display: flex; flex-direction: column; gap: 2px; margin-right: 8px; }
+    .routing-reorder-btns button { border: 1px solid var(--border); background: var(--white); width: 20px; height: 16px; font-size: 9px; line-height: 1; cursor: pointer; border-radius: 2px; padding: 0; }
+    .routing-reorder-btns button:disabled { opacity: .25; cursor: default; }
     .routing-stop-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
     .routing-add-btn { border: 1px solid var(--border); background: var(--white); color: var(--black); font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 3px; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; }
     .routing-add-btn:hover { border-color: var(--gold); }
@@ -723,6 +740,13 @@
 
         <div class="routing-panel-card routing-selected-card">
           <div class="routing-panel-header static"><b>Selected for this route</b><span id="routing-sel-count" style="font-size:11px;color:var(--gray);font-weight:400"></span></div>
+          <div class="routing-office-row">
+            <label class="routing-toggle">
+              <input type="checkbox" id="routing-office-toggle" onchange="toggleStartFromOffice(this.checked)">
+              <span class="routing-toggle-slider"></span>
+            </label>
+            Start from office
+          </div>
           <div class="routing-panel-body open" id="routing-selected-list"></div>
           <div class="routing-preview-wrap">
             <button class="btn btn-outline" id="preview-route-btn" style="width:100%" onclick="previewManualRoute()" disabled>Preview Route</button>
@@ -5885,6 +5909,12 @@ let allClientsForRoutingCache = null;
    paso intermedio de "casilla marcada". */
 let routingSelected = [];
 let routingActiveLetter = null;
+/* Punto de partida fijo -- oficina de GS Solutions en Clive. Se
+   geocodifica una sola vez (cache) la primera vez que se prende el
+   toggle, no cada vez. */
+const ROUTING_OFFICE = { name: 'GS Solutions (Office)', address: '1985 NW 94th St, Suite F', city: 'Clive', zip: '50325' };
+let routingStartFromOffice = false;
+let routingOfficeCoords = null;
 let pendingRoutingBlockIds = null;
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -5968,6 +5998,21 @@ function renderRoutingMap() {
     bounds.push([o.Latitude, o.Longitude]);
   });
 
+  if (routingStartFromOffice && routingOfficeCoords) {
+    const officeMarker = L.marker([routingOfficeCoords.lat, routingOfficeCoords.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="width:26px;height:26px;background:#2563EB;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.3)">\uD83C\uDFE2</div>',
+        iconSize: [26, 26], iconAnchor: [13, 13]
+      })
+    }).addTo(routingMap);
+    officeMarker.bindTooltip('Start: ' + ROUTING_OFFICE.name, {
+      permanent: true, direction: 'top', offset: [0, -15], className: 'routing-marker-label'
+    });
+    routingSelectedMarkers.push(officeMarker);
+    bounds.push([routingOfficeCoords.lat, routingOfficeCoords.lon]);
+  }
+
   routingSelected.forEach((s, i) => {
     const color = s.isCustomStop ? '#C9A84C' : '#111111';
     const textColor = s.isCustomStop ? '#111111' : '#ffffff';
@@ -5992,6 +6037,40 @@ function renderRoutingMap() {
 /* La linea del trayecto y el aviso de tiempo se dibujan encima del
    mapa mismo -- no alcanza con un texto chico allá abajo, esto tiene
    que verse de inmediato sin que nadie tenga que buscarlo. */
+/* El toggle de "Start from office" -- geocodifica la direccion fija
+   de la oficina UNA sola vez (queda en cache), no cada vez que se
+   prende/apaga. Si falla, se apaga el toggle solo y se avisa por
+   que -- nunca se queda "prendido" fingiendo que si tiene punto de
+   partida. */
+async function toggleStartFromOffice(checked) {
+  routingStartFromOffice = checked;
+  if (checked && !routingOfficeCoords) {
+    const toggle = document.getElementById('routing-office-toggle');
+    toggle.disabled = true;
+    try {
+      const geo = await throttledGeocode(ROUTING_OFFICE.address, ROUTING_OFFICE.city, ROUTING_OFFICE.zip);
+      if (!geo.geo) {
+        showToast('Could not locate the office address.');
+        routingStartFromOffice = false;
+        toggle.checked = false;
+        toggle.disabled = false;
+        return;
+      }
+      routingOfficeCoords = geo.geo;
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      routingStartFromOffice = false;
+      toggle.checked = false;
+      toggle.disabled = false;
+      return;
+    }
+    toggle.disabled = false;
+  }
+  renderRoutingMap();
+  renderRoutingSelected();
+  hideRoutingRouteResult();
+}
+
 function clearRoutingPath() {
   if (routingRouteLine) { routingMap.removeLayer(routingRouteLine); routingRouteLine = null; }
 }
@@ -6187,22 +6266,45 @@ function hideRoutingRouteResult() {
 
 function renderRoutingSelected() {
   document.getElementById('routing-sel-count').textContent = routingSelected.length + ' stop' + (routingSelected.length === 1 ? '' : 's');
+  const minNeeded = routingStartFromOffice ? 1 : 2;
   const btn = document.getElementById('preview-route-btn');
-  btn.disabled = routingSelected.length < 2;
+  btn.disabled = routingSelected.length < minNeeded;
   btn.textContent = 'Preview Route (' + routingSelected.length + ' selected)';
   const list = document.getElementById('routing-selected-list');
   if (!routingSelected.length) { list.innerHTML = '<p class="empty-note">Nothing selected yet \u2014 add stops above.</p>'; return; }
   list.innerHTML = routingSelected.map((s, i) =>
-    '<div class="routing-stop-row"><div class="routing-sel-badge' + (s.isCustomStop ? ' custom' : '') + '">' + (i + 1) + '</div>' +
+    '<div class="routing-stop-row">' +
+    '<div class="routing-reorder-btns">' +
+      '<button type="button" ' + (i === 0 ? 'disabled' : '') + ' onclick="moveRoutingStop(' + i + ',-1)" title="Move up">\u25b2</button>' +
+      '<button type="button" ' + (i === routingSelected.length - 1 ? 'disabled' : '') + ' onclick="moveRoutingStop(' + i + ',1)" title="Move down">\u25bc</button>' +
+    '</div>' +
+    '<div class="routing-sel-badge' + (s.isCustomStop ? ' custom' : '') + '">' + (i + 1) + '</div>' +
     '<div style="flex:1"><div class="routing-stop-name">' + esc(s.name) + '</div><div class="routing-stop-sub">' + esc(s.sub) + '</div></div>' +
     '<button type="button" style="background:none;border:none;color:#B33A3A;font-size:16px;cursor:pointer" onclick="removeRoutingSelected(\'' + escAttr(s.key) + '\')">\u2715</button></div>'
   ).join('');
+}
+
+/* Reordenar las paradas -- el tiempo de manejo cambia mucho segun el
+   orden, esto deja probar distintos ordenes sin tener que quitar y
+   volver a agregar todo. */
+function moveRoutingStop(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= routingSelected.length) return;
+  const tmp = routingSelected[index];
+  routingSelected[index] = routingSelected[newIndex];
+  routingSelected[newIndex] = tmp;
+  renderRoutingMap();
+  renderRoutingSelected();
+  hideRoutingRouteResult();
 }
 
 async function previewManualRoute() {
   showRoutingRouteResult('<p class="empty-note">Calculating\u2026</p>');
   showRoutingTimeOverlay('<div class="rt-big">Calculating\u2026</div>');
   const stops = routingSelected.map(s => ({ OrderID: s.key, BusinessName: s.name, Latitude: s.lat, Longitude: s.lon }));
+  if (routingStartFromOffice && routingOfficeCoords) {
+    stops.unshift({ OrderID: 'office', BusinessName: ROUTING_OFFICE.name, Latitude: routingOfficeCoords.lat, Longitude: routingOfficeCoords.lon });
+  }
   const realOrderIds = routingSelected.filter(s => !s.isCustomStop).map(s => s.key);
 
   const [route, workEstimate] = await Promise.all([
