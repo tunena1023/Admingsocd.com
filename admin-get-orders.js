@@ -88,6 +88,10 @@ exports.handler = async (event) => {
           /* Renovations/Janitorial: cliente avisa si actualmente vive
              alguien en la unidad -- solo lectura del lado de Admin. */
           UnitOccupied: f.UnitOccupied === true || f.UnitOccupied === 'true',
+          /* Exteriors: si necesita algo de la oficina del edificio antes
+             de poder entrar (llaves, codigo de acceso, etc.). */
+          NeedsOfficeAccess: f.NeedsOfficeAccess === true || f.NeedsOfficeAccess === 'true',
+          OfficeNeedNotes: f.OfficeNeedNotes || '',
           Services: servicesByOrder[f.OrderID || f.Title] || []
         };
       })

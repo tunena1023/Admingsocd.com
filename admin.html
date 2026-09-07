@@ -145,6 +145,10 @@
     /* Badge de unidad ocupada -- mismo diseno aprobado en Admin/Cliente/Tech */
     .occupied-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; background: #E8F0FA; color: #2D5F8A; padding: 3px 9px; border-radius: 20px; margin-left: 8px; }
     .occupied-dot { width: 6px; height: 6px; border-radius: 50%; background: #2D5F8A; }
+    /* Exteriors: necesita algo de la oficina antes de entrar -- mismo
+       patron que occupied-badge, color distinto para no confundirlos */
+    .office-need-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; background: #F0E8FA; color: #6B3FA0; padding: 3px 9px; border-radius: 20px; margin-left: 8px; }
+    .office-need-dot { width: 6px; height: 6px; border-radius: 50%; background: #6B3FA0; }
     .status-badge {
       font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
       padding: 4px 10px; border-radius: 20px; white-space: nowrap;
@@ -1447,7 +1451,7 @@ function newOrderApprovalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}${officeNeedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1625,7 +1629,7 @@ function approvalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}${officeNeedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1918,6 +1922,8 @@ function approvalDetailHtml(card, o, services, history) {
     esc([o.Address, o.Suite, o.City, o.Zip].filter(Boolean).join(', ')) +
     (o.Contact ? '<br>' + esc(o.Contact) : '') + '</p>');
   rows.push('</div>');
+  const officeNoteHtml = officeNeedNoteHtml(o);
+  if (officeNoteHtml) rows.push('<div class="appr-section">' + officeNoteHtml + '</div>');
 
   /* --- Datos que se van a confirmar ---
      Mismo grid de etiquetas (field-caption/field-value) que ya se usa
@@ -2697,7 +2703,7 @@ function orderCard(o, context) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}${officeNeedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
         </div>
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
@@ -3161,6 +3167,25 @@ function unitOccupiedBadgeHtml(o) {
   return '<span class="occupied-badge"><span class="occupied-dot"></span>Occupied unit</span>';
 }
 
+/* Badge morado de "necesita algo de la oficina" -- Exteriors
+   unicamente. Mismo patron que el badge azul, solo lectura (lo pone
+   el cliente al hacer la orden). */
+function officeNeedBadgeHtml(o) {
+  if (String(o.Division || '').toLowerCase() !== 'exteriors') return '';
+  if (!o.NeedsOfficeAccess) return '';
+  return '<span class="office-need-badge"><span class="office-need-dot"></span>Office access needed</span>';
+}
+
+/* Texto completo de lo que el cliente escribio que necesita de la
+   oficina -- el badge de arriba solo avisa que hay algo, esto es el
+   detalle real. */
+function officeNeedNoteHtml(o) {
+  if (String(o.Division || '').toLowerCase() !== 'exteriors') return '';
+  if (!o.NeedsOfficeAccess || !o.OfficeNeedNotes) return '';
+  return '<p class="meta-line" style="margin-bottom:16px;padding:10px 12px;background:#F0E8FA;border-radius:4px;border-left:3px solid #6B3FA0">' +
+    '<b style="color:#6B3FA0">Needed from the office:</b> ' + esc(o.OfficeNeedNotes) + '</p>';
+}
+
 function orderNotificationsLineHtml(o) {
   const enabled = o.OrderNotificationsEnabled || '';
   const confirmVal = o.OrderNotifyConfirmations || '';
@@ -3367,6 +3392,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         </p>
         ${orderNotificationsLineHtml(o)}
         ${materialsReadyPillHtml(o)}
+        ${officeNeedNoteHtml(o)}
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDate(o.EntryDate)}</div></div>
