@@ -5640,7 +5640,7 @@ let pendingDirectLinkOrderId = null;
         <label for="starts-office-${escAttr(o.OrderID)}">Starts from office</label>
       </div>
       <div class="field-row">
-        <div class="field-group"><label>Assigned Date</label><input type="date" id="assign-date-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Assigned Date</label><input type="date" id="assign-date-${escAttr(o.OrderID)}" min="${dateInputValue(o.EntryDate)}" max="${dateInputValue(o.DueDate)}"></div>
         <div class="field-group"><label>Service Window</label>
           <select id="assign-window-${escAttr(o.OrderID)}">
             <option value="">Select…</option>
@@ -5650,7 +5650,7 @@ let pendingDirectLinkOrderId = null;
             <option>2:00 PM - 5:00 PM</option>
           </select>
         </div>
-        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}"></div>
+        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="assign-inspection-${escAttr(o.OrderID)}" min="${dateInputValue(o.EntryDate)}" max="${dateInputValue(o.DueDate)}"></div>
       </div>
       <button class="btn-gold" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
