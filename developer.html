@@ -1272,11 +1272,11 @@
         '</tr>';
       html += extras.map((a, ai) =>
         '<tr style="background:var(--bg)">' +
-        '<td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + extraCellInput(i, ai, 'label', a.label, 'Label (required)') + '</td>' +
+        '<td ' + td + ' style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + extraCellInput(i, ai, 'label', a.label, 'Label (required)') + '</td>' +
         '<td ' + td + '>' + extraCellInput(i, ai, 'address', a.address, 'Address') + '</td>' +
         '<td ' + td + '>' + extraCellInput(i, ai, 'city', a.city, 'City') + '</td>' +
         '<td ' + td + '>' + extraCellInput(i, ai, 'zip', a.zip, 'Zip') + '</td>' +
-        '<td ' + td + ' colspan="2"></td>' +
+        '<td ' + td + ' colspan="3"></td>' +
         '<td ' + td + '><button type="button" style="background:none;border:none;color:#B33A3A;cursor:pointer" onclick="removeBulkClientAddress(' + i + ',' + ai + ')">✕ Remove</button></td>' +
         '</tr>'
       ).join('');
