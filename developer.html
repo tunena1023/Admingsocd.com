@@ -73,6 +73,7 @@
     .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; cursor: pointer; }
     .order-card-header:hover { background: var(--bg); }
     .order-id { font-weight: 600; font-size: 15px; }
+    .order-meta { font-size: 12px; color: var(--gray); }
     .dev-chevron { font-size: 11px; color: var(--gray); }
     .appr-body { padding: 0 24px 24px; border-top: 1px solid var(--border); }
     .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
@@ -264,7 +265,7 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div class="order-id">Service Catalog</div>
-        <span class="dev-chevron">▸</span>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="catalog-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" id="browse-sub" style="margin-top:16px">Loading…</p>
@@ -278,7 +279,7 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div class="order-id">Staff &amp; Roles</div>
-        <span class="dev-chevron">▸</span>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="staff-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
@@ -294,7 +295,7 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div class="order-id">Techs &amp; Roles</div>
-        <span class="dev-chevron">▸</span>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="techs-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
@@ -310,7 +311,7 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div class="order-id">Service Times</div>
-        <span class="dev-chevron">▸</span>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="service-times-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
@@ -599,6 +600,7 @@
         allCatalogRows.length
           ? activeCount + ' active of ' + allCatalogRows.length + ' total services in ServicesCatalog.'
           : 'Nothing imported yet -- upload a QuickBooks report above to get started.';
+      document.getElementById('catalog-count-badge').textContent = allCatalogRows.length ? activeCount + ' active' : '';
       renderCatalogTable();
     } catch (e) {
       document.getElementById('catalog-table-wrap').innerHTML =
@@ -806,6 +808,7 @@
   }
 
   function renderTechs() {
+    document.getElementById('techs-count-badge').textContent = allTechs.length + ' registered';
     const q = (document.getElementById('techs-search').value || '').trim().toLowerCase();
     const list = allTechs.filter(t => !q ||
       (t.firstName + ' ' + t.lastName).toLowerCase().includes(q) ||
@@ -875,6 +878,9 @@
     if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No services match that search.</td></tr>'; return; }
 
     const missing = allServiceTimes.filter(s => s.level1 == null).length;
+    const badge = document.getElementById('service-times-count-badge');
+    badge.textContent = missing ? missing + ' missing' : (allServiceTimes.length ? 'all set' : '');
+    badge.style.color = missing ? '#B06A2A' : '';
     const note = document.getElementById('service-times-note');
     if (missing) {
       note.style.display = 'block';
@@ -923,6 +929,7 @@
   }
 
   function renderStaff() {
+    document.getElementById('staff-count-badge').textContent = allStaff.length ? allStaff.length + ' people' : '';
     const tbody = document.querySelector('#staff-table tbody');
     if (!allStaff.length) {
       tbody.innerHTML = '<tr><td class="empty-note">No staff added yet.</td></tr>';
