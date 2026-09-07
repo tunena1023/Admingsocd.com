@@ -4379,6 +4379,7 @@ function startAddBuilding(clientId) {
     <div class="field-group"><label>Suite</label><input type="text" id="${cid}-ctl-suite"></div>
     <div class="field-group"><label>City</label><input type="text" id="${cid}-ctl-city"></div>
     <div class="field-group"><label>Zip</label><input type="text" id="${cid}-ctl-zip"></div>
+    <div class="field-group"><label>Phone</label><input type="text" id="${cid}-ctl-phone" placeholder="Optional"></div>
     <button class="btn btn-gold" style="width:100%" onclick="saveBuildingEdit('${clientId}', null)">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
@@ -4439,6 +4440,13 @@ async function saveBuildingEdit(clientId, buildingId) {
     zip:            $f('zip')?.value.trim() || ''
   };
   if (buildingId) building.addressId = buildingId;
+
+  /* El campo Phone solo existe en el formulario de "Add building"
+     (no en el de editar, que ya tiene su propio manejo de contactos
+     via Notifications) -- si se lleno, se manda como contacto nuevo
+     tipo Phone, mismo mecanismo que ya usa Notifications. */
+  const phoneVal = $f('phone')?.value.trim();
+  if (phoneVal) building.newContact = { name: label, type: 'Phone', value: phoneVal };
 
   try {
     const res = await api('/admin-update-client', { body: { clientId, building } });

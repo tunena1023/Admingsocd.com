@@ -121,6 +121,25 @@ async function handleBuilding(b) {
   if (!bld.label || !String(bld.label).trim()) {
     return jsonResponse(400, { error: 'Label is required for a new building.' });
   }
+
+  /* Mismo mecanismo de newContact que ya existe arriba al EDITAR un
+     edificio -- antes solo funcionaba ahi, nunca al CREAR uno nuevo,
+     por eso un edificio recien creado nunca podia tener telefono. */
+  let newContactId = null;
+  if (bld.newContact && bld.newContact.name && String(bld.newContact.name).trim()
+      && bld.newContact.value && String(bld.newContact.value).trim()) {
+    const created = await createListItem(CLIENT_CONTACTS_LIST, {
+      Title:           bld.newContact.name,
+      ClientID:        b.clientId,
+      Name:            bld.newContact.name  || '',
+      ContactType:     bld.newContact.type  || 'Email',
+      Value:           bld.newContact.value || '',
+      Archived:        false,
+      NotifyRecipient: false
+    });
+    newContactId = created.id;
+  }
+
   const geo = await geocodeAddress(bld.address, bld.city, bld.zip);
   const newFields = {
     Title:          bld.label,
@@ -131,12 +150,12 @@ async function handleBuilding(b) {
     Suite:          bld.suite          || '',
     City:           bld.city           || '',
     Zip:            bld.zip            || '',
-    ContactId:      '',
+    ContactId:      newContactId || '',
     Archived:       false
   };
   if (geo) { newFields.Latitude = geo.lat; newFields.Longitude = geo.lon; }
   const result = await createListItem(CLIENT_ADDRESSES_LIST, newFields);
-  return jsonResponse(200, { success: true, addressId: result.id });
+  return jsonResponse(200, { success: true, addressId: result.id, contactId: newContactId });
 }
 
 /* Archivar/desarchivar un contacto puntual (la "X" junto a cada uno).
