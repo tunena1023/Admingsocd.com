@@ -268,7 +268,7 @@
 
     /* ===== Reloj y calendario oficiales (mismo patron de customer.html) ===== */
     .rel-wrap { position: relative; }
-    .trigger-btn { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--white); font-size: 14px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
+    .trigger-btn { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); font-size: 14px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
     .trigger-btn:hover { border-color: var(--gold); }
     .picker-popover { display: none; position: absolute; margin-top: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 50; width: 260px; }
     .picker-popover.open { display: block; }
@@ -5023,6 +5023,22 @@ function createOrderFormHtml() {
         <div class="field-group"><label>Unit #</label><input type="text" id="create-unit"></div>
         <div class="field-group"><label>Bedrooms</label><input type="number" id="create-bedrooms" min="1" max="5"></div>
         <div class="field-group"><label>Bathrooms</label><input type="number" id="create-bathrooms" min="1" max="3"></div>
+      </div>
+
+      <div class="field-group" id="create-office-need-block" style="margin-top:16px">
+        <label>Do we need anything from the property office?</label>
+        <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
+        <div class="yn-row">
+          <button type="button" id="create-office-need-no" class="yn-btn active" onclick="setCreateOfficeNeed(false)">No</button>
+          <button type="button" id="create-office-need-yes" class="yn-btn" onclick="setCreateOfficeNeed(true)">Yes</button>
+        </div>
+        <div id="create-office-need-detail" style="display:none;margin-top:12px">
+          <label>What do we need from the office?</label>
+          <textarea id="create-office-need-text" rows="3" placeholder="e.g. Keys for the mailroom, gate code, access to the roof..."></textarea>
+        </div>
+      </div>
+
+      <div id="create-single-dates" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
         <div class="field-group">
           <label>Entry Date</label>
           <input type="date" id="create-entry-date" style="display:none">
@@ -5172,18 +5188,6 @@ function createOrderFormHtml() {
         </div>
       </div>
 
-      <div class="field-group" id="create-office-need-block">
-        <label>Do we need anything from the property office?</label>
-        <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
-        <div class="yn-row">
-          <button type="button" id="create-office-need-no" class="yn-btn active" onclick="setCreateOfficeNeed(false)">No</button>
-          <button type="button" id="create-office-need-yes" class="yn-btn" onclick="setCreateOfficeNeed(true)">Yes</button>
-        </div>
-        <div id="create-office-need-detail" style="display:none;margin-top:12px">
-          <label>What do we need from the office?</label>
-          <textarea id="create-office-need-text" rows="3" placeholder="e.g. Keys for the mailroom, gate code, access to the roof..."></textarea>
-        </div>
-      </div>
       <div class="btn-actions">
         <button class="btn btn-gold" onclick="submitCreateOrder()">Submit Order</button>
         <button class="btn btn-outline" onclick="cancelCreate()">Cancel</button>
