@@ -1304,12 +1304,24 @@ exports.handler = async (event) => {
         const cid = String(it.fields.ClientID || '').trim();
         if (!cid) return;
         (addrByClient[cid] = addrByClient[cid] || []).push({
+          id: it.id,
           label: it.fields.Label || '',
           address: it.fields.Address || '',
           suite: it.fields.Suite || '',
           city: it.fields.City || '',
           zip: it.fields.Zip || '',
-          archived: it.fields.Archived === true || it.fields.Archived === 'true'
+          archived: it.fields.Archived === true || it.fields.Archived === 'true',
+          /* Horarios de oficina del edificio (Opcion E aprobada):
+             7 checkboxes de que dias abre + 1 horario compartido de
+             texto libre, en vez de un campo distinto por dia. */
+          monOpen: it.fields.MonOpen === true || it.fields.MonOpen === 'true',
+          tueOpen: it.fields.TueOpen === true || it.fields.TueOpen === 'true',
+          wedOpen: it.fields.WedOpen === true || it.fields.WedOpen === 'true',
+          thuOpen: it.fields.ThuOpen === true || it.fields.ThuOpen === 'true',
+          friOpen: it.fields.FriOpen === true || it.fields.FriOpen === 'true',
+          satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
+          sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
+          officeHours: it.fields.OfficeHours || ''
         });
       });
 
@@ -1343,6 +1355,26 @@ exports.handler = async (event) => {
       const clientItemId = String(body.id || '').trim();
       if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
       await updateListItemByItemId(CLIENTS_LIST, clientItemId, { Active: !!body.active });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Horarios de oficina de un edificio (ClientAddresses) -- Opcion E
+       aprobada: 7 checkboxes de que dias abre + 1 horario compartido
+       de texto libre. Se guarda todo junto en una sola llamada, no
+       campo por campo, para no disparar 8 escrituras por cada click. */
+    if (action === 'update-building-hours') {
+      const buildingItemId = String(body.id || '').trim();
+      if (!buildingItemId) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(CLIENT_ADDRESSES_LIST, buildingItemId, {
+        MonOpen: !!body.monOpen,
+        TueOpen: !!body.tueOpen,
+        WedOpen: !!body.wedOpen,
+        ThuOpen: !!body.thuOpen,
+        FriOpen: !!body.friOpen,
+        SatOpen: !!body.satOpen,
+        SunOpen: !!body.sunOpen,
+        OfficeHours: body.officeHours || ''
+      });
       return jsonResponse(200, { success: true });
     }
 

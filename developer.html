@@ -1065,22 +1065,28 @@
     }
   }
 
+  const DAY_FIELDS = ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen', 'satOpen', 'sunOpen'];
+
   function renderAllClientsTable() {
     const box = document.getElementById('all-clients-table');
     document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
     if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
     const td = 'style="padding:6px;border:1px solid var(--border)"';
+    /* Los horarios de oficina son por EDIFICIO (ClientAddresses), no
+       existen a nivel cliente principal -- por eso el renglon
+       principal deja esas 8 columnas en blanco, colspan no aplica
+       porque siguen siendo celdas reales de la tabla (para que el
+       grid no se desalinee). */
+    const blankHoursCells = '<td ' + td + ' colspan="8" style="background:var(--bg)"></td>';
 
     const rowsHtml = allClientsCache.map(c => {
       let html = '<tr' + (c.active === false ? ' style="opacity:.5"' : '') + '>' +
         '<td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
         '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
         '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
+        blankHoursCells +
         '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
-      html += (c.additionalAddresses || []).map(a =>
-        '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
-        '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td></tr>'
-      ).join('');
+      html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
       return html;
     }).join('');
 
@@ -1094,8 +1100,51 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => '<th style="text-align:center;padding:6px;border:1px solid var(--border)">' + d + '</th>').join('') +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
+  }
+
+  /* Renglon de edificio adicional con sus 8 celdas de horario editables.
+     Se guarda todo junto (los 7 checkboxes + el horario) en una sola
+     llamada al backend, al salir de cualquiera de esas celdas -- igual
+     de responsivo que el patron ya usado en Bulk Import, sin disparar
+     8 escrituras separadas por cada click. */
+  function buildingHoursRowHtml(a, td) {
+    const dayCells = DAY_FIELDS.map(f =>
+      '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (a[f] ? 'checked' : '') +
+      ' onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-' + f + '"></td>'
+    ).join('');
+    return '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
+      '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td>' +
+      dayCells +
+      '<td ' + td + '><input type="text" class="cell" value="' + esc(a.officeHours) + '" style="width:100%;min-width:110px;padding:5px 6px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit" id="bh-' + esc(a.id) + '-officeHours" onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')"></td>' +
+      '<td ' + td + '></td></tr>';
+  }
+
+  async function onBuildingHoursChange(buildingId) {
+    const val = id => {
+      const el = document.getElementById('bh-' + buildingId + '-' + id);
+      return el ? (el.type === 'checkbox' ? el.checked : el.value) : '';
+    };
+    const body = { id: buildingId };
+    DAY_FIELDS.forEach(f => { body[f] = val(f); });
+    body.officeHours = val('officeHours');
+    try {
+      await api('update-building-hours', body);
+      /* Reflejar en cache local sin recargar todo desde SharePoint --
+         la tabla ya se ve correcta, esto es solo para que un refresh
+         accidental de la vista no la borre antes de que el usuario
+         se de cuenta de que ya se guardo. */
+      allClientsCache.forEach(c => {
+        const b = (c.additionalAddresses || []).find(x => x.id === buildingId);
+        if (b) { DAY_FIELDS.forEach(f => { b[f] = body[f]; }); b.officeHours = body.officeHours; }
+      });
+      showToast('Office hours saved.');
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
   }
 
   async function toggleClientActive(id, makeActive) {
