@@ -9,7 +9,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --black: #111111; --gold: #C9A84C; --white: #FFFFFF;
+      --black: #111111; --gold: #C9A84C; --gold-dk: #8C6F2A; --white: #FFFFFF;
       --bg: #F8F7F4; --gray: #6B6B6B; --border: #E0DDD6;
       --red: #c0392b; --green: #27ae60;
     }
@@ -265,6 +265,48 @@
       font-family: 'Inter', sans-serif; font-size: 14px; color: var(--black);
       background: var(--white); outline: none;
     }
+
+    /* ===== Reloj y calendario oficiales (mismo patron de customer.html) ===== */
+    .rel-wrap { position: relative; }
+    .trigger-btn { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--white); font-size: 14px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
+    .trigger-btn:hover { border-color: var(--gold); }
+    .picker-popover { display: none; position: absolute; margin-top: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 50; width: 260px; }
+    .picker-popover.open { display: block; }
+    .picker-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); text-align: center; margin-bottom: 14px; }
+    .cal-card { border-radius: 22px; padding: 4px; }
+    .cal-header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; }
+    .cal-nav-group { display: flex; align-items: center; gap: 2px; background: var(--bg); border-radius: 20px; padding: 3px; }
+    .cal-nav-group button { background: none; border: none; font-size: 15px; color: var(--gold-dk); cursor: pointer; width: 22px; height: 22px; border-radius: 50%; }
+    .cal-nav-group button:hover { background: rgba(201,168,76,0.2); }
+    .cal-month, .cal-year { font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 600; text-align: center; color: var(--black); }
+    .cal-month { min-width: 78px; } .cal-year { min-width: 40px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .cal-dow { font-size: 9px; color: var(--gray); text-align: center; text-transform: uppercase; font-weight: 700; padding-bottom: 4px; }
+    .cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--black); }
+    .cal-day:hover { background: rgba(201,168,76,0.18); }
+    .cal-day.selected { background: var(--gold); color: var(--black); font-weight: 700; }
+    .cal-day.muted { color: #C9C2B4; cursor: default; }
+    .cal-day.muted:hover { background: none; }
+    .clock-face-row { display: flex; justify-content: center; margin-bottom: 14px; }
+    .clock-face { position: relative; width: 190px; height: 190px; border-radius: 22px; background: var(--bg); border: 1px solid var(--border); flex-shrink: 0; margin: 0 auto; }
+    .clock-num { position: absolute; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border-radius: 50%; cursor: pointer; color: var(--black); }
+    .clock-num:hover, .clock-num.selected { background: var(--gold); color: var(--black); }
+    .clock-num.minute-tick { font-size: 10px; color: var(--gray); font-weight: 500; }
+    .clock-center { position: absolute; width: 6px; height: 6px; background: var(--gold-dk); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2; }
+    .clock-bottom-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .ampm-col { display: flex; flex-direction: row; gap: 6px; }
+    .ampm-col button { padding: 8px 14px; border: 1px solid var(--border); background: var(--white); border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--black); font-family: inherit; }
+    .ampm-col button.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+    .clock-readout { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; color: var(--black); }
+    .clock-readout .part { padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+    .clock-readout .part.active { background: rgba(201,168,76,0.2); color: var(--gold-dk); }
+
+    /* ===== Si/No (mismo patron de customer.html) ===== */
+    .yn-row { display: flex; gap: 10px; }
+    .yn-btn { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--white); border-radius: 3px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--black); }
+    .yn-btn.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+    .field-sub { font-size: 11px; color: var(--gray); margin: 2px 0 8px; line-height: 1.5; }
+
     .field-group select:focus, .field-group input:focus, .field-group textarea:focus {
       border-color: var(--gold);
     }
@@ -4981,22 +5023,166 @@ function createOrderFormHtml() {
         <div class="field-group"><label>Unit #</label><input type="text" id="create-unit"></div>
         <div class="field-group"><label>Bedrooms</label><input type="number" id="create-bedrooms" min="1" max="5"></div>
         <div class="field-group"><label>Bathrooms</label><input type="number" id="create-bathrooms" min="1" max="3"></div>
-        <div class="field-group"><label>Entry Date</label><input type="date" id="create-entry-date"></div>
-        <div class="field-group"><label>Due Date</label><input type="date" id="create-due-date"></div>
+        <div class="field-group">
+          <label>Entry Date</label>
+          <input type="date" id="create-entry-date" style="display:none">
+          <div class="rel-wrap">
+            <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-entry-date')" id="create-entry-date-trigger">Pick a date</button>
+            <div class="picker-popover" id="create-entry-date-pop">
+              <div class="picker-title">Pick a date</div>
+              <div class="cal-card">
+                <div class="cal-header">
+                  <div class="cal-nav-group">
+                    <button type="button" onclick="calPrevMonth('create-entry-date')">‹</button>
+                    <div class="cal-month" id="create-entry-date-month"></div>
+                    <button type="button" onclick="calNextMonth('create-entry-date')">›</button>
+                  </div>
+                  <div class="cal-nav-group">
+                    <button type="button" onclick="calPrevYear('create-entry-date')">‹</button>
+                    <div class="cal-year" id="create-entry-date-year"></div>
+                    <button type="button" onclick="calNextYear('create-entry-date')">›</button>
+                  </div>
+                </div>
+                <div class="cal-grid" id="create-entry-date-grid"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Entry Time</label>
+          <input type="time" id="create-entry-time" value="08:00" style="display:none">
+          <div class="rel-wrap">
+            <button type="button" class="trigger-btn" onclick="toggleClockPicker('create-entry-time')" id="create-entry-time-trigger">8:00 AM</button>
+            <div class="picker-popover" id="create-entry-time-pop">
+              <div class="picker-title">Pick a time</div>
+              <div class="clock-face-row"><div class="clock-face" id="create-entry-time-face"><div class="clock-center"></div></div></div>
+              <div class="clock-bottom-row">
+                <div class="ampm-col">
+                  <button type="button" class="active" id="create-entry-time-am" onclick="setClockAmpm('create-entry-time','AM',this)">AM</button>
+                  <button type="button" id="create-entry-time-pm" onclick="setClockAmpm('create-entry-time','PM',this)">PM</button>
+                </div>
+                <div class="clock-readout">
+                  <span class="part active" id="create-entry-time-readout-hour" onclick="goToClockStep('create-entry-time','hour')">8</span><span class="part" id="create-entry-time-readout-min" onclick="goToClockStep('create-entry-time','minute')">:00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Due Date</label>
+          <input type="date" id="create-due-date" style="display:none">
+          <div class="rel-wrap">
+            <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-due-date')" id="create-due-date-trigger">Pick a date</button>
+            <div class="picker-popover" id="create-due-date-pop">
+              <div class="picker-title">Pick a date</div>
+              <div class="cal-card">
+                <div class="cal-header">
+                  <div class="cal-nav-group">
+                    <button type="button" onclick="calPrevMonth('create-due-date')">‹</button>
+                    <div class="cal-month" id="create-due-date-month"></div>
+                    <button type="button" onclick="calNextMonth('create-due-date')">›</button>
+                  </div>
+                  <div class="cal-nav-group">
+                    <button type="button" onclick="calPrevYear('create-due-date')">‹</button>
+                    <div class="cal-year" id="create-due-date-year"></div>
+                    <button type="button" onclick="calNextYear('create-due-date')">›</button>
+                  </div>
+                </div>
+                <div class="cal-grid" id="create-due-date-grid"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="create-multi-container" style="display:none;margin-top:20px">
         <div id="create-unit-cards"></div>
         <button type="button" class="btn btn-outline" onclick="addCreateUnitCard()" style="margin-bottom:16px">+ Add Another Unit</button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-          <div class="field-group"><label>Entry Date (all units)</label><input type="date" id="create-multi-entry-date"></div>
-          <div class="field-group"><label>Due Date (all units)</label><input type="date" id="create-multi-due-date"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="field-group">
+            <label>Entry Date (all units)</label>
+            <input type="date" id="create-multi-entry-date" style="display:none">
+            <div class="rel-wrap">
+              <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-multi-entry-date')" id="create-multi-entry-date-trigger">Pick a date</button>
+              <div class="picker-popover" id="create-multi-entry-date-pop">
+                <div class="picker-title">Pick a date</div>
+                <div class="cal-card">
+                  <div class="cal-header">
+                    <div class="cal-nav-group">
+                      <button type="button" onclick="calPrevMonth('create-multi-entry-date')">‹</button>
+                      <div class="cal-month" id="create-multi-entry-date-month"></div>
+                      <button type="button" onclick="calNextMonth('create-multi-entry-date')">›</button>
+                    </div>
+                    <div class="cal-nav-group">
+                      <button type="button" onclick="calPrevYear('create-multi-entry-date')">‹</button>
+                      <div class="cal-year" id="create-multi-entry-date-year"></div>
+                      <button type="button" onclick="calNextYear('create-multi-entry-date')">›</button>
+                    </div>
+                  </div>
+                  <div class="cal-grid" id="create-multi-entry-date-grid"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Entry Time (all units)</label>
+            <input type="time" id="create-multi-entry-time" value="08:00" style="display:none">
+            <div class="rel-wrap">
+              <button type="button" class="trigger-btn" onclick="toggleClockPicker('create-multi-entry-time')" id="create-multi-entry-time-trigger">8:00 AM</button>
+              <div class="picker-popover" id="create-multi-entry-time-pop">
+                <div class="picker-title">Pick a time</div>
+                <div class="clock-face-row"><div class="clock-face" id="create-multi-entry-time-face"><div class="clock-center"></div></div></div>
+                <div class="clock-bottom-row">
+                  <div class="ampm-col">
+                    <button type="button" class="active" id="create-multi-entry-time-am" onclick="setClockAmpm('create-multi-entry-time','AM',this)">AM</button>
+                    <button type="button" id="create-multi-entry-time-pm" onclick="setClockAmpm('create-multi-entry-time','PM',this)">PM</button>
+                  </div>
+                  <div class="clock-readout">
+                    <span class="part active" id="create-multi-entry-time-readout-hour" onclick="goToClockStep('create-multi-entry-time','hour')">8</span><span class="part" id="create-multi-entry-time-readout-min" onclick="goToClockStep('create-multi-entry-time','minute')">:00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Due Date (all units)</label>
+            <input type="date" id="create-multi-due-date" style="display:none">
+            <div class="rel-wrap">
+              <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-multi-due-date')" id="create-multi-due-date-trigger">Pick a date</button>
+              <div class="picker-popover" id="create-multi-due-date-pop">
+                <div class="picker-title">Pick a date</div>
+                <div class="cal-card">
+                  <div class="cal-header">
+                    <div class="cal-nav-group">
+                      <button type="button" onclick="calPrevMonth('create-multi-due-date')">‹</button>
+                      <div class="cal-month" id="create-multi-due-date-month"></div>
+                      <button type="button" onclick="calNextMonth('create-multi-due-date')">›</button>
+                    </div>
+                    <div class="cal-nav-group">
+                      <button type="button" onclick="calPrevYear('create-multi-due-date')">‹</button>
+                      <div class="cal-year" id="create-multi-due-date-year"></div>
+                      <button type="button" onclick="calNextYear('create-multi-due-date')">›</button>
+                    </div>
+                  </div>
+                  <div class="cal-grid" id="create-multi-due-date-grid"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="field-group">
-        <label>Notes</label>
-        <textarea id="create-notes" rows="3"></textarea>
+      <div class="field-group" id="create-office-need-block">
+        <label>Do we need anything from the property office?</label>
+        <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
+        <div class="yn-row">
+          <button type="button" id="create-office-need-no" class="yn-btn active" onclick="setCreateOfficeNeed(false)">No</button>
+          <button type="button" id="create-office-need-yes" class="yn-btn" onclick="setCreateOfficeNeed(true)">Yes</button>
+        </div>
+        <div id="create-office-need-detail" style="display:none;margin-top:12px">
+          <label>What do we need from the office?</label>
+          <textarea id="create-office-need-text" rows="3" placeholder="e.g. Keys for the mailroom, gate code, access to the roof..."></textarea>
+        </div>
       </div>
       <div class="btn-actions">
         <button class="btn btn-gold" onclick="submitCreateOrder()">Submit Order</button>
@@ -5005,11 +5191,165 @@ function createOrderFormHtml() {
     </div>`;
 }
 
+/* ===== Reloj y calendario oficiales para Create Order (mismo patron
+   de customer.html) -- estado simple por campo (fieldId). */
+const createDatePickerState = {};
+const createClockPickerState = {};
+const CREATE_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function createDpState(fieldId) {
+  if (!createDatePickerState[fieldId]) {
+    const now = new Date();
+    createDatePickerState[fieldId] = { viewYear: now.getFullYear(), viewMonth: now.getMonth(), selYear: null, selMonth: null, selDay: null };
+  }
+  return createDatePickerState[fieldId];
+}
+function createCpState(fieldId) {
+  if (!createClockPickerState[fieldId]) createClockPickerState[fieldId] = { hour: 8, minute: 0, ampm: 'AM', step: 'hour' };
+  return createClockPickerState[fieldId];
+}
+function resetCreatePickerState() {
+  Object.keys(createDatePickerState).forEach(k => delete createDatePickerState[k]);
+  Object.keys(createClockPickerState).forEach(k => delete createClockPickerState[k]);
+}
+function createCloseAllPopovers() {
+  document.querySelectorAll('.picker-popover.open').forEach(p => p.classList.remove('open'));
+}
+function toggleCalPicker(fieldId) {
+  const pop = document.getElementById(fieldId + '-pop');
+  if (!pop) return;
+  const wasOpen = pop.classList.contains('open');
+  createCloseAllPopovers();
+  if (!wasOpen) { pop.classList.add('open'); renderCreateCalGrid(fieldId); }
+}
+function renderCreateCalGrid(fieldId) {
+  const st = createDpState(fieldId);
+  document.getElementById(fieldId + '-month').textContent = CREATE_MONTH_NAMES[st.viewMonth];
+  document.getElementById(fieldId + '-year').textContent = st.viewYear;
+  const grid = document.getElementById(fieldId + '-grid');
+  grid.innerHTML = '';
+  ['S','M','T','W','T','F','S'].forEach(d => {
+    const el = document.createElement('div'); el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el);
+  });
+  const firstDay = new Date(st.viewYear, st.viewMonth, 1).getDay();
+  const daysInMonth = new Date(st.viewYear, st.viewMonth + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i++) { const el = document.createElement('div'); el.className = 'cal-day muted'; grid.appendChild(el); }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const el = document.createElement('div');
+    const isSel = st.selDay === d && st.selMonth === st.viewMonth && st.selYear === st.viewYear;
+    el.className = 'cal-day' + (isSel ? ' selected' : '');
+    el.textContent = d;
+    el.onclick = function() { onCreateCalDayPicked(fieldId, st.viewYear, st.viewMonth, d); };
+    grid.appendChild(el);
+  }
+}
+function calPrevMonth(fieldId) { const st = createDpState(fieldId); st.viewMonth--; if (st.viewMonth < 0) { st.viewMonth = 11; st.viewYear--; } renderCreateCalGrid(fieldId); }
+function calNextMonth(fieldId) { const st = createDpState(fieldId); st.viewMonth++; if (st.viewMonth > 11) { st.viewMonth = 0; st.viewYear++; } renderCreateCalGrid(fieldId); }
+function calPrevYear(fieldId) { const st = createDpState(fieldId); st.viewYear--; renderCreateCalGrid(fieldId); }
+function calNextYear(fieldId) { const st = createDpState(fieldId); st.viewYear++; renderCreateCalGrid(fieldId); }
+function onCreateCalDayPicked(fieldId, year, month, day) {
+  const st = createDpState(fieldId);
+  st.selYear = year; st.selMonth = month; st.selDay = day;
+  const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  const input = document.getElementById(fieldId);
+  input.value = dateStr;
+  document.getElementById(fieldId + '-trigger').textContent = CREATE_MONTH_NAMES[month].slice(0, 3) + ' ' + day + ', ' + year;
+  renderCreateCalGrid(fieldId);
+  document.getElementById(fieldId + '-pop').classList.remove('open');
+}
+function toggleClockPicker(fieldId) {
+  const pop = document.getElementById(fieldId + '-pop');
+  if (!pop) return;
+  const wasOpen = pop.classList.contains('open');
+  createCloseAllPopovers();
+  if (!wasOpen) {
+    pop.classList.add('open');
+    const st = createCpState(fieldId);
+    st.step = 'hour';
+    updateCreateClockStepUI(fieldId);
+    renderCreateClockHourFace(fieldId);
+  }
+}
+function createClockPolarPos(idx, count, r) {
+  const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
+  return { x: 95 + r * Math.cos(angle) - 15, y: 95 + r * Math.sin(angle) - 15 };
+}
+function renderCreateClockHourFace(fieldId) {
+  const st = createCpState(fieldId);
+  const face = document.getElementById(fieldId + '-face');
+  face.querySelectorAll('.clock-num').forEach(n => n.remove());
+  for (let h = 1; h <= 12; h++) {
+    const pos = createClockPolarPos(h % 12, 12, 74);
+    const el = document.createElement('div');
+    el.className = 'clock-num' + (h === st.hour ? ' selected' : '');
+    el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+    el.textContent = h;
+    el.onclick = function() {
+      st.hour = h;
+      document.getElementById(fieldId + '-readout-hour').textContent = h;
+      st.step = 'minute'; updateCreateClockStepUI(fieldId); renderCreateClockMinuteFace(fieldId);
+    };
+    face.appendChild(el);
+  }
+}
+function renderCreateClockMinuteFace(fieldId) {
+  const st = createCpState(fieldId);
+  const face = document.getElementById(fieldId + '-face');
+  face.querySelectorAll('.clock-num').forEach(n => n.remove());
+  [0,5,10,15,20,25,30,35,40,45,50,55].forEach((m, i) => {
+    const pos = createClockPolarPos(i, 12, 74);
+    const el = document.createElement('div');
+    el.className = 'clock-num minute-tick' + (m === st.minute ? ' selected' : '');
+    el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+    el.textContent = String(m).padStart(2, '0');
+    el.onclick = function() { onCreateClockMinutePicked(fieldId, m); };
+    face.appendChild(el);
+  });
+}
+function updateCreateClockStepUI(fieldId) {
+  const st = createCpState(fieldId);
+  document.getElementById(fieldId + '-readout-hour').classList.toggle('active', st.step === 'hour');
+  document.getElementById(fieldId + '-readout-min').classList.toggle('active', st.step === 'minute');
+}
+function goToClockStep(fieldId, which) {
+  const st = createCpState(fieldId);
+  st.step = which; updateCreateClockStepUI(fieldId);
+  if (which === 'hour') renderCreateClockHourFace(fieldId); else renderCreateClockMinuteFace(fieldId);
+}
+function setClockAmpm(fieldId, v, btn) {
+  createCpState(fieldId).ampm = v;
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function onCreateClockMinutePicked(fieldId, m) {
+  const st = createCpState(fieldId);
+  st.minute = m;
+  document.getElementById(fieldId + '-readout-min').textContent = ':' + String(m).padStart(2, '0');
+  document.getElementById(fieldId + '-pop').classList.remove('open');
+  let h24 = st.hour % 12; if (st.ampm === 'PM') h24 += 12;
+  const value = String(h24).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  document.getElementById(fieldId).value = value;
+  const isPM = h24 >= 12; let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+  document.getElementById(fieldId + '-trigger').textContent = h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+}
+
+/* ===== "Do we need anything from the office?" -- reemplaza a Notes,
+   las 3 divisiones (mismo patron de customer.html). */
+let createOfficeNeedYes = false;
+function setCreateOfficeNeed(yes) {
+  createOfficeNeedYes = yes;
+  document.getElementById('create-office-need-no').classList.toggle('active', !yes);
+  document.getElementById('create-office-need-yes').classList.toggle('active', yes);
+  document.getElementById('create-office-need-detail').style.display = yes ? 'block' : 'none';
+}
+
 function startCreateOrderFor(clientId) {
   const c = allClients.find(x => x.clientId === clientId);
   if (!c) return;
   createSelectedClient = c;
   createSelected = new Map();
+  resetCreatePickerState();
+  createOfficeNeedYes = false;
   const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const content = document.getElementById(cid + '-content');
   if (!content) return;
@@ -5250,7 +5590,6 @@ async function submitCreateOrder() {
     Requester:      createSelectedClient.contactPerson || createSelectedClient.businessName,
     Division:       division,
     Services:       services,
-    Notes:          document.getElementById('create-notes').value,
     Address:        createSelectedClient.address || '',
     Suite:          createSelectedClient.suite || '',
     City:           createSelectedClient.city || '',
@@ -5259,7 +5598,11 @@ async function submitCreateOrder() {
     Status:         'Received',
     OfficeCreated:  true,
     ChangedBy:      getActorName(),
-    changedBy:      getActorName()
+    changedBy:      getActorName(),
+    /* Reemplaza al viejo campo de Notes libres -- aplica a las 3
+       divisiones, no solo Exteriors. */
+    NeedsOfficeAccess: createOfficeNeedYes,
+    OfficeNeedNotes:   createOfficeNeedYes ? document.getElementById('create-office-need-text').value.trim() : ''
   };
 
   if (createMultiOn) {
@@ -5273,6 +5616,7 @@ async function submitCreateOrder() {
          "Use client address" para cada unidad. */
     }
     const entryDate = document.getElementById('create-multi-entry-date').value;
+    const entryTime = document.getElementById('create-multi-entry-time').value || '08:00';
     const dueDate = document.getElementById('create-multi-due-date').value;
     if (!entryDate) { showToast('Enter the entry date.'); return; }
     if (!dueDate) { showToast('Enter the due date.'); return; }
@@ -5292,7 +5636,7 @@ async function submitCreateOrder() {
       units.push({ buildingId, unitNumber, bedrooms, bathrooms });
     }
     body.Units = units;
-    body.EntryDate = new Date(entryDate + 'T08:00').toISOString();
+    body.EntryDate = new Date(entryDate + 'T' + entryTime).toISOString();
     body.DueDate = new Date(dueDate + 'T23:59:59').toISOString();
 
     try {
@@ -5310,8 +5654,12 @@ async function submitCreateOrder() {
   body.UnitNumber     = document.getElementById('create-unit').value;
   body.Bedrooms       = document.getElementById('create-bedrooms').value;
   body.Bathrooms      = document.getElementById('create-bathrooms').value;
-  body.EntryDate      = document.getElementById('create-entry-date').value || null;
-  body.DueDate        = document.getElementById('create-due-date').value || null;
+  const entryDateVal = document.getElementById('create-entry-date').value;
+  const entryTimeVal = document.getElementById('create-entry-time').value || '08:00';
+  body.EntryDate      = entryDateVal ? new Date(entryDateVal + 'T' + entryTimeVal).toISOString() : null;
+  body.DueDate        = document.getElementById('create-due-date').value
+    ? new Date(document.getElementById('create-due-date').value + 'T23:59:59').toISOString()
+    : null;
 
   try {
     const res = await api('/submit-order', { body });

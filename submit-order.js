@@ -284,6 +284,8 @@ exports.handler = async (event) => {
       Notes:          b.Notes || '',
       EntryDate:      dateField(b.EntryDate),
       DueDate:        dateField(b.DueDate),
+      NeedsOfficeAccess: b.NeedsOfficeAccess === true || b.NeedsOfficeAccess === 'true',
+      OfficeNeedNotes:   b.OfficeNeedNotes || '',
       DraftData:      ''
     };
 
