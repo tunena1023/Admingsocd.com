@@ -608,7 +608,7 @@ exports.handler = async (event) => {
       })
     ));
 
-    await createListItem(ORDER_HISTORY_LIST, {
+    const createdHistoryFields = {
       Title:      orderId,
       OrderID:    orderId,
       ChangeType: 'Created',
@@ -624,9 +624,30 @@ exports.handler = async (event) => {
       FieldChanged: b.OfficeCreated ? 'Office Order' : '',
       OldValue:   '',
       NewValue:   b.Status || 'Received'
-    });
+    };
+
+    /* Antes, si esta escritura fallaba por lo que fuera, el error se
+       tragaba en silencio (solo console.error, nadie lo veia) y la
+       orden se creaba de todos modos SIN ningun renglon de historial
+       -- "No history." para siempre en Approvals, sin aviso. Ahora se
+       reintenta una vez con una pausa corta, y si de plano vuelve a
+       fallar, se manda un aviso real en la respuesta (historyWarning)
+       para que admin.html se lo pueda mostrar al usuario en vez de
+       que desaparezca sin que nadie se entere. */
+    let historyWarning = null;
+    try {
+      await createListItem(ORDER_HISTORY_LIST, createdHistoryFields);
+    } catch (e1) {
+      await new Promise(r => setTimeout(r, 800));
+      try {
+        await createListItem(ORDER_HISTORY_LIST, createdHistoryFields);
+      } catch (e2) {
+        console.error('Post-order history write failed twice:', e2.message);
+        historyWarning = 'The order was created, but its first history entry could not be saved: ' + e2.message;
+      }
+    }
 } catch (e) { console.error('Post-order write failed:', e.message); }
-    return jsonResponse(200, { success: true, orderId, id: result.id });
+    return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning });
 
   } catch (err) {
     return jsonResponse(500, { error: err.message });
