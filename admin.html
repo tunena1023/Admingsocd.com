@@ -2698,7 +2698,7 @@ function filterHistory() {
    fija una abierta con candadito, igual que el acordeon de servicios.
 ============================================================ */
 function orderCard(o, context) {
-  const id = 'order-' + o.OrderID.replace(/[^a-z0-9]/gi,'_');
+  const id = 'order-' + context + '-' + o.OrderID.replace(/[^a-z0-9]/gi,'_');
   return `
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
@@ -2721,7 +2721,12 @@ function cardOpenState(context) {
 
 function closeOtherCards(context, exceptOrderId) {
   const st = cardOpenState(context);
-  const listEl = document.getElementById(context === 'active' ? 'active-list' : 'history-list');
+  /* Antes tenia los IDs de contenedor fijos a mano (solo active-list/
+     history-list) -- se generaliza a "<context>-list" para que
+     cualquier tab nuevo que reuse orderCard() (como Assigned) tambien
+     cierre correctamente sus propias tarjetas hermanas, no las de
+     otro tab por accidente. */
+  const listEl = document.getElementById(context + '-list');
   if (!listEl) return;
   const exceptCard = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(exceptOrderId) + '"]');
   listEl.querySelectorAll('.order-card').forEach(card => {
@@ -2755,7 +2760,7 @@ async function loadOrderBody(orderId, context, body) {
 }
 
 async function toggleOrder(orderId, context) {
-  const id = 'order-' + orderId.replace(/[^a-z0-9]/gi,'_');
+  const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
   if (!body) return;
   const st = cardOpenState(context);
@@ -2775,7 +2780,7 @@ async function toggleOrder(orderId, context) {
 }
 
 async function pinOrder(orderId, context, headerEl) {
-  const id = 'order-' + orderId.replace(/[^a-z0-9]/gi,'_');
+  const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
   if (!body) return;
   const st = cardOpenState(context);
@@ -6541,16 +6546,22 @@ function renderAssignedList() {
         '<a href="recurring.html" target="_blank" class="btn btn-outline" style="padding:3px 10px;text-decoration:none">View</a></div>';
     }).join('');
 
-    const orderRows = (e.orders || []).map(o => {
+    /* Cada compromiso de tipo Orden ahora usa la MISMA tarjeta dorada
+       real que Active/Review/Approvals (orderCard), clicable, con
+       servicios e historial completos adentro -- antes era un
+       renglon de texto plano con un boton que mandaba a Scheduling
+       sin dejar ver nada aqui mismo. Reusa el contexto 'assigned',
+       ya blindado contra colision de ids con otros tabs. */
+    const orderCards = (e.orders || []).map(o => {
       const ord = allOrders.find(x => x.OrderID === o.orderId);
-      const label = ord ? (ord.BusinessName || ord.ClientID) : o.orderId;
-      const dateStr = o.assignedDate ? new Date(o.assignedDate).toLocaleDateString() : '';
-      return '<div class="commit-row"><span class="commit-tag tag-order">Order</span>' +
-        '<span style="flex:1">#' + esc(o.orderId) + ' — ' + esc(label) + (dateStr ? ' · ' + dateStr : '') + '</span>' +
-        '<button class="btn btn-outline" style="padding:3px 10px" onclick="goToScheduleForOrder(\'' + escAttr(o.orderId) + '\')">View</button></div>';
+      if (!ord) {
+        return '<div class="commit-row"><span class="commit-tag tag-order">Order</span>' +
+          '<span style="flex:1">#' + esc(o.orderId) + ' — order not found</span></div>';
+      }
+      return orderCard(ord, 'assigned');
     }).join('');
 
-    const body = (recurringRows + orderRows) || '<p class="empty-note" style="padding:0;text-align:left">Nothing assigned this week.</p>';
+    const body = (recurringRows + orderCards) || '<p class="empty-note" style="padding:0;text-align:left">Nothing assigned this week.</p>';
 
     return '<div class="emp-card"><div class="emp-name">' + esc(e.name) + '<span class="emp-div">' + esc(divs) + '</span></div>' + body + '</div>';
   }).join('');
