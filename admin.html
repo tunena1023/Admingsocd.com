@@ -839,6 +839,7 @@ async function api(path, opts = {}) {
 ============================================================ */
 let allOrders = [];
 let allClients = [];
+let allTechs = [];
 let allServices = null;
 /* Cache del HTML ya renderizado de cada orden (Active/History), para
    que reabrir una que ya se vio antes sea instantaneo, sin volver a
@@ -885,11 +886,12 @@ function showClientsSubTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes, newCatalogRes] = await Promise.all([
+    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
       api('/get-services', { method: 'GET' }),
-      api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] }))
+      api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
+      api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] }))
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
@@ -898,6 +900,7 @@ async function loadAll() {
        para que Active/Approvals lo tengan listo sin esperar un fetch
        aparte cada vez que se abre un editor. Solo activos. */
     activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
+    allTechs = techsRes.techs || [];
     orderDetailCache = {};
     renderApprovals();
     renderReview();
@@ -908,6 +911,17 @@ async function loadAll() {
   } catch (e) {
     showToast('Error loading data: ' + e.message);
   }
+}
+
+/* Supervisor es texto libre en la orden (nunca se ligo a un Tech de
+   verdad) -- se busca por nombre contra Techs (que si tiene telefono)
+   para poder mostrarlo. Si el nombre no hace match exacto (typo,
+   nombre distinto), simplemente no se encuentra nada, no truena. */
+function findTechPhoneByName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return '';
+  const match = (allTechs || []).find(t => (t.firstName + ' ' + t.lastName).trim().toLowerCase() === n);
+  return match ? match.phone : '';
 }
 
 
@@ -1866,6 +1880,10 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('<div><div class="field-caption">Service window</div><div class="field-value">' + esc(o.ServiceWindow || '—') + '</div></div>');
   if (o.InspectionDate) {
     rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) + '</div></div>');
+  }
+  if (o.Supervisor) {
+    const techPhone = findTechPhoneByName(o.Supervisor);
+    rows.push('<div><div class="field-caption">Technician</div><div class="field-value">' + esc(o.Supervisor) + (techPhone ? ' · ' + esc(techPhone) : '') + '</div></div>');
   }
   rows.push('</div>');
   rows.push('</div>');
@@ -3238,7 +3256,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDate(o.EntryDate)}</div></div>
           <div><div class="field-caption">Due</div><div class="field-value">${fmtDate(o.DueDate)}</div></div>
-          <div><div class="field-caption">Supervisor</div><div class="field-value">${o.Supervisor ? esc(o.Supervisor) : '—'}</div></div>
+          <div><div class="field-caption">Supervisor</div><div class="field-value">${o.Supervisor ? esc(o.Supervisor) + (findTechPhoneByName(o.Supervisor) ? ' · ' + esc(findTechPhoneByName(o.Supervisor)) : '') : '—'}</div></div>
           <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')}</div></div>
           <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms||'—')} / ${esc(o.Bathrooms||'—')}</div></div>
           <div><div class="field-caption">Service window</div><div class="field-value">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</div></div>
