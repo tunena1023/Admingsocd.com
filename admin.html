@@ -734,7 +734,7 @@
           </div>
           <div class="routing-panel-body open" id="routing-selected-list"></div>
           <div class="routing-preview-wrap">
-            <button class="btn btn-outline" id="preview-route-btn" style="width:100%" onclick="previewManualRoute()" disabled>Preview Route</button>
+            <button class="btn btn-outline" id="clear-route-btn" style="width:100%" onclick="clearRoutingSelected()" disabled>Clear</button>
           </div>
         </div>
 
@@ -5738,6 +5738,17 @@ async function loadRouting() {
       } catch (e) { allClientsForRoutingCache = []; }
     }
 
+    /* Geocodificar la oficina de una vez al abrir Routing (no hasta
+       que alguien prenda "Start from office") -- asi el mapa puede
+       arrancar centrado ahi desde el primer render, sin paradas
+       seleccionadas todavia. */
+    if (!routingOfficeCoords) {
+      try {
+        const officeGeo = await throttledGeocode(ROUTING_OFFICE.address, ROUTING_OFFICE.city, ROUTING_OFFICE.zip);
+        if (officeGeo && officeGeo.geo) routingOfficeCoords = officeGeo.geo;
+      } catch (e) { /* si falla, el mapa usa el fallback generico -- no truena nada */ }
+    }
+
     renderRoutingMap();
     renderRoutingAbc();
     renderRoutingAddList();
@@ -5837,7 +5848,15 @@ function renderRoutingMap() {
     bounds.push([s.lat, s.lon]);
   });
 
-  if (!bounds.length) { routingMap.setView([41.6, -93.6], 10); return; }
+  /* Sin ninguna parada seleccionada todavia, el mapa arranca centrado
+     en la oficina (si ya se geocodifico) en vez de un punto generico
+     de la ciudad -- loadRouting() la geocodifica de una vez al abrir
+     Routing, sin esperar a que alguien prenda "Start from office". */
+  if (!bounds.length) {
+    if (routingOfficeCoords) routingMap.setView([routingOfficeCoords.lat, routingOfficeCoords.lon], 12);
+    else routingMap.setView([41.6, -93.6], 10);
+    return;
+  }
   routingMap.fitBounds(bounds, { padding: [30, 30] });
 }
 
@@ -6052,6 +6071,15 @@ function removeRoutingSelected(key) {
   refreshRoutingSelectionUI();
 }
 
+/* Reemplaza al viejo boton "Preview Route" -- ya no hace falta,
+   el preview se recalcula solo. Este vacia toda la seleccion de un
+   jalon en vez de tener que quitar parada por parada. */
+function clearRoutingSelected() {
+  if (!routingSelected.length) return;
+  routingSelected = [];
+  refreshRoutingSelectionUI();
+}
+
 function refreshRoutingSelectionUI() {
   renderRoutingMap();
   renderRoutingAbc();
@@ -6084,10 +6112,9 @@ function hideRoutingRouteResult() {
 
 function renderRoutingSelected() {
   document.getElementById('routing-sel-count').textContent = routingSelected.length + ' stop' + (routingSelected.length === 1 ? '' : 's');
-  const minNeeded = routingStartFromOffice ? 1 : 2;
-  const btn = document.getElementById('preview-route-btn');
-  btn.disabled = routingSelected.length < minNeeded;
-  btn.textContent = 'Preview Route (' + routingSelected.length + ' selected)';
+  const btn = document.getElementById('clear-route-btn');
+  btn.disabled = !routingSelected.length;
+  btn.textContent = routingSelected.length ? 'Clear (' + routingSelected.length + ' selected)' : 'Clear';
   const list = document.getElementById('routing-selected-list');
   if (!routingSelected.length) { list.innerHTML = '<p class="empty-note">Nothing selected yet \u2014 add stops above.</p>'; return; }
   list.innerHTML = routingSelected.map((s, i) =>
