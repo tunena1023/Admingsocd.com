@@ -447,9 +447,13 @@
     .routing-toggle input:checked + .routing-toggle-slider { background: var(--gold); }
     .routing-toggle input:checked + .routing-toggle-slider:before { transform: translateX(17px); }
     .routing-office-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; background: var(--bg); }
-    .routing-reorder-btns { display: flex; flex-direction: column; gap: 2px; margin-right: 8px; }
-    .routing-reorder-btns button { border: 1px solid var(--border); background: var(--white); width: 20px; height: 16px; font-size: 9px; line-height: 1; cursor: pointer; border-radius: 2px; padding: 0; }
-    .routing-reorder-btns button:disabled { opacity: .25; cursor: default; }
+    /* Handle de arrastrar-y-soltar -- reemplaza los botones ▲▼ de
+       antes. La fila completa es draggable, este icono solo marca
+       visualmente donde agarrarla. */
+    .routing-drag-handle { cursor: grab; color: var(--gray); font-size: 14px; letter-spacing: -2px; margin-right: 6px; user-select: none; }
+    .routing-stop-row.dragging { opacity: .4; }
+    .routing-stop-row.drag-over-top { box-shadow: inset 0 2px 0 var(--gold); }
+    .routing-stop-row.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--gold); }
     .routing-stop-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
     .routing-add-btn { border: 1px solid var(--border); background: var(--white); color: var(--black); font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 3px; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; }
     .routing-add-btn:hover { border-color: var(--gold); }
@@ -6063,29 +6067,59 @@ function renderRoutingSelected() {
   const list = document.getElementById('routing-selected-list');
   if (!routingSelected.length) { list.innerHTML = '<p class="empty-note">Nothing selected yet \u2014 add stops above.</p>'; return; }
   list.innerHTML = routingSelected.map((s, i) =>
-    '<div class="routing-stop-row">' +
-    '<div class="routing-reorder-btns">' +
-      '<button type="button" ' + (i === 0 ? 'disabled' : '') + ' onclick="moveRoutingStop(' + i + ',-1)" title="Move up">\u25b2</button>' +
-      '<button type="button" ' + (i === routingSelected.length - 1 ? 'disabled' : '') + ' onclick="moveRoutingStop(' + i + ',1)" title="Move down">\u25bc</button>' +
-    '</div>' +
+    '<div class="routing-stop-row" draggable="true" data-idx="' + i + '" ' +
+      'ondragstart="routingDragStart(event,' + i + ')" ondragover="routingDragOver(event)" ' +
+      'ondrop="routingDrop(event,' + i + ')" ondragend="routingDragEnd(event)">' +
+    '<div class="routing-drag-handle" title="Drag to reorder">\u205e\u205e</div>' +
     '<div class="routing-sel-badge' + (s.isCustomStop ? ' custom' : '') + '">' + (i + 1) + '</div>' +
     '<div style="flex:1"><div class="routing-stop-name">' + esc(s.name) + '</div><div class="routing-stop-sub">' + esc(s.sub) + '</div></div>' +
     '<button type="button" style="background:none;border:none;color:#B33A3A;font-size:16px;cursor:pointer" onclick="removeRoutingSelected(\'' + escAttr(s.key) + '\')">\u2715</button></div>'
   ).join('');
 }
 
-/* Reordenar las paradas -- el tiempo de manejo cambia mucho segun el
-   orden, esto deja probar distintos ordenes sin tener que quitar y
-   volver a agregar todo. */
-function moveRoutingStop(index, direction) {
-  const newIndex = index + direction;
-  if (newIndex < 0 || newIndex >= routingSelected.length) return;
-  const tmp = routingSelected[index];
-  routingSelected[index] = routingSelected[newIndex];
-  routingSelected[newIndex] = tmp;
+/* Arrastrar y soltar para reordenar -- reemplaza los botones ▲▼ de
+   antes. API nativa del navegador (HTML5 drag and drop), sin
+   librerias. routingDragFromIndex guarda de donde salio la parada
+   mientras dura el arrastre. */
+let routingDragFromIndex = null;
+
+function routingDragStart(ev, index) {
+  routingDragFromIndex = index;
+  ev.dataTransfer.effectAllowed = 'move';
+  ev.currentTarget.classList.add('dragging');
+}
+
+function routingDragOver(ev) {
+  ev.preventDefault();
+  const row = ev.currentTarget;
+  const rect = row.getBoundingClientRect();
+  const before = (ev.clientY - rect.top) < rect.height / 2;
+  row.classList.toggle('drag-over-top', before);
+  row.classList.toggle('drag-over-bottom', !before);
+}
+
+function routingDrop(ev, dropIndex) {
+  ev.preventDefault();
+  const row = ev.currentTarget;
+  const before = row.classList.contains('drag-over-top');
+  row.classList.remove('drag-over-top', 'drag-over-bottom');
+  if (routingDragFromIndex === null || routingDragFromIndex === dropIndex) return;
+
+  const moved = routingSelected.splice(routingDragFromIndex, 1)[0];
+  let insertAt = dropIndex;
+  if (routingDragFromIndex < dropIndex) insertAt -= 1; // el splice ya recorrio la lista
+  if (!before) insertAt += 1;
+  insertAt = Math.max(0, Math.min(insertAt, routingSelected.length));
+  routingSelected.splice(insertAt, 0, moved);
+
   renderRoutingMap();
   renderRoutingSelected();
   hideRoutingRouteResult();
+}
+
+function routingDragEnd(ev) {
+  routingDragFromIndex = null;
+  document.querySelectorAll('.routing-stop-row').forEach(el => el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
 }
 
 async function previewManualRoute() {
