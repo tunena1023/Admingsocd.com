@@ -4190,7 +4190,8 @@ function renderClientDetail(clientId) {
       <div style="margin-top:18px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)">Contacts on file</div>`;
 
     if (!recipient) {
-      html += `<div style="font-size:13px;margin-top:6px">${esc(c.contactPerson||c.businessName)} (Email): ${esc(c.contact||'—')} <span style="color:var(--gold);font-size:9px;text-transform:uppercase;font-weight:700;margin-left:4px">Receives notifications</span></div>`;
+      const primaryContactName = c.contactPerson ? esc(c.contactPerson) : '<span style="color:var(--gray);font-style:italic">No contact person on file</span>';
+      html += `<div style="font-size:13px;margin-top:6px">${primaryContactName} (Email): ${esc(c.contact||'—')} <span style="color:var(--gold);font-size:9px;text-transform:uppercase;font-weight:700;margin-left:4px">Receives notifications</span></div>`;
     }
     if (!contacts.length) {
       html += `<p class="empty-note" style="padding:6px 0;font-size:12px;text-align:left">No additional contacts yet.</p>`;
@@ -4212,7 +4213,7 @@ function renderClientDetail(clientId) {
     const assigned = (c.contacts || []).find(ct => ct.id === b.contactId && !ct.archived);
     const contactLine = assigned
       ? `${esc(assigned.name)} (${esc(assigned.type)}): ${esc(assigned.value)}`
-      : `${esc(c.contactPerson||c.businessName)} (Email) — primary default`;
+      : `${c.contactPerson ? esc(c.contactPerson) : 'No contact person on file'} (Email) — primary default`;
     detail.innerHTML = `
       <div style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em">${b.archived?'Secondary · Archived':'Secondary'}</div>
       <div style="font-size:15px;font-weight:600;margin:6px 0 4px">${esc(b.label||'Untitled building')}${b.buildingNumber?' <span style="color:var(--gray);font-weight:400">#'+esc(b.buildingNumber)+'</span>':''}</div>
@@ -4302,7 +4303,7 @@ function openClientNotifications(clientId) {
 
   let recipientHtml = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
       <input type="radio" name="${radioName}" value="primary" style="width:auto" ${anyRecipient?'':'checked'}>
-      ${esc(c.contactPerson||c.businessName)} (Email) — ${esc(c.contact||'—')}
+      ${c.contactPerson ? esc(c.contactPerson) : 'No contact person on file'} (Email) — ${esc(c.contact||'—')}
     </label>`;
   activeContacts.forEach(ct => {
     recipientHtml += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">
@@ -4388,7 +4389,7 @@ function openBuildingNotifications(clientId) {
 
   let html = `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--black);background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px">
       <input type="radio" name="${radioName}" value="default" style="width:auto" ${!b.contactId?'checked':''}>
-      Use primary contact (default) — ${esc(c.contactPerson||c.businessName)}
+      Use primary contact (default) — ${c.contactPerson ? esc(c.contactPerson) : 'No contact person on file'}
     </label>`;
   activeContacts.forEach(ct => {
     html += `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:6px" data-contact-id="${esc(ct.id)}">

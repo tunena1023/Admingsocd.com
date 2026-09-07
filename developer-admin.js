@@ -1375,7 +1375,7 @@ exports.handler = async (event) => {
         await createListItem(CLIENTS_LIST, {
           ClientID: clientId,
           Title: businessName,
-          ClientName: r.contactPerson || businessName,
+          ClientName: r.contactPerson || '',
           Address: r.address || '',
           Suite: r.suite || '',
           City: r.city || '',

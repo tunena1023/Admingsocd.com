@@ -1171,7 +1171,12 @@
      Mejor prevenir esto aqui que dejar que se guarde medio completo y
      descubrirlo hasta que Routing no pueda geocodificarlo semanas
      despues. */
-  function bulkClientAddressIssue(c) {
+  /* Renombrada de bulkClientAddressIssue -- ya no solo valida
+     direccion, ahora valida la fila completa. Todo cliente debe
+     venir con: nombre del negocio, direccion completa, telefono,
+     email, y un nombre de contacto real -- si falta cualquiera de
+     los 5, no se importa. */
+  function bulkClientRowIssue(c) {
     const extras = c.additionalAddresses || [];
     const missingLabel = extras.find(a => (a.address || a.city || a.zip) && !a.label);
     if (missingLabel) return 'An extra address is missing its Label';
@@ -1182,12 +1187,16 @@
        revisa tambien al reves: si hay Label pero no hay calle, se marca. */
     const missingAddr = extras.find(a => a.label && !a.address);
     if (missingAddr) return 'Extra address "' + missingAddr.label + '" is missing its Street Address (paste the full address there and it will split itself)';
-    if (!c.address) return null; // sin direccion del todo -- se importa igual, se completa despues a mano
+    if (!c.businessName) return 'Missing business name';
+    if (!c.address) return 'Missing address';
     /* "1209 & 1301 W 16th St" / "123 Main St / 456 Oak Ave" -- alguien
        junto 2+ direcciones en un solo campo al llenar el Excel. */
     if (/\s(&|\/)\s/.test(c.address)) return 'Looks like 2 addresses combined into one field';
     if (!c.city) return 'Missing city';
     if (!c.zip) return 'Missing zip';
+    if (!c.phone) return 'Missing phone';
+    if (!c.email) return 'Missing email';
+    if (!c.contactPerson) return 'Missing contact person';
     return null;
   }
 
@@ -1252,7 +1261,7 @@
       box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check that the file has a "Company name" or "Name" column.</p>';
       return;
     }
-    const flagged = bulkClientsRows.map(c => bulkClientAddressIssue(c));
+    const flagged = bulkClientsRows.map(c => bulkClientRowIssue(c));
     const cleanCount = flagged.filter(issue => !issue).length;
     const issueCount = flagged.length - cleanCount;
     const td = 'style="padding:4px;border:1px solid var(--border)"';
@@ -1383,7 +1392,7 @@
 
   async function confirmBulkImport() {
     const resultBox = document.getElementById('bulk-clients-result');
-    const cleanRows = bulkClientsRows.filter(c => !bulkClientAddressIssue(c));
+    const cleanRows = bulkClientsRows.filter(c => !bulkClientRowIssue(c));
     if (!cleanRows.length) return;
     resultBox.textContent = 'Importing…';
     try {
