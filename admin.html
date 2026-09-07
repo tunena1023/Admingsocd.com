@@ -3347,7 +3347,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   });
   window['adminNC_' + o.OrderID] = ncState;
 
-  const editSectionId = 'actedit-' + String(o.OrderID).replace(/[^a-z0-9]/gi, '_');
+  const editSectionId = 'actedit-' + String(context || '') + '-' + String(o.OrderID).replace(/[^a-z0-9]/gi, '_');
 
   /* En History, una orden Cancelled+Archived puede pedirse de vuelta.
      A diferencia del "Mark as Active" que ya existe en Review (justo
@@ -3369,7 +3369,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
-  const editForm = (context === 'active') ? `
+  const editForm = (context === 'active' || context === 'assigned') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
