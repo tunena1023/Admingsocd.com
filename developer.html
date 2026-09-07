@@ -1229,7 +1229,15 @@
 
   function addBulkClientAddress(rowIdx) {
     if (!bulkClientsRows[rowIdx].additionalAddresses) bulkClientsRows[rowIdx].additionalAddresses = [];
-    bulkClientsRows[rowIdx].additionalAddresses.push({ label: '', address: '', suite: '', city: '', zip: '' });
+    /* Un edificio extra casi siempre es OTRA propiedad del MISMO cliente
+       -- misma ciudad y mismo zip que la linea de arriba, solo cambia la
+       calle. Se heredan de una vez para que en la linea nueva solo haya
+       que escribir el numero y la calle, no repetir Ciudad/Zip a mano. */
+    const parent = bulkClientsRows[rowIdx];
+    bulkClientsRows[rowIdx].additionalAddresses.push({
+      label: '', address: '', suite: '',
+      city: parent.city || '', zip: parent.zip || ''
+    });
     renderBulkClientsPreview();
   }
 
@@ -1319,10 +1327,13 @@
 
   function updateBulkClientExtraAddrSmart(rowIdx, addrIdx, value) {
     const parsed = parseFullAddress(value);
+    const addr = bulkClientsRows[rowIdx].additionalAddresses[addrIdx];
     if (parsed) {
-      Object.assign(bulkClientsRows[rowIdx].additionalAddresses[addrIdx], parsed);
+      Object.assign(addr, parsed);
+      if (!addr.label) addr.label = parsed.address;
     } else {
-      bulkClientsRows[rowIdx].additionalAddresses[addrIdx].address = value;
+      addr.address = value;
+      if (!addr.label) addr.label = value; // mismo dual-proposito que Label, no pisa uno ya escrito a mano
     }
     renderBulkClientsPreview();
   }
@@ -1331,9 +1342,17 @@
      direccion completa se pega en el campo LABEL en vez del campo
      Address -- que es justo como se coló el bug real (edificio con
      Label = "604 E 3rd St S" pero Address/City/Zip vacios). Si se
-     reconoce como direccion completa, se separa Address/City/Zip
-     Y ademas se deja el Label limpio (solo la calle, sin ciudad/zip
-     pegados), igual que se ve en los edificios que SI quedaron bien. */
+     reconoce como direccion completa (calle + ciudad + zip), se separa
+     Address/City/Zip y se deja el Label limpio (solo la calle).
+
+     BUG real encontrado despues: si solo se escribe la calle SOLA (sin
+     ciudad/zip pegados, que es lo normal para un edificio extra de la
+     MISMA propiedad), el parseo no la reconoce como "direccion
+     completa" y antes se quedaba solo en Label sin tocar Address --
+     dejandolo vacio y disparando la alerta aunque la calle si estuviera
+     bien escrita. Ahora, si no se pudo separar, la calle se copia
+     tambien a Address (Ciudad/Zip ya vienen heredados del cliente de
+     arriba desde que se crea la linea con addBulkClientAddress). */
   function updateBulkClientExtraLabelSmart(rowIdx, addrIdx, value) {
     const parsed = parseFullAddress(value);
     const addr = bulkClientsRows[rowIdx].additionalAddresses[addrIdx];
@@ -1344,6 +1363,7 @@
       addr.zip = parsed.zip;
     } else {
       addr.label = value;
+      addr.address = value;
     }
     renderBulkClientsPreview();
   }
