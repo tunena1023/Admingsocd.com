@@ -1067,7 +1067,8 @@
             state: String((colState >= 0 ? r[colState] : '') || '').trim(),
             zip: String((colZip >= 0 ? r[colZip] : '') || '').trim(),
             phone: String((colPhone >= 0 ? r[colPhone] : '') || '').trim(),
-            email: String((colEmail >= 0 ? r[colEmail] : '') || '').trim()
+            email: String((colEmail >= 0 ? r[colEmail] : '') || '').trim(),
+            additionalAddresses: [] // se llenan a mano en el preview, el Excel no trae esto
           }))
           .filter(c => c.businessName);
 
@@ -1081,11 +1082,14 @@
   }
 
   /* Se revisa cada renglon ANTES de importar -- si algo se ve mal con
-     la direccion, ese cliente no se guarda hasta que se corrija en
-     el archivo y se vuelva a subir. Mejor prevenir esto aqui que
-     dejar que se guarde medio completo y descubrirlo hasta que
-     Routing no pueda geocodificarlo semanas despues. */
+     la direccion, ese cliente no se guarda hasta que se corrija (aqui
+     mismo, editando la celda, o en el archivo y volviendo a subir).
+     Mejor prevenir esto aqui que dejar que se guarde medio completo y
+     descubrirlo hasta que Routing no pueda geocodificarlo semanas
+     despues. */
   function bulkClientAddressIssue(c) {
+    const extraIssue = (c.additionalAddresses || []).find(a => (a.address || a.city || a.zip) && !a.label);
+    if (extraIssue) return 'An extra address is missing its Label';
     if (!c.address) return null; // sin direccion del todo -- se importa igual, se completa despues a mano
     /* "1209 & 1301 W 16th St" / "123 Main St / 456 Oak Ave" -- alguien
        junto 2+ direcciones en un solo campo al llenar el Excel. */
@@ -1095,24 +1099,80 @@
     return null;
   }
 
+  /* Celda editable tipo Excel -- un <input> transparente en vez de
+     texto plano. onchange (no oninput) para no volver a dibujar toda
+     la tabla en cada tecla, lo que le haria perder el foco al campo a
+     medio escribir. Se actualiza al salir del campo (Tab/click afuera/
+     Enter), momento en el que tambien se revalida esa fila. */
+  function bulkCellInput(rowIdx, field, value, placeholder) {
+    return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
+      'onchange="updateBulkClientField(' + rowIdx + ',\'' + field + '\',this.value)" ' +
+      'style="width:100%;min-width:90px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
+      'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
+      'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
+  }
+
+  function updateBulkClientField(rowIdx, field, value) {
+    bulkClientsRows[rowIdx][field] = value;
+    renderBulkClientsPreview();
+  }
+
+  function updateBulkClientExtraAddr(rowIdx, addrIdx, field, value) {
+    bulkClientsRows[rowIdx].additionalAddresses[addrIdx][field] = value;
+    renderBulkClientsPreview();
+  }
+
+  function addBulkClientAddress(rowIdx) {
+    if (!bulkClientsRows[rowIdx].additionalAddresses) bulkClientsRows[rowIdx].additionalAddresses = [];
+    bulkClientsRows[rowIdx].additionalAddresses.push({ label: '', address: '', suite: '', city: '', zip: '' });
+    renderBulkClientsPreview();
+  }
+
+  function removeBulkClientAddress(rowIdx, addrIdx) {
+    bulkClientsRows[rowIdx].additionalAddresses.splice(addrIdx, 1);
+    renderBulkClientsPreview();
+  }
+
   function renderBulkClientsPreview() {
     const box = document.getElementById('bulk-clients-preview');
     if (!bulkClientsRows.length) {
       box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check that the file has a "Company name" or "Name" column.</p>';
       return;
     }
-    const flagged = bulkClientsRows.map(c => ({ c, issue: bulkClientAddressIssue(c) }));
-    const cleanCount = flagged.filter(f => !f.issue).length;
+    const flagged = bulkClientsRows.map(c => bulkClientAddressIssue(c));
+    const cleanCount = flagged.filter(issue => !issue).length;
     const issueCount = flagged.length - cleanCount;
+    const td = 'style="padding:4px;border:1px solid var(--border)"';
 
-    const rowsHtml = flagged.map(({ c, issue }) =>
-      '<tr' + (issue ? ' style="background:#FFF5F5"' : '') + '><td>' + esc(c.businessName) + '</td><td>' + esc(c.address) + '</td><td>' + esc(c.city) + '</td>' +
-      '<td>' + esc(c.zip) + '</td><td>' + esc(c.phone) + '</td><td>' + esc(c.email) + '</td>' +
-      '<td>' + (issue ? '<span style="color:#B33A3A;font-weight:600">⚠ ' + esc(issue) + '</span>' : '') + '</td></tr>'
-    ).join('');
+    const rowsHtml = bulkClientsRows.map((c, i) => {
+      const issue = flagged[i];
+      const extras = c.additionalAddresses || [];
+      let html = '<tr' + (issue ? ' style="background:#FFF5F5"' : '') + '>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'businessName', c.businessName) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'address', c.address) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'city', c.city) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'zip', c.zip) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'phone', c.phone) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'email', c.email) + '</td>' +
+        '<td ' + td + '>' + (issue ? '<span style="color:#B33A3A;font-weight:600;font-size:11px">⚠ ' + esc(issue) + '</span>' : '') + '</td>' +
+        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 8px;font-size:11px;white-space:nowrap" onclick="addBulkClientAddress(' + i + ')">+ Address</button></td>' +
+        '</tr>';
+      html += extras.map((a, ai) =>
+        '<tr style="background:var(--bg)">' +
+        '<td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + extraCellInput(i, ai, 'label', a.label, 'Label (required)') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'address', a.address, 'Address') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'city', a.city, 'City') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'zip', a.zip, 'Zip') + '</td>' +
+        '<td ' + td + ' colspan="2"></td>' +
+        '<td ' + td + '><button type="button" style="background:none;border:none;color:#B33A3A;cursor:pointer" onclick="removeBulkClientAddress(' + i + ',' + ai + ')">✕ Remove</button></td>' +
+        '</tr>'
+      ).join('');
+      return html;
+    }).join('');
+
     box.innerHTML =
-      '<p style="font-size:13px;margin-bottom:10px"><b>' + bulkClientsRows.length + '</b> clients found in the file. Review before importing — clients that already exist by business name will be skipped automatically.</p>' +
-      (issueCount ? '<div class="warn-list" style="margin-bottom:10px"><b>' + issueCount + ' need attention</b> — fix these in the file and re-upload, they will NOT be imported yet (highlighted below).</div>' : '') +
+      '<p style="font-size:13px;margin-bottom:10px"><b>' + bulkClientsRows.length + '</b> clients found in the file. Click any cell to edit it. Clients that already exist by business name will be skipped automatically.</p>' +
+      (issueCount ? '<div class="warn-list" style="margin-bottom:10px"><b>' + issueCount + ' need attention</b> — fix the highlighted cells below, they will NOT be imported yet.</div>' : '') +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
       '<tr style="background:var(--bg)"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
@@ -1120,11 +1180,22 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Issue</th></tr>' +
-      rowsHtml.replace(/<td>/g, '<td style="padding:6px;border:1px solid var(--border)">') +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Issue</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
+      rowsHtml +
       '</table></div>' +
       '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()"' + (cleanCount ? '' : ' disabled') + '>Import ' + cleanCount + ' Client' + (cleanCount === 1 ? '' : 's') + '</button>' +
       '<div id="bulk-clients-result" style="margin-top:12px;font-size:13px"></div>';
+  }
+
+  /* Igual que bulkCellInput, pero para las direcciones extra dentro de
+     additionalAddresses (necesitan rowIdx + addrIdx, no solo rowIdx). */
+  function extraCellInput(rowIdx, addrIdx, field, value, placeholder) {
+    return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
+      'onchange="updateBulkClientExtraAddr(' + rowIdx + ',' + addrIdx + ',\'' + field + '\',this.value)" ' +
+      'style="width:100%;min-width:80px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
+      'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
+      'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
   }
 
   async function confirmBulkImport() {
@@ -1135,11 +1206,12 @@
     try {
       const res = await api('bulk-import-clients', { rows: cleanRows });
       let msg = '<b>' + res.created + ' client(s) created.</b>';
+      if (res.extraAddressesCreated) msg += ' (' + res.extraAddressesCreated + ' extra building' + (res.extraAddressesCreated === 1 ? '' : 's') + ' added.)';
       if (res.skipped && res.skipped.length) {
         msg += '<br>Skipped ' + res.skipped.length + ' (already existed): ' + res.skipped.join(', ');
       }
       const issueCount = bulkClientsRows.length - cleanRows.length;
-      if (issueCount) msg += '<br>' + issueCount + ' not imported (address needs fixing) — see highlighted rows above.';
+      if (issueCount) msg += '<br>' + issueCount + ' not imported (needs fixing) — see highlighted rows above.';
       resultBox.innerHTML = msg;
     } catch (e) {
       resultBox.innerHTML = '<span style="color:#B33A3A">Error: ' + e.message + '</span>';

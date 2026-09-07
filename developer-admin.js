@@ -1279,6 +1279,7 @@ exports.handler = async (event) => {
         .reduce((max, n) => Math.max(max, n), 1000) + 1;
 
       let created = 0;
+      let extraAddressesCreated = 0;
       const skipped = [];
       for (const r of rows) {
         const businessName = String(r.businessName || '').trim();
@@ -1301,9 +1302,34 @@ exports.handler = async (event) => {
         });
         existingNames.add(businessName.toLowerCase());
         created++;
+
+        /* Direcciones extra del mismo cliente -- mismo sistema real de
+           edificios (ClientAddresses) que usa la ficha de un cliente
+           normal, geocodificadas igual al guardarse. La direccion
+           principal ya quedo arriba, pegada al cliente -- esto es
+           solo para la 2a, 3a, etc. */
+        const extras = Array.isArray(r.additionalAddresses) ? r.additionalAddresses : [];
+        for (const a of extras) {
+          if (!a || !a.label || !String(a.label).trim()) continue; // sin label no se guarda, ya se filtro antes de llegar aqui de todos modos
+          const geo = await geocodeAddress(a.address, a.city, a.zip);
+          const fields = {
+            Title: a.label,
+            ClientID: clientId,
+            Label: a.label,
+            Address: a.address || '',
+            Suite: a.suite || '',
+            City: a.city || '',
+            Zip: a.zip || '',
+            ContactId: '',
+            Archived: false
+          };
+          if (geo) { fields.Latitude = geo.lat; fields.Longitude = geo.lon; }
+          await createListItem(CLIENT_ADDRESSES_LIST, fields);
+          extraAddressesCreated++;
+        }
       }
 
-      return jsonResponse(200, { success: true, created, skipped });
+      return jsonResponse(200, { success: true, created, skipped, extraAddressesCreated });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
