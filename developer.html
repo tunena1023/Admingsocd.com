@@ -409,6 +409,19 @@
     </div>
   </section>
 
+  <section id="all-clients-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">All Clients</div>
+        <div class="order-desc">Every client on file, same view as the import preview — read only.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="all-clients-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div id="all-clients-table" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
+      </div>
+    </div>
+  </section>
+
   <section id="bulk-clients-section" data-category="customers" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -556,6 +569,7 @@
     if (canEdit) {
       document.getElementById('import-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
+      document.getElementById('all-clients-section').classList.add('role-eligible');
       document.getElementById('reports-section').classList.add('role-eligible');
     }
 
@@ -598,6 +612,7 @@
       body.style.display = 'block';
       headerEl.querySelector('.dev-chevron').textContent = '▾';
       if (body.querySelector('#upload-history-employee') || body.querySelector('#upload-history-hours')) loadUploadHistory();
+      if (body.querySelector('#all-clients-table')) loadAllClients();
     }
   }
 
@@ -1030,6 +1045,61 @@
 
   let bulkClientsRows = [];
 
+  /* All Clients -- solo lectura, misma tabla que el preview de Bulk
+     Import pero sin nada editable ni boton de importar. Se carga
+     perezoso la primera vez que se abre la tarjeta, se cachea
+     despues (no cambia seguido, y ya trae un boton de Refresh por si
+     acaso se acaba de importar algo). */
+  let allClientsCache = null;
+  async function loadAllClients() {
+    const box = document.getElementById('all-clients-table');
+    try {
+      if (!allClientsCache) {
+        box.innerHTML = '<p class="empty-note">Loading…</p>';
+        const res = await api('list-all-clients');
+        allClientsCache = res.clients || [];
+      }
+      renderAllClientsTable();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load clients: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderAllClientsTable() {
+    const box = document.getElementById('all-clients-table');
+    document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
+    if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
+    const td = 'style="padding:6px;border:1px solid var(--border)"';
+
+    const rowsHtml = allClientsCache.map(c => {
+      let html = '<tr><td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
+        '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
+        '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td></tr>';
+      html += (c.additionalAddresses || []).map(a =>
+        '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
+        '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td></tr>'
+      ).join('');
+      return html;
+    }).join('');
+
+    box.innerHTML =
+      '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">' +
+      '<button type="button" class="btn btn-outline" style="padding:4px 12px;font-size:12px" onclick="refreshAllClients()">Refresh</button></div>' +
+      '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<tr style="background:var(--bg);position:sticky;top:0"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th></tr>' +
+      rowsHtml + '</table></div>';
+  }
+
+  function refreshAllClients() {
+    allClientsCache = null;
+    loadAllClients();
+  }
+
   function onBulkClientsFileChosen() {
     const input = document.getElementById('bulk-clients-file');
     const file = input.files[0];
@@ -1205,6 +1275,7 @@
     resultBox.textContent = 'Importing…';
     try {
       const res = await api('bulk-import-clients', { rows: cleanRows });
+      allClientsCache = null; // se acaban de agregar clientes -- que se recargue de verdad la proxima vez que se abra All Clients
       let msg = '<b>' + res.created + ' client(s) created.</b>';
       if (res.extraAddressesCreated) msg += ' (' + res.extraAddressesCreated + ' extra building' + (res.extraAddressesCreated === 1 ? '' : 's') + ' added.)';
       if (res.skipped && res.skipped.length) {

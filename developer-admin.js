@@ -1263,6 +1263,49 @@ exports.handler = async (event) => {
        datos incompletos). Evita duplicados por nombre de negocio,
        nunca actualiza uno que ya existe -- solo crea los que faltan.
     ============================================================ */
+    /* Vista de solo lectura de TODOS los clientes ya guardados, misma
+       tabla que el preview de Bulk Import -- para revisar lo que ya
+       existe sin tener que ir a Clients en admin.html. Sin editar
+       aqui, nomas ver. */
+    if (action === 'list-all-clients') {
+      const [clients, addresses] = await Promise.all([
+        fetchAll(CLIENTS_LIST),
+        fetchAll(CLIENT_ADDRESSES_LIST)
+      ]);
+
+      const addrByClient = {};
+      addresses.forEach(it => {
+        if (!it.fields) return;
+        const cid = String(it.fields.ClientID || '').trim();
+        if (!cid) return;
+        (addrByClient[cid] = addrByClient[cid] || []).push({
+          label: it.fields.Label || '',
+          address: it.fields.Address || '',
+          suite: it.fields.Suite || '',
+          city: it.fields.City || '',
+          zip: it.fields.Zip || '',
+          archived: it.fields.Archived === true || it.fields.Archived === 'true'
+        });
+      });
+
+      const list = clients.filter(it => it.fields).map(it => {
+        const f = it.fields;
+        return {
+          clientId: f.ClientID || '',
+          businessName: f.Title || '',
+          address: f.Address || '',
+          suite: f.Suite || '',
+          city: f.City || '',
+          zip: f.Zip || '',
+          phone: f.Phone || '',
+          email: f.Contact || '',
+          additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
+        };
+      }).sort((a, b) => a.businessName.localeCompare(b.businessName));
+
+      return jsonResponse(200, { clients: list });
+    }
+
     if (action === 'bulk-import-clients') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot import clients.' });
       const rows = Array.isArray(body.rows) ? body.rows : [];
