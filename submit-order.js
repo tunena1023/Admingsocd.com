@@ -594,6 +594,18 @@ exports.handler = async (event) => {
       Object.assign({}, orderFields, { OrderID: orderId, Status: b.Status || 'Received' })
     );
 
+    /* BUG FIX: historyWarning se declaraba con let ADENTRO del try de
+       aqui abajo, pero el return final que la usa esta AFUERA de ese
+       bloque -- una vez que el try cierra, esa variable deja de
+       existir (alcance de bloque real con let). Referenciarla en el
+       return tronaba SIEMPRE con "historyWarning is not defined",
+       sin importar si el historial se escribio bien o no. Afectaba
+       tanto al Create Order de Admin como a cualquier orden nueva
+       normal del cliente (customer.html nunca manda OrderID en una
+       orden nueva, asi que siempre cae aqui, en Flujo C). La orden
+       SI se alcanzaba a crear bien antes de este error -- el bug
+       era solo en la respuesta final, no en el guardado real. */
+    let historyWarning = null;
     try {
     const parsedServices = resolveServices(b.Services, b.Division);
     await Promise.all(parsedServices.map(s =>
@@ -634,7 +646,6 @@ exports.handler = async (event) => {
        fallar, se manda un aviso real en la respuesta (historyWarning)
        para que admin.html se lo pueda mostrar al usuario en vez de
        que desaparezca sin que nadie se entere. */
-    let historyWarning = null;
     try {
       await createListItem(ORDER_HISTORY_LIST, createdHistoryFields);
     } catch (e1) {
