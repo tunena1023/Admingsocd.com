@@ -46,14 +46,19 @@
     h1.page-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 4px; }
     .role-note { font-size: 13px; color: var(--gray); margin-bottom: 32px; }
 
-    section { margin-bottom: 44px; }
+    /* Cada tarjeta de Developer vive dentro de un <section>, pero el
+       margen entre tarjetas lo pone .order-card (12px, igual que las
+       tarjetas de ordenes) -- section ya no le mete su propio
+       margen encima, que era lo que dejaba un espacio enorme entre
+       una tarjeta y la siguiente. */
+    section { margin-bottom: 0; }
     .section-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gray); margin-bottom: 6px; }
     .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 18px; }
     /* Menu lateral -- reemplaza la lista plana de secciones apiladas.
        Solo se ve una categoria a la vez del lado derecho. */
     .dev-layout { display: flex; gap: 32px; align-items: flex-start; }
     .dev-sidebar { width: 180px; flex-shrink: 0; position: sticky; top: 24px; }
-    .dev-side-item { padding: 11px 16px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--gray); border-left: 3px solid transparent; border-radius: 0 3px 3px 0; }
+    .dev-side-item { padding: 13px 16px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--gray); border-left: 3px solid transparent; border-radius: 0 3px 3px 0; }
     .dev-side-item:hover { background: var(--bg); }
     .dev-side-item.active { color: var(--black); border-left-color: var(--gold); background: rgba(201,168,76,0.08); }
     .dev-content { flex: 1; min-width: 0; }
@@ -70,10 +75,17 @@
        Cada seccion de Developer ahora vive dentro de una de estas,
        una sola abierta a la vez. */
     .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
-    .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; cursor: pointer; }
-    .order-card-header:hover { background: var(--bg); }
+    /* Encabezado con el mismo tono dorado FIJO que ya usan Approvals/
+       Review (rgba(201,168,76,0.12)) -- antes se quedaba blanco y
+       solo se pintaba al pasar el mouse, por eso se veian "gachas"
+       comparadas con las de ordenes. Padding subido de 16px a 22px
+       para que se sientan mas gorditas, con espacio para la
+       descripcion debajo del titulo. */
+    .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px; cursor: pointer; background: rgba(201,168,76,0.12); }
+    .order-card-header:hover { background: rgba(201,168,76,0.18); }
     .order-id { font-weight: 600; font-size: 15px; }
     .order-meta { font-size: 12px; color: var(--gray); }
+    .order-desc { font-size: 12px; color: var(--gray); margin-top: 4px; font-weight: 400; }
     .dev-chevron { font-size: 11px; color: var(--gray); }
     .appr-body { padding: 0 24px 24px; border-top: 1px solid var(--border); }
     .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
@@ -242,7 +254,8 @@
   <section id="import-section" data-category="services" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Import from QuickBooks</div>
+        <div><div class="order-id">Import from QuickBooks</div>
+        <div class="order-desc">Upload the Products/Services report and update the catalog by SKU.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -264,7 +277,8 @@
   <section id="browse-section" data-category="services">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Service Catalog</div>
+        <div><div class="order-id">Service Catalog</div>
+        <div class="order-desc">Every active and inactive service, with price and SKU — search and toggle them here.</div></div>
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="catalog-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
@@ -278,7 +292,8 @@
   <section id="staff-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Staff &amp; Roles</div>
+        <div><div class="order-id">Staff &amp; Roles</div>
+        <div class="order-desc">Who can see this page, and who can edit the service catalog.</div></div>
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="staff-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
@@ -294,7 +309,8 @@
   <section id="techs-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Techs &amp; Roles</div>
+        <div><div class="order-id">Techs &amp; Roles</div>
+        <div class="order-desc">Everyone registered on tech.gsocd.com — assign division and role.</div></div>
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="techs-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
@@ -310,7 +326,8 @@
   <section id="service-times-section" data-category="services" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Service Times</div>
+        <div><div class="order-id">Service Times</div>
+        <div class="order-desc">How long each service takes in minutes, by level — used to estimate Scheduling.</div></div>
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="service-times-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
@@ -331,7 +348,8 @@
   <section id="password-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Operations Director Password</div>
+        <div><div class="order-id">Operations Director Password</div>
+        <div class="order-desc">The password used across Approvals, Review and Reactivate.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -352,7 +370,8 @@
   <section id="reports-section" data-category="reports" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Employee Report</div>
+        <div><div class="order-id">Employee Report</div>
+        <div class="order-desc">Update the field employee catalog and create tech.gsocd.com logins.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -364,12 +383,15 @@
           <button class="btn btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
         </div>
         <div id="employee-result" class="result-box" style="display:none"></div>
+        <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
+        <div id="upload-history-employee"><p class="empty-note">Loading…</p></div>
       </div>
     </div>
 
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Punch Report</div>
+        <div><div class="order-id">Punch Report</div>
+        <div class="order-desc">Calculate real weekly hours from raw clock in/out punches.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -381,16 +403,8 @@
           <button class="btn btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
         </div>
         <div id="hours-result" class="result-box" style="display:none"></div>
-      </div>
-    </div>
-
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Upload History</div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <div id="upload-history" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
+        <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
+        <div id="upload-history-hours"><p class="empty-note">Loading…</p></div>
       </div>
     </div>
   </section>
@@ -398,7 +412,8 @@
   <section id="bulk-clients-section" data-category="customers" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Bulk Import Clients</div>
+        <div><div class="order-id">Bulk Import Clients</div>
+        <div class="order-desc">Upload a client list from QuickBooks — only creates the ones that don't exist yet.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -414,7 +429,8 @@
   <section id="geocode-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div class="order-id">Scheduling — Building Coordinates</div>
+        <div><div class="order-id">Scheduling — Building Coordinates</div>
+        <div class="order-desc">Fill in the location of old buildings that don't have it yet.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
@@ -430,7 +446,8 @@
   <section id="debug-section" data-category="settings" style="display:none">
     <div class="order-card" style="border-color:#B33A3A">
       <div class="order-card-header" onclick="toggleDevCard(this)" style="background:#FFF5F5">
-        <div class="order-id" style="color:#B33A3A">⚠ Debug — Wipe Test Data</div>
+        <div><div class="order-id" style="color:#B33A3A">⚠ Debug — Wipe Test Data</div>
+        <div class="order-desc">Deletes all test data. Testing only, never production.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none;background:#FFF5F5">
@@ -580,7 +597,7 @@
     if (!wasOpen) {
       body.style.display = 'block';
       headerEl.querySelector('.dev-chevron').textContent = '▾';
-      if (body.querySelector('#upload-history')) loadUploadHistory();
+      if (body.querySelector('#upload-history-employee') || body.querySelector('#upload-history-hours')) loadUploadHistory();
     }
   }
 
@@ -1214,7 +1231,7 @@
         box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
           res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
       }
-      loadUploadHistory();
+      uploadHistoryCache = null; loadUploadHistory();
     } catch (e) {
       alert('Error: ' + e.message);
     } finally {
@@ -1312,7 +1329,7 @@
         box.innerHTML += '<div class="warn-list"><b>Payroll Number not in the catalog</b> (not in FieldEmployees):<br>' +
           res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
       }
-      loadUploadHistory();
+      uploadHistoryCache = null; loadUploadHistory();
     } catch (e) {
       alert('Error: ' + e.message);
     } finally {
@@ -1320,18 +1337,34 @@
     }
   }
 
+  /* Separado por tipo -- cada tarjeta (Employee Report / Punch
+     Report) trae su propio historial adentro, no uno solo compartido
+     con los dos tipos mezclados. */
+  let uploadHistoryCache = null;
   async function loadUploadHistory() {
-    const box = document.getElementById('upload-history');
+    const boxEmployee = document.getElementById('upload-history-employee');
+    const boxHours = document.getElementById('upload-history-hours');
     try {
-      const res = await api('list-report-uploads');
-      const uploads = res.uploads || [];
-      if (!uploads.length) { box.innerHTML = '<p class="empty-note">No reports uploaded yet.</p>'; return; }
-      box.innerHTML = '<table class="grid-table"><tr><th>Type</th><th>Date</th><th>Result</th></tr>' +
-        uploads.map(u => '<tr><td>' + esc(u.ReportType) + '</td><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
-        '</table>';
+      if (!uploadHistoryCache) {
+        const res = await api('list-report-uploads');
+        uploadHistoryCache = res.uploads || [];
+      }
+      renderUploadHistoryFor(boxEmployee, 'Employee Report');
+      renderUploadHistoryFor(boxHours, 'Punch Report');
     } catch (e) {
-      box.innerHTML = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
+      const msg = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
+      boxEmployee.innerHTML = msg;
+      boxHours.innerHTML = msg;
     }
+  }
+
+  function renderUploadHistoryFor(box, reportType) {
+    if (!box) return;
+    const uploads = (uploadHistoryCache || []).filter(u => u.ReportType === reportType);
+    if (!uploads.length) { box.innerHTML = '<p class="empty-note">No uploads yet.</p>'; return; }
+    box.innerHTML = '<table class="grid-table"><tr><th>Date</th><th>Result</th></tr>' +
+      uploads.map(u => '<tr><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
+      '</table>';
   }
 
   /* Debug temporal, solo para pruebas -- borrar este boton entero
