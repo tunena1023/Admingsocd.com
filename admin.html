@@ -5547,7 +5547,10 @@ let pendingDirectLinkOrderId = null;
         }
       });
       openOrderCard = null;
-      loadOrdersQueue();
+      /* Antes solo se refrescaba Scheduling -- Active/Review/History/
+         Approvals se quedaban con el tecnico/fecha viejos hasta
+         recargar toda la pagina. Ahora los dos de un jalon. */
+      await Promise.all([loadOrdersQueue(), loadAll()]);
     } catch (e) {
       errEl.textContent = e.message;
     }
@@ -5561,8 +5564,10 @@ let pendingDirectLinkOrderId = null;
         body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
       });
       const activeTab = document.querySelector('#panel-schedule .subtab.active');
-      if (activeTab && activeTab.dataset.tab === 'review') loadReview();
-      else loadOrdersQueue();
+      const scheduleRefresh = (activeTab && activeTab.dataset.tab === 'review') ? loadReview() : loadOrdersQueue();
+      /* Mismo motivo que en submitAssignment: quitar una asignacion
+         tambien debe reflejarse fuera de Scheduling de inmediato. */
+      await Promise.all([scheduleRefresh, loadAll()]);
     } catch (e) {
       alert('Error: ' + e.message);
     }
