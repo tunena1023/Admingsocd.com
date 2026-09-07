@@ -335,6 +335,18 @@
                    border-radius: 4px; border-left: 3px solid var(--gold); }
     .hist-detail.open { display: block; }
     .hist-detail-line { font-size: 12px; margin: 5px 0; line-height: 1.5; }
+    /* ===== Formato unificado de renglones de cambio ===== */
+    .change-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+    .change-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+    .change-label { font-size: 12px; font-weight: 600; width: 130px; flex-shrink: 0; }
+    .change-values { font-size: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .old-val { color: var(--gray); text-decoration: line-through; }
+    .arrow { color: var(--gray); }
+    .new-val { color: var(--gold); font-weight: 600; }
+    .added-val { color: #3F7D4F; font-weight: 600; }
+    .removed-val { color: #B33A3A; text-decoration: line-through; }
+    .plain-val { color: var(--black); }
+    .change-sub { font-size: 11px; color: var(--gray); margin-left: 28px; font-style: italic; }
 
     /* SECTION TITLE */
     .section-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; margin-bottom: 6px; }
@@ -2817,6 +2829,26 @@ function parseDatesPayload(value) {
   } catch(e) { return null; }
 }
 
+/* ===== Formato unificado de renglones de cambio (aprobado con mini) =====
+   Mismo diseno en los 3 repos: icono + etiqueta + viejo tachado +
+   flecha + nuevo en dorado. Si no cambio, se ve en negro plano. */
+function changeRowHtml(icon, label, oldVal, newVal) {
+  const oldStr = oldVal || '', newStr = newVal || '';
+  if (oldStr === newStr) {
+    return '<div class="change-row"><span class="change-icon">' + icon + '</span><span class="change-label">' + esc(label) + '</span><span class="change-values"><span class="plain-val">' + esc(newStr || '—') + '</span></span></div>';
+  }
+  return '<div class="change-row"><span class="change-icon">' + icon + '</span><span class="change-label">' + esc(label) + '</span><span class="change-values"><span class="old-val">' + esc(oldStr || '(none)') + '</span><span class="arrow">&rarr;</span><span class="new-val">' + esc(newStr || '(none)') + '</span></span></div>';
+}
+function addedRowHtml(icon, label, extra) {
+  return '<div class="change-row"><span class="change-icon">' + icon + '</span><span class="change-label">' + esc(label) + '</span><span class="change-values"><span class="added-val">Added' + (extra ? ' &mdash; ' + esc(extra) : '') + '</span></span></div>';
+}
+function removedRowHtml(icon, label, extra) {
+  return '<div class="change-row"><span class="change-icon">' + icon + '</span><span class="change-label">' + esc(label) + '</span><span class="change-values"><span class="removed-val">Removed' + (extra ? ' &mdash; ' + esc(extra) : '') + '</span></span></div>';
+}
+function subLineHtml(text) {
+  return '<div class="change-sub">' + esc(text) + '</div>';
+}
+
 function historyChangeLines(h) {
   /* 'Created' es el nacimiento de la orden, no un cambio -- no hay
      antes/despues que comparar. Sin esto, el marcador interno
@@ -2854,19 +2886,16 @@ function historyChangeLines(h) {
     const neu = newDates || {};
     const lines = [];
     if ((old.entryDate || '') !== (neu.entryDate || '')) {
-      lines.push('&#128197; Entry Date: ' +
-        (old.entryDate ? esc(fmtDate(old.entryDate)) : '<i>(none)</i>') + ' &rarr; ' +
-        (neu.entryDate ? esc(fmtDate(neu.entryDate)) : '<i>(none)</i>'));
+      lines.push(changeRowHtml('&#128197;', 'Entry Date',
+        old.entryDate ? esc(fmtDate(old.entryDate)) : '', neu.entryDate ? esc(fmtDate(neu.entryDate)) : ''));
     }
     if ((old.dueDate || '') !== (neu.dueDate || '')) {
-      lines.push('&#128197; Due Date: ' +
-        (old.dueDate ? esc(fmtDate(old.dueDate)) : '<i>(none)</i>') + ' &rarr; ' +
-        (neu.dueDate ? esc(fmtDate(neu.dueDate)) : '<i>(none)</i>'));
+      lines.push(changeRowHtml('&#128197;', 'Due Date',
+        old.dueDate ? esc(fmtDate(old.dueDate)) : '', neu.dueDate ? esc(fmtDate(neu.dueDate)) : ''));
     }
     if ((old.serviceWindow || '') !== (neu.serviceWindow || '')) {
-      lines.push('&#128197; Service Window: ' +
-        (old.serviceWindow ? esc(old.serviceWindow) : '<i>(none)</i>') + ' &rarr; ' +
-        (neu.serviceWindow ? esc(neu.serviceWindow) : '<i>(none)</i>'));
+      lines.push(changeRowHtml('&#128336;', 'Service Window',
+        old.serviceWindow ? esc(old.serviceWindow) : '', neu.serviceWindow ? esc(neu.serviceWindow) : ''));
     }
     if (lines.length) return lines;
   }
@@ -2880,10 +2909,7 @@ function historyChangeLines(h) {
     const newTxt = String(h.NewValue || '');
     if (oldTxt === newTxt) return [];
     if (!oldTxt && !newTxt) return [];
-    const label = h.FieldChanged ? esc(h.FieldChanged) + ': ' : '';
-    return ['&#128260; ' + label +
-            (oldTxt ? esc(oldTxt) : '<i>(empty)</i>') + ' &rarr; ' +
-            (newTxt ? esc(newTxt) : '<i>(empty)</i>')];
+    return [changeRowHtml('&#128260;', h.FieldChanged || 'Changed', esc(oldTxt), esc(newTxt))];
   }
 
   /* Same comparison key as the customer portal, so both agree */
@@ -2896,43 +2922,40 @@ function historyChangeLines(h) {
   newSvcs.forEach(s => {
     const k = keyOf(s);
     const sub = s.SubOption || '';
-    const subTxt = isCatalogSku(sub) ? '' : (sub ? ' &mdash; ' + esc(sub) : '');
+    const subTxt = isCatalogSku(sub) ? '' : sub;
     if (!(k in oldMap)) {
-      lines.push('&#9989; Added: <b>' + esc(s.ServiceName || '') + '</b>' + subTxt);
+      lines.push(addedRowHtml('&#10133;', s.ServiceName || '', subTxt ? esc(subTxt) : ''));
       return;
     }
     const prev = oldMap[k];
     if ((prev.SubOption || '') !== sub) {
       if (isCatalogSku(sub) || isCatalogSku(prev.SubOption || '')) {
-        lines.push('&#128260; Changed: <b>' + esc(s.ServiceName || '') + '</b>');
+        lines.push(changeRowHtml('&#128260;', s.ServiceName || '', 'previous option', 'new option'));
       } else {
-        lines.push('&#128260; Changed: <b>' + esc(s.ServiceName || '') + '</b> from ' +
-                   esc(prev.SubOption || '(none)') + ' to ' + esc(sub || '(none)'));
+        lines.push(changeRowHtml('&#128260;', s.ServiceName || '', esc(prev.SubOption || '(none)'), esc(sub || '(none)')));
       }
     }
     /* Marcar un servicio como no realizado tambien es un cambio que debe verse */
     if (isNC(prev) !== isNC(s)) {
-      lines.push(isNC(s)
-        ? '&#9888; Marked NOT completed: <b>' + esc(s.ServiceName || '') + '</b>' +
-          (s.NotCompletedReason ? ' &mdash; ' + esc(s.NotCompletedReason) : '')
-        : '&#9989; No longer marked as not completed: <b>' + esc(s.ServiceName || '') + '</b>');
+      lines.push(changeRowHtml(isNC(s) ? '&#9888;' : '&#9989;', s.ServiceName || '',
+        isNC(s) ? 'Completed' : 'Not completed', isNC(s) ? 'Not completed' : 'Completed'));
+      if (isNC(s) && s.NotCompletedReason) lines.push(subLineHtml('Reason: ' + s.NotCompletedReason));
     } else if (isNC(s) && (prev.NotCompletedReason || '') !== (s.NotCompletedReason || '')) {
-      lines.push('&#128260; Not completed reason for <b>' + esc(s.ServiceName || '') + '</b>: ' +
-                 esc(prev.NotCompletedReason || '(empty)') + ' &rarr; ' +
-                 esc(s.NotCompletedReason || '(empty)'));
+      lines.push(changeRowHtml('&#128260;', 'Reason (' + (s.ServiceName || '') + ')',
+        esc(prev.NotCompletedReason || '(empty)'), esc(s.NotCompletedReason || '(empty)')));
     }
   });
   oldSvcs.forEach(s => {
     const k = keyOf(s);
     if (!(k in newMap)) {
-      const subTxt = isCatalogSku(s.SubOption) ? '' : (s.SubOption ? ' &mdash; ' + esc(s.SubOption) : '');
-      lines.push('&#10060; Removed: <b>' + esc(s.ServiceName || '') + '</b>' + subTxt);
+      const subTxt = isCatalogSku(s.SubOption) ? '' : s.SubOption;
+      lines.push(removedRowHtml('&#10134;', s.ServiceName || '', subTxt ? esc(subTxt) : ''));
     }
   });
   const dOld = (oldPay && oldPay.dirtLevel) || '';
   const dNew = (newPay && newPay.dirtLevel) || '';
   if (dOld !== dNew && (dOld || dNew)) {
-    lines.push('&#128260; Dirt Level: ' + esc(dOld || '(empty)') + ' &rarr; ' + esc(dNew || '(empty)'));
+    lines.push(changeRowHtml('&#129529;', 'Condition', esc(dOld), esc(dNew)));
   }
   return lines;
 }
@@ -2979,7 +3002,8 @@ const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed', 'Archived
    nombre visible cambia, todo lo demas queda igual". */
 function historyTypeLabel(changeType) {
   const map = {
-    'Expected Ready Date': 'Ready Date & Time'
+    'Expected Ready Date': 'Ready Date & Time',
+    'Reschedule Requested': 'New dates requested'
   };
   return map[changeType] || changeType || '';
 }
@@ -3047,12 +3071,37 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
     }
   });
 
-  return mergedHistory.map((g, idx) => {
+  /* Tercera pasada: 'Change Requested' seguido de inmediato por
+     'Reschedule Requested' (mismo actor, mismo momento) es UNA sola
+     accion del cliente -- pedir un cambio que incluye fecha/hora
+     escribe 2 renglones aparte por diseno (ver request-change.js),
+     pero aqui se ven como uno solo. Se usa 'Reschedule Requested'
+     como representante (mas especifico), conservando la nota del
+     'Change Requested' original en MergedNotes. */
+  const mergedHistory2 = [];
+  mergedHistory.forEach(g => {
+    const prev = mergedHistory2[mergedHistory2.length - 1];
+    const type = String(g.rep.ChangeType || '');
+    const isReschedule = type === 'Reschedule Requested';
+    const prevIsChangeRequested = prev && String(prev.rep.ChangeType || '') === 'Change Requested';
+    const sameActor = prev && String(prev.rep.ChangedBy || '') === String(g.rep.ChangedBy || '');
+    const closeInTime = prev &&
+      Math.abs(new Date(g.rep.ChangeDate) - new Date(prev.rep.ChangeDate)) < GROUP_WINDOW_MS;
+    if (isReschedule && prevIsChangeRequested && sameActor && closeInTime) {
+      const carriedNote = histNoteText(prev.rep);
+      prev.rep = Object.assign({}, g.rep, { MergedNotes: carriedNote });
+      prev.rows = prev.rows.concat(g.rows);
+    } else {
+      mergedHistory2.push(g);
+    }
+  });
+
+  return mergedHistory2.map((g, idx) => {
     const h = g.rep;
     const detailId = 'hd-' + String(orderId || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
     const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
     const hasDetail = lines.length > 0;
-    const noteTxt   = histNoteText(h);
+    const noteTxt   = h.MergedNotes || histNoteText(h);
     /* Un evento que no trae ni nota ni detalle es puro tramite -- solo
        repite en prosa lo que el encabezado ya dice ("Change Approved
        by Esmeralda Amezcua", sin nada mas abajo). Se filtra: el
