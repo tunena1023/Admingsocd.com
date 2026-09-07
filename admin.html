@@ -5679,10 +5679,11 @@ async function submitCreateOrder() {
   body.Bathrooms      = document.getElementById('create-bathrooms').value;
   const entryDateVal = document.getElementById('create-entry-date').value;
   const entryTimeVal = document.getElementById('create-entry-time').value || '08:00';
-  body.EntryDate      = entryDateVal ? new Date(entryDateVal + 'T' + entryTimeVal).toISOString() : null;
-  body.DueDate        = document.getElementById('create-due-date').value
-    ? new Date(document.getElementById('create-due-date').value + 'T23:59:59').toISOString()
-    : null;
+  const dueDateVal = document.getElementById('create-due-date').value;
+  if (!entryDateVal) { showToast('Enter the entry date.'); return; }
+  if (!dueDateVal) { showToast('Enter the due date.'); return; }
+  body.EntryDate      = new Date(entryDateVal + 'T' + entryTimeVal).toISOString();
+  body.DueDate        = new Date(dueDateVal + 'T23:59:59').toISOString();
 
   try {
     const res = await api('/submit-order', { body });
