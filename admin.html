@@ -3175,14 +3175,17 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
        historial debe mostrar solo lo que de verdad dice algo (que se
        agrego/cambio/quito un servicio, una nota personalizada, etc.),
        no cada paso administrativo del tramite.
-       EXCEPCION: un evento de decision (Change Approved/Rejected, etc.)
-       que se quedo sin detalle SOLO porque el filtro de arriba le quito
-       renglones duplicados (no porque nunca tuvo nada que mostrar) debe
-       seguir viendose -- si no, la aprobacion desaparece del historial
-       por completo y parece que el cambio nunca se resolvio. */
-    const emptiedByDedup = isDecisionType && idx > 0 &&
-      g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []).length > 0 && !hasDetail;
-    if (!hasDetail && !noteTxt && !emptiedByDedup) return '';
+       EXCEPCION: los pasos que marcan un cambio real de estatus de la
+       orden (se creo, se aprobo, se aprobo/rechazo un cambio o
+       cancelacion, se completo) NUNCA deben desaparecer, tengan o no
+       detalle/nota propia -- son justo los puntos que hay que poder
+       auditar en cualquier momento. Antes solo se protegia el caso de
+       'se quedo sin detalle por el filtro de arriba' (dedup); ahora se
+       protege el tipo de evento completo, sin importar la razon. */
+    const ALWAYS_VISIBLE_TYPES = ['Created', 'Order Approved']
+      .concat(DECISION_TYPES);
+    const alwaysVisible = ALWAYS_VISIBLE_TYPES.indexOf(String(h.ChangeType || '')) !== -1;
+    if (!hasDetail && !noteTxt && !alwaysVisible) return '';
     return `<div class="hist-item${hasDetail ? ' has-detail' : ''}"${
         hasDetail ? ` onclick="toggleHistDetail('${detailId}')"` : ''}>
       <div class="hist-head">
