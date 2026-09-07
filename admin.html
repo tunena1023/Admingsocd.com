@@ -270,7 +270,7 @@
     .rel-wrap { position: relative; }
     .trigger-btn { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); font-size: 14px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
     .trigger-btn:hover { border-color: var(--gold); }
-    .picker-popover { display: none; position: absolute; margin-top: 8px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 50; width: 260px; }
+    .picker-popover { display: none; position: fixed; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 500; width: 260px; }
     .picker-popover.open { display: block; }
     .picker-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); text-align: center; margin-bottom: 14px; }
     .cal-card { border-radius: 22px; padding: 4px; }
@@ -5219,12 +5219,30 @@ function resetCreatePickerState() {
 function createCloseAllPopovers() {
   document.querySelectorAll('.picker-popover.open').forEach(p => p.classList.remove('open'));
 }
+/* El popover es position:fixed (para no quedar recortado por el
+   overflow:hidden de .order-card, que envuelve la tarjeta del
+   cliente donde vive Create Order) -- por eso su posicion ya no se
+   resuelve solo con CSS relativo al boton, hay que calcularla en JS
+   contra el boton disparador cada vez que se abre. */
+function positionCreatePopover(fieldId) {
+  const trigger = document.getElementById(fieldId + '-trigger');
+  const pop = document.getElementById(fieldId + '-pop');
+  if (!trigger || !pop) return;
+  const r = trigger.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  pop.style.left = r.left + 'px';
+  /* Si se saldria de la pantalla por la derecha, se recorre a la
+     izquierda lo necesario para que quede completo visible. */
+  const popWidth = 260;
+  const overflowRight = (r.left + popWidth) - window.innerWidth + 16;
+  if (overflowRight > 0) pop.style.left = (r.left - overflowRight) + 'px';
+}
 function toggleCalPicker(fieldId) {
   const pop = document.getElementById(fieldId + '-pop');
   if (!pop) return;
   const wasOpen = pop.classList.contains('open');
   createCloseAllPopovers();
-  if (!wasOpen) { pop.classList.add('open'); renderCreateCalGrid(fieldId); }
+  if (!wasOpen) { positionCreatePopover(fieldId); pop.classList.add('open'); renderCreateCalGrid(fieldId); }
 }
 function renderCreateCalGrid(fieldId) {
   const st = createDpState(fieldId);
@@ -5267,6 +5285,7 @@ function toggleClockPicker(fieldId) {
   const wasOpen = pop.classList.contains('open');
   createCloseAllPopovers();
   if (!wasOpen) {
+    positionCreatePopover(fieldId);
     pop.classList.add('open');
     const st = createCpState(fieldId);
     st.step = 'hour';
