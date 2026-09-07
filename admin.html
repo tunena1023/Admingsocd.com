@@ -6030,9 +6030,18 @@ async function addRoutingStop(kind, key, btn) {
     lat = b.latitude; lon = b.longitude;
   } else {
     try {
-      const geo = await throttledGeocode(b ? b.address : c.address, b ? b.city : c.city, b ? b.zip : c.zip);
+      const addrVal = b ? b.address : c.address;
+      const cityVal = b ? b.city : c.city;
+      const zipVal = b ? b.zip : c.zip;
+      const geo = await throttledGeocode(addrVal, cityVal, zipVal);
       if (!geo.geo) {
-        showToast('Could not locate that address' + ((b ? b.address : c.address) ? ' (' + (b ? b.address : c.address) + ')' : ' -- no address on file') + '.');
+        /* Se muestra la direccion COMPLETA que de verdad se intento
+           buscar (calle + ciudad + zip) -- si algo de eso viene
+           vacio, se nota de una vez en el aviso, sin tener que ir a
+           revisar la ficha del cliente aparte cada vez que esto
+           pase. */
+        const fullAddr = [addrVal, cityVal, zipVal].filter(Boolean).join(', ');
+        showToast('Could not locate that address' + (fullAddr ? ' (' + fullAddr + ')' : ' -- no address on file') + '.');
         if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
         return;
       }

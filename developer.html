@@ -1080,40 +1080,66 @@
     reader.readAsArrayBuffer(file);
   }
 
+  /* Se revisa cada renglon ANTES de importar -- si algo se ve mal con
+     la direccion, ese cliente no se guarda hasta que se corrija en
+     el archivo y se vuelva a subir. Mejor prevenir esto aqui que
+     dejar que se guarde medio completo y descubrirlo hasta que
+     Routing no pueda geocodificarlo semanas despues. */
+  function bulkClientAddressIssue(c) {
+    if (!c.address) return null; // sin direccion del todo -- se importa igual, se completa despues a mano
+    /* "1209 & 1301 W 16th St" / "123 Main St / 456 Oak Ave" -- alguien
+       junto 2+ direcciones en un solo campo al llenar el Excel. */
+    if (/\s(&|\/)\s/.test(c.address)) return 'Looks like 2 addresses combined into one field';
+    if (!c.city) return 'Missing city';
+    if (!c.zip) return 'Missing zip';
+    return null;
+  }
+
   function renderBulkClientsPreview() {
     const box = document.getElementById('bulk-clients-preview');
     if (!bulkClientsRows.length) {
       box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check that the file has a "Company name" or "Name" column.</p>';
       return;
     }
-    const rowsHtml = bulkClientsRows.map(c =>
-      '<tr><td>' + esc(c.businessName) + '</td><td>' + esc(c.address) + '</td><td>' + esc(c.city) + '</td>' +
-      '<td>' + esc(c.zip) + '</td><td>' + esc(c.phone) + '</td><td>' + esc(c.email) + '</td></tr>'
+    const flagged = bulkClientsRows.map(c => ({ c, issue: bulkClientAddressIssue(c) }));
+    const cleanCount = flagged.filter(f => !f.issue).length;
+    const issueCount = flagged.length - cleanCount;
+
+    const rowsHtml = flagged.map(({ c, issue }) =>
+      '<tr' + (issue ? ' style="background:#FFF5F5"' : '') + '><td>' + esc(c.businessName) + '</td><td>' + esc(c.address) + '</td><td>' + esc(c.city) + '</td>' +
+      '<td>' + esc(c.zip) + '</td><td>' + esc(c.phone) + '</td><td>' + esc(c.email) + '</td>' +
+      '<td>' + (issue ? '<span style="color:#B33A3A;font-weight:600">⚠ ' + esc(issue) + '</span>' : '') + '</td></tr>'
     ).join('');
     box.innerHTML =
       '<p style="font-size:13px;margin-bottom:10px"><b>' + bulkClientsRows.length + '</b> clients found in the file. Review before importing — clients that already exist by business name will be skipped automatically.</p>' +
+      (issueCount ? '<div class="warn-list" style="margin-bottom:10px"><b>' + issueCount + ' need attention</b> — fix these in the file and re-upload, they will NOT be imported yet (highlighted below).</div>' : '') +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
       '<tr style="background:var(--bg)"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th></tr>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Issue</th></tr>' +
       rowsHtml.replace(/<td>/g, '<td style="padding:6px;border:1px solid var(--border)">') +
       '</table></div>' +
-      '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()">Import ' + bulkClientsRows.length + ' Clients</button>' +
+      '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()"' + (cleanCount ? '' : ' disabled') + '>Import ' + cleanCount + ' Client' + (cleanCount === 1 ? '' : 's') + '</button>' +
       '<div id="bulk-clients-result" style="margin-top:12px;font-size:13px"></div>';
   }
 
   async function confirmBulkImport() {
     const resultBox = document.getElementById('bulk-clients-result');
+    const cleanRows = bulkClientsRows.filter(c => !bulkClientAddressIssue(c));
+    if (!cleanRows.length) return;
     resultBox.textContent = 'Importing…';
     try {
-      const res = await api('bulk-import-clients', { rows: bulkClientsRows });
+      const res = await api('bulk-import-clients', { rows: cleanRows });
       let msg = '<b>' + res.created + ' client(s) created.</b>';
       if (res.skipped && res.skipped.length) {
-        msg += '<br>Skipped ' + res.skipped.length + ': ' + res.skipped.join(', ');
+        msg += '<br>Skipped ' + res.skipped.length + ' (already existed): ' + res.skipped.join(', ');
       }
+      const issueCount = bulkClientsRows.length - cleanRows.length;
+      if (issueCount) msg += '<br>' + issueCount + ' not imported (address needs fixing) — see highlighted rows above.';
       resultBox.innerHTML = msg;
     } catch (e) {
       resultBox.innerHTML = '<span style="color:#B33A3A">Error: ' + e.message + '</span>';
