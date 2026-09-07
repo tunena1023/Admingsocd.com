@@ -87,6 +87,7 @@ exports.handler = async (event) => {
           notifyConfirmations:  f.NotifyConfirmations  == null ? true : truthy(f.NotifyConfirmations),
           notifyChanges:        f.NotifyChanges        == null ? true : truthy(f.NotifyChanges),
           notifyUpdates:        f.NotifyUpdates        == null ? true : truthy(f.NotifyUpdates),
+          active: f.Active === undefined ? true : truthy(f.Active),
           buildings: (addrByClient[cid] || []).slice().sort((a, b) => a.label.localeCompare(b.label)),
           contacts: (contactsByClient[cid] || []).slice().sort((a, b) => a.name.localeCompare(b.name))
         };

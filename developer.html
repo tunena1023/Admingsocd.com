@@ -1072,9 +1072,11 @@
     const td = 'style="padding:6px;border:1px solid var(--border)"';
 
     const rowsHtml = allClientsCache.map(c => {
-      let html = '<tr><td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
+      let html = '<tr' + (c.active === false ? ' style="opacity:.5"' : '') + '>' +
+        '<td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
         '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
-        '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td></tr>';
+        '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
+        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
       html += (c.additionalAddresses || []).map(a =>
         '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
         '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td></tr>'
@@ -1091,8 +1093,20 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th></tr>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
+  }
+
+  async function toggleClientActive(id, makeActive) {
+    try {
+      await api('toggle-client-active', { id, active: makeActive });
+      const c = allClientsCache.find(x => x.id === id);
+      if (c) c.active = makeActive;
+      renderAllClientsTable();
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+    }
   }
 
   function refreshAllClients() {

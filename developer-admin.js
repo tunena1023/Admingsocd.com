@@ -1316,6 +1316,7 @@ exports.handler = async (event) => {
       const list = clients.filter(it => it.fields).map(it => {
         const f = it.fields;
         return {
+          id: it.id,
           clientId: f.ClientID || '',
           businessName: f.Title || '',
           address: f.Address || '',
@@ -1324,11 +1325,25 @@ exports.handler = async (event) => {
           zip: f.Zip || '',
           phone: f.Phone || '',
           email: f.Contact || '',
+          /* Sin la columna todavia (clientes viejos, de antes de que
+             esto existiera) se cuentan como activos -- mismo criterio
+             que ya usan Techs/FieldEmployees/RecurringServices. */
+          active: f.Active === undefined ? true : truthy(f.Active),
           additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
         };
       }).sort((a, b) => a.businessName.localeCompare(b.businessName));
 
       return jsonResponse(200, { clients: list });
+    }
+
+    /* Desactivar un cliente -- no lo borra, solo lo saca de las
+       listas donde se elige a quien agregar (Routing, etc). Se puede
+       volver a activar igual de facil. */
+    if (action === 'toggle-client-active') {
+      const clientItemId = String(body.id || '').trim();
+      if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(CLIENTS_LIST, clientItemId, { Active: !!body.active });
+      return jsonResponse(200, { success: true });
     }
 
     if (action === 'bulk-import-clients') {

@@ -5968,9 +5968,17 @@ function getRoutingAddableItems() {
   const orderItems = routingQueueWithCoords.filter(o => !isRoutingStopSelected(o.OrderID)).map(o => ({
     key: o.OrderID, name: o.BusinessName || o.ClientID, sub: '#' + o.OrderID + ' \u00b7 ' + (o.Division || ''), kind: 'order'
   }));
-  const clientItems = (allClientsForRoutingCache || []).filter(c => !isRoutingStopSelected('client-' + c.clientId)).map(c => ({
-    key: 'client-' + c.clientId, name: c.businessName, sub: 'Client (test)', kind: 'client'
-  }));
+  /* Solo clientes activos que de verdad tengan alguna direccion (la
+     principal o al menos un edificio activo) -- si no, nomas van a
+     tronar al intentar agregarlos (throttledGeocode con todo vacio),
+     mejor ni dejarlos aparecer como opcion. */
+  const clientItems = (allClientsForRoutingCache || [])
+    .filter(c => c.active !== false)
+    .filter(c => c.address || (c.buildings || []).some(b => !b.archived && b.address))
+    .filter(c => !isRoutingStopSelected('client-' + c.clientId))
+    .map(c => ({
+      key: 'client-' + c.clientId, name: c.businessName, sub: 'Client (test)', kind: 'client'
+    }));
   return orderItems.concat(clientItems).sort((a, b) => a.name.localeCompare(b.name));
 }
 
