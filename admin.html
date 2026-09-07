@@ -1914,9 +1914,12 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('<div class="appr-section">');
   rows.push('<p class="appr-h">Order as it stands now</p>');
   rows.push('<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px">');
+  rows.push('<div><div class="field-caption">Entry</div><div class="field-value">' + fmtDate(o.EntryDate) + '</div></div>');
   rows.push('<div><div class="field-caption">Service date</div><div class="field-value">' + fmtDate(o.DispatchDate) + '</div></div>');
   rows.push('<div><div class="field-caption">Due</div><div class="field-value">' + fmtDate(o.DueDate) + '</div></div>');
   rows.push('<div><div class="field-caption">Service window</div><div class="field-value">' + esc(o.ServiceWindow || '—') + '</div></div>');
+  rows.push('<div><div class="field-caption">Building / Unit</div><div class="field-value">' + esc(o.BuildingNumber||'—') + ' / ' + esc(o.UnitNumber||'—') + '</div></div>');
+  rows.push('<div><div class="field-caption">Bed / Bath</div><div class="field-value">' + esc(o.Bedrooms||'—') + ' / ' + esc(o.Bathrooms||'—') + '</div></div>');
   if (o.InspectionDate) {
     rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) + '</div></div>');
   }
@@ -4719,15 +4722,47 @@ function createClientRecentOrdersHtml(clientId) {
 
   const rows = orders.map(o => {
     const status = displayStatus(o);
-    const dueLabel = o.DueDate ? fmtDate(o.DueDate) : '—';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border);background:var(--off);font-size:12px;margin-bottom:6px">
-      <span>#${esc(o.OrderID)}</span>
-      <span style="color:var(--gray)">Due ${esc(dueLabel)}</span>
-      <span class="status-badge ${statusClass(status)}">${esc(status)}</span>
+    return `<div style="border:1px solid var(--border);background:var(--off);padding:10px 12px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <span style="font-weight:600;font-size:12px">#${esc(o.OrderID)}</span>
+        <span class="status-badge ${statusClass(status)}">${esc(status)}</span>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--gray)">
+        <span>Entry: ${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</span>
+        <span>Due: ${o.DueDate ? esc(fmtDate(o.DueDate)) : '—'}</span>
+        <span>Window: ${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</span>
+        ${o.Supervisor ? '<span>Supervisor: ' + esc(o.Supervisor) + '</span>' : ''}
+      </div>
+      <button type="button" class="btn btn-outline" style="margin-top:8px;padding:4px 12px;font-size:11px" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">View order</button>
     </div>`;
   }).join('');
 
   return '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Recent orders</div>' + rows;
+}
+
+/* Salta al tab correcto segun el Status real de la orden (Approvals/
+   Review/Active/History) y la deja abierta de una vez, en vez de que
+   el usuario tenga que ir a buscarla el mismo. Reusa exactamente los
+   mismos "abridores" que ya usa cada tab (toggleOrder/toggleApprCard),
+   nada nuevo que mantener aparte. */
+function goToOrderInAnyTab(orderId) {
+  const order = (allOrders || []).find(o => o.OrderID === orderId);
+  if (!order) { showToast('Order not found.'); return; }
+  const status = order.Status || '';
+  let tab, context, useApprCard;
+  if (NEW_ORDER_STATUSES.includes(status)) { tab = 'approvals'; context = 'approvals'; useApprCard = true; }
+  else if (REVIEW_STATUSES.includes(status)) { tab = 'review'; context = 'review'; useApprCard = true; }
+  else if (ACTIVE_STATUSES.includes(status)) { tab = 'active'; context = 'active'; useApprCard = false; }
+  else { tab = 'history'; context = 'history'; useApprCard = false; }
+
+  showTab(tab);
+  setTimeout(() => {
+    const header = document.querySelector('.order-card[data-order-id="' + orderId.replace(/"/g, '') + '"] .order-card-header');
+    if (!header) return;
+    header.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (useApprCard) toggleApprCard(orderId, context, header);
+    else toggleOrder(orderId, context, header);
+  }, 60);
 }
 
 function createClientCard(c) {
