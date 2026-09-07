@@ -1175,11 +1175,24 @@
      medio escribir. Se actualiza al salir del campo (Tab/click afuera/
      Enter), momento en el que tambien se revalida esa fila. */
   function bulkCellInput(rowIdx, field, value, placeholder) {
+    const handler = field === 'address'
+      ? 'updateBulkClientFieldSmart(' + rowIdx + ',this.value)'
+      : 'updateBulkClientField(' + rowIdx + ',\'' + field + '\',this.value)';
     return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
-      'onchange="updateBulkClientField(' + rowIdx + ',\'' + field + '\',this.value)" ' +
+      'onchange="' + handler + '" ' +
       'style="width:100%;min-width:90px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
       'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
       'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
+  }
+
+  function updateBulkClientFieldSmart(rowIdx, value) {
+    const parsed = parseFullAddress(value);
+    if (parsed) {
+      Object.assign(bulkClientsRows[rowIdx], parsed);
+    } else {
+      bulkClientsRows[rowIdx].address = value;
+    }
+    renderBulkClientsPreview();
   }
 
   function updateBulkClientField(rowIdx, field, value) {
@@ -1260,9 +1273,44 @@
 
   /* Igual que bulkCellInput, pero para las direcciones extra dentro de
      additionalAddresses (necesitan rowIdx + addrIdx, no solo rowIdx). */
+  /* Si alguien pega la direccion COMPLETA en el campo de Address
+     (ej. "1209 W 16th St S, Newton, IA 50208"), se separa sola en
+     calle/ciudad/zip en vez de quedarse todo junto en un campo. Solo
+     se activa si se ve claramente como una direccion completa (trae
+     un zip de 5 digitos Y al menos una coma) -- una calle sola sin
+     eso se deja tal cual, no se le adivina nada. */
+  function parseFullAddress(text) {
+    const t = String(text || '').trim();
+    const zipMatch = t.match(/(\d{5})(-\d{4})?\s*$/);
+    if (!zipMatch || !t.includes(',')) return null;
+    const zip = zipMatch[1];
+    let rest = t.slice(0, zipMatch.index).trim().replace(/,\s*$/, '').trim();
+    const stateMatch = rest.match(/,?\s*[A-Za-z]{2}\s*$/);
+    if (stateMatch) rest = rest.slice(0, stateMatch.index).trim().replace(/,\s*$/, '').trim();
+    const parts = rest.split(',');
+    if (parts.length < 2) return null;
+    const city = parts.pop().trim();
+    const address = parts.join(',').trim();
+    if (!address || !city) return null;
+    return { address, city, zip };
+  }
+
+  function updateBulkClientExtraAddrSmart(rowIdx, addrIdx, value) {
+    const parsed = parseFullAddress(value);
+    if (parsed) {
+      Object.assign(bulkClientsRows[rowIdx].additionalAddresses[addrIdx], parsed);
+    } else {
+      bulkClientsRows[rowIdx].additionalAddresses[addrIdx].address = value;
+    }
+    renderBulkClientsPreview();
+  }
+
   function extraCellInput(rowIdx, addrIdx, field, value, placeholder) {
+    const handler = field === 'address'
+      ? 'updateBulkClientExtraAddrSmart(' + rowIdx + ',' + addrIdx + ',this.value)'
+      : 'updateBulkClientExtraAddr(' + rowIdx + ',' + addrIdx + ',\'' + field + '\',this.value)';
     return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
-      'onchange="updateBulkClientExtraAddr(' + rowIdx + ',' + addrIdx + ',\'' + field + '\',this.value)" ' +
+      'onchange="' + handler + '" ' +
       'style="width:100%;min-width:80px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
       'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
       'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
