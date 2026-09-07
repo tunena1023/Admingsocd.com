@@ -5866,7 +5866,7 @@ async function toggleStartFromOffice(checked) {
   }
   renderRoutingMap();
   renderRoutingSelected();
-  hideRoutingRouteResult();
+  maybeAutoPreviewRoute();
 }
 
 function clearRoutingPath() {
@@ -6024,6 +6024,20 @@ async function addRoutingStop(kind, key, btn) {
   refreshRoutingSelectionUI();
 }
 
+/* Recalcula el preview de ruta solo -- cada vez que se agrega, quita
+   o reordena una parada, sin tener que volver a darle click al
+   boton de Preview Route. Si no hay suficientes paradas todavia
+   (respeta el mismo minimo de siempre), se oculta el preview en vez
+   de intentar calcular con datos incompletos. */
+function maybeAutoPreviewRoute() {
+  const minNeeded = routingStartFromOffice ? 1 : 2;
+  if (routingSelected.length >= minNeeded) {
+    previewManualRoute();
+  } else {
+    hideRoutingRouteResult();
+  }
+}
+
 function removeRoutingSelected(key) {
   routingSelected = routingSelected.filter(s => s.key !== key);
   refreshRoutingSelectionUI();
@@ -6035,7 +6049,7 @@ function refreshRoutingSelectionUI() {
   renderRoutingAddList();
   renderRoutingSuggested();
   renderRoutingSelected();
-  hideRoutingRouteResult();
+  maybeAutoPreviewRoute();
 }
 
 /* La tarjeta de Route Preview solo existe cuando hay algo que
@@ -6051,6 +6065,7 @@ function showRoutingRouteResult(html) {
 }
 
 function hideRoutingRouteResult() {
+  routingPreviewGen++; // invalida cualquier calculo de preview que siga en el aire
   const el = document.getElementById('routing-route-result');
   if (!el) return;
   el.style.display = 'none';
@@ -6114,7 +6129,7 @@ function routingDrop(ev, dropIndex) {
 
   renderRoutingMap();
   renderRoutingSelected();
-  hideRoutingRouteResult();
+  maybeAutoPreviewRoute();
 }
 
 function routingDragEnd(ev) {
@@ -6122,7 +6137,9 @@ function routingDragEnd(ev) {
   document.querySelectorAll('.routing-stop-row').forEach(el => el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
 }
 
+let routingPreviewGen = 0;
 async function previewManualRoute() {
+  const myGen = ++routingPreviewGen;
   showRoutingRouteResult('<p class="empty-note">Calculating\u2026</p>');
   showRoutingTimeOverlay('<div class="rt-big">Calculating\u2026</div>');
   const stops = routingSelected.map(s => ({ OrderID: s.key, BusinessName: s.name, Latitude: s.lat, Longitude: s.lon }));
@@ -6135,6 +6152,13 @@ async function previewManualRoute() {
     fetchOsrmRoute(stops),
     realOrderIds.length ? fetchOrderTimeEstimates(realOrderIds) : Promise.resolve(null)
   ]);
+
+  /* Si el usuario agrego/quito/reordeno otra parada MIENTRAS este
+     calculo segia en el aire, este resultado ya esta obsoleto -- no
+     pisar lo que sea que este mostrandose ahora (que ya viene de un
+     calculo mas nuevo, o ya se oculto porque quedaron muy pocas
+     paradas). */
+  if (myGen !== routingPreviewGen) return;
 
   if (route) drawRoutingPath(route.path); else clearRoutingPath();
 
