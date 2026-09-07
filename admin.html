@@ -3152,7 +3152,21 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
   return mergedHistory2.map((g, idx) => {
     const h = g.rep;
     const detailId = 'hd-' + String(orderId || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
-    const lines     = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
+    let lines = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
+    /* Evitar mostrar el mismo "antes -> despues" dos veces seguidas:
+       cuando se aprueba un cambio de fechas/ventana, el evento de
+       decision (Change Approved) trae su propio renglon "Dates
+       Confirmed" con el mismo campo que el cliente ya pidio en el
+       evento justo anterior (New dates requested/Reschedule
+       Requested) -- se ve repetido aunque es UN solo cambio real.
+       Se filtra cualquier linea de esta burbuja que sea identica
+       (mismo HTML) a una que ya aparecio en la burbuja anterior. */
+    const isDecisionType = DECISION_TYPES.indexOf(String(h.ChangeType || '')) !== -1;
+    if (isDecisionType && idx > 0) {
+      const prevLines = new Set(mergedHistory2[idx - 1]._renderedLines || []);
+      lines = lines.filter(l => !prevLines.has(l));
+    }
+    g._renderedLines = lines;
     const hasDetail = lines.length > 0;
     const noteTxt   = h.MergedNotes || histNoteText(h);
     /* Un evento que no trae ni nota ni detalle es puro tramite -- solo
@@ -3160,8 +3174,15 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
        by Esmeralda Amezcua", sin nada mas abajo). Se filtra: el
        historial debe mostrar solo lo que de verdad dice algo (que se
        agrego/cambio/quito un servicio, una nota personalizada, etc.),
-       no cada paso administrativo del tramite. */
-    if (!hasDetail && !noteTxt) return '';
+       no cada paso administrativo del tramite.
+       EXCEPCION: un evento de decision (Change Approved/Rejected, etc.)
+       que se quedo sin detalle SOLO porque el filtro de arriba le quito
+       renglones duplicados (no porque nunca tuvo nada que mostrar) debe
+       seguir viendose -- si no, la aprobacion desaparece del historial
+       por completo y parece que el cambio nunca se resolvio. */
+    const emptiedByDedup = isDecisionType && idx > 0 &&
+      g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []).length > 0 && !hasDetail;
+    if (!hasDetail && !noteTxt && !emptiedByDedup) return '';
     return `<div class="hist-item${hasDetail ? ' has-detail' : ''}"${
         hasDetail ? ` onclick="toggleHistDetail('${detailId}')"` : ''}>
       <div class="hist-head">

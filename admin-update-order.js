@@ -345,6 +345,34 @@ exports.handler = async (event) => {
       }));
     }
 
+    /* Primera vez que se asigna (Supervisor + Service Window + Dispatch
+       Date pasan de vacio a tener valor) -- a diferencia de 'Order
+       Details Set' (que se crea SIEMPRE y esta oculto del cliente,
+       incluyendo reasignaciones), esto crea un evento aparte que SI ve
+       el cliente, una sola vez. Una reasignacion despues (cambiar de
+       supervisor) actualiza los mismos campos otra vez, pero como ya
+       no estaban vacios, esta condicion no se vuelve a cumplir -- no
+       se crea un segundo evento, el cliente nunca ve el cambio interno. */
+    const wasUnassigned = !String(f.Supervisor || '').trim()
+      && !String(f.ServiceWindow || '').trim() && !String(f.DispatchDate || '').trim();
+    const nowAssigned = String(patch.Supervisor !== undefined ? patch.Supervisor : f.Supervisor || '').trim()
+      && String(patch.ServiceWindow !== undefined ? patch.ServiceWindow : f.ServiceWindow || '').trim()
+      && String(patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate || '').trim();
+    if (wasUnassigned && nowAssigned) {
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title:        nextAdminLabel(),
+        ChangeType:   'Order Assigned',
+        FieldChanged: '',
+        Notes:        '',
+        OldValue:     '',
+        NewValue:     JSON.stringify({
+          supervisor: patch.Supervisor !== undefined ? patch.Supervisor : f.Supervisor,
+          serviceWindow: patch.ServiceWindow !== undefined ? patch.ServiceWindow : f.ServiceWindow,
+          dispatchDate: patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate
+        })
+      }));
+    }
+
     let servicesChanged = false;
 
     /* Si vienen servicios, refrescar OrderServices */
