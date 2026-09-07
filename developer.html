@@ -1172,8 +1172,16 @@
      descubrirlo hasta que Routing no pueda geocodificarlo semanas
      despues. */
   function bulkClientAddressIssue(c) {
-    const extraIssue = (c.additionalAddresses || []).find(a => (a.address || a.city || a.zip) && !a.label);
-    if (extraIssue) return 'An extra address is missing its Label';
+    const extras = c.additionalAddresses || [];
+    const missingLabel = extras.find(a => (a.address || a.city || a.zip) && !a.label);
+    if (missingLabel) return 'An extra address is missing its Label';
+    /* BUG real encontrado: un edificio con Label lleno pero Address/City/Zip
+       vacios se colaba sin avisar -- pasaba cuando alguien pegaba la
+       direccion completa en el campo Label en vez del campo Address (el
+       truco de separar sola solo vivia en el campo Address). Ahora se
+       revisa tambien al reves: si hay Label pero no hay calle, se marca. */
+    const missingAddr = extras.find(a => a.label && !a.address);
+    if (missingAddr) return 'Extra address "' + missingAddr.label + '" is missing its Street Address (paste the full address there and it will split itself)';
     if (!c.address) return null; // sin direccion del todo -- se importa igual, se completa despues a mano
     /* "1209 & 1301 W 16th St" / "123 Main St / 456 Oak Ave" -- alguien
        junto 2+ direcciones en un solo campo al llenar el Excel. */
@@ -1319,9 +1327,32 @@
     renderBulkClientsPreview();
   }
 
+  /* Mismo truco que updateBulkClientExtraAddrSmart, pero para cuando la
+     direccion completa se pega en el campo LABEL en vez del campo
+     Address -- que es justo como se coló el bug real (edificio con
+     Label = "604 E 3rd St S" pero Address/City/Zip vacios). Si se
+     reconoce como direccion completa, se separa Address/City/Zip
+     Y ademas se deja el Label limpio (solo la calle, sin ciudad/zip
+     pegados), igual que se ve en los edificios que SI quedaron bien. */
+  function updateBulkClientExtraLabelSmart(rowIdx, addrIdx, value) {
+    const parsed = parseFullAddress(value);
+    const addr = bulkClientsRows[rowIdx].additionalAddresses[addrIdx];
+    if (parsed) {
+      addr.label = parsed.address;
+      addr.address = parsed.address;
+      addr.city = parsed.city;
+      addr.zip = parsed.zip;
+    } else {
+      addr.label = value;
+    }
+    renderBulkClientsPreview();
+  }
+
   function extraCellInput(rowIdx, addrIdx, field, value, placeholder) {
     const handler = field === 'address'
       ? 'updateBulkClientExtraAddrSmart(' + rowIdx + ',' + addrIdx + ',this.value)'
+      : field === 'label'
+      ? 'updateBulkClientExtraLabelSmart(' + rowIdx + ',' + addrIdx + ',this.value)'
       : 'updateBulkClientExtraAddr(' + rowIdx + ',' + addrIdx + ',\'' + field + '\',this.value)';
     return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
       'onchange="' + handler + '" ' +
