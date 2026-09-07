@@ -26,6 +26,7 @@ const {
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
+  CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -1251,10 +1252,34 @@ exports.handler = async (event) => {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
 
-      const rows = await fetchAll(CLIENTS_LIST);
-      await Promise.all(rows.map(it => deleteListItem(CLIENTS_LIST, it.id)));
+      /* Antes solo borraba Clients -- los edificios (ClientAddresses),
+         contactos (ClientContacts) e historial (ClientHistory) de esos
+         mismos clientes se quedaban huerfanos, apuntando a un ClientID
+         que ya no existia. Para que de verdad quede limpio para
+         probar una importacion nueva, se borran las 4 listas juntas. */
+      const [clients, addresses, contacts, history] = await Promise.all([
+        fetchAll(CLIENTS_LIST),
+        fetchAll(CLIENT_ADDRESSES_LIST),
+        fetchAll(CLIENT_CONTACTS_LIST),
+        fetchAll(CLIENT_HISTORY_LIST)
+      ]);
 
-      return jsonResponse(200, { success: true, deleted: rows.length });
+      await Promise.all([
+        ...clients.map(it => deleteListItem(CLIENTS_LIST, it.id)),
+        ...addresses.map(it => deleteListItem(CLIENT_ADDRESSES_LIST, it.id)),
+        ...contacts.map(it => deleteListItem(CLIENT_CONTACTS_LIST, it.id)),
+        ...history.map(it => deleteListItem(CLIENT_HISTORY_LIST, it.id))
+      ]);
+
+      return jsonResponse(200, {
+        success: true,
+        deleted: {
+          clients: clients.length,
+          addresses: addresses.length,
+          contacts: contacts.length,
+          history: history.length
+        }
+      });
     }
 
     /* ============================================================

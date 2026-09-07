@@ -1559,7 +1559,7 @@
   }
 
   async function debugWipeClientsOnly() {
-    const sure = confirm('This will PERMANENTLY delete ALL Clients. Orders, Scheduling, Recurring and Services are NOT touched. This cannot be undone. Continue?');
+    const sure = confirm('This will PERMANENTLY delete ALL Clients, their buildings, contacts and history. Orders, Scheduling, Recurring and Services are NOT touched. This cannot be undone. Continue?');
     if (!sure) return;
 
     const pass = window.prompt('Type the exact confirmation password:');
@@ -1569,7 +1569,9 @@
     box.textContent = 'Wiping…';
     try {
       const res = await api('wipe-clients-only', { password: pass });
-      box.textContent = 'Done. Clients deleted: ' + res.deleted;
+      const d = res.deleted;
+      box.textContent = 'Done. Clients: ' + d.clients + ' · Buildings: ' + d.addresses + ' · Contacts: ' + d.contacts + ' · History: ' + d.history;
+      allClientsCache = null; // que se recargue vacio la proxima vez que se abra All Clients
     } catch (e) {
       box.textContent = 'Error: ' + e.message;
     }
