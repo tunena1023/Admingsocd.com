@@ -395,7 +395,12 @@
     /* right:70px en vez de 20px -- deja libre la esquina donde vive
        el selector de capas (Streets/Satellite) de Leaflet, que este
        overlay le tapaba por completo al estirarse hasta el borde. */
-    .routing-time-overlay { position: absolute; top: 20px; left: 20px; right: 70px; z-index: 900; background: rgba(17,17,17,0.92); color: #fff; padding: 14px 18px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+    /* left:60px (no 20px) -- deja libre el control de zoom (+/-) de
+       Leaflet que vive ahi mismo, arriba a la izquierda del mapa.
+       right:70px hace lo mismo del lado del selector Streets/
+       Satellite. Los 2 controles de Leaflet quedan siempre visibles,
+       el overlay solo ocupa el espacio de en medio. */
+    .routing-time-overlay { position: absolute; top: 20px; left: 60px; right: 70px; z-index: 900; background: rgba(17,17,17,0.92); color: #fff; padding: 14px 18px; border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
     .routing-time-overlay .rt-big { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
     .routing-time-overlay .rt-sub { font-size: 12px; color: #D8CFA8; margin-top: 2px; }
     /* Globito fijo junto a cada pin numerado del mapa -- se ve
