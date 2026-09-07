@@ -142,6 +142,9 @@
     .order-id { font-weight: 600; font-size: 15px; }
     .order-pin { font-size: 12px; }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
+    /* Badge de unidad ocupada -- mismo diseno aprobado en Admin/Cliente/Tech */
+    .occupied-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; background: #E8F0FA; color: #2D5F8A; padding: 3px 9px; border-radius: 20px; margin-left: 8px; }
+    .occupied-dot { width: 6px; height: 6px; border-radius: 50%; background: #2D5F8A; }
     .status-badge {
       font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
       padding: 4px 10px; border-radius: 20px; white-space: nowrap;
@@ -1432,7 +1435,7 @@ function newOrderApprovalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1610,7 +1613,7 @@ function approvalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2679,7 +2682,7 @@ function orderCard(o, context) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${unitOccupiedBadgeHtml(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
         </div>
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
@@ -2967,6 +2970,17 @@ const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed', 'Archived
    ya se muestra completa en "Requested by..." arriba -- se le pasa la
    fecha de esa solicitud para no repetirla aqui abajo, mostrando solo
    lo que ya se reviso antes. */
+/* Traduccion SOLO visual del ChangeType -- el dato guardado en
+   SharePoint nunca cambia, esto es nomas para que se lea mejor en
+   pantalla. Mismo criterio confirmado con el usuario: "nomas el
+   nombre visible cambia, todo lo demas queda igual". */
+function historyTypeLabel(changeType) {
+  const map = {
+    'Expected Ready Date': 'Ready Date & Time'
+  };
+  return map[changeType] || changeType || '';
+}
+
 function buildHistoryHtml(orderId, history, excludeFromDate) {
   let visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
   if (excludeFromDate) {
@@ -3049,7 +3063,7 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
         <div class="hist-head-main">
           <span class="hist-date">${fmtDateTime(h.ChangeDate)}</span>
           <span class="hist-rev">${esc(orderId || '')}</span> —
-          <span class="hist-type">${esc(h.ChangeType || '')}</span>
+          <span class="hist-type">${esc(historyTypeLabel(h.ChangeType))}</span>
           ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
         </div>
         ${hasDetail ? '<span class="hist-toggle">&#9660; details</span>' : ''}
@@ -3071,15 +3085,28 @@ function buildHistoryHtml(orderId, history, excludeFromDate) {
    que mando el cliente -- staff nunca tiene que preguntar, ya lo ve
    aqui. Nunca se muestra fuera de Renovations. */
 function materialsReadyPillHtml(o) {
-  if (String(o.Division || '').toLowerCase() !== 'renovations') return '';
+  const div = String(o.Division || '').toLowerCase();
+  if (div !== 'renovations' && div !== 'janitorial') return '';
   if (!o.MaterialsReady && !o.ExpectedReadyDate) return '';
+  const label = div === 'janitorial' ? 'Unit Ready' : 'Materials Ready';
   if (o.MaterialsReady) {
     return '<p class="meta-line" style="margin-bottom:16px">' +
       '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#FDF3E0;color:#8C6F2A;padding:4px 10px;border-radius:20px">' +
-      '<span style="width:6px;height:6px;border-radius:50%;background:#8C6F2A"></span>Materials Ready' +
+      '<span style="width:6px;height:6px;border-radius:50%;background:#8C6F2A"></span>' + label +
       (o.EntryTime ? ' — ' + esc(o.EntryTime) : '') + '</span></p>';
   }
   return '<p class="meta-line" style="margin-bottom:16px;color:var(--gray)">Expected ready: ' + esc(o.ExpectedReadyDate) + '</p>';
+}
+
+/* Badge azul de "unidad ocupada" -- aprobado con mini, MISMA tarjeta
+   en Admin/Cliente/Tech, sin adaptar por pantalla. Solo lectura aqui:
+   lo pone el cliente, la oficina no lo puede editar desde Admin.
+   Renovations + Janitorial unicamente. */
+function unitOccupiedBadgeHtml(o) {
+  const div = String(o.Division || '').toLowerCase();
+  if (div !== 'renovations' && div !== 'janitorial') return '';
+  if (!o.UnitOccupied) return '';
+  return '<span class="occupied-badge"><span class="occupied-dot"></span>Occupied unit</span>';
 }
 
 function orderNotificationsLineHtml(o) {
@@ -3959,7 +3986,7 @@ async function printOrder(orderId) {
       : '';
     return `<tr>` +
       `<td>${fmtDateTime(h.ChangeDate)}</td>` +
-      `<td>${esc(h.ChangeType || '')}</td>` +
+      `<td>${esc(historyTypeLabel(h.ChangeType))}</td>` +
       `<td>${esc(h.ChangedBy || '')}</td>` +
       `<td>${noteTxt ? esc(noteTxt) : ''}${detail}</td>` +
       `</tr>`;

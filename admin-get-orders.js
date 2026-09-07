@@ -85,6 +85,9 @@ exports.handler = async (event) => {
           MaterialsReady: f.MaterialsReady === true || f.MaterialsReady === 'true',
           MaterialsReadySeen: f.MaterialsReadySeen === undefined ? true : (f.MaterialsReadySeen === true || f.MaterialsReadySeen === 'true'),
           EntryTime: f.EntryTime || '',
+          /* Renovations/Janitorial: cliente avisa si actualmente vive
+             alguien en la unidad -- solo lectura del lado de Admin. */
+          UnitOccupied: f.UnitOccupied === true || f.UnitOccupied === 'true',
           Services: servicesByOrder[f.OrderID || f.Title] || []
         };
       })
