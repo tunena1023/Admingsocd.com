@@ -880,6 +880,11 @@ function showTab(tab) {
   document.getElementById('panel-' + tab).classList.add('active');
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
   if (tab === 'assigned' && typeof loadAssigned === 'function') loadAssigned();
+  /* Se vuelve a pedir la lista de clientes fresca cada vez que se abre
+     este tab -- asi Clients y el picker de "Create Order" reflejan un
+     cliente recien desactivado desde Developer sin tener que recargar
+     toda la pagina. */
+  if (tab === 'clients' && typeof refreshAllClients === 'function') refreshAllClients();
 }
 
 /* Sub-tabs de Clients (Clients / Create Order) -- namespaced con sus
@@ -890,7 +895,9 @@ function showTab(tab) {
 function showClientsSubTab(tab) {
   document.querySelectorAll('.clients-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.clientstab === tab));
   document.querySelectorAll('.clients-subpanel').forEach(p => p.classList.toggle('active', p.id === 'clientssub-' + tab));
-  if (tab === 'create' && typeof renderCreateClientList === 'function') renderCreateClientList();
+  if (tab === 'create') {
+    if (typeof refreshAllClients === 'function') refreshAllClients();
+  }
 }
 
 /* ============================================================
@@ -923,6 +930,23 @@ async function loadAll() {
   } catch (e) {
     showToast('Error loading data: ' + e.message);
   }
+}
+
+/* Vuelve a pedir la lista de clientes fresca y repinta Clients + el
+   picker de Create Order -- se usa al abrir esas pestanas (ver
+   showTab/showClientsSubTab) para que un cliente recien
+   desactivado/activado desde Developer se refleje sin recargar toda
+   la pagina. No toca allOrders/allServices/allTechs, solo clientes. */
+async function refreshAllClients() {
+  try {
+    const cres = await api('/admin-get-clients', { body: {} });
+    allClients = cres.clients || [];
+  } catch (e) {
+    /* si falla, se queda con lo que ya habia -- no tronar la pestana
+       por un refresco que no se pudo hacer */
+  }
+  if (typeof renderClients === 'function') renderClients();
+  if (typeof renderCreateClientList === 'function') renderCreateClientList();
 }
 
 /* Supervisor es texto libre en la orden (nunca se ligo a un Tech de
@@ -3967,7 +3991,10 @@ async function printOrder(orderId) {
    CLIENTS
 ============================================================ */
 function renderClients(filtered) {
-  const list = filtered || allClients;
+  /* Los clientes desactivados solo se ven en Developer (para
+     corregirlos/reactivarlos) -- aqui, en la lista principal de
+     Clients, nunca se muestran. */
+  const list = (filtered || allClients).filter(c => c.active !== false);
   const box = document.getElementById('client-list');
   if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
   box.innerHTML = list.map(c => clientCard(c)).join('');
@@ -4749,6 +4776,7 @@ function renderCreateClientList() {
   const sortBy = (document.getElementById('create-sort') || {}).value || 'name';
 
   const list = (allClients || [])
+    .filter(c => c.active !== false)
     .filter(c => !q ||
       String(c.clientId||'').toLowerCase().includes(q) ||
       String(c.businessName||'').toLowerCase().includes(q) ||
@@ -5739,12 +5767,15 @@ async function loadRouting() {
     routingQueueWithCoords = pending.filter(o => o.Latitude != null && o.Longitude != null);
     routingQueueNoCoords = pending.filter(o => o.Latitude == null || o.Longitude == null);
 
-    if (!allClientsForRoutingCache) {
-      try {
-        const cres = await api('/admin-get-clients', { method: 'POST', body: {} });
-        allClientsForRoutingCache = cres.clients || [];
-      } catch (e) { allClientsForRoutingCache = []; }
-    }
+    /* Se vuelve a pedir CADA VEZ que se abre la pestana de Routing (ya
+       no se queda pegada en memoria de la primera vez) -- asi, si un
+       cliente se desactiva desde Developer, Routing lo refleja la
+       proxima vez que se le da clic a esta pestana, sin tener que
+       recargar toda la pagina. */
+    try {
+      const cres = await api('/admin-get-clients', { method: 'POST', body: {} });
+      allClientsForRoutingCache = cres.clients || [];
+    } catch (e) { allClientsForRoutingCache = allClientsForRoutingCache || []; }
 
     /* Geocodificar la oficina de una vez al abrir Routing (no hasta
        que alguien prenda "Start from office") -- asi el mapa puede
