@@ -4513,8 +4513,11 @@ function openClientNotifications(clientId) {
 
   control.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications</div>
-    <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:10px">
-      <input type="checkbox" id="${cid}-ctl-notif-master" ${c.notificationsEnabled!==false?'checked':''} onchange="toggleNotifSubgroup('${cid}-ctl')">
+    <label style="display:flex;align-items:center;gap:10px;font-weight:600;margin-bottom:10px">
+      <label class="svc-toggle">
+        <input type="checkbox" id="${cid}-ctl-notif-master" ${c.notificationsEnabled!==false?'checked':''} onchange="toggleNotifSubgroup('${cid}-ctl')">
+        <span class="svc-toggle-track"></span>
+      </label>
       Notifications enabled
     </label>
     <div id="${cid}-ctl-notif-sub" style="display:flex;flex-direction:column;gap:8px;padding-left:20px;${c.notificationsEnabled!==false?'':'opacity:.4;pointer-events:none'}">
