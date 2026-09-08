@@ -282,7 +282,12 @@ exports.handler = async (event) => {
         changes.push({
           label: fld.label, old: String(oldRaw), next: next,
           control: (fld.key === 'ServiceWindow' || fld.key === 'DelayReasonType'
-            || fld.key === 'DelayReasonNotes')
+            || fld.key === 'DelayReasonNotes' || fld.key === 'Supervisor')
+          /* Supervisor agregado aqui -- antes cambiar solo el supervisor
+             (sin tocar fecha/ventana al mismo tiempo) nunca regeneraba
+             el PDF, dejandolo con el nombre viejo para siempre. El
+             historial de la tarjeta si registraba el cambio bien, pero
+             el PDF se quedaba atras -- confirmado comparando ambos. */
         });
       }
     }
