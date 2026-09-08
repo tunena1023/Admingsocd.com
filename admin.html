@@ -1057,19 +1057,89 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 const DAY_FIELDS = ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen', 'satOpen', 'sunOpen'];
 const DAY_LABELS = { monOpen: 'Mon', tueOpen: 'Tue', wedOpen: 'Wed', thuOpen: 'Thu', friOpen: 'Fri', satOpen: 'Sat', sunOpen: 'Sun' };
 
+/* Parsea "9:00 AM - 5:00 PM" (formato que ya se guardaba como texto
+   libre) a horas 24h, para pre-llenar los 2 relojes nuevos. Si no se
+   puede parsear (vacio, o un formato viejo raro que alguien haya
+   escrito a mano), cada reloj cae en su default razonable. */
+function parseOfficeHoursRange(s) {
+  const m = String(s || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return { open: null, close: null };
+  const to24 = (h, mm, ap) => {
+    h = parseInt(h, 10); mm = parseInt(mm, 10);
+    if (ap) { ap = ap.toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; }
+    return { h, m: mm };
+  };
+  return { open: to24(m[1], m[2], m[3]), close: to24(m[4], m[5], m[6]) };
+}
+
+/* Un reloj individual, mismo componente ya usado en Create Order
+   (toggleClockPicker/setClockAmpm/goToClockStep/
+   onCreateClockMinutePicked, todas genericas por fieldId) --
+   se reusa tal cual, sin duplicar ese codigo. Pre-siembra el estado
+   del picker para que abra ya con la hora correcta. */
+function officeClockFieldHtml(fieldId, label, h24, mm) {
+  const isPM = h24 >= 12;
+  let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+  const display = h12 + ':' + String(mm).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+  window.createClockPickerState = window.createClockPickerState || {};
+  createClockPickerState[fieldId] = { hour: h12, minute: mm, ampm: isPM ? 'PM' : 'AM', step: 'hour' };
+  return `<div class="field-group" style="max-width:170px">
+    <label>${label}</label>
+    <input type="time" id="${fieldId}" value="${String(h24).padStart(2,'0')}:${String(mm).padStart(2,'0')}" style="display:none">
+    <div class="rel-wrap">
+      <button type="button" class="trigger-btn" onclick="toggleClockPicker('${fieldId}')" id="${fieldId}-trigger">${display}</button>
+      <div class="picker-popover" id="${fieldId}-pop">
+        <div class="picker-title">Pick a time</div>
+        <div class="clock-face-row"><div class="clock-face" id="${fieldId}-face"><div class="clock-center"></div></div></div>
+        <div class="clock-bottom-row">
+          <div class="ampm-col">
+            <button type="button" class="${!isPM ? 'active' : ''}" id="${fieldId}-am" onclick="setClockAmpm('${fieldId}','AM',this)">AM</button>
+            <button type="button" class="${isPM ? 'active' : ''}" id="${fieldId}-pm" onclick="setClockAmpm('${fieldId}','PM',this)">PM</button>
+          </div>
+          <div class="clock-readout">
+            <span class="part active" id="${fieldId}-readout-hour" onclick="goToClockStep('${fieldId}','hour')">${h12}</span><span class="part" id="${fieldId}-readout-min" onclick="goToClockStep('${fieldId}','minute')">:${String(mm).padStart(2,'0')}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* Junta lo que hayan quedado los 2 relojes (inputs ocultos, formato
+   24h) de vuelta a un solo texto "9:00 AM - 5:00 PM" -- OfficeHours
+   se queda como una sola columna de texto en SharePoint, no hizo
+   falta separar el esquema en 2 campos nuevos. */
+function buildOfficeHoursString(fieldPrefix) {
+  const openEl = document.getElementById(fieldPrefix + 'Open');
+  const closeEl = document.getElementById(fieldPrefix + 'Close');
+  if (!openEl || !closeEl || !openEl.value || !closeEl.value) return '';
+  const to12 = hhmm => {
+    const [h, m] = hhmm.split(':').map(Number);
+    const isPM = h >= 12; let h12 = h % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+  };
+  return to12(openEl.value) + ' - ' + to12(closeEl.value);
+}
+
 /* Mismos campos que ya existen en Developer (Opcion E aprobada) y en
    el perfil del cliente (ordersgsocd.com) -- ahora tambien editables
    desde aqui, sin tener que ir a la tabla completa de Developer para
    un solo edificio. cid: prefijo unico de este cliente, para que los
-   ids de los checkboxes no choquen si hay 2 paneles abiertos. */
+   ids de los checkboxes/relojes no choquen si hay 2 paneles abiertos. */
 function officeHoursFieldsHtml(cid, b) {
   const dayCells = DAY_FIELDS.map(f =>
     `<label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">${DAY_LABELS[f]}
       <input type="checkbox" id="${cid}-ctl-${f}" ${b[f] ? 'checked' : ''}>
     </label>`
   ).join('');
+  const parsed = parseOfficeHoursRange(b.officeHours);
+  const open = parsed.open || { h: 9, m: 0 };
+  const close = parsed.close || { h: 17, m: 0 };
   return `<div style="display:flex;gap:10px;justify-content:space-between;margin-bottom:14px;max-width:320px">${dayCells}</div>
-    <div class="field-group"><label>Shared office hours (optional)</label><input type="text" id="${cid}-ctl-officeHours" placeholder="e.g. 9 AM – 5 PM" value="${esc(b.officeHours||'')}"></div>`;
+    <div style="display:flex;gap:14px;margin-bottom:14px">
+      ${officeClockFieldHtml(cid + '-ctl-officeOpen', 'Opens at', open.h, open.m)}
+      ${officeClockFieldHtml(cid + '-ctl-officeClose', 'Closes at', close.h, close.m)}
+    </div>`;
 }
 
 function fmtDate(iso) {
@@ -4671,7 +4741,7 @@ async function savePrimaryEdit(clientId) {
     suite:         $f('suite')?.value || '',
     city:          $f('city')?.value || '',
     zip:           $f('zip')?.value || '',
-    officeHours:   $f('officeHours')?.value.trim() || ''
+    officeHours:   buildOfficeHoursString(cid + '-ctl-office')
   };
   DAY_FIELDS.forEach(f => { const el = $f(f); if (el) body[f] = el.checked; });
 
@@ -4714,7 +4784,7 @@ async function saveBuildingEdit(clientId, buildingId) {
     suite:          $f('suite')?.value.trim() || '',
     city:           $f('city')?.value.trim() || '',
     zip:            $f('zip')?.value.trim() || '',
-    officeHours:    $f('officeHours')?.value.trim() || ''
+    officeHours:    buildOfficeHoursString(cid + '-ctl-office')
   };
   DAY_FIELDS.forEach(f => { const el = $f(f); if (el) building[f] = el.checked; });
   if (buildingId) building.addressId = buildingId;

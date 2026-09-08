@@ -9,10 +9,34 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --black: #111111; --gold: #C9A84C; --white: #FFFFFF;
+      --black: #111111; --gold: #C9A84C; --gold-dk: #8C6F2A; --white: #FFFFFF;
       --bg: #F8F7F4; --gray: #6B6B6B; --border: #E0DDD6; --red: #B33A3A; --green: #3F7D4F;
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--black); min-height: 100vh; }
+
+    /* ===== Reloj oficial (mismo componente ya usado en Create Order/
+       tracking.html/profile.html) -- reusado aqui para "Opens at"/
+       "Closes at" en la tabla de All Clients, en vez de un campo de
+       texto libre. ===== */
+    .rel-wrap { position: relative; }
+    .office-trigger-btn { width: 100%; min-width: 78px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px; background: var(--white); font-size: 11px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
+    .office-trigger-btn:hover { border-color: var(--gold); }
+    .picker-popover { display: none; position: fixed; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 500; width: 260px; }
+    .picker-popover.open { display: block; }
+    .picker-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); text-align: center; margin-bottom: 14px; }
+    .clock-face-row { display: flex; justify-content: center; margin-bottom: 14px; }
+    .clock-face { position: relative; width: 190px; height: 190px; border-radius: 22px; background: var(--bg); border: 1px solid var(--border); flex-shrink: 0; margin: 0 auto; }
+    .clock-num { position: absolute; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border-radius: 50%; cursor: pointer; color: var(--black); }
+    .clock-num:hover, .clock-num.selected { background: var(--gold); color: var(--black); }
+    .clock-num.minute-tick { font-size: 10px; color: var(--gray); font-weight: 500; }
+    .clock-center { position: absolute; width: 6px; height: 6px; background: var(--gold-dk); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2; }
+    .clock-bottom-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .ampm-col { display: flex; flex-direction: row; gap: 6px; }
+    .ampm-col button { padding: 8px 14px; border: 1px solid var(--border); background: var(--white); border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--black); font-family: inherit; }
+    .ampm-col button.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+    .clock-readout { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; color: var(--black); }
+    .clock-readout .part { padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+    .clock-readout .part.active { background: rgba(201,168,76,0.2); color: var(--gold-dk); }
 
     nav {
       background: var(--white);
@@ -1437,19 +1461,177 @@
       rowsHtml + '</table></div>';
   }
 
-  /* Celdas de horario para el renglon PRINCIPAL del cliente (lista
-     Clients) -- mismo patron visual que buildingHoursRowHtml, pero
-     editando la lista distinta (ver onClientHoursChange). Antes esto
-     era blankHoursCells (deshabilitado a proposito, esas columnas no
-     existian en Clients) -- ahora si existen, mismo criterio que
-     cualquier edificio secundario. */
+  /* ===== Reloj oficial generico (mismo componente/patron ya usado en
+     tracking.html/admin.html/profile.html) -- keyed por fieldId, deja
+     el valor en un <input type=time> oculto sin ninguna accion de
+     guardado fija. Se usa aqui para "Opens at"/"Closes at" en la
+     tabla de All Clients. ===== */
+  const officeClockState = {};
+  function officeCpState(fieldId) {
+    if (!officeClockState[fieldId]) officeClockState[fieldId] = { hour: 8, minute: 0, ampm: 'AM', step: 'hour' };
+    return officeClockState[fieldId];
+  }
+  function officeClockPolarPos(idx, count, r) {
+    const angle = (idx / count) * 2 * Math.PI - Math.PI / 2;
+    return { x: 95 + r * Math.cos(angle) - 15, y: 95 + r * Math.sin(angle) - 15 };
+  }
+  function positionOfficePopover(fieldId) {
+    const trigger = document.getElementById(fieldId + '-trigger');
+    const pop = document.getElementById(fieldId + '-pop');
+    if (!trigger || !pop) return;
+    const r = trigger.getBoundingClientRect();
+    pop.style.top = (r.bottom + 8) + 'px';
+    pop.style.left = r.left + 'px';
+    const overflowRight = (r.left + 260) - window.innerWidth + 16;
+    if (overflowRight > 0) pop.style.left = (r.left - overflowRight) + 'px';
+  }
+  function toggleClockPicker(fieldId) {
+    const pop = document.getElementById(fieldId + '-pop');
+    if (!pop) return;
+    const wasOpen = pop.classList.contains('open');
+    document.querySelectorAll('.picker-popover.open').forEach(p => p.classList.remove('open'));
+    if (!wasOpen) {
+      positionOfficePopover(fieldId);
+      pop.classList.add('open');
+      const st = officeCpState(fieldId);
+      st.step = 'hour';
+      updateOfficeClockStepUI(fieldId);
+      renderOfficeClockHourFace(fieldId);
+    }
+  }
+  function renderOfficeClockHourFace(fieldId) {
+    const st = officeCpState(fieldId);
+    const face = document.getElementById(fieldId + '-face');
+    if (!face) return;
+    face.querySelectorAll('.clock-num').forEach(n => n.remove());
+    for (let h = 1; h <= 12; h++) {
+      const pos = officeClockPolarPos(h % 12, 12, 74);
+      const el = document.createElement('div');
+      el.className = 'clock-num' + (h === st.hour ? ' selected' : '');
+      el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+      el.textContent = h;
+      el.onclick = function () {
+        st.hour = h;
+        document.getElementById(fieldId + '-readout-hour').textContent = h;
+        st.step = 'minute'; updateOfficeClockStepUI(fieldId); renderOfficeClockMinuteFace(fieldId);
+      };
+      face.appendChild(el);
+    }
+  }
+  function renderOfficeClockMinuteFace(fieldId) {
+    const st = officeCpState(fieldId);
+    const face = document.getElementById(fieldId + '-face');
+    if (!face) return;
+    face.querySelectorAll('.clock-num').forEach(n => n.remove());
+    [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].forEach((m, i) => {
+      const pos = officeClockPolarPos(i, 12, 74);
+      const el = document.createElement('div');
+      el.className = 'clock-num minute-tick' + (m === st.minute ? ' selected' : '');
+      el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+      el.textContent = String(m).padStart(2, '0');
+      el.onclick = function () { onOfficeClockMinutePicked(fieldId, m); };
+      face.appendChild(el);
+    });
+  }
+  function updateOfficeClockStepUI(fieldId) {
+    const st = officeCpState(fieldId);
+    document.getElementById(fieldId + '-readout-hour')?.classList.toggle('active', st.step === 'hour');
+    document.getElementById(fieldId + '-readout-min')?.classList.toggle('active', st.step === 'minute');
+  }
+  function goToClockStep(fieldId, which) {
+    const st = officeCpState(fieldId);
+    st.step = which; updateOfficeClockStepUI(fieldId);
+    if (which === 'hour') renderOfficeClockHourFace(fieldId); else renderOfficeClockMinuteFace(fieldId);
+  }
+  function setClockAmpm(fieldId, v, btn) {
+    officeCpState(fieldId).ampm = v;
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  /* Guarda el valor Y dispara el guardado real de esta fila (el
+     mismo onChange que ya usaba el input de texto viejo) -- no basta
+     con dejarlo en el input oculto como en los otros 2 archivos,
+     aqui cada celda se guarda sola al salir. */
+  function onOfficeClockMinutePicked(fieldId, m) {
+    const st = officeCpState(fieldId);
+    st.minute = m;
+    document.getElementById(fieldId + '-readout-min').textContent = ':' + String(m).padStart(2, '0');
+    document.getElementById(fieldId + '-pop').classList.remove('open');
+    let h24 = st.hour % 12; if (st.ampm === 'PM') h24 += 12;
+    document.getElementById(fieldId).value = String(h24).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    const isPM = h24 >= 12; let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+    document.getElementById(fieldId + '-trigger').textContent = h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+    const onDone = officeClockDoneCallback[fieldId];
+    if (onDone) onDone();
+  }
+  const officeClockDoneCallback = {};
+
+  /* Parsea "9:00 AM - 5:00 PM" a horas 24h, para pre-llenar los 2
+     relojes. Sin match, cada reloj cae en su default razonable. */
+  function parseOfficeHoursRange(s) {
+    const m = String(s || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!m) return { open: null, close: null };
+    const to24 = (h, mm, ap) => {
+      h = parseInt(h, 10); mm = parseInt(mm, 10);
+      if (ap) { ap = ap.toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; }
+      return { h, m: mm };
+    };
+    return { open: to24(m[1], m[2], m[3]), close: to24(m[4], m[5], m[6]) };
+  }
+  function officeClockFieldHtml(fieldId, h24, mm, onDoneFnName, rowId) {
+    const isPM = h24 >= 12;
+    let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+    const display = h12 + ':' + String(mm).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+    officeClockState[fieldId] = { hour: h12, minute: mm, ampm: isPM ? 'PM' : 'AM', step: 'hour' };
+    officeClockDoneCallback[fieldId] = onDoneFnName ? () => window[onDoneFnName](rowId) : null;
+    return '<input type="time" id="' + fieldId + '" value="' + String(h24).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + '" style="display:none">' +
+      '<div class="rel-wrap">' +
+        '<button type="button" class="office-trigger-btn" onclick="toggleClockPicker(\'' + fieldId + '\')" id="' + fieldId + '-trigger">' + display + '</button>' +
+        '<div class="picker-popover" id="' + fieldId + '-pop">' +
+          '<div class="picker-title">Pick a time</div>' +
+          '<div class="clock-face-row"><div class="clock-face" id="' + fieldId + '-face"><div class="clock-center"></div></div></div>' +
+          '<div class="clock-bottom-row">' +
+            '<div class="ampm-col">' +
+              '<button type="button" class="' + (!isPM ? 'active' : '') + '" id="' + fieldId + '-am" onclick="setClockAmpm(\'' + fieldId + '\',\'AM\',this)">AM</button>' +
+              '<button type="button" class="' + (isPM ? 'active' : '') + '" id="' + fieldId + '-pm" onclick="setClockAmpm(\'' + fieldId + '\',\'PM\',this)">PM</button>' +
+            '</div>' +
+            '<div class="clock-readout">' +
+              '<span class="part active" id="' + fieldId + '-readout-hour" onclick="goToClockStep(\'' + fieldId + '\',\'hour\')">' + h12 + '</span>' +
+              '<span class="part" id="' + fieldId + '-readout-min" onclick="goToClockStep(\'' + fieldId + '\',\'minute\')">:' + String(mm).padStart(2, '0') + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  /* Junta lo que hayan quedado los 2 relojes de vuelta a un solo
+     texto "9:00 AM - 5:00 PM" -- OfficeHours se queda como una sola
+     columna de texto en SharePoint. */
+  function buildOfficeHoursString(fieldPrefix) {
+    const openEl = document.getElementById(fieldPrefix + 'Open');
+    const closeEl = document.getElementById(fieldPrefix + 'Close');
+    if (!openEl || !closeEl || !openEl.value || !closeEl.value) return '';
+    const to12 = hhmm => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const isPM = h >= 12; let h12 = h % 12; if (h12 === 0) h12 = 12;
+      return h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+    };
+    return to12(openEl.value) + ' - ' + to12(closeEl.value);
+  }
+
+
   function clientHoursRowCellsHtml(c, td) {
     const dayCells = DAY_FIELDS.map(f =>
       '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c[f] ? 'checked' : '') +
       ' onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-' + f + '"></td>'
     ).join('');
+    const parsed = parseOfficeHoursRange(c.officeHours);
+    const open = parsed.open || { h: 9, m: 0 };
+    const close = parsed.close || { h: 17, m: 0 };
     return dayCells +
-      '<td ' + td + '><input type="text" class="cell" value="' + esc(c.officeHours || '') + '" style="width:100%;min-width:110px;padding:5px 6px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit" id="ch-' + c.id + '-officeHours" onchange="onClientHoursChange(\'' + c.id + '\')"></td>';
+      '<td ' + td + '><div style="display:flex;gap:4px">' +
+        officeClockFieldHtml('ch-' + c.id + '-officeOpen', open.h, open.m, 'onClientHoursChange', c.id) +
+        officeClockFieldHtml('ch-' + c.id + '-officeClose', close.h, close.m, 'onClientHoursChange', c.id) +
+      '</div></td>';
   }
 
   async function onClientHoursChange(clientId) {
@@ -1459,7 +1641,7 @@
     };
     const body = { id: clientId };
     DAY_FIELDS.forEach(f => { body[f] = val(f); });
-    body.officeHours = val('officeHours');
+    body.officeHours = buildOfficeHoursString('ch-' + clientId + '-office');
     try {
       await api('update-client-hours', body);
       const c = allClientsCache.find(x => x.id === clientId);
@@ -1480,10 +1662,16 @@
       '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (a[f] ? 'checked' : '') +
       ' onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-' + f + '"></td>'
     ).join('');
+    const parsed = parseOfficeHoursRange(a.officeHours);
+    const open = parsed.open || { h: 9, m: 0 };
+    const close = parsed.close || { h: 17, m: 0 };
     return '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
       '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td>' +
       dayCells +
-      '<td ' + td + '><input type="text" class="cell" value="' + esc(a.officeHours) + '" style="width:100%;min-width:110px;padding:5px 6px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit" id="bh-' + esc(a.id) + '-officeHours" onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')"></td>' +
+      '<td ' + td + '><div style="display:flex;gap:4px">' +
+        officeClockFieldHtml('bh-' + esc(a.id) + '-officeOpen', open.h, open.m, 'onBuildingHoursChange', a.id) +
+        officeClockFieldHtml('bh-' + esc(a.id) + '-officeClose', close.h, close.m, 'onBuildingHoursChange', a.id) +
+      '</div></td>' +
       '<td ' + td + '></td></tr>';
   }
 
@@ -1494,7 +1682,7 @@
     };
     const body = { id: buildingId };
     DAY_FIELDS.forEach(f => { body[f] = val(f); });
-    body.officeHours = val('officeHours');
+    body.officeHours = buildOfficeHoursString('bh-' + buildingId + '-office');
     try {
       await api('update-building-hours', body);
       /* Reflejar en cache local sin recargar todo desde SharePoint --
