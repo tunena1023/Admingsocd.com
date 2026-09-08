@@ -3351,11 +3351,10 @@ function unitOccupiedBadgeHtml(o) {
   return '<span class="occupied-badge"><span class="occupied-dot"></span>Occupied unit</span>';
 }
 
-/* Badge morado de "necesita algo de la oficina" -- Exteriors
-   unicamente. Mismo patron que el badge azul, solo lectura (lo pone
-   el cliente al hacer la orden). */
+/* Badge morado de "necesita algo de la oficina" -- aplica a las 3
+   divisiones (Janitorial, Renovations, Exteriors). Mismo patron que
+   el badge azul, solo lectura (lo pone el cliente al hacer la orden). */
 function officeNeedBadgeHtml(o) {
-  if (String(o.Division || '').toLowerCase() !== 'exteriors') return '';
   if (!o.NeedsOfficeAccess) return '';
   return '<span class="office-need-badge"><span class="office-need-dot"></span>Office access needed</span>';
 }
@@ -3364,7 +3363,6 @@ function officeNeedBadgeHtml(o) {
    oficina -- el badge de arriba solo avisa que hay algo, esto es el
    detalle real. */
 function officeNeedNoteHtml(o) {
-  if (String(o.Division || '').toLowerCase() !== 'exteriors') return '';
   if (!o.NeedsOfficeAccess || !o.OfficeNeedNotes) return '';
   return '<p class="meta-line" style="margin-bottom:16px;padding:10px 12px;background:#F0E8FA;border-radius:4px;border-left:3px solid #6B3FA0">' +
     '<b style="color:#6B3FA0">Needed from the office:</b> ' + esc(o.OfficeNeedNotes) + '</p>';
