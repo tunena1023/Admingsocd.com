@@ -835,7 +835,7 @@ exports.handler = async (event) => {
     if (action === 'update-tech') {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
-      const validRoles = ['Employee', 'Supervisor'];
+      const validRoles = ['Employee', 'Supervisor', 'Developer'];
       const validDivisions = ['Janitorial', 'Renovations', 'Exteriors'];
       const fields = {};
       if (body.role !== undefined) {
