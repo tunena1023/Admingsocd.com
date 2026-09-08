@@ -255,7 +255,7 @@
     .rel-wrap { position: relative; }
     .trigger-btn { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); font-size: 14px; font-family: inherit; cursor: pointer; color: var(--black); text-align: left; }
     .trigger-btn:hover { border-color: var(--gold); }
-    .picker-popover { display: none; position: fixed; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 500; width: 260px; }
+    .picker-popover { display: none; position: fixed; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 500; width: min(260px, calc(100vw - 40px)); }
     .picker-popover.open { display: block; }
     .picker-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); text-align: center; margin-bottom: 14px; }
     .cal-card { border-radius: 22px; padding: 4px; }
