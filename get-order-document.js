@@ -7,7 +7,6 @@
    responde 404 para que el front deshabilite el boton.
 
    GET /.netlify/functions/get-order-document?orderId=GS-6062-1010
-       &clientId=GS-6062   (opcional; si viene, se valida el dueno)
 ============================================================ */
 const {
   ORDERS_LIST, graphFetch, siteListPath, downloadById, jsonResponse
@@ -35,12 +34,6 @@ exports.handler = async (event) => {
   try {
     const order = await findOrder(orderId);
     if (!order) return jsonResponse(404, { error: 'Order not found.' });
-
-    if (p.clientId &&
-        String(order.ClientID || '').trim().toLowerCase() !==
-        String(p.clientId).trim().toLowerCase()) {
-      return jsonResponse(403, { error: 'This order does not belong to you.' });
-    }
 
     const found = await latestOrderPdf(Object.assign({}, order, { OrderID: orderId }));
     if (!found) {
