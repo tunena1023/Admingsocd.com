@@ -160,6 +160,29 @@
     .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
     .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
     .svc-toggle input:disabled + .svc-toggle-track { opacity: .5; cursor: not-allowed; }
+
+    /* ===== Picker de servicios para Templates (mismo patron ya usado
+       en admin.html/templates.html) ===== */
+    .svc-chip-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .svc-chip { border: 1px solid var(--border); background: var(--white); padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; border-radius: 2px; font-family: inherit; color: var(--black); }
+    .svc-chip.active { background: var(--gold); border-color: var(--gold); font-weight: 700; }
+    @media (max-width: 900px) { .svc-chip-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 640px) { .svc-chip-grid { grid-template-columns: 1fr; } }
+    .jan-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 3px; margin-bottom: 8px; background: var(--white); transition: border-color .15s, background .15s; }
+    .jan-row.selected { border-color: var(--gold); background: #FEFBF3; }
+    .jan-row-name { font-size: 12px; }
+    .jan-row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .jan-row-grid .jan-row { margin-bottom: 0; padding: 10px 10px; }
+    @media (max-width: 900px) { .jan-row-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 640px) { .jan-row-grid { grid-template-columns: 1fr; } }
+    .lvl-group { display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; flex-shrink: 0; }
+    .lvl-btn { width: 34px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; background: var(--white); color: var(--gray); border-right: 1px solid var(--border); }
+    .lvl-btn:last-child { border-right: none; }
+    .lvl-btn.active { background: var(--gold); color: var(--black); }
+    .lvl-btn:hover:not(.active) { background: var(--off); }
+    .tpl-svc-row { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; }
+    .tpl-svc-row:last-of-type { border-bottom: none; }
+    .tpl-svc-cat { color: var(--gold-dk); font-weight: 600; }
     .svc-cat-body { display: none; padding: 4px 16px 14px; background: var(--bg); }
 
     .svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -245,6 +268,7 @@
   <div class="dev-layout">
     <div class="dev-sidebar" id="dev-sidebar">
       <div class="dev-side-item active" data-cat="services" onclick="switchDevCategory('services')">Services</div>
+      <div class="dev-side-item" data-cat="templates" onclick="switchDevCategory('templates')">Templates</div>
       <div class="dev-side-item" data-cat="customers" onclick="switchDevCategory('customers')">Customers</div>
       <div class="dev-side-item" data-cat="reports" onclick="switchDevCategory('reports')">Reports</div>
       <div class="dev-side-item" data-cat="settings" onclick="switchDevCategory('settings')">Settings</div>
@@ -285,6 +309,45 @@
         <p class="section-sub" id="browse-sub" style="margin-top:16px">Loading…</p>
         <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
         <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="templates-section" data-category="templates" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Client &amp; Office Templates</div>
+        <div class="order-desc">Every template saved by clients, plus office-made ones. Mark any as Public so every client can see and use it.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin:16px 0">
+          <button type="button" class="btn btn-gold" onclick="startNewOfficeTemplate()">+ New Office Template</button>
+        </div>
+        <div id="tpl-admin-table-wrap"><p class="empty-note">Loading templates…</p></div>
+      </div>
+    </div>
+
+    <div class="order-card" id="tpl-admin-editor-card" style="display:none">
+      <div class="order-card-header">
+        <div><div class="order-id" id="tpl-admin-editor-title">New Office Template</div>
+        <div class="order-desc">Office templates start Private — publish them from the table once they look right.</div></div>
+      </div>
+      <div class="appr-body" style="display:block">
+        <div style="margin-top:16px;margin-bottom:24px;max-width:420px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Template name</label>
+          <input type="text" id="tpl-admin-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
+        </div>
+        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
+          <button type="button" class="active" data-div="Janitorial" onclick="tplAdminSelectDiv('Janitorial', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Janitorial</button>
+          <button type="button" data-div="Renovations" onclick="tplAdminSelectDiv('Renovations', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Renovations</button>
+          <button type="button" data-div="Exteriors" onclick="tplAdminSelectDiv('Exteriors', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Exteriors</button>
+        </div>
+        <div id="tpl-admin-picker"></div>
+        <div style="margin-top:20px;display:flex;gap:10px">
+          <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
+          <button type="button" class="btn btn-outline" onclick="closeOfficeTemplateEditor()">Cancel</button>
+        </div>
       </div>
     </div>
   </section>
@@ -507,6 +570,7 @@
   let myRole = null;
   let allStaff = [];
   let allCatalogRows = [];
+  let allTemplates = [];
   let canEditCatalog = false;
   let currentPreview = null;   // { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized }
   let currentRows = null;      // filas validas que se mandaron a preview, para reusarlas en apply si hiciera falta
@@ -571,6 +635,7 @@
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
       document.getElementById('reports-section').classList.add('role-eligible');
+      document.getElementById('templates-section').classList.add('role-eligible');
     }
 
     if (myRole === 'Developer') {
@@ -582,6 +647,7 @@
     }
 
     loadCatalogBrowse();
+    if (canEdit) loadAllTemplates();
     switchDevCategory('services');
   }
 
@@ -685,8 +751,279 @@
       '</tbody></table>';
   }
 
-  function findCol(headers, keywords) {
-    return headers.findIndex(h => keywords.some(k => String(h || '').toLowerCase().includes(k)));
+  /* ============================================================
+     TEMPLATES -- tabla general + picker para crear/editar templates
+     de oficina. Reusa allCatalogRows (ya cargado por
+     loadCatalogBrowse) como fuente del catalogo, en vez de pedirlo
+     otra vez.
+  ============================================================ */
+  let tplAdminCurrentDiv = 'Janitorial';
+  let tplAdminPropertyType = 'Commercial';
+  let tplAdminSelected = {};
+  let tplAdminSvcLevel = {};
+  let tplAdminSelAllActive = null;
+  let tplAdminEditingId = null;
+
+  function tplAdminSvcKey(p, n) { return p + '|' + n; }
+
+  async function loadAllTemplates() {
+    try {
+      const res = await api('list-all-templates');
+      allTemplates = res.templates || [];
+      renderTemplatesAdminTable();
+    } catch (e) {
+      document.getElementById('tpl-admin-table-wrap').innerHTML =
+        '<p class="empty-note">Could not load templates: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderTemplatesAdminTable() {
+    const wrap = document.getElementById('tpl-admin-table-wrap');
+    if (!allTemplates.length) {
+      wrap.innerHTML = '<p class="empty-note">No templates saved yet.</p>';
+      return;
+    }
+    const rows = allTemplates.slice().sort((a, b) =>
+      a.clientName.localeCompare(b.clientName) || a.name.localeCompare(b.name));
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Client</th><th>Template</th><th>Division</th><th>Services</th><th>Public</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map(t => '<tr>' +
+        '<td>' + esc(t.clientName) + '</td>' +
+        '<td>' + esc(t.name) + '</td>' +
+        '<td>' + esc(t.division) + '</td>' +
+        '<td>' + t.services.length + '</td>' +
+        '<td><label class="svc-toggle">' +
+          '<input type="checkbox" ' + (t.isPublic ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
+          ' onchange="toggleTemplatePublic(\'' + t.id + '\', this.checked)">' +
+          '<span class="svc-toggle-track"></span>' +
+        '</label></td>' +
+        '<td style="white-space:nowrap">' +
+          (canEditCatalog
+            ? (t.isOffice
+                ? '<button type="button" class="btn btn-outline btn-sm" onclick="editOfficeTemplate(\'' + t.id + '\')">Edit</button>'
+                : '<button type="button" class="btn btn-outline btn-sm" onclick="copyTemplateToOffice(\'' + t.id + '\')">Copy to office</button>')
+              + ' <button type="button" class="btn btn-danger btn-sm" onclick="deleteTemplateAdmin(\'' + t.id + '\')">Delete</button>'
+            : '') +
+        '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  async function toggleTemplatePublic(id, isPublic) {
+    const row = allTemplates.find(t => t.id === id);
+    const prev = row ? row.isPublic : !isPublic;
+    if (row) row.isPublic = isPublic;
+    try {
+      await api('toggle-template-public', { id, isPublic });
+    } catch (e) {
+      if (row) row.isPublic = prev;
+      renderTemplatesAdminTable();
+      showToast('Could not update: ' + e.message);
+    }
+  }
+
+  async function copyTemplateToOffice(id) {
+    try {
+      await api('copy-template-to-office', { id });
+      showToast('Copied to office templates -- edit it below before publishing.');
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not copy: ' + e.message);
+    }
+  }
+
+  async function deleteTemplateAdmin(id) {
+    if (!confirm('Delete this template? This cannot be undone.')) return;
+    try {
+      await api('delete-template-admin', { id });
+      showToast('Template deleted.');
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not delete: ' + e.message);
+    }
+  }
+
+  /* ===== Picker (mismo patron ya usado en templates.html) ===== */
+  function tplAdminActiveCatalog() {
+    return allCatalogRows.filter(r => r.active);
+  }
+
+  function startNewOfficeTemplate() {
+    tplAdminEditingId = null;
+    document.getElementById('tpl-admin-editor-title').textContent = 'New Office Template';
+    document.getElementById('tpl-admin-name').value = '';
+    tplAdminCurrentDiv = 'Janitorial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b.dataset.div === tplAdminCurrentDiv;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('tpl-admin-editor-card').style.display = 'block';
+    tplAdminRenderPicker();
+    document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function editOfficeTemplate(id) {
+    const t = allTemplates.find(x => x.id === id);
+    if (!t) return;
+    tplAdminEditingId = id;
+    document.getElementById('tpl-admin-editor-title').textContent = 'Editing: ' + t.name;
+    document.getElementById('tpl-admin-name').value = t.name;
+    tplAdminCurrentDiv = t.division || 'Janitorial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    (t.services || []).forEach(s => {
+      const cat = s.Category || 'Commercial';
+      if (!tplAdminSelected[cat]) tplAdminSelected[cat] = {};
+      tplAdminSelected[cat][s.ServiceName] = s.SubOption;
+      if (s.Level) tplAdminSvcLevel[tplAdminSvcKey(cat, s.ServiceName)] = s.Level;
+    });
+    const firstCat = Object.keys(tplAdminSelected)[0];
+    if (firstCat) tplAdminPropertyType = firstCat;
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b.dataset.div === tplAdminCurrentDiv;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('tpl-admin-editor-card').style.display = 'block';
+    tplAdminRenderPicker();
+    document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closeOfficeTemplateEditor() {
+    document.getElementById('tpl-admin-editor-card').style.display = 'none';
+    tplAdminEditingId = null;
+  }
+
+  function tplAdminSelectDiv(div, el) {
+    tplAdminCurrentDiv = div;
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b === el;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    tplAdminRenderPicker();
+  }
+
+  function tplAdminRenderPicker() {
+    const container = document.getElementById('tpl-admin-picker');
+    const catalog = tplAdminActiveCatalog();
+    if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <span style="font-size:12px;color:var(--gray)">Commercial</span>
+        <label class="svc-toggle">
+          <input type="checkbox" ${tplAdminPropertyType === 'Residential' ? 'checked' : ''} onchange="tplAdminSetPropertyType(this.checked ? 'Residential' : 'Commercial')">
+          <span class="svc-toggle-track"></span>
+        </label>
+        <span style="font-size:12px;color:var(--gray)">Residential</span>
+      </div>
+      <input type="text" class="search-input" id="tpl-admin-search" placeholder="Search services…" oninput="tplAdminRenderGrid()" style="margin-bottom:14px">
+      <div id="tpl-admin-grid"></div>`;
+    tplAdminRenderGrid();
+  }
+
+  function tplAdminSetPropertyType(type) {
+    tplAdminPropertyType = type;
+    tplAdminRenderGrid();
+  }
+
+  function tplAdminRenderGrid() {
+    const grid = document.getElementById('tpl-admin-grid');
+    const isJan = tplAdminCurrentDiv === 'Janitorial';
+    const q = (document.getElementById('tpl-admin-search').value || '').trim().toLowerCase();
+    const selectedNames = new Set(Object.keys(tplAdminSelected[tplAdminPropertyType] || {}));
+    /* Los ya seleccionados siempre se ven, el resto del catalogo
+       espera a que se escriba algo -- mismo criterio ya usado en
+       Edit de Active Orders (Admin) y Update Services (tech). */
+    let list = tplAdminActiveCatalog().filter(s => s.division.toLowerCase() === tplAdminCurrentDiv.toLowerCase() && s.propertyType === tplAdminPropertyType);
+    list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
+    list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+
+    if (!list.length) { grid.className = ''; grid.innerHTML = '<p class="empty-note">Type to search services…</p>'; return; }
+
+    if (isJan) {
+      grid.className = 'jan-row-grid';
+      const levels = ['Level 1', 'Level 2', 'Level 3'];
+      grid.innerHTML = list.map(s => {
+        const sel = (tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName] === s.sku;
+        const lvl = sel ? tplAdminSvcLevel[tplAdminSvcKey(tplAdminPropertyType, s.serviceName)] : null;
+        return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
+          '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
+          '<div class="lvl-group">' +
+            levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="tplAdminPickLevel(\'' + s.sku.replace(/'/g, "\\'") + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+          '</div></div>';
+      }).join('');
+    } else {
+      grid.className = 'svc-chip-grid';
+      grid.innerHTML = list.map(s =>
+        '<button type="button" class="svc-chip' + ((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName] === s.sku ? ' active' : '') + '" onclick="tplAdminToggleChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
+      ).join('');
+    }
+  }
+
+  function tplAdminToggleChip(sku) {
+    const svc = tplAdminActiveCatalog().find(s => s.sku === sku);
+    if (!svc) return;
+    if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
+    if (tplAdminSelected[tplAdminPropertyType][svc.serviceName] === sku) {
+      delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
+    } else {
+      tplAdminSelected[tplAdminPropertyType][svc.serviceName] = sku;
+    }
+    tplAdminRenderGrid();
+  }
+
+  function tplAdminPickLevel(sku, level) {
+    const svc = tplAdminActiveCatalog().find(s => s.sku === sku);
+    if (!svc) return;
+    const k = tplAdminSvcKey(tplAdminPropertyType, svc.serviceName);
+    if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
+    const already = tplAdminSelected[tplAdminPropertyType][svc.serviceName] === sku && tplAdminSvcLevel[k] === level;
+    if (already) {
+      delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
+      delete tplAdminSvcLevel[k];
+    } else {
+      tplAdminSelected[tplAdminPropertyType][svc.serviceName] = sku;
+      tplAdminSvcLevel[k] = level;
+    }
+    tplAdminRenderGrid();
+  }
+
+  function tplAdminBuildServicesArray() {
+    const out = [];
+    Object.entries(tplAdminSelected).forEach(([propType, svcs]) => {
+      Object.entries(svcs).forEach(([svcName, sku]) => {
+        out.push({
+          Category:    propType,
+          ServiceName: svcName,
+          SubOption:   sku,
+          Division:    tplAdminCurrentDiv,
+          Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || ''
+        });
+      });
+    });
+    return out;
+  }
+
+  async function saveOfficeTemplate() {
+    const name = document.getElementById('tpl-admin-name').value.trim();
+    const services = tplAdminBuildServicesArray();
+    if (!name) { showToast('Please give this template a name.'); return; }
+    if (!services.length) { showToast('Select at least one service first.'); return; }
+    try {
+      await api('save-office-template', { templateId: tplAdminEditingId || undefined, name, division: tplAdminCurrentDiv, services });
+      showToast(tplAdminEditingId ? 'Template updated.' : 'Template saved -- still Private, publish it from the table when ready.');
+      closeOfficeTemplateEditor();
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
   }
 
   function onCatalogFileChosen() {

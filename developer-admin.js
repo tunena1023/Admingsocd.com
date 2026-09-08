@@ -26,7 +26,7 @@ const {
   RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
-  CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST,
+  CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -1445,6 +1445,112 @@ exports.handler = async (event) => {
       }
 
       return jsonResponse(200, { success: true, created, skipped, extraAddressesCreated });
+    }
+
+    /* ============================================================
+       TEMPLATES -- Developer > Templates. Ver todos los templates de
+       todos los clientes, marcarlos publicos/privados, o copiar uno
+       del cliente al "repertorio de oficina" (copia independiente,
+       ClientID='OFFICE', editable aparte sin tocar el original del
+       cliente). Mismo picker de servicios que ya usa ordersgsocd.com,
+       reconstruido aqui porque Admin no puede llamar el API de otro
+       dominio.
+    ============================================================ */
+    const OFFICE_TEMPLATE_CLIENT_ID = 'OFFICE';
+
+    if (action === 'list-all-templates') {
+      const [templates, clients] = await Promise.all([
+        fetchAll(SERVICE_TEMPLATES_LIST),
+        fetchAll(CLIENTS_LIST)
+      ]);
+      const nameByClientId = {};
+      clients.forEach(it => {
+        if (!it.fields || !it.fields.ClientID) return;
+        nameByClientId[String(it.fields.ClientID).trim()] = it.fields.Title || '';
+      });
+      const list = templates.filter(it => it.fields).map(it => {
+        const f = it.fields;
+        const cid = String(f.ClientID || '').trim();
+        let services = [];
+        try { services = JSON.parse(f.ServicesJSON || '[]'); } catch (e) { services = []; }
+        return {
+          id: it.id,
+          name: f.Title || '',
+          division: f.Division || '',
+          isOffice: cid === OFFICE_TEMPLATE_CLIENT_ID,
+          clientId: cid,
+          clientName: cid === OFFICE_TEMPLATE_CLIENT_ID ? 'GS Solutions (office)' : (nameByClientId[cid] || cid || '—'),
+          isPublic: !!f.IsPublic,
+          services
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
+      return jsonResponse(200, { templates: list });
+    }
+
+    if (action === 'toggle-template-public') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage templates.' });
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(SERVICE_TEMPLATES_LIST, body.id, { IsPublic: !!body.isPublic });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Copia independiente -- el original del cliente NUNCA se toca.
+       Empieza privada a proposito: el admin decide si publicarla
+       despues de revisarla/ajustarla, no se publica sola de un jalon. */
+    if (action === 'copy-template-to-office') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage templates.' });
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      const rows = await fetchAll(SERVICE_TEMPLATES_LIST);
+      const source = rows.find(it => it.id === body.id);
+      if (!source || !source.fields) return jsonResponse(404, { error: 'Template not found.' });
+      const f = source.fields;
+      const created = await createListItem(SERVICE_TEMPLATES_LIST, {
+        Title:        (f.Title || 'Untitled') + ' (office copy)',
+        ClientID:     OFFICE_TEMPLATE_CLIENT_ID,
+        Division:     f.Division || '',
+        ServicesJSON: f.ServicesJSON || '[]',
+        IsPublic:     false
+      });
+      return jsonResponse(200, { success: true, id: created.id });
+    }
+
+    /* Crear/editar un template de oficina desde cero -- mismo picker
+       que Add Template en ordersgsocd.com, reconstruido aqui. Si
+       viene templateId, actualiza en vez de crear (mismo criterio que
+       save-template.js). */
+    if (action === 'save-office-template') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage templates.' });
+      const templateId = String(body.templateId || '').trim();
+      const name = String(body.name || '').trim();
+      const division = body.division;
+      const services = Array.isArray(body.services) ? body.services : [];
+      if (!name) return jsonResponse(400, { error: 'Please give this template a name.' });
+      if (!division) return jsonResponse(400, { error: 'division is required' });
+      if (!services.length) return jsonResponse(400, { error: 'Select at least one service before saving.' });
+
+      const fields = {
+        Title:        name,
+        ClientID:     OFFICE_TEMPLATE_CLIENT_ID,
+        Division:     division,
+        ServicesJSON: JSON.stringify(services)
+      };
+      if (templateId) {
+        await updateListItemByItemId(SERVICE_TEMPLATES_LIST, templateId, fields);
+        return jsonResponse(200, { success: true, id: templateId });
+      }
+      fields.IsPublic = false;
+      const created = await createListItem(SERVICE_TEMPLATES_LIST, fields);
+      return jsonResponse(200, { success: true, id: created.id });
+    }
+
+    /* Borrar cualquier template desde Developer -- del cliente que
+       sea, u office. Distinto de delete-template.js (ordersgsocd.com),
+       que solo deja al cliente borrar los suyos. */
+    if (action === 'delete-template-admin') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage templates.' });
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      await deleteListItem(SERVICE_TEMPLATES_LIST, body.id);
+      return jsonResponse(200, { success: true });
     }
 
     return jsonResponse(400, { error: 'Unknown action: ' + action });
