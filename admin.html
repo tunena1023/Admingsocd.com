@@ -3670,8 +3670,13 @@ function buildAdminChipsHtml(orderId, division) {
   const propType = window['adminPropType_' + orderId] || 'Commercial';
   const sel = window['adminSvc_' + orderId] || {};
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  /* No se muestra nada hasta que se escribe algo -- ahorra espacio,
+     en vez de aventar decenas de servicios de un jalon que nadie
+     pidio ver todavia (mismo criterio aplicado en Update Services de
+     tech.gsocd.com). */
+  if (!q) return '<p class="empty-note">Type to search services…</p>';
   let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
-  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
   return list.map(s => {
@@ -3690,8 +3695,9 @@ function buildAdminJanRowsHtml(orderId, division) {
   const sel = window['adminSvc_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  if (!q) return '<p class="empty-note">Type to search services…</p>';
   let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
-  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
   const levels = ['Level 1', 'Level 2', 'Level 3'];
