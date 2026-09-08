@@ -1054,6 +1054,24 @@ function findTechPhoneByName(name) {
 ============================================================ */
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+const DAY_FIELDS = ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen', 'satOpen', 'sunOpen'];
+const DAY_LABELS = { monOpen: 'Mon', tueOpen: 'Tue', wedOpen: 'Wed', thuOpen: 'Thu', friOpen: 'Fri', satOpen: 'Sat', sunOpen: 'Sun' };
+
+/* Mismos campos que ya existen en Developer (Opcion E aprobada) y en
+   el perfil del cliente (ordersgsocd.com) -- ahora tambien editables
+   desde aqui, sin tener que ir a la tabla completa de Developer para
+   un solo edificio. cid: prefijo unico de este cliente, para que los
+   ids de los checkboxes no choquen si hay 2 paneles abiertos. */
+function officeHoursFieldsHtml(cid, b) {
+  const dayCells = DAY_FIELDS.map(f =>
+    `<label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">${DAY_LABELS[f]}
+      <input type="checkbox" id="${cid}-ctl-${f}" ${b[f] ? 'checked' : ''}>
+    </label>`
+  ).join('');
+  return `<div style="display:flex;gap:10px;justify-content:space-between;margin-bottom:14px;max-width:320px">${dayCells}</div>
+    <div class="field-group"><label>Shared office hours (optional)</label><input type="text" id="${cid}-ctl-officeHours" placeholder="e.g. 9 AM – 5 PM" value="${esc(b.officeHours||'')}"></div>`;
+}
+
 function fmtDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -4473,6 +4491,8 @@ function openClientEdit(clientId) {
       <div class="field-group"><label>Suite</label><input type="text" id="${cid}-ctl-suite" value="${esc(b.suite||'')}"></div>
       <div class="field-group"><label>City</label><input type="text" id="${cid}-ctl-city" value="${esc(b.city||'')}"></div>
       <div class="field-group"><label>Zip</label><input type="text" id="${cid}-ctl-zip" value="${esc(b.zip||'')}"></div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours</div>
+      ${officeHoursFieldsHtml(cid, b)}
       <button class="btn btn-gold" style="width:100%" onclick="saveBuildingEdit('${clientId}','${esc(b.id)}')">Save</button>
       <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
   }
@@ -4629,6 +4649,8 @@ function startAddBuilding(clientId) {
     <div class="field-group"><label>City</label><input type="text" id="${cid}-ctl-city"></div>
     <div class="field-group"><label>Zip</label><input type="text" id="${cid}-ctl-zip"></div>
     <div class="field-group"><label>Phone</label><input type="text" id="${cid}-ctl-phone" placeholder="Optional"></div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours</div>
+    ${officeHoursFieldsHtml(cid, {})}
     <button class="btn btn-gold" style="width:100%" onclick="saveBuildingEdit('${clientId}', null)">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
@@ -4686,8 +4708,10 @@ async function saveBuildingEdit(clientId, buildingId) {
     address:        $f('address')?.value.trim() || '',
     suite:          $f('suite')?.value.trim() || '',
     city:           $f('city')?.value.trim() || '',
-    zip:            $f('zip')?.value.trim() || ''
+    zip:            $f('zip')?.value.trim() || '',
+    officeHours:    $f('officeHours')?.value.trim() || ''
   };
+  DAY_FIELDS.forEach(f => { const el = $f(f); if (el) building[f] = el.checked; });
   if (buildingId) building.addressId = buildingId;
 
   /* El campo Phone solo existe en el formulario de "Add building"

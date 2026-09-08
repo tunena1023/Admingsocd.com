@@ -97,7 +97,8 @@ async function handleBuilding(b) {
       ['Suite',          bld.suite],
       ['City',           bld.city],
       ['Zip',            bld.zip],
-      ['ContactId',      newContactId !== null ? newContactId : bld.contactId]
+      ['ContactId',      newContactId !== null ? newContactId : bld.contactId],
+      ['OfficeHours',    bld.officeHours]
     ];
     const patch = {};
     for (const [col, incoming, alsoTitle] of map) {
@@ -105,6 +106,12 @@ async function handleBuilding(b) {
       patch[col] = incoming || '';
       if (alsoTitle) patch.Title = incoming || '';
     }
+    /* Booleanos (horarios de oficina abierta por dia) aparte del map
+       generico de arriba -- ese usa "incoming || ''" para texto, lo
+       cual convertiria false (dia cerrado) en '' por accidente. */
+    const DAY_FIELDS = ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen', 'satOpen', 'sunOpen'];
+    const DAY_COLUMNS = { monOpen: 'MonOpen', tueOpen: 'TueOpen', wedOpen: 'WedOpen', thuOpen: 'ThuOpen', friOpen: 'FriOpen', satOpen: 'SatOpen', sunOpen: 'SunOpen' };
+    DAY_FIELDS.forEach(f => { if (bld[f] !== undefined) patch[DAY_COLUMNS[f]] = !!bld[f]; });
 
     if (patch.Address !== undefined || patch.City !== undefined || patch.Zip !== undefined) {
       const finalAddress = patch.Address !== undefined ? patch.Address : (item.fields.Address || '');
@@ -151,6 +158,14 @@ async function handleBuilding(b) {
     City:           bld.city           || '',
     Zip:            bld.zip            || '',
     ContactId:      newContactId || '',
+    MonOpen:        !!bld.monOpen,
+    TueOpen:        !!bld.tueOpen,
+    WedOpen:        !!bld.wedOpen,
+    ThuOpen:        !!bld.thuOpen,
+    FriOpen:        !!bld.friOpen,
+    SatOpen:        !!bld.satOpen,
+    SunOpen:        !!bld.sunOpen,
+    OfficeHours:    bld.officeHours    || '',
     Archived:       false
   };
   if (geo) { newFields.Latitude = geo.lat; newFields.Longitude = geo.lon; }
