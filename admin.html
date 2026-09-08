@@ -3675,7 +3675,10 @@ function buildAdminChipsHtml(orderId, division) {
      pidio ver todavia (mismo criterio aplicado en Update Services de
      tech.gsocd.com). */
   if (!q) return '<p class="empty-note">Type to search services…</p>';
-  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
+  /* Sin filtro de division a proposito -- confirmado con el usuario
+     que la busqueda debe cruzar todas las divisiones, no solo la de
+     esta orden. */
+  let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
   list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
@@ -3696,7 +3699,10 @@ function buildAdminJanRowsHtml(orderId, division) {
   const levelState = window['adminLevel_' + orderId] || {};
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
   if (!q) return '<p class="empty-note">Type to search services…</p>';
-  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
+  /* Sin filtro de division a proposito -- confirmado con el usuario
+     que la busqueda debe cruzar todas las divisiones, no solo la de
+     esta orden. */
+  let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
   list = list.filter(s => s.serviceName.toLowerCase().includes(q));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
@@ -3840,11 +3846,13 @@ function pickAdminLevel(orderId, propType, svcName, sku, level) {
    visible (respeta buscador + toggle Residential/Commercial); clic en
    la posicion ya activa deshace la seleccion masiva. */
 function adminSelectAllLevel(orderId, level, idx) {
-  const division = window['adminDiv_' + orderId] || '';
   const propType = window['adminPropType_' + orderId] || 'Commercial';
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
+  /* Sin filtro de division a proposito -- mismo criterio que
+     buildAdminChipsHtml/buildAdminJanRowsHtml, para que "Select all"
+     aplique exactamente a lo mismo que se ve en pantalla. */
   const visible = (activeCatalogCache || []).filter(s =>
-    s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType &&
+    s.propertyType === propType &&
     (!q || s.serviceName.toLowerCase().includes(q)));
   const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
   const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
