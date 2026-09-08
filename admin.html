@@ -4473,6 +4473,9 @@ function openClientEdit(clientId) {
       <div class="field-group"><label>City</label><input type="text" id="${cid}-ctl-city" value="${esc(c.city||'')}"></div>
       <div class="field-group"><label>Zip</label><input type="text" id="${cid}-ctl-zip" value="${esc(c.zip||'')}"></div>
 
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours at this address</div>
+      ${officeHoursFieldsHtml(cid, c)}
+
       <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Contacts</div>
       <div id="${cid}-ctl-contacts">${contactsHtml}</div>
       <div id="${cid}-ctl-newcontacts"></div>
@@ -4667,8 +4670,10 @@ async function savePrimaryEdit(clientId) {
     address:       $f('address')?.value || '',
     suite:         $f('suite')?.value || '',
     city:          $f('city')?.value || '',
-    zip:           $f('zip')?.value || ''
+    zip:           $f('zip')?.value || '',
+    officeHours:   $f('officeHours')?.value.trim() || ''
   };
+  DAY_FIELDS.forEach(f => { const el = $f(f); if (el) body[f] = el.checked; });
 
   /* Aqui solo se agregan contactos nuevos (sin marcar quien recibe
      notificaciones -- eso vive en el panel de Notifications). Los

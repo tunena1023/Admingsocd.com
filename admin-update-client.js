@@ -257,7 +257,53 @@ exports.handler = async (event) => {
       }
     }
 
-    await updateListItemByItemId(CLIENTS_LIST, item.id, patch);
+    /* Horarios de oficina -- default Sin marcar (false) si la columna
+       no existe todavia o nunca se configuro, IGUAL que ya hace
+       buildingHoursRowHtml para los edificios secundarios (no "Si"
+       como las preferencias de notificacion de arriba). */
+    const dayBoolMap = [
+      ['MonOpen', b.monOpen, 'Office Hours: Mon'],
+      ['TueOpen', b.tueOpen, 'Office Hours: Tue'],
+      ['WedOpen', b.wedOpen, 'Office Hours: Wed'],
+      ['ThuOpen', b.thuOpen, 'Office Hours: Thu'],
+      ['FriOpen', b.friOpen, 'Office Hours: Fri'],
+      ['SatOpen', b.satOpen, 'Office Hours: Sat'],
+      ['SunOpen', b.sunOpen, 'Office Hours: Sun']
+    ];
+    for (const [col, incoming, label] of dayBoolMap) {
+      const oldValue = truthy(f[col]);
+      if (incoming === undefined) { patch[col] = oldValue; continue; }
+      const next = truthy(incoming);
+      patch[col] = next;
+      if (oldValue !== next) {
+        changes.push({ label, old: oldValue ? 'Yes' : 'No', next: next ? 'Yes' : 'No' });
+      }
+    }
+    if (b.officeHours !== undefined) {
+      const oldValue = f.OfficeHours || '';
+      const next = b.officeHours || '';
+      patch.OfficeHours = next;
+      if (!sameValue(oldValue, next)) changes.push({ label: 'Office Hours: Shared', old: oldValue, next });
+    }
+
+    /* Las 8 columnas de horarios son NUEVAS en Clients (recien
+       agregadas por el usuario, o pendientes de agregar) -- si
+       todavia no existen, Graph rechaza el PATCH COMPLETO. Mismo
+       respaldo ya usado para Technician/CompletedDate en
+       admin-update-order.js: reintentar sin esos campos, para que
+       el resto de la edicion (nombre, telefono, direccion...) nunca
+       se bloquee por columnas que el usuario aun no crea. */
+    const HOURS_COLUMNS = ['MonOpen','TueOpen','WedOpen','ThuOpen','FriOpen','SatOpen','SunOpen','OfficeHours'];
+    try {
+      await updateListItemByItemId(CLIENTS_LIST, item.id, patch);
+    } catch (patchErr) {
+      const fallbackPatch = Object.assign({}, patch);
+      let hadHoursField = false;
+      HOURS_COLUMNS.forEach(col => { if (col in fallbackPatch) { delete fallbackPatch[col]; hadHoursField = true; } });
+      if (!hadHoursField) throw patchErr;
+      await updateListItemByItemId(CLIENTS_LIST, item.id, fallbackPatch);
+      changes.splice(0, changes.length, ...changes.filter(c => !String(c.label).startsWith('Office Hours')));
+    }
 
     /* Contactos: llegan como un arreglo completo (existentes + filas nuevas
        que se hayan llenado), cada uno con isRecipient marcando si ese es

@@ -1409,19 +1409,13 @@
     document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
     if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
     const td = 'style="padding:6px;border:1px solid var(--border)"';
-    /* Los horarios de oficina son por EDIFICIO (ClientAddresses), no
-       existen a nivel cliente principal -- por eso el renglon
-       principal deja esas 8 columnas en blanco, colspan no aplica
-       porque siguen siendo celdas reales de la tabla (para que el
-       grid no se desalinee). */
-    const blankHoursCells = '<td ' + td + ' colspan="8" style="background:var(--bg)"></td>';
 
     const rowsHtml = allClientsCache.map(c => {
       let html = '<tr' + (c.active === false ? ' style="opacity:.5"' : '') + '>' +
         '<td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
         '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
         '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
-        blankHoursCells +
+        clientHoursRowCellsHtml(c, td) +
         '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
       html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
       return html;
@@ -1441,6 +1435,39 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
+  }
+
+  /* Celdas de horario para el renglon PRINCIPAL del cliente (lista
+     Clients) -- mismo patron visual que buildingHoursRowHtml, pero
+     editando la lista distinta (ver onClientHoursChange). Antes esto
+     era blankHoursCells (deshabilitado a proposito, esas columnas no
+     existian en Clients) -- ahora si existen, mismo criterio que
+     cualquier edificio secundario. */
+  function clientHoursRowCellsHtml(c, td) {
+    const dayCells = DAY_FIELDS.map(f =>
+      '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c[f] ? 'checked' : '') +
+      ' onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-' + f + '"></td>'
+    ).join('');
+    return dayCells +
+      '<td ' + td + '><input type="text" class="cell" value="' + esc(c.officeHours || '') + '" style="width:100%;min-width:110px;padding:5px 6px;border:1px solid var(--border);border-radius:3px;font-size:12px;font-family:inherit" id="ch-' + c.id + '-officeHours" onchange="onClientHoursChange(\'' + c.id + '\')"></td>';
+  }
+
+  async function onClientHoursChange(clientId) {
+    const val = id => {
+      const el = document.getElementById('ch-' + clientId + '-' + id);
+      return el ? (el.type === 'checkbox' ? el.checked : el.value) : '';
+    };
+    const body = { id: clientId };
+    DAY_FIELDS.forEach(f => { body[f] = val(f); });
+    body.officeHours = val('officeHours');
+    try {
+      await api('update-client-hours', body);
+      const c = allClientsCache.find(x => x.id === clientId);
+      if (c) { DAY_FIELDS.forEach(f => { c[f] = body[f]; }); c.officeHours = body.officeHours; }
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+      renderAllClientsTable();
+    }
   }
 
   /* Renglon de edificio adicional con sus 8 celdas de horario editables.

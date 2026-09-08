@@ -1341,6 +1341,18 @@ exports.handler = async (event) => {
              esto existiera) se cuentan como activos -- mismo criterio
              que ya usan Techs/FieldEmployees/RecurringServices. */
           active: f.Active === undefined ? true : truthy(f.Active),
+          /* Horarios de oficina de la direccion PRINCIPAL -- mismas
+             columnas que ya existian solo para edificios secundarios.
+             Sin marcar (false) si la columna no existe todavia o
+             nunca se configuro, igual que un edificio. */
+          monOpen: it.fields.MonOpen === true || it.fields.MonOpen === 'true',
+          tueOpen: it.fields.TueOpen === true || it.fields.TueOpen === 'true',
+          wedOpen: it.fields.WedOpen === true || it.fields.WedOpen === 'true',
+          thuOpen: it.fields.ThuOpen === true || it.fields.ThuOpen === 'true',
+          friOpen: it.fields.FriOpen === true || it.fields.FriOpen === 'true',
+          satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
+          sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
+          officeHours: it.fields.OfficeHours || '',
           additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
         };
       }).sort((a, b) => a.businessName.localeCompare(b.businessName));
@@ -1375,6 +1387,32 @@ exports.handler = async (event) => {
         SunOpen: !!body.sunOpen,
         OfficeHours: body.officeHours || ''
       });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Mismo patron que update-building-hours, pero para la direccion
+       PRINCIPAL (lista Clients, no ClientAddresses) -- antes esas 8
+       columnas solo existian a nivel edificio secundario, ahora
+       tambien viven en Clients. Respaldo defensivo por si las
+       columnas todavia no existen ahi (el usuario las agrega aparte). */
+    if (action === 'update-client-hours') {
+      const clientItemId = String(body.id || '').trim();
+      if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
+      const patch = {
+        MonOpen: !!body.monOpen,
+        TueOpen: !!body.tueOpen,
+        WedOpen: !!body.wedOpen,
+        ThuOpen: !!body.thuOpen,
+        FriOpen: !!body.friOpen,
+        SatOpen: !!body.satOpen,
+        SunOpen: !!body.sunOpen,
+        OfficeHours: body.officeHours || ''
+      };
+      try {
+        await updateListItemByItemId(CLIENTS_LIST, clientItemId, patch);
+      } catch (e) {
+        return jsonResponse(400, { error: 'Could not save -- has the MonOpen..SunOpen/OfficeHours columns been added to the Clients list yet?' });
+      }
       return jsonResponse(200, { success: true });
     }
 
