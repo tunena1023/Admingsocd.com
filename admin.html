@@ -15,20 +15,6 @@
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--black); min-height: 100vh; }
 
-    /* SERVICE EDITOR — categorias colapsables, letra legible */
-    .svc-cat-group { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
-    .svc-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--white); }
-    .svc-cat-header:hover { background: var(--bg); }
-    .svc-cat-header .svc-cat-name { font-size: 14px; font-weight: 600; }
-    .svc-cat-header .svc-cat-count {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px;
-      border-radius: 10px; background: var(--gold); color: var(--white);
-      font-size: 11px; font-weight: 700;
-    }
-    .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
-    .svc-cat-pin { font-size: 11px; margin-left: 4px; }
-
     /* Picker del catalogo nuevo (ServicesCatalog) -- mismo patron que
        recurring.html: toggle Residential/Commercial + buscador + chips
        en grid de 2 columnas, solo el nombre visible, nunca el SKU. */
@@ -50,7 +36,6 @@
     .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
     .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
-    .svc-cat-body { display: none; padding: 4px 16px 12px; background: var(--bg); }
     .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
     .svc-row:last-child { border-bottom: none; }
     .svc-row-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -3707,108 +3692,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     ${editForm}${assignedViewOnly}${historyReactivate}`;
 }
 
-/* ============================================================
-   ACORDEON DE CATEGORIAS — comportamiento compartido por los 3
-   lugares que usan .svc-cat-group en admin.html (Active, el editor
-   "Update" de Approvals/Review, y Create Order):
-
-   - Un solo clic en una categoria la abre y CIERRA la que estuviera
-     abierta antes (nunca mas de una abierta a la vez, salvo que este
-     fijada).
-   - Doble clic la "fija" abierta permanentemente (no se cierra al
-     abrir otra) -- se marca con un candadito. Doble clic de nuevo la
-     desfija.
-   - El estado (cual esta abierta, cuales estan fijadas) se guarda
-     aparte del HTML, para que sobreviva cuando el acordeon se vuelve
-     a construir entero (por ejemplo al tocar una pastilla, que
-     recalcula los circulos de conteo) -- antes, reconstruir el HTML
-     resembla resembraba resembradas TODO como cerrado, aunque
-     estuviera abierta la categoria en la que el usuario seguia
-     trabajando.
-
-   "key" identifica el acordeon (por ejemplo 'active-GS-1234' o
-   'create'); dos acordeones con distinto key nunca comparten estado.
-============================================================ */
-function accState(key) {
-  const store = window['__accState'] || (window['__accState'] = {});
-  return store[key] || (store[key] = { open: null, pinned: {} });
-}
-
-/* Un solo clic: abre esta categoria, cierra la que estuviera abierta
-   antes (salvo que este fijada). Si esta categoria ya estaba abierta
-   y no esta fijada, la cierra. Si esta fijada, un clic sencillo no
-   hace nada (para eso esta el doble clic, que la desfija). */
-function accToggleCategory(wrapId, key, cat, headerEl) {
-  const wrap = document.getElementById(wrapId);
-  const group = headerEl.closest('.svc-cat-group');
-  if (!wrap || !group) return;
-  const st = accState(key);
-  const body = group.querySelector('.svc-cat-body');
-  const arrow = headerEl.querySelector('.svc-cat-arrow');
-  const isOpen = body.style.display === 'block';
-  const isPinned = !!st.pinned[cat];
-
-  if (isPinned) return; // fijada: solo el doble clic la mueve
-
-  if (isOpen) {
-    body.style.display = 'none';
-    if (arrow) arrow.style.transform = '';
-    if (st.open === cat) st.open = null;
-    return;
-  }
-
-  wrap.querySelectorAll('.svc-cat-group').forEach(g => {
-    if (g === group) return;
-    const gCat = g.dataset.cat;
-    if (st.pinned[gCat]) return;
-    const b = g.querySelector('.svc-cat-body');
-    const a = g.querySelector('.svc-cat-arrow');
-    if (b) b.style.display = 'none';
-    if (a) a.style.transform = '';
-  });
-
-  body.style.display = 'block';
-  if (arrow) arrow.style.transform = 'rotate(180deg)';
-  st.open = cat;
-}
-
-/* Doble clic: fija o desfija la categoria. Fijada, se queda abierta
-   aunque se abra otra -- se marca con un candadito en el encabezado. */
-function accPinCategory(key, cat, headerEl) {
-  const group = headerEl.closest('.svc-cat-group');
-  if (!group) return;
-  const st = accState(key);
-  const body = group.querySelector('.svc-cat-body');
-  const arrow = headerEl.querySelector('.svc-cat-arrow');
-  const pinEl = headerEl.querySelector('.svc-cat-pin');
-
-  st.pinned[cat] = !st.pinned[cat];
-
-  if (st.pinned[cat]) {
-    body.style.display = 'block';
-    if (arrow) arrow.style.transform = 'rotate(180deg)';
-    st.open = cat;
-    if (pinEl) pinEl.innerHTML = '&#128274;';
-  } else {
-    if (pinEl) pinEl.innerHTML = '';
-  }
-}
-
-/* Atributos iniciales (display/rotacion/candadito) para una categoria
-   al CONSTRUIR el HTML del acordeon, respetando el estado guardado en
-   vez de arrancar siempre cerrado -- para que sobreviva reconstruir
-   el HTML tras elegir un servicio. */
-function accInitialAttrs(key, cat) {
-  const st = accState(key);
-  const isPinned = !!st.pinned[cat];
-  const isOpen = isPinned || st.open === cat;
-  return {
-    display: isOpen ? 'block' : 'none',
-    rotate: isOpen ? 'rotate(180deg)' : '',
-    pinIcon: isPinned ? '&#128274;' : ''
-  };
-}
-
 function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
 
 /* Picker del catalogo nuevo (ServicesCatalog) para el editor de Active
@@ -4340,53 +4223,6 @@ async function requestReactivate(orderId) {
   } catch (e) {
     showToast('Error: ' + e.message);
   }
-}
-
-async function printOrder(orderId) {
-  const data = await api('/get-order-detail', { body: { orderId } });
-  const o = data.order || {};
-  const services = data.services || [];
-  const history = data.history || [];
-  const byCat = {};
-  services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
-  const svcHtml = Object.entries(byCat).map(([cat,list]) =>
-    `<tr><td><b>${esc(cat)}</b></td><td>${list.map(s => esc(s.ServiceName) + (isCatalogSku(s.SubOption) ? '' : ' — ' + esc(s.SubOption || ''))).join('<br>')}</td></tr>`
-  ).join('');
-  /* Print view: change detail is always visible (no click-to-expand on paper) */
-  const histHtml = history.map(h => {
-    const lines   = historyChangeLines(h);
-    const noteTxt = histNoteText(h);
-    const detail  = lines.length
-      ? `<div class="chg">${lines.map(l => `<div>${l}</div>`).join('')}</div>`
-      : '';
-    return `<tr>` +
-      `<td>${fmtDateTime(h.ChangeDate)}</td>` +
-      `<td>${esc(historyTypeLabel(h.ChangeType))}</td>` +
-      `<td>${esc(h.ChangedBy || '')}</td>` +
-      `<td>${noteTxt ? esc(noteTxt) : ''}${detail}</td>` +
-      `</tr>`;
-  }).join('');
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Order ${o.OrderID}</title>
-  <style>body{font-family:Arial,sans-serif;padding:40px;color:#111}h1{font-size:22px;margin-bottom:4px}
-  h2{font-size:14px;color:#666;margin:24px 0 8px;text-transform:uppercase;letter-spacing:.05em}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px}
-  td{padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top}
-  .meta{font-size:13px;color:#444;line-height:1.8}
-  .chg{margin-top:6px;padding:6px 10px;background:#f7f6f3;border-left:3px solid #C9A84C}
-  .chg div{font-size:12px;margin:2px 0}</style></head><body>
-  <h1>Order #${o.OrderID}</h1>
-  <p class="meta">${o.BusinessName} · ${o.Division} · ${o.Status}<br>
-  Entry: ${fmtDate(o.EntryDate)} · Due: ${fmtDate(o.DueDate)}<br>
-  Building/Unit: ${o.BuildingNumber||'—'} / ${o.UnitNumber||'—'} · Bed/Bath: ${o.Bedrooms||'—'} / ${o.Bathrooms||'—'}<br>
-  ${o.Supervisor?'Supervisor: '+o.Supervisor+'<br>':''}
-  ${o.Notes?'Notes: '+o.Notes:''}</p>
-  <h2>Services</h2><table>${svcHtml}</table>
-  <h2>History</h2><table>
-  <tr><td><b>Date</b></td><td><b>Event</b></td><td><b>By</b></td><td><b>Notes / Changes</b></td></tr>
-  ${histHtml}</table></body></html>`);
-  w.document.close();
-  setTimeout(() => w.print(), 400);
 }
 
 /* ============================================================
