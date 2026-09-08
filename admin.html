@@ -662,6 +662,13 @@
       <div class="pill" data-division="exteriors">Exteriors</div>
     </div>
     <div id="assigned-list"><p class="empty-note">Loading…</p></div>
+
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
+      <h3 class="order-id" style="margin-bottom:4px">Photos</h3>
+      <p class="section-sub">Photos taken on orders that are still active — not yet completed or cancelled.</p>
+      <div class="search-bar"><input type="text" id="employee-gallery-search" placeholder="Search by order number or client…" oninput="renderEmployeeGallery()"></div>
+      <div id="employee-gallery-list"><p class="empty-note">Loading…</p></div>
+    </div>
   </div>
 </div>
 
@@ -984,6 +991,7 @@ function showActiveSubTab(tab) {
   document.querySelectorAll('.active-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.activetab === tab));
   document.querySelectorAll('.active-subpanel').forEach(p => p.classList.toggle('active', p.id === 'activesub-' + tab));
   if (tab === 'employee' && typeof loadAssigned === 'function') loadAssigned();
+  if (tab === 'employee' && typeof loadEmployeeGallery === 'function') loadEmployeeGallery();
 }
 
 /* ============================================================
@@ -7132,6 +7140,53 @@ document.getElementById('assigned-division-pills').querySelectorAll('.pill').for
     renderAssignedList();
   });
 });
+
+/* ============================================================
+   GALLERY dentro de "By Employee" -- fotos de ordenes que SIGUEN
+   activas (Assigned/Updated), agrupadas por orden. Reusa el mismo
+   endpoint get-admin-gallery que tambien usa el tab Gallery de
+   History (statusFilter distinto en cada caso). Mismo criterio de
+   "buscador universal" ya usado en toda la app: numero de orden o
+   nombre del cliente, minusculas, coincidencia parcial.
+============================================================ */
+let employeeGalleryGroups = [];
+let employeeGalleryLoaded = false;
+
+async function loadEmployeeGallery() {
+  if (employeeGalleryLoaded) { renderEmployeeGallery(); return; }
+  const box = document.getElementById('employee-gallery-list');
+  box.innerHTML = '<p class="empty-note">Loading…</p>';
+  try {
+    const data = await api('/get-admin-gallery', { body: { statusFilter: 'active' } });
+    employeeGalleryGroups = data.groups || [];
+    employeeGalleryLoaded = true;
+    renderEmployeeGallery();
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load photos: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderEmployeeGallery() {
+  const box = document.getElementById('employee-gallery-list');
+  const q = (document.getElementById('employee-gallery-search').value || '').trim().toLowerCase();
+  let groups = employeeGalleryGroups;
+  if (q) {
+    groups = groups.filter(g =>
+      String(g.orderId || '').toLowerCase().includes(q) ||
+      String(g.clientLabel || '').toLowerCase().includes(q));
+  }
+  if (!employeeGalleryGroups.length) { box.innerHTML = '<p class="empty-note">No photos yet on active orders.</p>'; return; }
+  if (!groups.length) { box.innerHTML = '<p class="empty-note">No orders match that search.</p>'; return; }
+  box.innerHTML = groups.map(g => `
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        ${esc(g.orderId)} <span style="color:var(--gray);font-weight:400">${esc(g.clientLabel)} · ${esc(g.division)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">
+        ${g.photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="window.open(this.src)">').join('')}
+      </div>
+    </div>`).join('');
+}
 
 
 /* ============================================================
