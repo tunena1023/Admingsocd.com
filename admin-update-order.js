@@ -291,6 +291,34 @@ exports.handler = async (event) => {
       }
     }
 
+    /* ================================================================
+       ITEM 18 -- "Unidad no lista". Admin puede marcar el delay reason
+       'Site not ready' y editar fechas en el mismo Edit de siempre. Si
+       la fecha REAL cambio (Due o Dispatch), la asignacion vieja ya no
+       aplica -- la orden vuelve a Scheduling limpia (Supervisor/
+       ServiceWindow/DispatchDate en blanco) en vez de quedarse
+       "Assigned" con datos que ya no corresponden. Si solo cambio la
+       ventana de servicio (misma fecha, otra hora), no hace falta
+       re-agendar -- se queda asignada tal cual, con la ventana nueva.
+       En los 2 casos se resetean Materials Ready/Expected Ready Date/
+       Entry Time/Unit Occupied, porque ya no aplican a la situacion
+       vieja. Mismo criterio aplica cuando esto llega via Change
+       Request aprobado (ver admin-approve-order.js). */
+    const isNotReadyReport = delayReasonType === 'Site not ready' && patch.DelayReasonType !== undefined;
+    const realDateChanged = changes.some(c => c.control && (c.label === 'Due Date' || c.label === 'Dispatch Date'));
+    if (isNotReadyReport) {
+      if (realDateChanged) {
+        patch.Supervisor = '';
+        patch.ServiceWindow = '';
+        patch.DispatchDate = null;
+        changes.push({ label: 'Scheduling', old: 'Assigned', next: 'Sent back to Scheduling — site was not ready and the date changed', control: true });
+      }
+      patch.MaterialsReady = false;
+      patch.ExpectedReadyDate = null;
+      patch.EntryTime = '';
+      patch.UnitOccupied = false;
+    }
+
     try {
       await updateListItemByItemId(ORDERS_LIST, item.id, patch);
     } catch (patchErr) {

@@ -562,7 +562,44 @@ exports.handler = async (event) => {
     /* --- Guardar el estatus (y las fechas confirmadas, si hubo) --- */
     const patch = Object.assign({ Status: newStatus }, datePatch);
     if (decision === 'approve' && isCancel) patch.Archived = false;
+
+    /* ================================================================
+       ITEM 18 -- "Unidad no lista". Si se aprueba un Change Request
+       marcado con delay reason 'Site not ready' Y la fecha real
+       cambio (Due Date, confirmada arriba en datePatch), la
+       asignacion vieja ya no aplica -- la orden vuelve a Scheduling
+       limpia en vez de quedar "Assigned" con un supervisor/ventana
+       que corresponden a la fecha vieja. Si solo se confirmo una
+       ventana de servicio nueva (misma fecha), no hace falta
+       re-agendar. Mismo criterio que la version directa de Admin en
+       admin-update-order.js.
+    ================================================================ */
+    let sentBackToScheduling = false;
+    if (decision === 'approve' && isChange && String(f.DelayReasonType || '') === 'Site not ready') {
+      if (datePatch.DueDate) {
+        patch.Supervisor = '';
+        patch.ServiceWindow = '';
+        patch.DispatchDate = null;
+        sentBackToScheduling = true;
+      }
+      patch.MaterialsReady = false;
+      patch.ExpectedReadyDate = null;
+      patch.EntryTime = '';
+      patch.UnitOccupied = false;
+    }
+
     await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+
+    if (sentBackToScheduling) {
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title:        nextAdminLabel(),
+        ChangeType:   'Scheduling',
+        FieldChanged: 'Scheduling',
+        Notes:        'Sent back to Scheduling — the unit was not ready and the date changed.',
+        OldValue:     '',
+        NewValue:     ''
+      }));
+    }
 
     for (const [field, oldVal, newVal] of dateLogs) {
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
