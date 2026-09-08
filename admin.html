@@ -3669,19 +3669,19 @@ function buildAdminLegacyNote(orderId) {
 function buildAdminChipsHtml(orderId, division) {
   const propType = window['adminPropType_' + orderId] || 'Commercial';
   const sel = window['adminSvc_' + orderId] || {};
+  const selectedNames = new Set(Object.keys(sel[propType] || {}));
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  /* No se muestra nada hasta que se escribe algo -- ahorra espacio,
-     en vez de aventar decenas de servicios de un jalon que nadie
-     pidio ver todavia (mismo criterio aplicado en Update Services de
-     tech.gsocd.com). */
-  if (!q) return '<p class="empty-note">Type to search services…</p>';
-  /* Sin filtro de division a proposito -- confirmado con el usuario
-     que la busqueda debe cruzar todas las divisiones, no solo la de
-     esta orden. */
+  /* Los servicios YA seleccionados en esta orden siempre se ven --
+     hay que poder quitarlos o cambiarles de nivel sin tener que
+     escribir su nombre exacto primero. Solo el resto del catalogo
+     (lo que todavia no se ha elegido) espera a que se escriba algo,
+     para no aventar decenas de servicios de un jalon. Sin filtro de
+     division a proposito -- confirmado que la busqueda debe cruzar
+     todas las divisiones. */
   let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
-  list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  if (!list.length) return '<p class="empty-note">Type to search services…</p>';
   return list.map(s => {
     const active = (sel[propType] || {})[s.serviceName] === s.sku;
     return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleAdminSvcChip(\'' +
@@ -3697,15 +3697,17 @@ function buildAdminJanRowsHtml(orderId, division) {
   const propType = window['adminPropType_' + orderId] || 'Commercial';
   const sel = window['adminSvc_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const selectedNames = new Set(Object.keys(sel[propType] || {}));
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  if (!q) return '<p class="empty-note">Type to search services…</p>';
-  /* Sin filtro de division a proposito -- confirmado con el usuario
-     que la busqueda debe cruzar todas las divisiones, no solo la de
-     esta orden. */
+  /* Los servicios YA seleccionados en esta orden siempre se ven --
+     hay que poder cambiarles de nivel o quitarlos sin tener que
+     escribir su nombre exacto primero. Sin filtro de division a
+     proposito -- confirmado que la busqueda debe cruzar todas las
+     divisiones. */
   let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
-  list = list.filter(s => s.serviceName.toLowerCase().includes(q));
+  list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">No services match.</p>';
+  if (!list.length) return '<p class="empty-note">Type to search services…</p>';
   const levels = ['Level 1', 'Level 2', 'Level 3'];
   return list.map(s => {
     const isSel = (sel[propType] || {})[s.serviceName] === s.sku;
@@ -3847,14 +3849,15 @@ function pickAdminLevel(orderId, propType, svcName, sku, level) {
    la posicion ya activa deshace la seleccion masiva. */
 function adminSelectAllLevel(orderId, level, idx) {
   const propType = window['adminPropType_' + orderId] || 'Commercial';
+  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+  const selectedNames = new Set(Object.keys(sel[propType] || {}));
   const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  /* Sin filtro de division a proposito -- mismo criterio que
-     buildAdminChipsHtml/buildAdminJanRowsHtml, para que "Select all"
-     aplique exactamente a lo mismo que se ve en pantalla. */
+  /* Mismo criterio que buildAdminJanRowsHtml, para que "Select all"
+     aplique exactamente a lo mismo que se ve en pantalla: los ya
+     seleccionados siempre, mas lo que matchee la busqueda. */
   const visible = (activeCatalogCache || []).filter(s =>
     s.propertyType === propType &&
-    (!q || s.serviceName.toLowerCase().includes(q)));
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
+    (selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q))));
   const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
   const activeKey = 'adminSelAllActive_' + orderId;
   const thumb = document.getElementById('adminSelAllThumb-' + orderId);
