@@ -976,7 +976,7 @@
       grid.className = 'jan-row-grid';
       const levels = ['Level 1', 'Level 2', 'Level 3'];
       grid.innerHTML = list.map(s => {
-        const sel = (tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName] === s.sku;
+        const sel = String((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName]) === String(s.sku);
         const lvl = sel ? tplAdminSvcLevel[tplAdminSvcKey(tplAdminPropertyType, s.serviceName)] : null;
         return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
           '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
@@ -987,16 +987,16 @@
     } else {
       grid.className = 'svc-chip-grid';
       grid.innerHTML = list.map(s =>
-        '<button type="button" class="svc-chip' + ((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName] === s.sku ? ' active' : '') + '" onclick="tplAdminToggleChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
+        '<button type="button" class="svc-chip' + (String((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName]) === String(s.sku) ? ' active' : '') + '" onclick="tplAdminToggleChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
       ).join('');
     }
   }
 
   function tplAdminToggleChip(sku) {
-    const svc = tplAdminActiveCatalog().find(s => s.sku === sku);
+    const svc = tplAdminActiveCatalog().find(s => String(s.sku) === String(sku));
     if (!svc) return;
     if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
-    if (tplAdminSelected[tplAdminPropertyType][svc.serviceName] === sku) {
+    if (String(tplAdminSelected[tplAdminPropertyType][svc.serviceName]) === String(sku)) {
       delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
     } else {
       tplAdminSelected[tplAdminPropertyType][svc.serviceName] = sku;
@@ -1005,11 +1005,11 @@
   }
 
   function tplAdminPickLevel(sku, level) {
-    const svc = tplAdminActiveCatalog().find(s => s.sku === sku);
+    const svc = tplAdminActiveCatalog().find(s => String(s.sku) === String(sku));
     if (!svc) return;
     const k = tplAdminSvcKey(tplAdminPropertyType, svc.serviceName);
     if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
-    const already = tplAdminSelected[tplAdminPropertyType][svc.serviceName] === sku && tplAdminSvcLevel[k] === level;
+    const already = String(tplAdminSelected[tplAdminPropertyType][svc.serviceName]) === String(sku) && tplAdminSvcLevel[k] === level;
     if (already) {
       delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
       delete tplAdminSvcLevel[k];
@@ -1296,7 +1296,7 @@
   }
 
   async function saveServiceTime(sku, field, value) {
-    const s = allServiceTimes.find(x => x.sku === sku);
+    const s = allServiceTimes.find(x => String(x.sku) === String(sku));
     if (!s) return;
     const payload = { sku: s.sku, serviceName: s.serviceName, division: s.division, level1: s.level1, level2: s.level2, level3: s.level3 };
     payload[field] = value === '' ? '' : Number(value);

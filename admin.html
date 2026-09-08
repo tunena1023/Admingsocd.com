@@ -2165,7 +2165,7 @@ function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
    aparte en ServiceName). Las ordenes viejas en formato por-cuarto
    siguen mostrando su SubOption real (texto legible) sin cambio. */
 function isCatalogSku(sub) {
-  return (activeCatalogCache || []).some(s => s.sku === sub);
+  return (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
 }
 
 function reviewSvcTableHtml(services) {
@@ -2270,7 +2270,7 @@ function apprInferPropType(orderId, division) {
   for (const c of Object.keys(sel)) {
     for (const svcName in (sel[c] || {})) {
       const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division.toLowerCase() === String(division).toLowerCase());
+      const found = (activeCatalogCache || []).find(s => String(s.sku) === String(sku) && s.division.toLowerCase() === String(division).toLowerCase());
       if (found) return found.propertyType;
     }
   }
@@ -2282,7 +2282,7 @@ function apprLegacyNote(orderId) {
   const legacyNames = [];
   Object.entries(sel).forEach(([, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      const known = (activeCatalogCache || []).some(s => s.sku === sub);
+      const known = (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
       if (!known) legacyNames.push(svcName);
     });
   });
@@ -2301,7 +2301,7 @@ function apprChipsHtml(orderId, division) {
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">No services match.</p>';
   return list.map(s => {
-    const active = (sel[propType] || {})[s.serviceName] === s.sku;
+    const active = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
     return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleApprChip(\'' +
       jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
   }).join('');
@@ -2321,7 +2321,7 @@ function apprJanRowsHtml(orderId, division) {
   if (!list.length) return '<p class="empty-note">No services match.</p>';
   const levels = ['Level 1', 'Level 2', 'Level 3'];
   return list.map(s => {
-    const isSel = (sel[propType] || {})[s.serviceName] === s.sku;
+    const isSel = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
     const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
     return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
       '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
@@ -2377,7 +2377,7 @@ function rerenderApprChips(orderId) {
 function toggleApprChip(orderId, propType, svcName, sku) {
   const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
   if (!sel[propType]) sel[propType] = {};
-  if (sel[propType][svcName] === sku) {
+  if (String(sel[propType][svcName]) === String(sku)) {
     delete sel[propType][svcName];
     if (!Object.keys(sel[propType]).length) delete sel[propType];
   } else {
@@ -2393,7 +2393,7 @@ function pickApprLevel(orderId, propType, svcName, sku, level) {
   const levelState = window['apprLevel_' + orderId] || (window['apprLevel_' + orderId] = {});
   const k = ncKey(propType, svcName);
   if (!sel[propType]) sel[propType] = {};
-  const already = sel[propType][svcName] === sku && levelState[k] === level;
+  const already = String(sel[propType][svcName]) === String(sku) && levelState[k] === level;
   if (already) {
     delete sel[propType][svcName];
     if (!Object.keys(sel[propType]).length) delete sel[propType];
@@ -3730,7 +3730,7 @@ function inferPropType(orderId, division) {
   for (const c of Object.keys(sel)) {
     for (const svcName in (sel[c] || {})) {
       const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => s.sku === sku && s.division.toLowerCase() === String(division).toLowerCase());
+      const found = (activeCatalogCache || []).find(s => String(s.sku) === String(sku) && s.division.toLowerCase() === String(division).toLowerCase());
       if (found) return found.propertyType;
     }
   }
@@ -3742,7 +3742,7 @@ function buildAdminLegacyNote(orderId) {
   const legacyNames = [];
   Object.entries(sel).forEach(([, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      const known = (activeCatalogCache || []).some(s => s.sku === sub);
+      const known = (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
       if (!known) legacyNames.push(svcName);
     });
   });
@@ -3769,7 +3769,7 @@ function buildAdminChipsHtml(orderId, division) {
   list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
   if (!list.length) return '<p class="empty-note">Type to search services…</p>';
   return list.map(s => {
-    const active = (sel[propType] || {})[s.serviceName] === s.sku;
+    const active = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
     return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleAdminSvcChip(\'' +
       jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
   }).join('');
@@ -3796,7 +3796,7 @@ function buildAdminJanRowsHtml(orderId, division) {
   if (!list.length) return '<p class="empty-note">Type to search services…</p>';
   const levels = ['Level 1', 'Level 2', 'Level 3'];
   return list.map(s => {
-    const isSel = (sel[propType] || {})[s.serviceName] === s.sku;
+    const isSel = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
     const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
     return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
       '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
@@ -3888,7 +3888,7 @@ function rerenderAdminServiceRows(orderId) {
 function toggleAdminSvcChip(orderId, propType, svcName, sku) {
   const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
   if (!sel[propType]) sel[propType] = {};
-  if (sel[propType][svcName] === sku) {
+  if (String(sel[propType][svcName]) === String(sku)) {
     delete sel[propType][svcName];
     if (!Object.keys(sel[propType]).length) delete sel[propType];
     const ncState = window['adminNC_' + orderId] || {};
@@ -3911,7 +3911,7 @@ function pickAdminLevel(orderId, propType, svcName, sku, level) {
   const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
   const k = ncKey(propType, svcName);
   if (!sel[propType]) sel[propType] = {};
-  const already = sel[propType][svcName] === sku && levelState[k] === level;
+  const already = String(sel[propType][svcName]) === String(sku) && levelState[k] === level;
   if (already) {
     delete sel[propType][svcName];
     if (!Object.keys(sel[propType]).length) delete sel[propType];
@@ -5715,7 +5715,7 @@ function toggleCreateChip(sku) {
   if (createSelected.has(sku)) {
     createSelected.delete(sku);
   } else {
-    const svc = createCatalogCache.find(s => s.sku === sku);
+    const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
     if (svc) createSelected.set(sku, svc);
   }
   renderCreateServiceChips();
@@ -5726,7 +5726,7 @@ function pickCreateLevel(sku, level) {
   if (existing && existing.level === level) {
     createSelected.delete(sku);
   } else {
-    const svc = createCatalogCache.find(s => s.sku === sku);
+    const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
     if (svc) createSelected.set(sku, Object.assign({}, svc, { level }));
   }
   renderCreateServiceChips();
@@ -6397,11 +6397,15 @@ let pendingDirectLinkOrderId = null;
 
 let scheduleTabInitialized = false;
 function onScheduleTabOpened() {
-  const linkedOrderId = new URLSearchParams(location.search).get('orderId');
-  if (linkedOrderId && !scheduleTabInitialized) {
+  /* Antes esto abria 'orders' si venias de un link directo a una orden,
+     pero 'reports' (que nunca existio como sub-tab real) si abrias
+     Schedule normal -- showSubTab('reports') no encontraba ningun boton
+     ni panel con ese nombre, asi que apagaba el 'active' de TODOS sin
+     prenderselo a ninguno: se veia vacio, sin ningun tab seleccionado.
+     Ahora siempre abre en 'orders' la primera vez, sin importar como
+     se haya llegado. */
+  if (!scheduleTabInitialized) {
     showSubTab('orders');
-  } else if (!scheduleTabInitialized) {
-    showSubTab('reports');
   }
   scheduleTabInitialized = true;
 }
@@ -6670,7 +6674,7 @@ function renderRoutingSuggested() {
   box.innerHTML = '<div class="routing-suggested-card">' +
     '<div style="font-size:12px;font-weight:700;margin-bottom:4px">Suggested block</div>' +
     '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">' + block.length + ' nearby stops, closest due dates: ' + block.map(o => esc(o.BusinessName || o.ClientID)).join(', ') + '</div>' +
-    '<button type="button" class="routing-add-btn" onclick=\'addSuggestedBlock(' + JSON.stringify(block.map(o => o.OrderID)) + ')\'>+ Add all ' + block.length + '</button>' +
+    '<button type="button" class="routing-add-btn" onclick=\'addSuggestedBlock(' + escAttr(JSON.stringify(block.map(o => o.OrderID))) + ')\'>+ Add all ' + block.length + '</button>' +
     '</div>';
 }
 
@@ -6965,7 +6969,7 @@ async function previewManualRoute() {
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
     (route && route.legs && route.legs.length ? legBreakdownHtml(stops, route.legs) : '') +
     testingNote +
-    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" ' + (realOrderIds.length ? '' : 'disabled title="Only test clients selected \u2014 nothing real to assign yet."') + ' onclick=\'assignRoutingBlock(' + JSON.stringify(realOrderIds) + ')\'>Assign This Block</button>' +
+    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" ' + (realOrderIds.length ? '' : 'disabled title="Only test clients selected \u2014 nothing real to assign yet."') + ' onclick=\'assignRoutingBlock(' + escAttr(JSON.stringify(realOrderIds)) + ')\'>Assign This Block</button>' +
     (realOrderIds.length ? '' : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
     '</div>');
 }
