@@ -1307,6 +1307,28 @@ const NEW_ORDER_STATUSES = ['Received'];
 const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
 const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
                        'Reschedule Requested', 'Change Requested by Client'];
+
+/* ============================================================
+   CAPACIDADES POR CONTEXTO -- renderOrderDetail() muestra el mismo
+   detalle de orden desde 3 lugares distintos (Active, By Employee/
+   'assigned', History), cada uno con sus propios botones. Antes esto
+   vivia en 4 lineas sueltas, cada una decidiendo por su cuenta
+   (context === 'active' aqui, context === 'assigned' alla...) -- fue
+   asi como By Employee termino heredando el formulario de editar sin
+   que nadie lo hubiera decidido a proposito (bug real, ya corregido).
+   Con esta tabla, agregar un contexto nuevo en el futuro es una
+   columna nueva aqui, no acordarse de revisar 4 lugares regados por
+   el archivo. NO cambia nada de lo que ve el usuario -- mismo
+   comportamiento de siempre, solo centralizado. */
+const ORDER_CONTEXT_CAPABILITIES = {
+  active:   { edit: true,  reactivate: false, goToOrder: false, addUnit: true  },
+  assigned: { edit: false, reactivate: false, goToOrder: true,  addUnit: false },
+  history:  { edit: false, reactivate: true,  goToOrder: false, addUnit: false }
+};
+function contextCan(context, capability) {
+  return !!(ORDER_CONTEXT_CAPABILITIES[context] || {})[capability];
+}
+
 /* El password del director ya no vive aqui -- ver promptDirectorPassword(),
    que lo valida contra el backend (lista Settings, con respaldo seguro
    mientras se termina de configurar). */
@@ -2821,7 +2843,7 @@ function batchOrderGroupCard(batchId, units, context) {
         <span style="font-size:11px;color:var(--gray)">▼</span>
       </div>
       <div class="order-body" id="${id}" style="padding:16px">
-        ${context === 'active' ? addUnitWidgetHtml(clientId, batchId) : ''}
+        ${contextCan(context, 'addUnit') ? addUnitWidgetHtml(clientId, batchId) : ''}
         ${innerHtml}
       </div>
     </div>`;
@@ -3528,7 +3550,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
      camino doble: el director la aprueba con password desde Review, O
      el cliente la confirma el mismo desde su portal -- el que actue
      primero gana, sin necesidad de coordinarse entre ellos. */
-  const historyReactivate = (context === 'history' && o.Status === 'Cancelled') ? `
+  const historyReactivate = (contextCan(context, 'reactivate') && o.Status === 'Cancelled') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
@@ -3541,7 +3563,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
-  const editForm = (context === 'active') ? `
+  const editForm = contextCan(context, 'edit') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
@@ -3612,7 +3634,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
      debio estar ahi. Ahora solo un boton que lleva a la orden real,
      en el tab que le corresponda segun su estatus (Approvals/Review/
      Active/History) -- reusa goToOrderInAnyTab, ya existente. */
-  const assignedViewOnly = (context === 'assigned') ? `
+  const assignedViewOnly = contextCan(context, 'goToOrder') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <button class="btn btn-outline" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">Go to this order →</button>
     </div>` : '';
