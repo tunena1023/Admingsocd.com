@@ -597,7 +597,6 @@
   <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span></button>
   <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
   <button class="tab" onclick="showTab('history')">History</button>
-  <button class="tab" onclick="showTab('assigned')">Assigned</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
   <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
   <button class="tab" onclick="showTab('schedule')">Schedule</button>
@@ -636,11 +635,34 @@
 <div class="panel" id="panel-active">
   <h2 class="section-title">Active Orders</h2>
   <p class="section-sub">Approved orders in progress. Click an order to move it forward, or to edit supervisor, notes or services.</p>
-<div class="search-bar">
-  <input type="text" id="active-search" placeholder="Search by order number or client…" oninput="filterActive()">
-</div>
-  <div id="active-toolbar"></div>
-  <div id="active-list"><p class="empty-note">Loading…</p></div>
+  <!-- Sub-tabs: 'Assigned' vivia como tab de primer nivel, pero es la
+       MISMA data que Active (una orden no puede estar en 2 lugares al
+       mismo tiempo) -- solo es otra forma de verla, agrupada por
+       empleado en vez de en lista plana. Namespaced con sus propias
+       clases (active-subtab / active-subpanel) para no chocar con
+       Schedule (.subtab/.subpanel a secas) ni con Clients
+       (.clients-subtab/.clients-subpanel). -->
+  <div class="subtabs">
+    <button class="subtab active-subtab active" data-activetab="all" onclick="showActiveSubTab('all')">All</button>
+    <button class="subtab active-subtab" data-activetab="employee" onclick="showActiveSubTab('employee')">By Employee</button>
+  </div>
+  <div class="subpanel active-subpanel active" id="activesub-all">
+    <div class="search-bar">
+      <input type="text" id="active-search" placeholder="Search by order number or client…" oninput="filterActive()">
+    </div>
+    <div id="active-toolbar"></div>
+    <div id="active-list"><p class="empty-note">Loading…</p></div>
+  </div>
+  <div class="subpanel active-subpanel" id="activesub-employee">
+    <p class="section-sub">What each field employee has on their plate — Recurring contracts and Scheduling assignments, in one place.</p>
+    <div class="pill-row" id="assigned-division-pills">
+      <div class="pill active" data-division="">All</div>
+      <div class="pill" data-division="janitorial">Janitorial</div>
+      <div class="pill" data-division="renovations">Renovations</div>
+      <div class="pill" data-division="exteriors">Exteriors</div>
+    </div>
+    <div id="assigned-list"><p class="empty-note">Loading…</p></div>
+  </div>
 </div>
 
 <!-- HISTORY -->
@@ -652,19 +674,6 @@
   </div>
   <div id="history-toolbar"></div>
   <div id="history-list"><p class="empty-note">Loading…</p></div>
-</div>
-
-<!-- ASSIGNED -->
-<div class="panel" id="panel-assigned">
-  <h2 class="section-title">Assigned</h2>
-  <p class="section-sub">What each field employee has on their plate — Recurring contracts and Scheduling assignments, in one place.</p>
-  <div class="pill-row" id="assigned-division-pills">
-    <div class="pill active" data-division="">All</div>
-    <div class="pill" data-division="janitorial">Janitorial</div>
-    <div class="pill" data-division="renovations">Renovations</div>
-    <div class="pill" data-division="exteriors">Exteriors</div>
-  </div>
-  <div id="assigned-list"><p class="empty-note">Loading…</p></div>
 </div>
 
 
@@ -929,18 +938,21 @@ let createUnitCardCounter = 0;
    TABS
 ============================================================ */
 function showTab(tab) {
+  /* 'assigned' ya no es un tab de primer nivel -- ahora vive como
+     sub-tab dentro de Active. Se redirige aqui por si algun link viejo
+     (favorito, ?tab=assigned) todavia apunta al nombre anterior. */
+  if (tab === 'assigned') { showTab('active'); showActiveSubTab('employee'); return; }
   /* 'create' ya no es un tab de primer nivel -- ahora vive como
      sub-tab dentro de Clients. Se redirige aqui por si algun link
      viejo (favorito, ?tab=create) todavia apunta al nombre anterior. */
   if (tab === 'create') { showTab('clients'); showClientsSubTab('create'); return; }
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','assigned','clients', null, 'schedule'];
+    const tabs = ['approvals','review','active','history','clients', null, 'schedule'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
-  if (tab === 'assigned' && typeof loadAssigned === 'function') loadAssigned();
   /* Se vuelve a pedir la lista de clientes fresca cada vez que se abre
      este tab -- asi Clients y el picker de "Create Order" reflejan un
      cliente recien desactivado desde Developer sin tener que recargar
@@ -959,6 +971,19 @@ function showClientsSubTab(tab) {
   if (tab === 'create') {
     if (typeof refreshAllClients === 'function') refreshAllClients();
   }
+}
+
+/* Sub-tabs de Active (All / By Employee) -- 'Assigned' vivia como tab
+   de primer nivel, pero una misma orden no puede estar en 2 lugares
+   al mismo tiempo: es la MISMA data de Active, solo agrupada por
+   empleado en vez de en lista plana. Namespaced con sus propias
+   clases (active-subtab / active-subpanel), mismo criterio que
+   Clients, para no chocar con Schedule (.subtab/.subpanel a secas,
+   ese esta scoped a #panel-schedule en su propio showSubTab). */
+function showActiveSubTab(tab) {
+  document.querySelectorAll('.active-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.activetab === tab));
+  document.querySelectorAll('.active-subpanel').forEach(p => p.classList.toggle('active', p.id === 'activesub-' + tab));
+  if (tab === 'employee' && typeof loadAssigned === 'function') loadAssigned();
 }
 
 /* ============================================================
