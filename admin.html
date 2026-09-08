@@ -573,12 +573,35 @@
     .commit-tag { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
     .tag-recurring { background: #E8DFC5; color: #8C6F2A; }
     .tag-order { background: var(--black); color: var(--white); }
+
+    /* ===== Lightbox de fotos -- se ve la imagen completa AQUI MISMO,
+       nunca navegando al downloadUrl de Graph directo (eso es lo que
+       causaba que la foto se descargara en vez de abrirse en movil).
+       Mismo componente ya usado en tech.gsocd.com, portado aqui para
+       los 3 lugares donde Admin muestra fotos. ===== */
+    .lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:600;align-items:center;justify-content:center}
+    .lightbox-overlay.open{display:flex}
+    .lightbox-img{max-width:90vw;max-height:82vh;object-fit:contain;border-radius:4px}
+    .lightbox-close{position:absolute;top:18px;right:22px;background:none;border:none;color:#fff;font-size:28px;line-height:1;cursor:pointer;padding:6px}
+    .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:28px;line-height:1;cursor:pointer;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    .lightbox-nav:disabled{opacity:.25;cursor:default}
+    .lightbox-prev{left:16px}
+    .lightbox-next{right:16px}
+    .lightbox-counter{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);color:#ddd;font-size:12px;letter-spacing:.04em}
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+
+<div class="lightbox-overlay" id="lightbox-overlay" onclick="if(event.target===this) closeLightbox()">
+  <button type="button" class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" onclick="lightboxNav(-1)">‹</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
+  <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" onclick="lightboxNav(1)">›</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+</div>
 
 <nav>
   <div class="nav-logo">
@@ -2039,9 +2062,10 @@ async function toggleSupervisorGallery(orderId, galleryId) {
   try {
     const data = await api('/get-order-photos', { body: { orderId } });
     const photos = data.photos || [];
+    orderGalleryPhotos[galleryId] = photos;
     box.innerHTML = photos.length
       ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-bottom:14px">' +
-        photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" onclick="window.open(this.src)">').join('') +
+        photos.map((p, pi) => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox(\'order\',\'' + escAttr(galleryId) + '\',' + pi + ')">').join('') +
         '</div>'
       : '<p class="empty-note" style="margin-bottom:14px">No photos yet for this order.</p>';
     box.dataset.loaded = 'true';
@@ -7206,15 +7230,18 @@ function renderEmployeeGallery() {
   }
   if (!employeeGalleryGroups.length) { box.innerHTML = '<p class="empty-note">No photos yet on active orders.</p>'; return; }
   if (!groups.length) { box.innerHTML = '<p class="empty-note">No orders match that search.</p>'; return; }
-  box.innerHTML = groups.map(g => `
+  box.innerHTML = groups.map(g => {
+    const gi = employeeGalleryGroups.indexOf(g);
+    return `
     <div style="margin-bottom:20px">
       <div style="font-size:12px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
         ${esc(g.orderId)} <span style="color:var(--gray);font-weight:400">${esc(g.clientLabel)} · ${esc(g.division)}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">
-        ${g.photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="window.open(this.src)">').join('')}
+        ${g.photos.map((p, pi) => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="openLightbox(\'employee\',' + gi + ',' + pi + ')">').join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /* ============================================================
@@ -7250,15 +7277,18 @@ function renderHistoryGallery() {
   const emptyMsg = historyGalleryStatusFilter === 'completed' ? 'No photos yet on completed orders.' : 'No photos yet.';
   if (!historyGalleryGroups.length) { box.innerHTML = '<p class="empty-note">' + emptyMsg + '</p>'; return; }
   if (!groups.length) { box.innerHTML = '<p class="empty-note">No orders match that search.</p>'; return; }
-  box.innerHTML = groups.map(g => `
+  box.innerHTML = groups.map(g => {
+    const gi = historyGalleryGroups.indexOf(g);
+    return `
     <div style="margin-bottom:20px">
       <div style="font-size:12px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
         ${esc(g.orderId)} <span style="color:var(--gray);font-weight:400">${esc(g.clientLabel)} · ${esc(g.division)}${g.status ? ' · ' + esc(g.status) : ''}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">
-        ${g.photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="window.open(this.src)">').join('')}
+        ${g.photos.map((p, pi) => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="openLightbox(\'history\',' + gi + ',' + pi + ')">').join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 document.getElementById('history-gallery-status-pills').querySelectorAll('.pill').forEach(p => {
@@ -7274,6 +7304,67 @@ document.getElementById('history-gallery-status-pills').querySelectorAll('.pill'
 /* ============================================================
    INIT
 ============================================================ */
+/* ============================================================
+   LIGHTBOX de fotos -- compartido por los 3 lugares donde Admin
+   muestra fotos (Gallery dentro de una orden, la seccion Photos de
+   By Employee, y el tab Gallery de History). Cada uno tiene una
+   forma distinta de guardar sus fotos (una orden = arreglo plano;
+   los otros 2 = arreglos agrupados por orden), asi que el lightbox
+   no guarda las fotos el mismo -- solo un "source" + argumento, y
+   pregunta a getLightboxPhotos() cual arreglo real usar cada vez.
+============================================================ */
+let orderGalleryPhotos = {}; // por galleryId -- ver toggleSupervisorGallery
+let lightboxSourceKey = null; // 'order' | 'employee' | 'history'
+let lightboxSourceArg = null; // galleryId (order) o indice de grupo (employee/history)
+let lightboxIndex = null;
+
+function getLightboxPhotos() {
+  if (lightboxSourceKey === 'order') return orderGalleryPhotos[lightboxSourceArg] || [];
+  if (lightboxSourceKey === 'employee') return (employeeGalleryGroups[lightboxSourceArg] || {}).photos || [];
+  if (lightboxSourceKey === 'history') return (historyGalleryGroups[lightboxSourceArg] || {}).photos || [];
+  return [];
+}
+
+function openLightbox(sourceKey, sourceArg, index) {
+  lightboxSourceKey = sourceKey;
+  lightboxSourceArg = sourceArg;
+  lightboxIndex = index;
+  renderLightbox();
+  document.getElementById('lightbox-overlay').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox-overlay').classList.remove('open');
+  lightboxSourceKey = null;
+  lightboxSourceArg = null;
+  lightboxIndex = null;
+}
+
+function lightboxNav(delta) {
+  const photos = getLightboxPhotos();
+  const next = lightboxIndex + delta;
+  if (next < 0 || next >= photos.length) return;
+  lightboxIndex = next;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  const photos = getLightboxPhotos();
+  const photo = photos[lightboxIndex];
+  if (!photo) return;
+  document.getElementById('lightbox-img').src = photo.downloadUrl;
+  document.getElementById('lightbox-counter').textContent = (lightboxIndex + 1) + ' / ' + photos.length;
+  document.getElementById('lightbox-prev').disabled = lightboxIndex === 0;
+  document.getElementById('lightbox-next').disabled = lightboxIndex === photos.length - 1;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('lightbox-overlay').classList.contains('open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') lightboxNav(-1);
+  if (e.key === 'ArrowRight') lightboxNav(1);
+});
+
 initAuth();
 </script>
 </body>
