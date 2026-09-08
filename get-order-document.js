@@ -8,7 +8,6 @@
 
    GET /.netlify/functions/get-order-document?orderId=GS-6062-1010
        &clientId=GS-6062   (opcional; si viene, se valida el dueno)
-       &meta=1             (solo datos, sin bajar el archivo)
 ============================================================ */
 const {
   ORDERS_LIST, graphFetch, siteListPath, downloadById, jsonResponse
@@ -47,12 +46,6 @@ exports.handler = async (event) => {
     if (!found) {
       return jsonResponse(404, {
         error: 'No document available yet. It is created once the order is approved.'
-      });
-    }
-
-    if (p.meta) {
-      return jsonResponse(200, {
-        document: { name: found.name, revision: found.revision, webUrl: found.webUrl }
       });
     }
 
