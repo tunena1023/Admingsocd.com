@@ -27,6 +27,7 @@ const {
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf, latestOrderPdf } = require('./lib/orderpdf');
+const { notifyOrderTechs } = require('./lib/push');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
 
@@ -374,6 +375,11 @@ exports.handler = async (event) => {
           dispatchDate: patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate
         })
       }));
+      notifyOrderTechs(orderId, {
+        title: 'New order assigned',
+        body: 'Order ' + orderId + ' was just assigned to you.',
+        url: '/employee.html'
+      });
     }
 
     let servicesChanged = false;
@@ -443,6 +449,14 @@ exports.handler = async (event) => {
       }));
     }
 
+    if (statusChanged && status === 'Completed') {
+      notifyOrderTechs(orderId, {
+        title: 'Order marked Completed',
+        body: 'Order ' + orderId + ' was marked as Completed.',
+        url: '/employee.html'
+      });
+    }
+
     /* ------------------------------------------------------------------
        PDF: solo si cambiaron datos de control Y la orden ya fue aprobada
        (ya existe al menos un PDF). Imprimir nunca genera; el boton Print
@@ -472,6 +486,17 @@ exports.handler = async (event) => {
           OldValue:     previous.name || '',
           NewValue:     pdf.ok ? pdf.fileName : ''
         }));
+        /* Push solo si esto NO es la primera asignacion NI un marcado
+           de Completed (esos 2 ya mandan su propio push, con un
+           mensaje mas especifico -- mandar este tambien se sentiria
+           como notificaciones duplicadas por la misma accion). */
+        if (!(wasUnassigned && nowAssigned) && !(statusChanged && status === 'Completed')) {
+          notifyOrderTechs(orderId, {
+            title: 'Order updated',
+            body: 'Something changed on order ' + orderId + '.',
+            url: '/employee.html'
+          });
+        }
       }
     }
 
