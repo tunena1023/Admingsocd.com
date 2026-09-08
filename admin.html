@@ -3480,7 +3480,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
-  const editForm = (context === 'active' || context === 'assigned') ? `
+  const editForm = (context === 'active') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
       <p class="detail-label" style="margin-bottom:4px">Order Status</p>
       <p class="meta-line" style="margin-bottom:16px">
@@ -3539,6 +3539,21 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
             onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
         </div>
       </div>
+    </div>` : '';
+
+  /* "By Employee" (context 'assigned') es SOLO para ver que tiene
+     cada quien en su plato esta semana -- nunca para editar desde
+     ahi. Antes compartia el mismo editForm de arriba (misma
+     condicion que 'active'), lo que dejaba "editar" una orden desde
+     una vista que ni siquiera es la principal de esa orden -- y si
+     ya tenia una solicitud pendiente, el guardado fallaba con un
+     error correcto pero confuso, porque la opcion de editar nunca
+     debio estar ahi. Ahora solo un boton que lleva a la orden real,
+     en el tab que le corresponda segun su estatus (Approvals/Review/
+     Active/History) -- reusa goToOrderInAnyTab, ya existente. */
+  const assignedViewOnly = (context === 'assigned') ? `
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+      <button class="btn btn-outline" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">Go to this order →</button>
     </div>` : '';
 
   /* "Services Requested": caja colapsable (fondo tenue + cursor que
@@ -3606,7 +3621,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
       </span>
     </div>
-    ${editForm}${historyReactivate}`;
+    ${editForm}${assignedViewOnly}${historyReactivate}`;
 }
 
 /* ============================================================
