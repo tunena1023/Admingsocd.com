@@ -675,12 +675,32 @@
 <!-- HISTORY -->
 <div class="panel" id="panel-history">
   <h2 class="section-title">Order History</h2>
-  <p class="section-sub">Completed and cancelled orders.</p>
-  <div class="search-bar">
-    <input type="text" id="history-search" placeholder="Search by order number…" oninput="filterHistory()">
+
+  <div class="subtabs history-subtabs">
+    <button class="subtab history-subtab active" data-historytab="orders" onclick="showHistorySubTab('orders')">Orders</button>
+    <button class="subtab history-subtab" data-historytab="gallery" onclick="showHistorySubTab('gallery')">Gallery</button>
   </div>
-  <div id="history-toolbar"></div>
-  <div id="history-list"><p class="empty-note">Loading…</p></div>
+
+  <div class="subpanel history-subpanel active" id="historysub-orders">
+    <p class="section-sub">Completed and cancelled orders.</p>
+    <div class="search-bar">
+      <input type="text" id="history-search" placeholder="Search by order number…" oninput="filterHistory()">
+    </div>
+    <div id="history-toolbar"></div>
+    <div id="history-list"><p class="empty-note">Loading…</p></div>
+  </div>
+
+  <div class="subpanel history-subpanel" id="historysub-gallery">
+    <p class="section-sub">Photos taken across orders, grouped by order.</p>
+    <div class="pill-row" id="history-gallery-status-pills">
+      <div class="pill active" data-status="completed">Completed</div>
+      <div class="pill" data-status="all">All</div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="history-gallery-search" placeholder="Search by order number or client…" oninput="renderHistoryGallery()">
+    </div>
+    <div id="history-gallery-list"><p class="empty-note">Loading…</p></div>
+  </div>
 </div>
 
 
@@ -992,6 +1012,15 @@ function showActiveSubTab(tab) {
   document.querySelectorAll('.active-subpanel').forEach(p => p.classList.toggle('active', p.id === 'activesub-' + tab));
   if (tab === 'employee' && typeof loadAssigned === 'function') loadAssigned();
   if (tab === 'employee' && typeof loadEmployeeGallery === 'function') loadEmployeeGallery();
+}
+
+/* Sub-tabs de History (Orders / Gallery) -- namespaced con sus
+   propias clases (history-subtab / history-subpanel), mismo criterio
+   ya usado en Active/Clients para no chocar con Schedule. */
+function showHistorySubTab(tab) {
+  document.querySelectorAll('.history-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.historytab === tab));
+  document.querySelectorAll('.history-subpanel').forEach(p => p.classList.toggle('active', p.id === 'historysub-' + tab));
+  if (tab === 'gallery' && typeof loadHistoryGallery === 'function') loadHistoryGallery();
 }
 
 /* ============================================================
@@ -7187,6 +7216,59 @@ function renderEmployeeGallery() {
       </div>
     </div>`).join('');
 }
+
+/* ============================================================
+   GALLERY dentro de History -- por default solo ordenes Completed;
+   sub-tab "All" trae todo sin importar status. Mismo endpoint
+   get-admin-gallery, mismo criterio de buscador universal, mismo
+   patron visual que la Gallery de By Employee.
+============================================================ */
+let historyGalleryGroups = [];
+let historyGalleryStatusFilter = 'completed';
+
+async function loadHistoryGallery() {
+  const box = document.getElementById('history-gallery-list');
+  box.innerHTML = '<p class="empty-note">Loading…</p>';
+  try {
+    const data = await api('/get-admin-gallery', { body: { statusFilter: historyGalleryStatusFilter } });
+    historyGalleryGroups = data.groups || [];
+    renderHistoryGallery();
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load photos: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderHistoryGallery() {
+  const box = document.getElementById('history-gallery-list');
+  const q = (document.getElementById('history-gallery-search').value || '').trim().toLowerCase();
+  let groups = historyGalleryGroups;
+  if (q) {
+    groups = groups.filter(g =>
+      String(g.orderId || '').toLowerCase().includes(q) ||
+      String(g.clientLabel || '').toLowerCase().includes(q));
+  }
+  const emptyMsg = historyGalleryStatusFilter === 'completed' ? 'No photos yet on completed orders.' : 'No photos yet.';
+  if (!historyGalleryGroups.length) { box.innerHTML = '<p class="empty-note">' + emptyMsg + '</p>'; return; }
+  if (!groups.length) { box.innerHTML = '<p class="empty-note">No orders match that search.</p>'; return; }
+  box.innerHTML = groups.map(g => `
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        ${esc(g.orderId)} <span style="color:var(--gray);font-weight:400">${esc(g.clientLabel)} · ${esc(g.division)}${g.status ? ' · ' + esc(g.status) : ''}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">
+        ${g.photos.map(p => '<img src="' + esc(p.downloadUrl) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer" loading="lazy" onclick="window.open(this.src)">').join('')}
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('history-gallery-status-pills').querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.getElementById('history-gallery-status-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    historyGalleryStatusFilter = p.dataset.status;
+    loadHistoryGallery();
+  });
+});
 
 
 /* ============================================================
