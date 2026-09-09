@@ -231,6 +231,7 @@
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.7/date-time-picker/date-time-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -767,7 +768,6 @@
   let tplAdminPropertyType = 'Commercial';
   let tplAdminSelected = {};
   let tplAdminSvcLevel = {};
-  let tplAdminSelAllActive = null;
   let tplAdminEditingId = null;
 
   function tplAdminSvcKey(p, n) { return p + '|' + n; }
@@ -860,7 +860,7 @@
     document.getElementById('tpl-admin-editor-title').textContent = 'New Office Template';
     document.getElementById('tpl-admin-name').value = '';
     tplAdminCurrentDiv = 'Janitorial';
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
     document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
       const active = b.dataset.div === tplAdminCurrentDiv;
       b.classList.toggle('active', active);
@@ -879,7 +879,7 @@
     document.getElementById('tpl-admin-editor-title').textContent = 'Editing: ' + t.name;
     document.getElementById('tpl-admin-name').value = t.name;
     tplAdminCurrentDiv = t.division || 'Janitorial';
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
     (t.services || []).forEach(s => {
       const cat = s.Category || 'Commercial';
       if (!tplAdminSelected[cat]) tplAdminSelected[cat] = {};
@@ -912,7 +912,7 @@
       b.style.background = active ? 'var(--gold)' : 'var(--white)';
       b.style.color = active ? 'var(--black)' : 'var(--gray)';
     });
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial'; tplAdminSelAllActive = null;
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
     tplAdminRenderPicker();
   }
 
@@ -920,85 +920,20 @@
     const container = document.getElementById('tpl-admin-picker');
     const catalog = tplAdminActiveCatalog();
     if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
-    container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <span style="font-size:12px;color:var(--gray)">Commercial</span>
-        <label class="svc-toggle">
-          <input type="checkbox" ${tplAdminPropertyType === 'Residential' ? 'checked' : ''} onchange="tplAdminSetPropertyType(this.checked ? 'Residential' : 'Commercial')">
-          <span class="svc-toggle-track"></span>
-        </label>
-        <span style="font-size:12px;color:var(--gray)">Residential</span>
-      </div>
-      <input type="text" class="search-input" id="tpl-admin-search" placeholder="Search services…" oninput="tplAdminRenderGrid()" style="margin-bottom:14px">
-      <div id="tpl-admin-grid"></div>`;
-    tplAdminRenderGrid();
-  }
-
-  function tplAdminSetPropertyType(type) {
-    tplAdminPropertyType = type;
-    tplAdminRenderGrid();
-  }
-
-  function tplAdminRenderGrid() {
-    const grid = document.getElementById('tpl-admin-grid');
-    const isJan = tplAdminCurrentDiv === 'Janitorial';
-    const q = (document.getElementById('tpl-admin-search').value || '').trim().toLowerCase();
-    const selectedNames = new Set(Object.keys(tplAdminSelected[tplAdminPropertyType] || {}));
-    /* Los ya seleccionados siempre se ven, el resto del catalogo
-       espera a que se escriba algo -- mismo criterio ya usado en
-       Edit de Active Orders (Admin) y Update Services (tech). */
-    let list = tplAdminActiveCatalog().filter(s => s.division.toLowerCase() === tplAdminCurrentDiv.toLowerCase() && s.propertyType === tplAdminPropertyType);
-    list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
-    list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-
-    if (!list.length) { grid.className = ''; grid.innerHTML = '<p class="empty-note">Type to search services…</p>'; return; }
-
-    if (isJan) {
-      grid.className = 'jan-row-grid';
-      const levels = ['Level 1', 'Level 2', 'Level 3'];
-      grid.innerHTML = list.map(s => {
-        const sel = String((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName]) === String(s.sku);
-        const lvl = sel ? tplAdminSvcLevel[tplAdminSvcKey(tplAdminPropertyType, s.serviceName)] : null;
-        return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
-          '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
-          '<div class="lvl-group">' +
-            levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="tplAdminPickLevel(\'' + s.sku.replace(/'/g, "\\'") + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
-          '</div></div>';
-      }).join('');
-    } else {
-      grid.className = 'svc-chip-grid';
-      grid.innerHTML = list.map(s =>
-        '<button type="button" class="svc-chip' + (String((tplAdminSelected[tplAdminPropertyType] || {})[s.serviceName]) === String(s.sku) ? ' active' : '') + '" onclick="tplAdminToggleChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
-      ).join('');
-    }
-  }
-
-  function tplAdminToggleChip(sku) {
-    const svc = tplAdminActiveCatalog().find(s => String(s.sku) === String(sku));
-    if (!svc) return;
-    if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
-    if (String(tplAdminSelected[tplAdminPropertyType][svc.serviceName]) === String(sku)) {
-      delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
-    } else {
-      tplAdminSelected[tplAdminPropertyType][svc.serviceName] = sku;
-    }
-    tplAdminRenderGrid();
-  }
-
-  function tplAdminPickLevel(sku, level) {
-    const svc = tplAdminActiveCatalog().find(s => String(s.sku) === String(sku));
-    if (!svc) return;
-    const k = tplAdminSvcKey(tplAdminPropertyType, svc.serviceName);
-    if (!tplAdminSelected[tplAdminPropertyType]) tplAdminSelected[tplAdminPropertyType] = {};
-    const already = String(tplAdminSelected[tplAdminPropertyType][svc.serviceName]) === String(sku) && tplAdminSvcLevel[k] === level;
-    if (already) {
-      delete tplAdminSelected[tplAdminPropertyType][svc.serviceName];
-      delete tplAdminSvcLevel[k];
-    } else {
-      tplAdminSelected[tplAdminPropertyType][svc.serviceName] = sku;
-      tplAdminSvcLevel[k] = level;
-    }
-    tplAdminRenderGrid();
+    GSServicePicker.mount('tpl-admin', container, {
+      catalog: catalog,
+      division: tplAdminCurrentDiv,
+      mode: tplAdminCurrentDiv === 'Janitorial' ? 'levels' : 'toggle',
+      filterMode: 'selected-plus-search',
+      propertyType: tplAdminPropertyType,
+      initialSelected: tplAdminSelected,
+      initialLevels: tplAdminSvcLevel,
+      onChange: function (sel, lvl, propType) {
+        tplAdminSelected = sel;
+        tplAdminSvcLevel = lvl;
+        tplAdminPropertyType = propType;
+      }
+    });
   }
 
   function tplAdminBuildServicesArray() {
