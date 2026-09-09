@@ -27,6 +27,7 @@ const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -47,6 +48,33 @@ async function fetchAll(listName) {
     return [];
   }
   return out;
+}
+
+/* Fecha real de un festivo en un año dado. La mayoria de los festivos
+   de EEUU NO caen en un numero fijo cada año (Thanksgiving es "el 4to
+   jueves de noviembre", no un dia fijo) -- por eso la regla se guarda
+   como formula, no como fecha, y se calcula aqui cada vez que hace
+   falta. Devuelve un Date a mediodia UTC (evita problemas de zona
+   horaria al comparar solo el dia). */
+function computeHolidayDate(h, year) {
+  if (h.RuleType === 'Fixed') {
+    return new Date(Date.UTC(year, (h.Month || 1) - 1, h.Day || 1, 12));
+  }
+  /* NthWeekday: Weekday 0=Sunday..6=Saturday. Nth 1-4 = esa ocurrencia;
+     5 = la ULTIMA ocurrencia de ese dia en el mes (ej. Memorial Day). */
+  const month = (h.Month || 1) - 1;
+  const weekday = h.Weekday || 0;
+  const nth = h.Nth || 1;
+  if (nth === 5) {
+    const lastOfMonth = new Date(Date.UTC(year, month + 1, 0, 12));
+    const diff = (lastOfMonth.getUTCDay() - weekday + 7) % 7;
+    lastOfMonth.setUTCDate(lastOfMonth.getUTCDate() - diff);
+    return lastOfMonth;
+  }
+  const firstOfMonth = new Date(Date.UTC(year, month, 1, 12));
+  const diff = (weekday - firstOfMonth.getUTCDay() + 7) % 7;
+  const firstOccurrence = 1 + diff;
+  return new Date(Date.UTC(year, month, firstOccurrence + (nth - 1) * 7, 12));
 }
 
 function truthy(v) {
@@ -1004,6 +1032,54 @@ exports.handler = async (event) => {
     if (action === 'delete-staff') {
       if (!body.id) return jsonResponse(400, { error: 'id is required' });
       await deleteListItem(STAFF_LIST, body.id);
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Lista maestra de festivos (Developer la configura una sola vez).
+       Se manda ya con la fecha REAL calculada para el año pedido (o el
+       actual si no se especifica), para que el frontend no tenga que
+       hacer el calculo de "3er lunes de enero" el mismo. */
+    if (action === 'list-holidays') {
+      const year = parseInt(body.year, 10) || new Date().getFullYear();
+      const rows = await fetchAll(HOLIDAYS_LIST);
+      const holidays = rows.filter(it => it.fields).map(it => {
+        const f = it.fields;
+        const date = computeHolidayDate(f, year);
+        return {
+          id: it.id,
+          name: f.HolidayName || '',
+          ruleType: f.RuleType || 'Fixed',
+          month: f.Month || 1,
+          day: f.Day || 1,
+          nth: f.Nth || 1,
+          weekday: f.Weekday || 0,
+          date: date.toISOString().slice(0, 10)
+        };
+      }).sort((a, b) => a.date.localeCompare(b.date));
+      return jsonResponse(200, { holidays });
+    }
+
+    if (action === 'save-holiday') {
+      const h = body.holiday || {};
+      if (!h.name) return jsonResponse(400, { error: 'Holiday name is required.' });
+      if (['Fixed', 'NthWeekday'].indexOf(h.ruleType) === -1) {
+        return jsonResponse(400, { error: 'ruleType must be Fixed or NthWeekday.' });
+      }
+      const fields = {
+        Title: h.name, HolidayName: h.name, RuleType: h.ruleType,
+        Month: h.month || 1, Day: h.day || 1, Nth: h.nth || 1, Weekday: h.weekday || 0
+      };
+      if (h.id) {
+        await updateListItemByItemId(HOLIDAYS_LIST, h.id, fields);
+        return jsonResponse(200, { success: true, id: h.id });
+      }
+      const created = await createListItem(HOLIDAYS_LIST, fields);
+      return jsonResponse(200, { success: true, id: created.id });
+    }
+
+    if (action === 'delete-holiday') {
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      await deleteListItem(HOLIDAYS_LIST, body.id);
       return jsonResponse(200, { success: true });
     }
 

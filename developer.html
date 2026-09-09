@@ -258,6 +258,7 @@
     <div class="dev-sidebar" id="dev-sidebar">
       <div class="dev-side-item active" data-cat="services" onclick="switchDevCategory('services')">Services</div>
       <div class="dev-side-item" data-cat="templates" onclick="switchDevCategory('templates')">Templates</div>
+      <div class="dev-side-item" data-cat="holidays" onclick="switchDevCategory('holidays')">Holidays</div>
       <div class="dev-side-item" data-cat="customers" onclick="switchDevCategory('customers')">Customers</div>
       <div class="dev-side-item" data-cat="reports" onclick="switchDevCategory('reports')">Reports</div>
       <div class="dev-side-item" data-cat="settings" onclick="switchDevCategory('settings')">Settings</div>
@@ -336,6 +337,76 @@
         <div style="margin-top:20px;display:flex;gap:10px">
           <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
           <button type="button" class="btn btn-outline" onclick="closeOfficeTemplateEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="holidays-section" data-category="holidays" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Holidays</div>
+        <div class="order-desc">The list every client picks from in their Profile. Add one here and it becomes an option for everyone — a client still chooses for themselves whether they're open or closed.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin:16px 0">
+          <button type="button" class="btn btn-gold" onclick="startNewHoliday()">+ Add Holiday</button>
+        </div>
+        <div id="holidays-table-wrap"><p class="empty-note">Loading holidays…</p></div>
+      </div>
+    </div>
+
+    <div class="order-card" id="holiday-editor-card" style="display:none">
+      <div class="order-card-header">
+        <div><div class="order-id" id="holiday-editor-title">New Holiday</div>
+        <div class="order-desc">Most US holidays don't fall on a fixed date every year — pick whichever kind this one is.</div></div>
+      </div>
+      <div class="tpl-editor-body" style="display:block">
+        <div style="margin-top:16px;margin-bottom:20px;max-width:420px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Holiday name</label>
+          <input type="text" id="hol-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
+        </div>
+        <div class="mode-toggle" id="hol-rule-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
+          <button type="button" class="active" data-rule="Fixed" onclick="holSelectRule('Fixed', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Same date every year</button>
+          <button type="button" data-rule="NthWeekday" onclick="holSelectRule('NthWeekday', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Nth weekday of a month</button>
+        </div>
+
+        <div id="hol-fixed-fields" style="display:flex;gap:16px;max-width:420px;margin-bottom:20px">
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Month</label>
+            <select id="hol-fixed-month" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Day</label>
+            <input type="number" id="hol-fixed-day" min="1" max="31" value="1" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit"></div>
+        </div>
+
+        <div id="hol-nth-fields" style="display:none;gap:16px;max-width:600px;margin-bottom:20px">
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Which one</label>
+            <select id="hol-nth-nth" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+              <option value="4">4th</option><option value="5">Last</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Day of week</label>
+            <select id="hol-nth-weekday" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+              <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Month</label>
+            <select id="hol-nth-month" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select></div>
+        </div>
+
+        <div style="margin-top:20px;display:flex;gap:10px">
+          <button type="button" class="btn btn-gold" onclick="saveHolidayFromEditor()">Save Holiday</button>
+          <button type="button" class="btn btn-outline" onclick="closeHolidayEditor()">Cancel</button>
         </div>
       </div>
     </div>
@@ -560,6 +631,7 @@
   let allStaff = [];
   let allCatalogRows = [];
   let allTemplates = [];
+  let allHolidays = [];
   let canEditCatalog = false;
   let currentPreview = null;   // { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized }
   let currentRows = null;      // filas validas que se mandaron a preview, para reusarlas en apply si hiciera falta
@@ -625,6 +697,7 @@
       document.getElementById('all-clients-section').classList.add('role-eligible');
       document.getElementById('reports-section').classList.add('role-eligible');
       document.getElementById('templates-section').classList.add('role-eligible');
+      document.getElementById('holidays-section').classList.add('role-eligible');
     }
 
     if (myRole === 'Developer') {
@@ -636,7 +709,7 @@
     }
 
     loadCatalogBrowse();
-    if (canEdit) loadAllTemplates();
+    if (canEdit) { loadAllTemplates(); loadHolidays(); }
     switchDevCategory('services');
   }
 
@@ -829,6 +902,133 @@
       await loadAllTemplates();
     } catch (e) {
       showToast('Could not delete: ' + e.message);
+    }
+  }
+
+  /* ===== Holidays -- lista maestra que cada cliente elige en su
+     propio Profile (ver ordersgsocd.com). Se guarda como REGLA (fecha
+     fija, o "Nth dia-de-semana de un mes"), no como fecha -- la mayoria
+     de los festivos de EEUU no caen en el mismo numero cada año. */
+  const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const NTH_NAMES = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: 'Last' };
+
+  function holFmtDate(isoDateOnly) {
+    const d = new Date(isoDateOnly + 'T12:00:00Z');
+    return MONTH_NAMES[d.getUTCMonth() + 1] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+  }
+
+  function holidayRuleText(h) {
+    if (h.ruleType === 'Fixed') return MONTH_NAMES[h.month] + ' ' + h.day + ', every year';
+    return NTH_NAMES[h.nth] + ' ' + WEEKDAY_NAMES[h.weekday] + ' of ' + MONTH_NAMES[h.month];
+  }
+
+  async function loadHolidays() {
+    try {
+      const res = await api('list-holidays');
+      allHolidays = res.holidays || [];
+      renderHolidaysTable();
+    } catch (e) {
+      document.getElementById('holidays-table-wrap').innerHTML =
+        '<p class="empty-note">Could not load holidays: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderHolidaysTable() {
+    const wrap = document.getElementById('holidays-table-wrap');
+    if (!allHolidays.length) {
+      wrap.innerHTML = '<p class="empty-note">No holidays added yet.</p>';
+      return;
+    }
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Holiday</th><th>Rule</th><th>This year</th><th></th>' +
+      '</tr></thead><tbody>' +
+      allHolidays.map(h => '<tr>' +
+        '<td>' + esc(h.name) + '</td>' +
+        '<td>' + esc(holidayRuleText(h)) + '</td>' +
+        '<td>' + esc(holFmtDate(h.date)) + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="editHoliday(\'' + h.id + '\')">Edit</button> ' +
+          '<button type="button" class="btn btn-danger btn-sm" onclick="deleteHoliday(\'' + h.id + '\')">Delete</button>' +
+        '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  async function deleteHoliday(id) {
+    if (!confirm('Delete this holiday? Any client who already picked it will lose that choice.')) return;
+    try {
+      await api('delete-holiday', { id });
+      showToast('Holiday deleted.');
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not delete: ' + e.message);
+    }
+  }
+
+  let holEditingId = null;
+
+  function startNewHoliday() {
+    holEditingId = null;
+    document.getElementById('holiday-editor-title').textContent = 'New Holiday';
+    document.getElementById('hol-name').value = '';
+    document.getElementById('hol-fixed-month').value = '1';
+    document.getElementById('hol-fixed-day').value = '1';
+    document.getElementById('hol-nth-nth').value = '1';
+    document.getElementById('hol-nth-weekday').value = '1';
+    document.getElementById('hol-nth-month').value = '1';
+    holSelectRule('Fixed', document.querySelector('#hol-rule-toggle button[data-rule="Fixed"]'));
+    document.getElementById('holiday-editor-card').style.display = 'block';
+    document.getElementById('holiday-editor-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function editHoliday(id) {
+    const h = allHolidays.find(x => x.id === id);
+    if (!h) return;
+    holEditingId = id;
+    document.getElementById('holiday-editor-title').textContent = 'Edit ' + h.name;
+    document.getElementById('hol-name').value = h.name;
+    document.getElementById('hol-fixed-month').value = h.ruleType === 'Fixed' ? h.month : 1;
+    document.getElementById('hol-fixed-day').value = h.ruleType === 'Fixed' ? h.day : 1;
+    document.getElementById('hol-nth-nth').value = h.ruleType === 'NthWeekday' ? h.nth : 1;
+    document.getElementById('hol-nth-weekday').value = h.ruleType === 'NthWeekday' ? h.weekday : 1;
+    document.getElementById('hol-nth-month').value = h.ruleType === 'NthWeekday' ? h.month : 1;
+    holSelectRule(h.ruleType, document.querySelector('#hol-rule-toggle button[data-rule="' + h.ruleType + '"]'));
+    document.getElementById('holiday-editor-card').style.display = 'block';
+    document.getElementById('holiday-editor-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function closeHolidayEditor() {
+    document.getElementById('holiday-editor-card').style.display = 'none';
+    holEditingId = null;
+  }
+
+  function holSelectRule(rule, el) {
+    document.querySelectorAll('#hol-rule-toggle button').forEach(b => {
+      const active = b === el;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('hol-fixed-fields').style.display = rule === 'Fixed' ? 'flex' : 'none';
+    document.getElementById('hol-nth-fields').style.display = rule === 'NthWeekday' ? 'flex' : 'none';
+    document.getElementById('hol-fixed-fields').dataset.selected = rule === 'Fixed' ? '1' : '0';
+  }
+
+  async function saveHolidayFromEditor() {
+    const name = document.getElementById('hol-name').value.trim();
+    if (!name) { showToast('Please enter a holiday name.'); return; }
+    const ruleType = document.getElementById('hol-fixed-fields').style.display !== 'none' ? 'Fixed' : 'NthWeekday';
+    const holiday = ruleType === 'Fixed'
+      ? { id: holEditingId, name, ruleType, month: parseInt(document.getElementById('hol-fixed-month').value, 10), day: parseInt(document.getElementById('hol-fixed-day').value, 10) }
+      : { id: holEditingId, name, ruleType, nth: parseInt(document.getElementById('hol-nth-nth').value, 10), weekday: parseInt(document.getElementById('hol-nth-weekday').value, 10), month: parseInt(document.getElementById('hol-nth-month').value, 10) };
+    try {
+      await api('save-holiday', { holiday });
+      showToast('Holiday saved.');
+      closeHolidayEditor();
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
     }
   }
 
