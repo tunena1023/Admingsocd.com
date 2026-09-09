@@ -911,6 +911,7 @@ let allServices = null;
    pedirle el detalle a la API cada vez. Se invalida entera en cada
    loadAll() (cualquier accion que cambie datos ya llama a loadAll). */
 let orderDetailCache = {};
+let orderDetailCacheData = {};
 let createSelectedClient = null;
 let createSelected = new Map();   // sku -> fila del catalogo { serviceName, division, propertyType }
 let activeCatalogCache = null;    // ServicesCatalog activo, precargado en loadAll()
@@ -2775,6 +2776,7 @@ function closeOtherCards(context, exceptOrderId) {
 async function loadOrderBody(orderId, context, body) {
   if (orderDetailCache[orderId]) {
     body.innerHTML = orderDetailCache[orderId];
+    if (context === 'active' && orderDetailCacheData[orderId]) mountAdminServicePicker(orderId, orderDetailCacheData[orderId].Division);
     return;
   }
   body.innerHTML = '<p class="empty-note" style="padding:20px">Loading…</p>';
@@ -2785,7 +2787,9 @@ async function loadOrderBody(orderId, context, body) {
     const history = data.history || [];
     const html = renderOrderDetail(o, services, history, context, data.document || null);
     orderDetailCache[orderId] = html;
+    orderDetailCacheData[orderId] = o;
     body.innerHTML = html;
+    if (context === 'active') mountAdminServicePicker(orderId, o.Division);
   } catch (e) {
     body.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
   }
@@ -3542,59 +3546,43 @@ function buildAdminLegacyNote(orderId) {
     '. They stay on the order exactly as they are — re-select the matching service below (and Save) to move them to the new catalog.</p>';
 }
 
-function buildAdminChipsHtml(orderId, division) {
-  const propType = window['adminPropType_' + orderId] || 'Commercial';
-  const sel = window['adminSvc_' + orderId] || {};
-  const selectedNames = new Set(Object.keys(sel[propType] || {}));
-  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  /* Los servicios YA seleccionados en esta orden siempre se ven --
-     hay que poder quitarlos o cambiarles de nivel sin tener que
-     escribir su nombre exacto primero. Solo el resto del catalogo
-     (lo que todavia no se ha elegido) espera a que se escriba algo,
-     para no aventar decenas de servicios de un jalon. Sin filtro de
-     division a proposito -- confirmado que la busqueda debe cruzar
-     todas las divisiones. */
-  let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
-  list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
-  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">Type to search services…</p>';
-  return list.map(s => {
-    const active = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
-    return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleAdminSvcChip(\'' +
-      jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
-  }).join('');
+function buildServiceRows(orderId, division) {
+  if (window['adminPropType_' + orderId] === undefined) {
+    window['adminPropType_' + orderId] = inferPropType(orderId, division);
+  }
+  if (!activeCatalogCache || !activeCatalogCache.length) {
+    return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
+  }
+  return buildAdminLegacyNote(orderId) +
+    `<div id="admin-svc-picker-${orderId}"></div>
+    <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
+    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
 }
 
-/* Filas + L1/L2/L3 -- solo cuando la division es Janitorial. Mismo
-   patron que Create Order/Recurring: el nivel se guarda aparte
-   (adminLevel_<orderId>, clave ncKey igual que Not Completed), la
-   estructura de seleccion (adminSvc_) no cambia. */
-function buildAdminJanRowsHtml(orderId, division) {
-  const propType = window['adminPropType_' + orderId] || 'Commercial';
-  const sel = window['adminSvc_' + orderId] || {};
-  const levelState = window['adminLevel_' + orderId] || {};
-  const selectedNames = new Set(Object.keys(sel[propType] || {}));
-  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  /* Los servicios YA seleccionados en esta orden siempre se ven --
-     hay que poder cambiarles de nivel o quitarlos sin tener que
-     escribir su nombre exacto primero. Sin filtro de division a
-     proposito -- confirmado que la busqueda debe cruzar todas las
-     divisiones. */
-  let list = (activeCatalogCache || []).filter(s => s.propertyType === propType);
-  list = list.filter(s => selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q)));
-  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">Type to search services…</p>';
-  const levels = ['Level 1', 'Level 2', 'Level 3'];
-  return list.map(s => {
-    const isSel = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
-    const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
-    return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
-      '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
-      '<div class="lvl-group">' +
-        levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickAdminLevel(\'' +
-          jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
-      '</div></div>';
-  }).join('');
+function mountAdminServicePicker(orderId, division) {
+  if (!activeCatalogCache || !activeCatalogCache.length) return;
+  if (!document.getElementById('admin-svc-picker-' + orderId)) return;
+  const isJan = String(division).toLowerCase() === 'janitorial';
+  GSServicePicker.mount('admin-' + orderId, 'admin-svc-picker-' + orderId, {
+    catalog: activeCatalogCache,
+    division: division,
+    crossDivision: true,
+    mode: isJan ? 'levels' : 'toggle',
+    filterMode: 'selected-plus-search',
+    showSelectAll: isJan,
+    propertyType: window['adminPropType_' + orderId] || 'Commercial',
+    initialSelected: window['adminSvc_' + orderId] || {},
+    initialLevels: window['adminLevel_' + orderId] || {},
+    onChange: function (sel, lvl, propType) {
+      window['adminSvc_' + orderId] = sel;
+      window['adminLevel_' + orderId] = lvl;
+      window['adminPropType_' + orderId] = propType;
+      const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
+      if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+      refreshConfirmBtn(orderId);
+      refreshSaveBtn(orderId);
+    }
+  });
 }
 
 function buildAdminSelectedListHtml(orderId) {
@@ -3626,141 +3614,6 @@ function buildAdminSelectedListHtml(orderId) {
       </div>
     </div>`;
   }).join('');
-}
-
-function buildServiceRows(orderId, division) {
-  if (window['adminPropType_' + orderId] === undefined) {
-    window['adminPropType_' + orderId] = inferPropType(orderId, division);
-  }
-  const propType = window['adminPropType_' + orderId];
-  if (!activeCatalogCache || !activeCatalogCache.length) {
-    return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
-  }
-  const isJan = String(division).toLowerCase() === 'janitorial';
-  return buildAdminLegacyNote(orderId) +
-    `<div class="res-toggle-wrap" id="admin-svc-toggle-${orderId}">
-      <span class="res-toggle-label">Commercial</span>
-      <label class="svc-toggle">
-        <input type="checkbox" ${propType === 'Residential' ? 'checked' : ''} onchange="setAdminPropType('${jsStr(orderId)}', this.checked ? 'Residential' : 'Commercial')">
-        <span class="svc-toggle-track"></span>
-      </label>
-      <span class="res-toggle-label">Residential</span>
-    </div>
-    <div class="svc-toolbar">
-      <input type="text" class="svc-search" id="admin-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderAdminServiceRows('${jsStr(orderId)}')">
-      <div class="svc-toolbar-selall" style="display:${isJan ? '' : 'none'}">
-        <span class="selall-label">Select all</span>
-        <div class="lvl-toggle3" id="adminSelAllToggle-${orderId}">
-          <div class="lvl-toggle3-thumb" id="adminSelAllThumb-${orderId}"></div>
-          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 1',0)">L1</div>
-          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 2',1)">L2</div>
-          <div class="lvl-toggle3-opt" onclick="adminSelectAllLevel('${jsStr(orderId)}','Level 3',2)">L3</div>
-        </div>
-      </div>
-    </div>
-    <div class="${isJan ? 'jan-row-grid' : 'svc-chip-grid'}" id="admin-svc-grid-${orderId}">${isJan ? buildAdminJanRowsHtml(orderId, division) : buildAdminChipsHtml(orderId, division)}</div>
-    <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
-    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
-}
-
-function setAdminPropType(orderId, type) {
-  window['adminPropType_' + orderId] = type;
-  rerenderAdminServiceRows(orderId);
-}
-
-function rerenderAdminServiceRows(orderId) {
-  const division = window['adminDiv_' + orderId] || '';
-  const isJan = String(division).toLowerCase() === 'janitorial';
-  const grid = document.getElementById('admin-svc-grid-' + orderId);
-  if (grid) grid.innerHTML = isJan ? buildAdminJanRowsHtml(orderId, division) : buildAdminChipsHtml(orderId, division);
-}
-
-function toggleAdminSvcChip(orderId, propType, svcName, sku) {
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  if (!sel[propType]) sel[propType] = {};
-  if (String(sel[propType][svcName]) === String(sku)) {
-    delete sel[propType][svcName];
-    if (!Object.keys(sel[propType]).length) delete sel[propType];
-    const ncState = window['adminNC_' + orderId] || {};
-    delete ncState[ncKey(propType, svcName)];
-  } else {
-    sel[propType][svcName] = sku;
-  }
-  rerenderAdminServiceRows(orderId);
-  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
-  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
-  refreshConfirmBtn(orderId);
-  refreshSaveBtn(orderId);
-}
-
-/* Janitorial: elegir un nivel selecciona el servicio a ese nivel de
-   una vez (no hace falta elegir el servicio aparte); clic en el nivel
-   ya activo lo deselecciona por completo. */
-function pickAdminLevel(orderId, propType, svcName, sku, level) {
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
-  const k = ncKey(propType, svcName);
-  if (!sel[propType]) sel[propType] = {};
-  const already = String(sel[propType][svcName]) === String(sku) && levelState[k] === level;
-  if (already) {
-    delete sel[propType][svcName];
-    if (!Object.keys(sel[propType]).length) delete sel[propType];
-    delete levelState[k];
-    const ncState = window['adminNC_' + orderId] || {};
-    delete ncState[k];
-  } else {
-    sel[propType][svcName] = sku;
-    levelState[k] = level;
-  }
-  rerenderAdminServiceRows(orderId);
-  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
-  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
-  refreshConfirmBtn(orderId);
-  refreshSaveBtn(orderId);
-}
-
-/* "Select all" de arriba (solo Janitorial) -- toggle redondito de 3
-   posiciones, uno por orden abierta. Clic aplica ese nivel a todo lo
-   visible (respeta buscador + toggle Residential/Commercial); clic en
-   la posicion ya activa deshace la seleccion masiva. */
-function adminSelectAllLevel(orderId, level, idx) {
-  const propType = window['adminPropType_' + orderId] || 'Commercial';
-  const sel = window['adminSvc_' + orderId] || (window['adminSvc_' + orderId] = {});
-  const selectedNames = new Set(Object.keys(sel[propType] || {}));
-  const q = ((document.getElementById('admin-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  /* Mismo criterio que buildAdminJanRowsHtml, para que "Select all"
-     aplique exactamente a lo mismo que se ve en pantalla: los ya
-     seleccionados siempre, mas lo que matchee la busqueda. */
-  const visible = (activeCatalogCache || []).filter(s =>
-    s.propertyType === propType &&
-    (selectedNames.has(s.serviceName) || (q && s.serviceName.toLowerCase().includes(q))));
-  const levelState = window['adminLevel_' + orderId] || (window['adminLevel_' + orderId] = {});
-  const activeKey = 'adminSelAllActive_' + orderId;
-  const thumb = document.getElementById('adminSelAllThumb-' + orderId);
-
-  if (window[activeKey] === idx) {
-    visible.forEach(s => {
-      if (sel[propType]) delete sel[propType][s.serviceName];
-      delete levelState[ncKey(propType, s.serviceName)];
-    });
-    window[activeKey] = null;
-    if (thumb) thumb.style.opacity = '0';
-  } else {
-    if (!sel[propType]) sel[propType] = {};
-    visible.forEach(s => {
-      sel[propType][s.serviceName] = s.sku;
-      levelState[ncKey(propType, s.serviceName)] = level;
-    });
-    window[activeKey] = idx;
-    if (thumb) { thumb.style.opacity = '1'; thumb.style.transform = 'translateX(' + (idx * 100) + '%)'; }
-  }
-  const toggleBox = document.getElementById('adminSelAllToggle-' + orderId);
-  if (toggleBox) toggleBox.querySelectorAll('.lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === window[activeKey]));
-  rerenderAdminServiceRows(orderId);
-  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
-  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
-  refreshConfirmBtn(orderId);
-  refreshSaveBtn(orderId);
 }
 
 /* Muestra/oculta "Request Confirmation" segun si los servicios
