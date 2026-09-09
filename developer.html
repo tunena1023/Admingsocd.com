@@ -350,7 +350,8 @@
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
-        <div style="display:flex;justify-content:flex-end;margin:16px 0">
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin:16px 0">
+          <button type="button" class="btn btn-outline" onclick="seedStandardHolidays()">Load standard US holidays</button>
           <button type="button" class="btn btn-gold" onclick="startNewHoliday()">+ Add Holiday</button>
         </div>
         <div id="holidays-table-wrap"><p class="empty-note">Loading holidays…</p></div>
@@ -960,6 +961,16 @@
     } catch (e) {
       document.getElementById('holidays-table-wrap').innerHTML =
         '<p class="empty-note">Could not load holidays: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function seedStandardHolidays() {
+    try {
+      const res = await api('seed-standard-holidays');
+      showToast(res.seeded ? 'Added ' + res.seeded + ' holidays.' + (res.skipped ? ' (' + res.skipped + ' already existed.)' : '') : 'All 11 were already there — nothing to add.');
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not load standard holidays: ' + e.message);
     }
   }
 

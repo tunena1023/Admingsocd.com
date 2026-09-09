@@ -1083,6 +1083,39 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
+    /* Los 11 festivos federales de EEUU, con su regla real (buscados
+       en linea y confirmados contra las fechas reales de 2026) --
+       para no tener que capturarlos uno por uno a mano en el
+       formulario. Se salta cualquiera que ya exista por nombre, para
+       que sea seguro correrlo mas de una vez sin duplicar. */
+    const STANDARD_US_HOLIDAYS = [
+      { name: "New Year's Day", ruleType: 'Fixed', month: 1, day: 1 },
+      { name: 'Martin Luther King Jr. Day', ruleType: 'NthWeekday', month: 1, nth: 3, weekday: 1 },
+      { name: "Washington's Birthday (Presidents' Day)", ruleType: 'NthWeekday', month: 2, nth: 3, weekday: 1 },
+      { name: 'Memorial Day', ruleType: 'NthWeekday', month: 5, nth: 5, weekday: 1 },
+      { name: 'Juneteenth National Independence Day', ruleType: 'Fixed', month: 6, day: 19 },
+      { name: 'Independence Day', ruleType: 'Fixed', month: 7, day: 4 },
+      { name: 'Labor Day', ruleType: 'NthWeekday', month: 9, nth: 1, weekday: 1 },
+      { name: 'Columbus Day', ruleType: 'NthWeekday', month: 10, nth: 2, weekday: 1 },
+      { name: 'Veterans Day', ruleType: 'Fixed', month: 11, day: 11 },
+      { name: 'Thanksgiving Day', ruleType: 'NthWeekday', month: 11, nth: 4, weekday: 4 },
+      { name: 'Christmas Day', ruleType: 'Fixed', month: 12, day: 25 }
+    ];
+    if (action === 'seed-standard-holidays') {
+      const existing = await fetchAll(HOLIDAYS_LIST);
+      const existingNames = new Set(existing.filter(it => it.fields).map(it => it.fields.HolidayName));
+      let seeded = 0;
+      for (const h of STANDARD_US_HOLIDAYS) {
+        if (existingNames.has(h.name)) continue;
+        await createListItem(HOLIDAYS_LIST, {
+          Title: h.name, HolidayName: h.name, RuleType: h.ruleType,
+          Month: h.month, Day: h.day || 1, Nth: h.nth || 1, Weekday: h.weekday || 0
+        });
+        seeded++;
+      }
+      return jsonResponse(200, { success: true, seeded, skipped: STANDARD_US_HOLIDAYS.length - seeded });
+    }
+
     /* Horarios masivos -- confirmado con el usuario: cuando se
        importan clientes desde el reporte, sus horarios quedan en
        blanco (no vienen del reporte), y hacerlo uno por uno es
