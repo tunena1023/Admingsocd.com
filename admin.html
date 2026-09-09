@@ -534,6 +534,7 @@
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.7/date-time-picker/date-time-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -2259,6 +2260,7 @@ function toggleApprSvcUpdate(orderId, division) {
   }
   editorBox.innerHTML = apprServiceEditorHtml(orderId, division);
   editorBox.style.display = 'block';
+  mountApprServicePicker(orderId, division);
   if (readonlyBox) readonlyBox.style.display = 'none';
 }
 
@@ -2289,151 +2291,29 @@ function apprLegacyNote(orderId) {
     '. They stay on the order exactly as they are — re-select the matching service below to move them to the new catalog.</p>';
 }
 
-function apprChipsHtml(orderId, division) {
-  const propType = window['apprPropType_' + orderId] || 'Commercial';
-  const sel = window['apprSvc_' + orderId] || {};
-  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
-  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
-  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">No services match.</p>';
-  return list.map(s => {
-    const active = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
-    return '<button type="button" class="svc-chip' + (active ? ' active' : '') + '" onclick="toggleApprChip(\'' +
-      jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\')">' + esc(s.serviceName) + '</button>';
-  }).join('');
-}
-
-/* Filas + L1/L2/L3 -- solo Janitorial, mismo patron que Active/Create
-   Order/Recurring. apprLevel_<orderId> es el mapa aparte del nivel,
-   clave ncKey igual que en Active. */
-function apprJanRowsHtml(orderId, division) {
-  const propType = window['apprPropType_' + orderId] || 'Commercial';
-  const sel = window['apprSvc_' + orderId] || {};
-  const levelState = window['apprLevel_' + orderId] || {};
-  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  let list = (activeCatalogCache || []).filter(s => s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType);
-  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
-  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) return '<p class="empty-note">No services match.</p>';
-  const levels = ['Level 1', 'Level 2', 'Level 3'];
-  return list.map(s => {
-    const isSel = String((sel[propType] || {})[s.serviceName]) === String(s.sku);
-    const lvl = isSel ? (levelState[ncKey(propType, s.serviceName)] || null) : null;
-    return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
-      '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
-      '<div class="lvl-group">' +
-        levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickApprLevel(\'' +
-          jsStr(orderId) + '\',\'' + jsStr(propType) + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
-      '</div></div>';
-  }).join('');
-}
-
 function apprServiceEditorHtml(orderId, division) {
   if (window['apprPropType_' + orderId] === undefined) {
     window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
-  const propType = window['apprPropType_' + orderId];
+  return apprLegacyNote(orderId) + `<div id="appr-svc-picker-${orderId}"></div>`;
+}
+
+function mountApprServicePicker(orderId, division) {
   const isJan = String(division).toLowerCase() === 'janitorial';
-  return apprLegacyNote(orderId) +
-    `<div class="res-toggle-wrap" id="appr-svc-toggle-${orderId}">
-      <span class="res-toggle-label">Commercial</span>
-      <label class="svc-toggle">
-        <input type="checkbox" ${propType === 'Residential' ? 'checked' : ''} onchange="setApprPropType('${jsStr(orderId)}', this.checked ? 'Residential' : 'Commercial')">
-        <span class="svc-toggle-track"></span>
-      </label>
-      <span class="res-toggle-label">Residential</span>
-    </div>
-    <div class="svc-toolbar">
-      <input type="text" class="svc-search" id="appr-svc-search-${orderId}" placeholder="Search services…" oninput="rerenderApprChips('${jsStr(orderId)}')">
-      <div class="svc-toolbar-selall" style="display:${isJan ? '' : 'none'}">
-        <span class="selall-label">Select all</span>
-        <div class="lvl-toggle3" id="apprSelAllToggle-${orderId}">
-          <div class="lvl-toggle3-thumb" id="apprSelAllThumb-${orderId}"></div>
-          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 1',0)">L1</div>
-          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 2',1)">L2</div>
-          <div class="lvl-toggle3-opt" onclick="apprSelectAllLevel('${jsStr(orderId)}','Level 3',2)">L3</div>
-        </div>
-      </div>
-    </div>
-    <div class="${isJan ? 'jan-row-grid' : 'svc-chip-grid'}" id="appr-svc-grid-${orderId}">${isJan ? apprJanRowsHtml(orderId, division) : apprChipsHtml(orderId, division)}</div>`;
-}
-
-function setApprPropType(orderId, type) {
-  window['apprPropType_' + orderId] = type;
-  rerenderApprChips(orderId);
-}
-
-function rerenderApprChips(orderId) {
-  const division = window['apprDiv_' + orderId] || '';
-  const isJan = String(division).toLowerCase() === 'janitorial';
-  const grid = document.getElementById('appr-svc-grid-' + orderId);
-  if (grid) grid.innerHTML = isJan ? apprJanRowsHtml(orderId, division) : apprChipsHtml(orderId, division);
-}
-
-function toggleApprChip(orderId, propType, svcName, sku) {
-  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
-  if (!sel[propType]) sel[propType] = {};
-  if (String(sel[propType][svcName]) === String(sku)) {
-    delete sel[propType][svcName];
-    if (!Object.keys(sel[propType]).length) delete sel[propType];
-  } else {
-    sel[propType][svcName] = sku;
-  }
-  rerenderApprChips(orderId);
-}
-
-/* Janitorial: elegir un nivel selecciona el servicio a ese nivel de
-   una vez; clic en el nivel ya activo lo deselecciona por completo. */
-function pickApprLevel(orderId, propType, svcName, sku, level) {
-  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
-  const levelState = window['apprLevel_' + orderId] || (window['apprLevel_' + orderId] = {});
-  const k = ncKey(propType, svcName);
-  if (!sel[propType]) sel[propType] = {};
-  const already = String(sel[propType][svcName]) === String(sku) && levelState[k] === level;
-  if (already) {
-    delete sel[propType][svcName];
-    if (!Object.keys(sel[propType]).length) delete sel[propType];
-    delete levelState[k];
-  } else {
-    sel[propType][svcName] = sku;
-    levelState[k] = level;
-  }
-  rerenderApprChips(orderId);
-}
-
-/* "Select all" de arriba (solo Janitorial), un toggle por orden. */
-function apprSelectAllLevel(orderId, level, idx) {
-  const division = window['apprDiv_' + orderId] || '';
-  const propType = window['apprPropType_' + orderId] || 'Commercial';
-  const q = ((document.getElementById('appr-svc-search-' + orderId) || {}).value || '').trim().toLowerCase();
-  const visible = (activeCatalogCache || []).filter(s =>
-    s.division.toLowerCase() === String(division).toLowerCase() && s.propertyType === propType &&
-    (!q || s.serviceName.toLowerCase().includes(q)));
-  const sel = window['apprSvc_' + orderId] || (window['apprSvc_' + orderId] = {});
-  const levelState = window['apprLevel_' + orderId] || (window['apprLevel_' + orderId] = {});
-  const activeKey = 'apprSelAllActive_' + orderId;
-  const thumb = document.getElementById('apprSelAllThumb-' + orderId);
-
-  if (window[activeKey] === idx) {
-    visible.forEach(s => {
-      if (sel[propType]) delete sel[propType][s.serviceName];
-      delete levelState[ncKey(propType, s.serviceName)];
-    });
-    window[activeKey] = null;
-    if (thumb) thumb.style.opacity = '0';
-  } else {
-    if (!sel[propType]) sel[propType] = {};
-    visible.forEach(s => {
-      sel[propType][s.serviceName] = s.sku;
-      levelState[ncKey(propType, s.serviceName)] = level;
-    });
-    window[activeKey] = idx;
-    if (thumb) { thumb.style.opacity = '1'; thumb.style.transform = 'translateX(' + (idx * 100) + '%)'; }
-  }
-  const toggleBox = document.getElementById('apprSelAllToggle-' + orderId);
-  if (toggleBox) toggleBox.querySelectorAll('.lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === window[activeKey]));
-  rerenderApprChips(orderId);
+  GSServicePicker.mount('appr-' + orderId, 'appr-svc-picker-' + orderId, {
+    catalog: activeCatalogCache || [],
+    division: division,
+    mode: isJan ? 'levels' : 'toggle',
+    showSelectAll: isJan,
+    propertyType: window['apprPropType_' + orderId] || 'Commercial',
+    initialSelected: window['apprSvc_' + orderId] || {},
+    initialLevels: window['apprLevel_' + orderId] || {},
+    onChange: function (sel, lvl, propType) {
+      window['apprSvc_' + orderId] = sel;
+      window['apprLevel_' + orderId] = lvl;
+      window['apprPropType_' + orderId] = propType;
+    }
+  });
 }
 
 /* ============================================================
