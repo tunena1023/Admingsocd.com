@@ -9,6 +9,8 @@ const { toVercel } = require('../lib/vercel-adapter');
 const handlers = {
   'admin-approve-order': require('../admin-approve-order').handler,
   'admin-get-clients':   require('../admin-get-clients').handler,
+  'admin-get-client-holidays': require('../admin-get-client-holidays').handler,
+  'admin-save-client-holiday': require('../admin-save-client-holiday').handler,
   'admin-get-orders':    require('../admin-get-orders').handler,
   'admin-update-client': require('../admin-update-client').handler,
   'admin-update-order':  require('../admin-update-order').handler,
