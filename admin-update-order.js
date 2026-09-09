@@ -174,49 +174,21 @@ exports.handler = async (event) => {
       const oldServices = snapshotServices(svcRows, division);
       const newServices = (services && services.length) ? services : oldServices;
 
-      /* Aplicar de una vez los campos de control propuestos.
-         TechMarkedComplete se apaga -- ya no es cierto que "esto es lo
-         que el tecnico dijo que termino" una vez que algo cambia.
-         Respaldo si la columna todavia no existe en SharePoint. */
-      const requestPatch = {
-        Status:           'Change Requested',
-        TechMarkedComplete: false,
-        Supervisor:       newFieldsSnap.supervisor,
-        Notes:            newFieldsSnap.notes,
-        EntryDate:        newFieldsSnap.entryDate ? toIsoDate(newFieldsSnap.entryDate) : null,
-        DueDate:          newFieldsSnap.dueDate ? toIsoDate(newFieldsSnap.dueDate) : null,
-        ServiceWindow:    newFieldsSnap.serviceWindow,
-        DispatchDate:     newFieldsSnap.dispatchDate ? toIsoDate(newFieldsSnap.dispatchDate) : null,
-        InspectionDate:   newFieldsSnap.inspectionDate ? toIsoDate(newFieldsSnap.inspectionDate) : null,
-        DelayReasonType:  newFieldsSnap.delayReasonType,
-        DelayReasonNotes: newFieldsSnap.delayReasonNotes
-      };
+      /* CAMBIO DE DISENO (confirmado con el usuario): un cambio pedido
+         ya NO se aplica a la orden real hasta que se apruebe -- antes
+         se sobreescribian Supervisor/fechas/ventana/servicios de una
+         vez, y si el director rechazaba, se revertian leyendo este
+         mismo snapshot. Ahora solo se cambia el Status (para que la
+         orden se vea "pendiente" y se vaya a Review) y se apaga
+         TechMarkedComplete -- nada mas del lado real se toca. Los
+         campos/servicios propuestos viven UNICAMENTE en el snapshot
+         de este renglon de historial (mas abajo) hasta que Reassign o
+         Reschedule los aplique de verdad. */
+      const requestPatch = { Status: 'Change Requested', TechMarkedComplete: false };
       try {
         await updateListItemByItemId(ORDERS_LIST, item.id, requestPatch);
       } catch (patchErr) {
-        const fallbackPatch = Object.assign({}, requestPatch);
-        delete fallbackPatch.TechMarkedComplete;
-        await updateListItemByItemId(ORDERS_LIST, item.id, fallbackPatch);
-      }
-
-      /* Aplicar de una vez los servicios propuestos, si vinieron */
-      if (services && services.length) {
-        if (svcRows.length) {
-          await Promise.all(svcRows.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
-        }
-        await Promise.all(newServices.map(s =>
-          createListItem(ORDER_SERVICES_LIST, {
-            Title:              s.ServiceName || '',
-            OrderID:            orderId,
-            Category:           s.Category    || '',
-            ServiceName:        s.ServiceName || '',
-            SubOption:          s.SubOption   || '',
-            Division:           s.Division    || division,
-            Level:              s.Level       || '',
-            NotCompleted:       truthy(s.NotCompleted),
-            NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
-          })
-        ));
+        await updateListItemByItemId(ORDERS_LIST, item.id, { Status: 'Change Requested' });
       }
 
       const histRows = await fetchByOrderId(ORDER_HISTORY_LIST, orderId);

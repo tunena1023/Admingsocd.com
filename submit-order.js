@@ -241,6 +241,10 @@ exports.handler = async (event) => {
           });
         }));
 
+        const unitServices = svcRows.map(row => ({
+          Category: row.fields.Category || '', ServiceName: row.fields.ServiceName || '',
+          SubOption: row.fields.SubOption || '', Division: row.fields.Division || template.Division
+        }));
         await createListItem(ORDER_HISTORY_LIST, {
           Title:      orderId,
           OrderID:    orderId,
@@ -249,7 +253,7 @@ exports.handler = async (event) => {
           ChangeDate: new Date().toISOString(),
           Notes:      'Added to existing order ' + template.OrderID + ' by ' + actor + '.',
           OldValue:   '',
-          NewValue:   'Received'
+          NewValue:   'SERVICES:' + JSON.stringify({ services: unitServices, dirtLevel: '', entryDate: add.entryDate || '', dueDate: add.dueDate || '' })
         });
       } catch (e) {
         console.error('AddUnitToBatch post-create write failed:', e.message);
@@ -357,7 +361,7 @@ exports.handler = async (event) => {
             ChangeDate: new Date().toISOString(),
             Notes:      'Submitted from draft.',
             OldValue:   'Draft',
-            NewValue:   newStatus
+            NewValue:   'SERVICES:' + JSON.stringify({ services: svcSource, dirtLevel: b.DirtLevel || '', entryDate: orderFields.EntryDate || '', dueDate: orderFields.DueDate || '' })
           })
         ]);
       } catch (e) { console.error('Post-order write failed:', e.message); }
@@ -414,28 +418,18 @@ exports.handler = async (event) => {
       /* TechMarkedComplete se apaga -- ya no es cierto que "esto es lo
          que el tecnico dijo que termino" una vez que algo cambia.
          Respaldo si la columna todavia no existe en SharePoint. */
-      const requestPatch = Object.assign({}, orderFields, { Status: newStatus, TechMarkedComplete: false });
+      /* CAMBIO DE DISENO (confirmado con el usuario): un cambio pedido
+         por el cliente ya NO se aplica a la orden real hasta que se
+         apruebe -- antes se sobreescribian todos los campos (via
+         orderFields completo) y los servicios de una vez. Ahora solo
+         se cambia el Status -- lo propuesto vive unicamente en el
+         snapshot del renglon de historial de abajo, hasta que
+         Reassign/Reschedule lo aplique de verdad. */
+      const requestPatch = { Status: newStatus, TechMarkedComplete: false };
       try {
         await updateListItemByItemId(ORDERS_LIST, existing.itemId, requestPatch);
       } catch (patchErr) {
-        const fallbackPatch = Object.assign({}, requestPatch);
-        delete fallbackPatch.TechMarkedComplete;
-        await updateListItemByItemId(ORDERS_LIST, existing.itemId, fallbackPatch);
-      }
-
-      if (stale.length) {
-        await Promise.all(stale.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
-      }
-
-      for (const s of resolveServices(b.Services, b.Division)) {
-        await createListItem(ORDER_SERVICES_LIST, {
-          Title:       s.ServiceName || '',
-          OrderID:     existing.OrderID,
-          Category:    s.Category,
-          ServiceName: s.ServiceName,
-          SubOption:   s.SubOption,
-          Division:    s.Division
-        });
+        await updateListItemByItemId(ORDERS_LIST, existing.itemId, { Status: newStatus });
       }
 
       const revCount = histRows.filter(it =>
@@ -567,7 +561,7 @@ exports.handler = async (event) => {
             ChangeDate: new Date().toISOString(),
             Notes:      '',
             OldValue:   '',
-            NewValue:   b.Status || 'Received'
+            NewValue:   'SERVICES:' + JSON.stringify({ services: parsedServices, dirtLevel: unit.dirtLevel || b.DirtLevel || '', entryDate: unitFields.EntryDate || '', dueDate: unitFields.DueDate || '' })
           });
         } catch (e) {
           /* Mismo criterio que el Flujo C: un problema al escribir
@@ -648,7 +642,15 @@ exports.handler = async (event) => {
       Notes:      '',
       FieldChanged: b.OfficeCreated ? 'Office Order' : '',
       OldValue:   '',
-      NewValue:   b.Status || 'Received'
+      /* BUG REAL arreglado: antes solo se guardaba la palabra del
+         estatus ('Received') -- el pedido original (que servicios se
+         pidieron, para que fecha) nunca quedaba registrado en ningun
+         lado. Con el tiempo, no habia forma de ver "que se pidio
+         exactamente" sin adivinar comparando ediciones posteriores. */
+      NewValue:   'SERVICES:' + JSON.stringify({
+        services: parsedServices, dirtLevel: b.DirtLevel || '',
+        entryDate: orderFields.EntryDate || '', dueDate: orderFields.DueDate || ''
+      })
     };
 
     /* Antes, si esta escritura fallaba por lo que fuera, el error se

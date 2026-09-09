@@ -112,13 +112,13 @@ function parseServicesPayload(value) {
   } catch (e) { return null; }
 }
 
-/* Busca hacia atras el ultimo snapshot de servicios previo a la solicitud */
-function lastServicesSnapshot(history) {
-  for (let i = history.length - 1; i >= 0; i--) {
-    const payload = parseServicesPayload(history[i].OldValue);
-    if (payload) return payload;
-  }
-  return null;
+/* Lo que se propuso (NewValue) en la ULTIMA solicitud pendiente --
+   se usa para Reassign/Reschedule: ahora que un cambio pedido ya NO
+   se aplica a los servicios reales hasta que se apruebe, este es el
+   unico lugar donde vive la propuesta hasta ese momento. */
+function lastRequestedSnapshot(history) {
+  const row = lastRequestRow(history);
+  return row ? parseServicesPayload(row.NewValue) : null;
 }
 
 /* Estatus al que hay que volver: el OldValue de la solicitud, siempre que
@@ -396,41 +396,11 @@ exports.handler = async (event) => {
         return jsonResponse(400, { error: 'This order has no pending update to cancel.' });
       }
 
+      /* Ya no hay nada que restaurar -- el cambio pedido nunca se
+         aplico a los servicios/campos reales, asi que cancelarlo es
+         tan simple como regresar el Status. */
       const restoredStatus = previousStatus(history, 'Assigned');
-      const snapshot = lastServicesSnapshot(history);
-
-      if (snapshot && snapshot.services && snapshot.services.length) {
-        if (svcRows.length) {
-          await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
-        }
-        await Promise.all(snapshot.services.map(s =>
-          createListItem(ORDER_SERVICES_LIST, {
-            Title:              s.ServiceName || s.service || '',
-            OrderID:            orderId,
-            Category:           s.Category    || s.category || '',
-            ServiceName:        s.ServiceName || s.service  || '',
-            SubOption:          s.SubOption   || s.subOption || '',
-            Division:           s.Division    || (f.Division || ''),
-            Level:              s.Level       || s.level || '',
-            NotCompleted:       truthy(s.NotCompleted),
-            NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
-          })
-        ));
-      }
-
-      const patch = { Status: restoredStatus };
-      if (snapshot && snapshot.dirtLevel) patch.DirtLevel = snapshot.dirtLevel;
-      if (snapshot && snapshot.fields) {
-        const flds = snapshot.fields;
-        if (flds.supervisor !== undefined) patch.Supervisor = flds.supervisor;
-        if (flds.notes !== undefined) patch.Notes = flds.notes;
-        if (flds.entryDate !== undefined) patch.EntryDate = flds.entryDate ? toIsoDate(flds.entryDate) : null;
-        if (flds.dueDate !== undefined) patch.DueDate = flds.dueDate ? toIsoDate(flds.dueDate) : null;
-        if (flds.serviceWindow !== undefined) patch.ServiceWindow = flds.serviceWindow;
-        if (flds.delayReasonType !== undefined) patch.DelayReasonType = flds.delayReasonType;
-        if (flds.delayReasonNotes !== undefined) patch.DelayReasonNotes = flds.delayReasonNotes;
-      }
-      await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus });
 
       /* Confirmado con el usuario: el historial debe tener TODO lo que
          paso -- antes este camino no dejaba ningun rastro, la orden
@@ -498,47 +468,21 @@ exports.handler = async (event) => {
     let changeType = '';
     let restored = 0;
 
-    if (decision === 'approve') {
-      if (isNew)         { newStatus = 'Assigned'; changeType = 'Order Approved'; }
-      else if (isCancel) { newStatus = 'Cancelled'; changeType = 'Cancellation Approved'; }
-      /* isChange ya no llega aqui -- ver 'reassign'/'reschedule' abajo */
-    } else if (decision === 'reassign') {
-      /* La oficina confirmo con el tecnico que si puede -- mismo dia,
-         misma hora, mismo tecnico de antes. Los servicios ya se
-         aplicaron de una vez al momento de pedir el cambio (igual que
-         siempre), asi que aqui no hay nada que tocar de eso -- solo
-         se regresa el Status a como estaba antes de la solicitud.
-         Cualquier fecha/hora nueva que se haya pedido junto con el
-         cambio se IGNORA a proposito -- Reassign nunca aplica una
-         fecha nueva, para eso esta Reschedule. */
-      newStatus = previousStatus(history, 'Assigned');
-      changeType = 'Change Reassigned';
-    } else if (decision === 'reschedule') {
-      /* No se puede con el mismo tecnico/dia/hora -- la orden vuelve
-         a Scheduling limpia. Los servicios ya se aplicaron igual que
-         en Reassign; aqui ademas se confirman las fechas pedidas (si
-         las hubo) en los campos de cara al cliente, y se borra la
-         asignacion vieja (Supervisor/Ventana/Fecha de despacho) para
-         que Scheduling la vuelva a programar desde cero. */
-      newStatus = 'Received';
-      changeType = 'Sent to Scheduling';
-    } else {
-      /* Rechazo: siempre vuelve al estatus que tenia antes de la solicitud */
-      if (isCancel) { newStatus = previousStatus(history, 'Assigned');
-                      changeType = 'Cancellation Rejected'; }
-      else          { newStatus = previousStatus(history, 'Assigned');
-                      changeType = 'Change Rejected'; }
-    }
-
-    /* --- Rechazo de un cambio: restaurar los servicios del snapshot --- */
-    if (decision === 'reject' && isChange) {
-      const snapshot = lastServicesSnapshot(history);
-      if (snapshot && snapshot.services && snapshot.services.length) {
+    /* Los servicios propuestos (si los hubo) se aplican de verdad AQUI,
+       en Reassign y Reschedule -- ya no se aplican al pedirse el
+       cambio (confirmado con el usuario: nada del lado izquierdo debe
+       moverse hasta que se apruebe). Notas/nivel de suciedad tambien
+       se aplican en los dos. Reassign IGNORA fechas/ventana a
+       proposito (para eso esta Reschedule); Reschedule las confirma
+       aparte, mas abajo. */
+    if ((decision === 'reassign' || decision === 'reschedule') && isChange) {
+      const proposed = lastRequestedSnapshot(history);
+      if (proposed && proposed.services && proposed.services.length) {
         const division = f.Division || '';
         if (svcRows.length) {
           await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
         }
-        await Promise.all(snapshot.services.map(s =>
+        await Promise.all(proposed.services.map(s =>
           createListItem(ORDER_SERVICES_LIST, {
             Title:              s.ServiceName || s.service || '',
             OrderID:            orderId,
@@ -551,29 +495,51 @@ exports.handler = async (event) => {
             NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
           })
         ));
-        restored = snapshot.services.length;
+        restored = proposed.services.length;
       }
-      if (snapshot && snapshot.dirtLevel) {
-        await updateListItemByItemId(ORDERS_LIST, item.id, { DirtLevel: snapshot.dirtLevel });
+      if (proposed && proposed.dirtLevel) {
+        await updateListItemByItemId(ORDERS_LIST, item.id, { DirtLevel: proposed.dirtLevel });
       }
-      /* Si el snapshot trae campos de control (solicitudes de la oficina),
-         restaurarlos tambien, no solo los servicios. */
-      if (snapshot && snapshot.fields) {
-        const flds = snapshot.fields;
-        const fieldPatch = {};
-        if (flds.supervisor !== undefined) fieldPatch.Supervisor = flds.supervisor;
-        if (flds.notes !== undefined) fieldPatch.Notes = flds.notes;
-        if (flds.entryDate !== undefined) fieldPatch.EntryDate = flds.entryDate ? toIsoDate(flds.entryDate) : null;
-        if (flds.dueDate !== undefined) fieldPatch.DueDate = flds.dueDate ? toIsoDate(flds.dueDate) : null;
-        if (flds.serviceWindow !== undefined) fieldPatch.ServiceWindow = flds.serviceWindow;
-        if (flds.delayReasonType !== undefined) fieldPatch.DelayReasonType = flds.delayReasonType;
-        if (flds.delayReasonNotes !== undefined) fieldPatch.DelayReasonNotes = flds.delayReasonNotes;
-        if (Object.keys(fieldPatch).length) {
-          await updateListItemByItemId(ORDERS_LIST, item.id, fieldPatch);
-        }
+      if (proposed && proposed.fields && proposed.fields.notes !== undefined) {
+        await updateListItemByItemId(ORDERS_LIST, item.id, { Notes: proposed.fields.notes });
       }
-      /* Fechas propuestas que no se aprobaron: dejar constancia con el
-         motivo real que escribio el admin (ya es obligatorio arriba) */
+    }
+
+    if (decision === 'approve') {
+      if (isNew)         { newStatus = 'Assigned'; changeType = 'Order Approved'; }
+      else if (isCancel) { newStatus = 'Cancelled'; changeType = 'Cancellation Approved'; }
+      /* isChange ya no llega aqui -- ver 'reassign'/'reschedule' abajo */
+    } else if (decision === 'reassign') {
+      /* La oficina confirmo con el tecnico que si puede -- mismo dia,
+         misma hora, mismo tecnico de antes. Cualquier fecha/hora nueva
+         que se haya pedido junto con el cambio se IGNORA a proposito
+         -- Reassign nunca aplica una fecha nueva, para eso esta
+         Reschedule. */
+      newStatus = previousStatus(history, 'Assigned');
+      changeType = 'Change Reassigned';
+    } else if (decision === 'reschedule') {
+      /* No se puede con el mismo tecnico/dia/hora -- la orden vuelve
+         a Scheduling limpia. Aqui ademas se confirman las fechas
+         pedidas (si las hubo) en los campos de cara al cliente, y se
+         borra la asignacion vieja (Supervisor/Ventana/Fecha de
+         despacho) para que Scheduling la vuelva a programar desde
+         cero. */
+      newStatus = 'Received';
+      changeType = 'Sent to Scheduling';
+    } else {
+      /* Rechazo: siempre vuelve al estatus que tenia antes de la solicitud.
+         Ya no hay nada que restaurar -- el cambio pedido nunca se aplico
+         a los servicios/campos reales, asi que descartarlo es tan
+         simple como regresar el Status. */
+      if (isCancel) { newStatus = previousStatus(history, 'Assigned');
+                      changeType = 'Cancellation Rejected'; }
+      else          { newStatus = previousStatus(history, 'Assigned');
+                      changeType = 'Change Rejected'; }
+    }
+
+    /* --- Rechazo de un cambio: nada que restaurar, solo dejar constancia
+       si habia fechas propuestas que no se aprobaron --- */
+    if (decision === 'reject' && isChange) {
       const req = lastRequestRow(history);
       if (req && String(req.FieldChanged || '') === 'Requested Dates') {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
