@@ -1083,6 +1083,42 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
+    /* Horarios masivos -- confirmado con el usuario: cuando se
+       importan clientes desde el reporte, sus horarios quedan en
+       blanco (no vienen del reporte), y hacerlo uno por uno es
+       tedioso. Solo aplica a la direccion PRINCIPAL de cada cliente
+       (no a los buildings, que se configuran aparte a mano cuando
+       hace falta). SOBREESCRIBE a todos -- por eso primero se pide
+       una vista previa con quien ya tenia algo puesto, para que
+       Developer confirme antes de perder esos ajustes puntuales. */
+    if (action === 'preview-bulk-office-hours') {
+      const rows = await fetchAll(CLIENTS_LIST);
+      const clients = rows.filter(it => it.fields);
+      const alreadySet = clients.filter(it => {
+        const f = it.fields;
+        return !!(f.OfficeHours || f.MonOpen || f.TueOpen || f.WedOpen || f.ThuOpen || f.FriOpen || f.SatOpen || f.SunOpen);
+      }).map(it => it.fields.BusinessName || it.fields.ClientID || it.id);
+      return jsonResponse(200, { totalClients: clients.length, alreadySetCount: alreadySet.length, alreadySetNames: alreadySet });
+    }
+
+    if (action === 'apply-bulk-office-hours') {
+      const h = body.hours || {};
+      if (!h.officeHours) return jsonResponse(400, { error: 'officeHours is required.' });
+      const rows = await fetchAll(CLIENTS_LIST);
+      const clients = rows.filter(it => it.fields);
+      const fields = {
+        OfficeHours: h.officeHours,
+        MonOpen: !!h.monOpen, TueOpen: !!h.tueOpen, WedOpen: !!h.wedOpen, ThuOpen: !!h.thuOpen,
+        FriOpen: !!h.friOpen, SatOpen: !!h.satOpen, SunOpen: !!h.sunOpen
+      };
+      let updated = 0, failed = 0;
+      for (const it of clients) {
+        try { await updateListItemByItemId(CLIENTS_LIST, it.id, fields); updated++; }
+        catch (e) { failed++; }
+      }
+      return jsonResponse(200, { success: true, updated, failed });
+    }
+
     /* Backfill de coordenadas para los Buildings que ya existian antes
        de que Latitude/Longitude existieran como columnas. Se procesa
        de a poco (8 por llamada) porque Nominatim pide 1 peticion por

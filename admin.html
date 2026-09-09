@@ -94,7 +94,7 @@
     /* El CSS de los badges ahora lo trae GSOrderBadges (gsocd-shared) --
        solo el margen queda aqui, porque es especifico de esta posicion
        (justo despues del OrderID), no algo que el componente deba asumir. */
-    .order-id .gs-occupied-badge, .order-id .gs-office-need-badge { margin-left: 8px; }
+    .order-id .gs-occupied-badge, .order-id .gs-office-need-badge, .order-id .gs-now-badge { margin-left: 8px; }
     /* Exteriors: necesita algo de la oficina antes de entrar -- mismo
        patron que occupied-badge, color distinto para no confundirlos */
     .status-badge {
@@ -497,7 +497,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.7.0/order-badges/order-badges.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -1523,7 +1523,7 @@ function newOrderApprovalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1700,7 +1700,7 @@ function approvalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2670,7 +2670,7 @@ function orderCard(o, context) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}<span class="order-pin"></span></div>
+          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
         </div>
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>

@@ -562,6 +562,34 @@
     </div>
   </section>
 
+  <section id="bulk-hours-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Bulk Set Office Hours</div>
+        <div class="order-desc">Give every client's primary address the same default hours — for whoever came in blank from the last import.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">This overwrites the primary address hours for every client — including ones who already set their own. Buildings are never touched here.</p>
+        <div style="display:flex;gap:10px;justify-content:space-between;margin-bottom:14px;max-width:320px" id="bulk-hours-daycells">
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Mon<input type="checkbox" id="bh-monOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Tue<input type="checkbox" id="bh-tueOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Wed<input type="checkbox" id="bh-wedOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Thu<input type="checkbox" id="bh-thuOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Fri<input type="checkbox" id="bh-friOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Sat<input type="checkbox" id="bh-satOpen"></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Sun<input type="checkbox" id="bh-sunOpen"></label>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:16px">
+          <div class="field-small" style="max-width:150px"><label>Opens at</label><div id="bh-open-field"></div></div>
+          <div class="field-small" style="max-width:150px"><label>Closes at</label><div id="bh-close-field"></div></div>
+        </div>
+        <button class="btn btn-gold" onclick="startBulkHours()">Apply to All Clients</button>
+        <div id="bulk-hours-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
+  </section>
+
   <section id="geocode-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -694,6 +722,7 @@
     if (canEdit) {
       document.getElementById('import-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
+      document.getElementById('bulk-hours-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
       document.getElementById('reports-section').classList.add('role-eligible');
       document.getElementById('templates-section').classList.add('role-eligible');
@@ -1029,6 +1058,62 @@
       await loadHolidays();
     } catch (e) {
       showToast('Could not save: ' + e.message);
+    }
+  }
+
+  /* ===== Bulk Set Office Hours -- confirmado con el usuario: SI se
+     sobreescribe todo, pero primero avisa quien ya tenia algo puesto
+     por su cuenta, para que Developer decida con esa informacion. */
+  document.getElementById('bh-open-field').innerHTML = GSDateTimePicker.timeHtml('bh-openTime', '09:00');
+  document.getElementById('bh-close-field').innerHTML = GSDateTimePicker.timeHtml('bh-closeTime', '17:00');
+
+  function readBulkHoursForm() {
+    const to12 = (hhmm) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const isPM = h >= 12; let h12 = h % 12; if (h12 === 0) h12 = 12;
+      return h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+    };
+    const openEl = document.getElementById('bh-openTime'), closeEl = document.getElementById('bh-closeTime');
+    return {
+      officeHours: to12(openEl.value || '09:00') + ' - ' + to12(closeEl.value || '17:00'),
+      monOpen: document.getElementById('bh-monOpen').checked, tueOpen: document.getElementById('bh-tueOpen').checked,
+      wedOpen: document.getElementById('bh-wedOpen').checked, thuOpen: document.getElementById('bh-thuOpen').checked,
+      friOpen: document.getElementById('bh-friOpen').checked, satOpen: document.getElementById('bh-satOpen').checked,
+      sunOpen: document.getElementById('bh-sunOpen').checked
+    };
+  }
+
+  async function startBulkHours() {
+    const resultEl = document.getElementById('bulk-hours-result');
+    resultEl.innerHTML = '<p class="empty-note">Checking clients…</p>';
+    try {
+      const res = await api('preview-bulk-office-hours');
+      let msg = 'This will set the same hours on all ' + res.totalClients + ' clients.';
+      if (res.alreadySetCount) {
+        msg += ' ' + res.alreadySetCount + ' of them already have hours set: ' +
+          res.alreadySetNames.slice(0, 8).join(', ') + (res.alreadySetNames.length > 8 ? ', and ' + (res.alreadySetNames.length - 8) + ' more' : '') +
+          '. Overwrite those too?';
+      } else {
+        msg += ' None of them have hours set yet.';
+      }
+      resultEl.innerHTML = '<p style="margin-bottom:10px">' + esc(msg) + '</p>' +
+        '<button class="btn btn-gold btn-sm" onclick="applyBulkHoursConfirmed()">Yes, apply to all</button> ' +
+        '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulk-hours-result\').innerHTML=\'\'">Cancel</button>';
+    } catch (e) {
+      resultEl.innerHTML = '<p class="empty-note">Could not check clients: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function applyBulkHoursConfirmed() {
+    const resultEl = document.getElementById('bulk-hours-result');
+    resultEl.innerHTML = '<p class="empty-note">Applying…</p>';
+    try {
+      const hours = readBulkHoursForm();
+      const res = await api('apply-bulk-office-hours', { hours });
+      resultEl.innerHTML = '<p style="color:var(--gold-dk)">Done — updated ' + res.updated + ' clients' + (res.failed ? ' (' + res.failed + ' failed)' : '') + '.</p>';
+      showToast('Office hours applied to ' + res.updated + ' clients.');
+    } catch (e) {
+      resultEl.innerHTML = '<p class="empty-note">Could not apply: ' + esc(e.message) + '</p>';
     }
   }
 
