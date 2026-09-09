@@ -646,12 +646,15 @@ exports.handler = async (event) => {
       }));
     }
 
-    /* --- Registro de la decision (siempre, aprobada o rechazada) --- */
+    /* --- Registro de la decision (siempre) --- */
+    const defaultNoteByDecision = {
+      approve:    'Approved by ' + actor + '.',
+      reject:     'Rejected by ' + actor + '.' + (restored ? ' Previous services were restored.' : ''),
+      reassign:   'Reassigned by ' + actor + ' — same tech, day, and time.',
+      reschedule: 'Sent back to Scheduling by ' + actor + '.'
+    };
     const decisionNote = (notes && String(notes).trim())
-      || (decision === 'approve'
-        ? 'Approved by ' + actor + '.'
-        : 'Rejected by ' + actor + '.'
-          + (restored ? ' Previous services were restored.' : ''));
+      || defaultNoteByDecision[decision] || (actor + ' updated this order.');
 
     /* Si la solicitud que se esta decidiendo era un cambio interno de la
        oficina (Supervisor, Inspection Date), la decision tambien debe
