@@ -566,7 +566,7 @@
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.5/date-time-picker/date-time-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.6/date-time-picker/date-time-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -5131,152 +5131,18 @@ function createOrderFormHtml() {
       </div>
 
       <div id="create-single-dates" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
-        <div class="field-group">
-          <label>Entry Date</label>
-          <input type="date" id="create-entry-date" style="display:none">
-          <div class="rel-wrap">
-            <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-entry-date')" id="create-entry-date-trigger">Pick a date</button>
-            <div class="picker-popover" id="create-entry-date-pop">
-              <div class="picker-title">Pick a date</div>
-              <div class="cal-card">
-                <div class="cal-header">
-                  <div class="cal-nav-group">
-                    <button type="button" onclick="calPrevMonth('create-entry-date')">‹</button>
-                    <div class="cal-month" id="create-entry-date-month"></div>
-                    <button type="button" onclick="calNextMonth('create-entry-date')">›</button>
-                  </div>
-                  <div class="cal-nav-group">
-                    <button type="button" onclick="calPrevYear('create-entry-date')">‹</button>
-                    <div class="cal-year" id="create-entry-date-year"></div>
-                    <button type="button" onclick="calNextYear('create-entry-date')">›</button>
-                  </div>
-                </div>
-                <div class="cal-grid" id="create-entry-date-grid"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="field-group">
-          <label>Entry Time</label>
-          <input type="time" id="create-entry-time" value="08:00" style="display:none">
-          <div class="rel-wrap">
-            <button type="button" class="trigger-btn" onclick="toggleClockPicker('create-entry-time')" id="create-entry-time-trigger">8:00 AM</button>
-            <div class="picker-popover" id="create-entry-time-pop">
-              <div class="picker-title">Pick a time</div>
-              <div class="clock-face-row"><div class="clock-face" id="create-entry-time-face"><div class="clock-center"></div></div></div>
-              <div class="clock-bottom-row">
-                <div class="ampm-col">
-                  <button type="button" class="active" id="create-entry-time-am" onclick="setClockAmpm('create-entry-time','AM',this)">AM</button>
-                  <button type="button" id="create-entry-time-pm" onclick="setClockAmpm('create-entry-time','PM',this)">PM</button>
-                </div>
-                <div class="clock-readout">
-                  <span class="part active" id="create-entry-time-readout-hour" onclick="goToClockStep('create-entry-time','hour')">8</span><span class="part" id="create-entry-time-readout-min" onclick="goToClockStep('create-entry-time','minute')">:00</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="field-group">
-          <label>Due Date</label>
-          <input type="date" id="create-due-date" style="display:none">
-          <div class="rel-wrap">
-            <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-due-date')" id="create-due-date-trigger">Pick a date</button>
-            <div class="picker-popover" id="create-due-date-pop">
-              <div class="picker-title">Pick a date</div>
-              <div class="cal-card">
-                <div class="cal-header">
-                  <div class="cal-nav-group">
-                    <button type="button" onclick="calPrevMonth('create-due-date')">‹</button>
-                    <div class="cal-month" id="create-due-date-month"></div>
-                    <button type="button" onclick="calNextMonth('create-due-date')">›</button>
-                  </div>
-                  <div class="cal-nav-group">
-                    <button type="button" onclick="calPrevYear('create-due-date')">‹</button>
-                    <div class="cal-year" id="create-due-date-year"></div>
-                    <button type="button" onclick="calNextYear('create-due-date')">›</button>
-                  </div>
-                </div>
-                <div class="cal-grid" id="create-due-date-grid"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div class="field-group"><label>Entry Date</label>${GSDateTimePicker.dateHtml('create-entry-date', null)}</div>
+        <div class="field-group"><label>Entry Time</label>${GSDateTimePicker.timeHtml('create-entry-time', '08:00')}</div>
+        <div class="field-group"><label>Due Date</label>${GSDateTimePicker.dateHtml('create-due-date', null)}</div>
       </div>
 
       <div id="create-multi-container" style="display:none;margin-top:20px">
         <div id="create-unit-cards"></div>
         <button type="button" class="btn btn-outline" onclick="addCreateUnitCard()" style="margin-bottom:16px">+ Add Another Unit</button>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-          <div class="field-group">
-            <label>Entry Date (all units)</label>
-            <input type="date" id="create-multi-entry-date" style="display:none">
-            <div class="rel-wrap">
-              <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-multi-entry-date')" id="create-multi-entry-date-trigger">Pick a date</button>
-              <div class="picker-popover" id="create-multi-entry-date-pop">
-                <div class="picker-title">Pick a date</div>
-                <div class="cal-card">
-                  <div class="cal-header">
-                    <div class="cal-nav-group">
-                      <button type="button" onclick="calPrevMonth('create-multi-entry-date')">‹</button>
-                      <div class="cal-month" id="create-multi-entry-date-month"></div>
-                      <button type="button" onclick="calNextMonth('create-multi-entry-date')">›</button>
-                    </div>
-                    <div class="cal-nav-group">
-                      <button type="button" onclick="calPrevYear('create-multi-entry-date')">‹</button>
-                      <div class="cal-year" id="create-multi-entry-date-year"></div>
-                      <button type="button" onclick="calNextYear('create-multi-entry-date')">›</button>
-                    </div>
-                  </div>
-                  <div class="cal-grid" id="create-multi-entry-date-grid"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="field-group">
-            <label>Entry Time (all units)</label>
-            <input type="time" id="create-multi-entry-time" value="08:00" style="display:none">
-            <div class="rel-wrap">
-              <button type="button" class="trigger-btn" onclick="toggleClockPicker('create-multi-entry-time')" id="create-multi-entry-time-trigger">8:00 AM</button>
-              <div class="picker-popover" id="create-multi-entry-time-pop">
-                <div class="picker-title">Pick a time</div>
-                <div class="clock-face-row"><div class="clock-face" id="create-multi-entry-time-face"><div class="clock-center"></div></div></div>
-                <div class="clock-bottom-row">
-                  <div class="ampm-col">
-                    <button type="button" class="active" id="create-multi-entry-time-am" onclick="setClockAmpm('create-multi-entry-time','AM',this)">AM</button>
-                    <button type="button" id="create-multi-entry-time-pm" onclick="setClockAmpm('create-multi-entry-time','PM',this)">PM</button>
-                  </div>
-                  <div class="clock-readout">
-                    <span class="part active" id="create-multi-entry-time-readout-hour" onclick="goToClockStep('create-multi-entry-time','hour')">8</span><span class="part" id="create-multi-entry-time-readout-min" onclick="goToClockStep('create-multi-entry-time','minute')">:00</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="field-group">
-            <label>Due Date (all units)</label>
-            <input type="date" id="create-multi-due-date" style="display:none">
-            <div class="rel-wrap">
-              <button type="button" class="trigger-btn" onclick="toggleCalPicker('create-multi-due-date')" id="create-multi-due-date-trigger">Pick a date</button>
-              <div class="picker-popover" id="create-multi-due-date-pop">
-                <div class="picker-title">Pick a date</div>
-                <div class="cal-card">
-                  <div class="cal-header">
-                    <div class="cal-nav-group">
-                      <button type="button" onclick="calPrevMonth('create-multi-due-date')">‹</button>
-                      <div class="cal-month" id="create-multi-due-date-month"></div>
-                      <button type="button" onclick="calNextMonth('create-multi-due-date')">›</button>
-                    </div>
-                    <div class="cal-nav-group">
-                      <button type="button" onclick="calPrevYear('create-multi-due-date')">‹</button>
-                      <div class="cal-year" id="create-multi-due-date-year"></div>
-                      <button type="button" onclick="calNextYear('create-multi-due-date')">›</button>
-                    </div>
-                  </div>
-                  <div class="cal-grid" id="create-multi-due-date-grid"></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div class="field-group"><label>Entry Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-entry-date', null)}</div>
+          <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
+          <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
         </div>
       </div>
 
