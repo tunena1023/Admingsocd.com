@@ -282,21 +282,18 @@
     /* EMPTY */
     .empty-note { color: var(--gray); font-size: 14px; padding: 40px 0; text-align: center; }
 
-    /* HISTORY */
-    .hist-item { padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .hist-date { color: var(--gray); font-size: 12px; margin-right: 12px; }
-    .hist-type { font-weight: 600; }
-    .hist-rev { color: var(--gold); font-weight: 600; }
-    .hist-by { color: var(--gray); font-size: 12px; margin-left: 8px; }
-    .hist-item.has-detail { cursor: pointer; }
+    /* HISTORY: .hist-head/.hist-head-main/.hist-toggle/.hist-detail se
+       quedan -- los reusa "Services Requested" (Review) para su propio
+       acordeon. El resto (hist-item, hist-date, hist-type, hist-rev,
+       hist-by, hist-note, hist-detail-line) ya viene con la pieza
+       compartida GSOrderHistory bajo sus propias clases (.goh-*), sin
+       colision -- se quitan de aqui por quedar huerfanas. */
     .hist-head { display: flex; align-items: baseline; gap: 8px; }
     .hist-head-main { flex: 1; min-width: 0; line-height: 1.6; }
     .hist-toggle { font-size: 10px; color: var(--gold); white-space: nowrap; flex-shrink: 0; }
-    .hist-note { font-size: 12px; color: var(--gray); margin-top: 5px; line-height: 1.5; }
     .hist-detail { display: none; margin-top: 10px; padding: 12px 14px; background: var(--bg);
                    border-radius: 4px; border-left: 3px solid var(--gold); }
     .hist-detail.open { display: block; }
-    .hist-detail-line { font-size: 12px; margin: 5px 0; line-height: 1.5; }
     /* ===== Formato unificado de renglones de cambio ===== */
     .change-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
     .change-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
@@ -499,6 +496,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.4.0/order-history/order-history.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -1971,7 +1969,6 @@ function approvalDetailHtml(card, o, services, history) {
      aprueba o se rechaza tal cual llego — no se edita en ese paso. */
   const editable = kind.label === 'New Order';
   const rows = [];
-  let pendingReqDate = null;
 
   /* --- Lo que se pidio ---
      Se muestra para cualquier solicitud de cambio/cancelacion (Review),
@@ -1990,7 +1987,6 @@ function approvalDetailHtml(card, o, services, history) {
     const verb = (req && String(req.ChangeType || '') === 'Created') ? 'Created' : 'Requested';
     rows.push('<p class="appr-h">' + verb + ' by the ' + (origin === 'office' ? 'office' : 'client') + '</p>');
     if (req) {
-      pendingReqDate = req.ChangeDate;
       rows.push('<p>' + fmtDateTime(req.ChangeDate) +
         (req.ChangedBy ? ' · ' + esc(req.ChangedBy) : '') + '</p>');
       const note = histNoteText(req);
@@ -2072,13 +2068,14 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<div class="appr-section"><p class="appr-h">Notes</p><p>' + esc(o.Notes) + '</p></div>');
   }
 
-  /* --- Historial: mismo componente que Active/History, en la columna
-     derecha. En Review (no editable), la solicitud pendiente ya se ve
-     completa arriba en "Requested by..." -- para no repetirla, solo se
-     muestra lo que ya se reviso ANTES de ella (excludeFromDate). En
-     Approvals (orden nueva), se ve todo lo que haya (usualmente solo
-     'Created', pero puede traer mas si es una orden reactivada). */
-  const historyHtml = buildHistoryHtml(card.OrderID, history, editable ? null : pendingReqDate);
+  /* --- Historial: pieza compartida (gsocd-shared/order-history),
+     SIEMPRE completo -- ya no se recorta por fecha ni por contexto.
+     Antes, en Review, se escondia todo lo que pasara desde la
+     solicitud pendiente en adelante (para no repetir lo que ya se
+     ve arriba en "Requested by...") -- confirmado con el usuario que
+     eso esta mal: el historial debe ser acumulativo, la misma orden
+     debe verse igual sin importar en que tab se este mirando. */
+  const historyHtml = GSOrderHistory.html(card.OrderID, history, { mode: 'staff' });
 
   return '<div class="detail-grid">' +
     '<div>' + rows.join('') + '</div>' +
@@ -2964,176 +2961,11 @@ function histNoteText(h) {
   return h.Notes;
 }
 
-/* Estos tipos de evento son ruido operativo (confirman que el documento
-   se genero o fallo, no un cambio de la orden en si) y solo se ocultan
-   aqui, en Active/History — Review no los usa. */
-const HIDDEN_HISTORY_TYPES = ['Document Generated', 'Document Failed', 'Archived'];
-
-/* Arma el HTML del historial: filtra ruido operativo, agrupa renglones
-   de la misma tanda ('Dates Confirmed' repetido) y fusiona el detalle
-   con el evento de decision que le sigue -- misma logica para
-   Active/History y para el panel derecho de Approvals/Review, en vez
-   de duplicarla en dos lados.
-
-   excludeFromDate (opcional): en Review, la solicitud pendiente actual
-   ya se muestra completa en "Requested by..." arriba -- se le pasa la
-   fecha de esa solicitud para no repetirla aqui abajo, mostrando solo
-   lo que ya se reviso antes. */
-/* Traduccion SOLO visual del ChangeType -- el dato guardado en
-   SharePoint nunca cambia, esto es nomas para que se lea mejor en
-   pantalla. Mismo criterio confirmado con el usuario: "nomas el
-   nombre visible cambia, todo lo demas queda igual". */
-function historyTypeLabel(changeType) {
-  const map = {
-    'Expected Ready Date': 'Ready Date & Time',
-    'Reschedule Requested': 'New dates requested'
-  };
-  return map[changeType] || changeType || '';
-}
-
-function buildHistoryHtml(orderId, history, excludeFromDate) {
-  let visibleHistory = (history || []).filter(h => HIDDEN_HISTORY_TYPES.indexOf(String(h.ChangeType || '')) === -1);
-  if (excludeFromDate) {
-    const cutoff = new Date(excludeFromDate);
-    visibleHistory = visibleHistory.filter(h => new Date(h.ChangeDate) < cutoff);
-  }
-
-  /* BUG FIX: aprobar un cambio que toco varios campos de fecha a la vez
-     (Entry/Due/Service Window) escribe un renglon de historial POR CADA
-     campo (ver admin-approve-order.js, 'Dates Confirmed'), aunque sea
-     una sola decision de aprobacion. Sin agrupar, se veian 2 o 3
-     eventos identicos seguidos ("Dates Confirmed by Esmeralda Amezcua")
-     cada uno con un solo campo, en vez de uno solo con todos los campos
-     que en realidad cambiaron juntos. Se agrupan renglones consecutivos
-     del mismo tipo/autor dentro de una ventana corta de tiempo (los
-     timestamps no son identicos al ms por ser escrituras secuenciales),
-     igual que ya se hizo para el tracker del cliente. */
-  const GROUP_WINDOW_MS = 60000;
-  const GROUPABLE_TYPES = ['Dates Confirmed'];
-  const groupedHistory = [];
-  visibleHistory.forEach(h => {
-    const last = groupedHistory[groupedHistory.length - 1];
-    const type = String(h.ChangeType || '');
-    const groupable = GROUPABLE_TYPES.indexOf(type) !== -1;
-    const matchesLast = last && groupable &&
-      String(last.rep.ChangeType || '') === type &&
-      String(last.rep.ChangedBy || '') === String(h.ChangedBy || '') &&
-      Math.abs(new Date(h.ChangeDate) - new Date(last.rep.ChangeDate)) < GROUP_WINDOW_MS;
-    if (matchesLast) {
-      last.rows.push(h);
-    } else {
-      groupedHistory.push({ rep: h, rows: [h] });
-    }
-  });
-
-  /* Segunda pasada: al aprobar un cambio de fechas, el 'Dates Confirmed'
-     (ya agrupado arriba) queda seguido, en la MISMA accion, de un evento
-     de decision generico ('Change Approved'/'Change Rejected'/etc.) sin
-     ningun detalle propio -- el Grupo 1 ya le quita "Status: X->Y" y la
-     nota automatica "Approved by X.", dejandolo vacio y redundante (dos
-     burbujas para una sola decision). Se fusionan en una sola: se usa
-     el evento de decision como encabezado (mas claro: dice "Approved",
-     no "Dates Confirmed"), conservando el detalle de que campos
-     cambiaron. */
-  const DECISION_TYPES = ['Change Approved', 'Change Rejected', 'Cancellation Approved', 'Cancellation Rejected'];
-  const DETAIL_TYPES = ['Dates Confirmed'];
-  const mergedHistory = [];
-  groupedHistory.forEach(g => {
-    const prev = mergedHistory[mergedHistory.length - 1];
-    const type = String(g.rep.ChangeType || '');
-    const isDecision = DECISION_TYPES.indexOf(type) !== -1;
-    const prevIsDetail = prev && DETAIL_TYPES.indexOf(String(prev.rep.ChangeType || '')) !== -1;
-    const sameActor = prev && String(prev.rep.ChangedBy || '') === String(g.rep.ChangedBy || '');
-    const closeInTime = prev &&
-      Math.abs(new Date(g.rep.ChangeDate) - new Date(prev.rep.ChangeDate)) < GROUP_WINDOW_MS;
-    if (isDecision && prevIsDetail && sameActor && closeInTime) {
-      prev.rep = g.rep;
-      prev.rows = prev.rows.concat(g.rows);
-    } else {
-      mergedHistory.push(g);
-    }
-  });
-
-  /* Tercera pasada: 'Change Requested' seguido de inmediato por
-     'Reschedule Requested' (mismo actor, mismo momento) es UNA sola
-     accion del cliente -- pedir un cambio que incluye fecha/hora
-     escribe 2 renglones aparte por diseno (ver request-change.js),
-     pero aqui se ven como uno solo. Se usa 'Reschedule Requested'
-     como representante (mas especifico), conservando la nota del
-     'Change Requested' original en MergedNotes. */
-  const mergedHistory2 = [];
-  mergedHistory.forEach(g => {
-    const prev = mergedHistory2[mergedHistory2.length - 1];
-    const type = String(g.rep.ChangeType || '');
-    const isReschedule = type === 'Reschedule Requested';
-    const prevIsChangeRequested = prev && String(prev.rep.ChangeType || '') === 'Change Requested';
-    const sameActor = prev && String(prev.rep.ChangedBy || '') === String(g.rep.ChangedBy || '');
-    const closeInTime = prev &&
-      Math.abs(new Date(g.rep.ChangeDate) - new Date(prev.rep.ChangeDate)) < GROUP_WINDOW_MS;
-    if (isReschedule && prevIsChangeRequested && sameActor && closeInTime) {
-      const carriedNote = histNoteText(prev.rep);
-      prev.rep = Object.assign({}, g.rep, { MergedNotes: carriedNote });
-      prev.rows = prev.rows.concat(g.rows);
-    } else {
-      mergedHistory2.push(g);
-    }
-  });
-
-  return mergedHistory2.map((g, idx) => {
-    const h = g.rep;
-    const detailId = 'hd-' + String(orderId || '').replace(/[^a-z0-9]/gi,'_') + '-' + idx;
-    let lines = g.rows.reduce((acc, row) => acc.concat(historyChangeLines(row)), []);
-    /* Evitar mostrar el mismo "antes -> despues" dos veces seguidas:
-       cuando se aprueba un cambio de fechas/ventana, el evento de
-       decision (Change Approved) trae su propio renglon "Dates
-       Confirmed" con el mismo campo que el cliente ya pidio en el
-       evento justo anterior (New dates requested/Reschedule
-       Requested) -- se ve repetido aunque es UN solo cambio real.
-       Se filtra cualquier linea de esta burbuja que sea identica
-       (mismo HTML) a una que ya aparecio en la burbuja anterior. */
-    const isDecisionType = DECISION_TYPES.indexOf(String(h.ChangeType || '')) !== -1;
-    if (isDecisionType && idx > 0) {
-      const prevLines = new Set(mergedHistory2[idx - 1]._renderedLines || []);
-      lines = lines.filter(l => !prevLines.has(l));
-    }
-    g._renderedLines = lines;
-    const hasDetail = lines.length > 0;
-    const noteTxt   = h.MergedNotes || histNoteText(h);
-    /* Un evento que no trae ni nota ni detalle es puro tramite -- solo
-       repite en prosa lo que el encabezado ya dice ("Change Approved
-       by Esmeralda Amezcua", sin nada mas abajo). Se filtra: el
-       historial debe mostrar solo lo que de verdad dice algo (que se
-       agrego/cambio/quito un servicio, una nota personalizada, etc.),
-       no cada paso administrativo del tramite.
-       EXCEPCION: los pasos que marcan un cambio real de estatus de la
-       orden (se creo, se aprobo, se aprobo/rechazo un cambio o
-       cancelacion, se completo) NUNCA deben desaparecer, tengan o no
-       detalle/nota propia -- son justo los puntos que hay que poder
-       auditar en cualquier momento. Antes solo se protegia el caso de
-       'se quedo sin detalle por el filtro de arriba' (dedup); ahora se
-       protege el tipo de evento completo, sin importar la razon. */
-    const ALWAYS_VISIBLE_TYPES = ['Created', 'Order Approved']
-      .concat(DECISION_TYPES);
-    const alwaysVisible = ALWAYS_VISIBLE_TYPES.indexOf(String(h.ChangeType || '')) !== -1;
-    if (!hasDetail && !noteTxt && !alwaysVisible) return '';
-    return `<div class="hist-item${hasDetail ? ' has-detail' : ''}"${
-        hasDetail ? ` onclick="toggleHistDetail('${detailId}')"` : ''}>
-      <div class="hist-head">
-        <div class="hist-head-main">
-          <span class="hist-date">${fmtDateTime(h.ChangeDate)}</span>
-          <span class="hist-rev">${esc(orderId || '')}</span> —
-          <span class="hist-type">${esc(historyTypeLabel(h.ChangeType))}</span>
-          ${h.ChangedBy ? `<span class="hist-by">by ${esc(h.ChangedBy)}</span>` : ''}
-        </div>
-        ${hasDetail ? '<span class="hist-toggle">&#9660; details</span>' : ''}
-      </div>
-      ${noteTxt ? `<div class="hist-note">${esc(noteTxt)}</div>` : ''}
-      ${hasDetail ? `<div id="${detailId}" class="hist-detail">${
-          lines.map(l => `<div class="hist-detail-line">${l}</div>`).join('')
-        }</div>` : ''}
-    </div>`;
-  }).join('') || '<p class="empty-note">No history.</p>';
-}
+/* El historial ahora viene de GSOrderHistory (gsocd-shared) -- una
+   sola pieza compartida entre Admin/Tech/Orders, en vez de esta
+   implementacion propia (buildHistoryHtml + HIDDEN_HISTORY_TYPES +
+   historyTypeLabel). Ya no se recorta por fecha ni por contexto --
+   el historial siempre es completo, sin importar el tab. */
 
 /* Solo se ve algo aqui si la orden tiene ALGO distinto al default del
    cliente en alguno de los 5 campos -- si usa todo el default, no
@@ -3223,7 +3055,7 @@ function orderNotificationsLineHtml(o) {
    dentro, Mark as Seen hace exactamente lo mismo que el Approve de
    siempre (PDF, aviso al cliente, Status->Assigned) -- el cambio es
    nomas donde vive el boton y como se llama. */
-function unseenActiveCardHtml(o, services) {
+function unseenActiveCardHtml(o, services, history) {
   const byCat = {};
   services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
   const svcHtml = Object.keys(byCat).length
@@ -3249,7 +3081,9 @@ function unseenActiveCardHtml(o, services) {
       <button class="btn btn-green" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
       <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
     </div>
-    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>`;
+    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>
+    <p class="appr-h" style="margin-top:20px">History</p>
+    ${GSOrderHistory.html(o.OrderID, history, { mode: 'staff' })}`;
 }
 
 async function markSeen(orderId) {
@@ -3266,12 +3100,12 @@ async function markSeen(orderId) {
 
 function renderOrderDetail(o, services, history, context, storedDoc) {
   if (context === 'active' && o.Status === 'Received') {
-    return unseenActiveCardHtml(o, services);
+    return unseenActiveCardHtml(o, services, history);
   }
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
-  const histHtml = buildHistoryHtml(o.OrderID, history);
+  const histHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff' });
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
