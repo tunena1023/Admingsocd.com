@@ -209,6 +209,7 @@
     }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -648,6 +649,18 @@
       <button class="btn btn-gold" onclick="saveStaff()">Save</button>
       <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
       <button class="btn btn-danger" id="staff-delete-btn" style="display:none;margin-left:auto" onclick="deleteStaffFromModal()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="device-qr-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="text-align:center">
+    <h3 id="device-qr-title">Set Up Phone</h3>
+    <p style="font-size:12px;color:var(--gray);margin:10px 0 18px">Open the camera on <b id="device-qr-name-inline"></b>'s phone and scan this — do this together, in the office.</p>
+    <div id="device-qr-canvas" style="display:flex;justify-content:center;margin-bottom:16px"></div>
+    <p style="font-size:11px;color:var(--gray);margin-bottom:16px">This code only works once. Generating a new one for the same person turns off their old phone automatically.</p>
+    <div class="btn-actions" style="justify-content:center">
+      <button class="btn btn-outline" onclick="closeDeviceQRModal()">Done</button>
     </div>
   </div>
 </div>
@@ -1395,6 +1408,43 @@
     }
   }
 
+  /* ===== Acceso por QR -- confirmado con el usuario: se genera aqui
+     y se escanea EN PERSONA, con el celular del propio empleado, ahi
+     mismo en la oficina. */
+  async function startDeviceQR(techId) {
+    const t = allTechs.find(x => x.id === techId);
+    if (!t) return;
+    try {
+      const res = await api('generate-device-qr', { techId });
+      document.getElementById('device-qr-title').textContent = 'Set Up Phone — ' + t.firstName + ' ' + t.lastName;
+      document.getElementById('device-qr-name-inline').textContent = t.firstName;
+      const canvasWrap = document.getElementById('device-qr-canvas');
+      canvasWrap.innerHTML = '';
+      new QRCode(canvasWrap, { text: res.setupUrl, width: 220, height: 220 });
+      document.getElementById('device-qr-modal-overlay').style.display = 'flex';
+    } catch (e) {
+      showToast('Could not generate QR: ' + e.message);
+    }
+  }
+
+  function closeDeviceQRModal() {
+    document.getElementById('device-qr-modal-overlay').style.display = 'none';
+    loadTechs();
+  }
+
+  async function revokeDevice(techId) {
+    const t = allTechs.find(x => x.id === techId);
+    if (!t) return;
+    if (!confirm('Turn off phone access for ' + t.firstName + ' ' + t.lastName + '? They will need a new QR code to get back in.')) return;
+    try {
+      await api('revoke-device', { techId });
+      showToast('Device access turned off.');
+      await loadTechs();
+    } catch (e) {
+      showToast('Could not revoke: ' + e.message);
+    }
+  }
+
   function renderTechs() {
     document.getElementById('techs-count-badge').textContent = allTechs.length + ' registered';
     const q = (document.getElementById('techs-search').value || '').trim().toLowerCase();
@@ -1430,6 +1480,11 @@
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)">
             <input type="checkbox" ${t.active ? 'checked' : ''} onchange="updateTech('${t.id}','active',this.checked)"> Active
           </label>
+        </td>
+        <td>
+          ${t.hasActiveDevice
+            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="btn btn-outline btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="btn btn-danger btn-sm" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
+            : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="btn btn-gold btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
         </td>
       </tr>`).join('');
   }

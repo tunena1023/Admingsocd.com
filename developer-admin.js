@@ -27,7 +27,7 @@ const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
-  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -844,19 +844,40 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-techs') {
-      const rows = await fetchAll(TECHS_LIST);
-      const techs = rows.filter(it => it.fields).map(it => ({
-        id: it.id,
-        firstName: it.fields.FirstName || '',
-        lastName: it.fields.LastName || '',
-        phone: it.fields.Phone || '',
-        email: it.fields.Email || '',
-        tempId: it.fields.TempID || '',
-        payrollId: it.fields.PayrollID || '',
-        role: it.fields.Role || 'Employee',
-        division: it.fields.Division || '',
-        active: it.fields.Active === undefined ? true : (it.fields.Active === true || it.fields.Active === 'true')
-      })).sort((a, b) => (a.firstName + a.lastName).localeCompare(b.firstName + b.lastName));
+      const [rows, deviceRows] = await Promise.all([
+        fetchAll(TECHS_LIST),
+        fetchAll(TECH_DEVICE_TOKENS_LIST)
+      ]);
+      /* Un solo dispositivo activo por tecnico -- si por algo raro hay
+         mas de uno marcado Active a la vez, se usa el mas reciente. */
+      const activeDeviceByTech = {};
+      deviceRows.forEach(it => {
+        if (!it.fields) return;
+        const f = it.fields;
+        if (!truthy(f.Active)) return;
+        const techId = String(f.TechId || '');
+        const existing = activeDeviceByTech[techId];
+        if (!existing || String(f.CreatedDate || '') > String(existing.CreatedDate || '')) {
+          activeDeviceByTech[techId] = f;
+        }
+      });
+      const techs = rows.filter(it => it.fields).map(it => {
+        const device = activeDeviceByTech[it.id];
+        return {
+          id: it.id,
+          firstName: it.fields.FirstName || '',
+          lastName: it.fields.LastName || '',
+          phone: it.fields.Phone || '',
+          email: it.fields.Email || '',
+          tempId: it.fields.TempID || '',
+          payrollId: it.fields.PayrollID || '',
+          role: it.fields.Role || 'Employee',
+          division: it.fields.Division || '',
+          active: it.fields.Active === undefined ? true : (it.fields.Active === true || it.fields.Active === 'true'),
+          hasActiveDevice: !!device,
+          deviceLastUsed: device ? (device.LastUsedDate || '') : ''
+        };
+      }).sort((a, b) => (a.firstName + a.lastName).localeCompare(b.firstName + b.lastName));
       return jsonResponse(200, { techs });
     }
 
@@ -878,6 +899,42 @@ exports.handler = async (event) => {
       if (!Object.keys(fields).length) return jsonResponse(400, { error: 'Nothing to update.' });
       await updateListItemByItemId(TECHS_LIST, techId, fields);
       return jsonResponse(200, { success: true });
+    }
+
+    /* Acceso por QR -- la oficina genera un SetupToken de un solo uso
+       y lo pone en pantalla como QR; el propio tecnico lo escanea CON
+       SU CELULAR ahi mismo en la oficina. El SetupToken solo sirve
+       para reclamar el dispositivo (ver device-auth.js en
+       tech.gsocd.com) -- el DeviceToken permanente se crea alla, no
+       aqui, hasta que el tecnico confirme "This Is Me". */
+    if (action === 'generate-device-qr') {
+      const techId = String(body.techId || '').trim();
+      if (!techId) return jsonResponse(400, { error: 'techId is required' });
+      const setupToken = require('crypto').randomBytes(16).toString('hex');
+      await createListItem(TECH_DEVICE_TOKENS_LIST, {
+        Title: 'setup-' + setupToken.slice(0, 8),
+        TechId: techId,
+        SetupToken: setupToken,
+        SetupTokenUsed: false,
+        DeviceToken: '',
+        Active: false,
+        CreatedDate: new Date().toISOString(),
+        LastUsedDate: ''
+      });
+      return jsonResponse(200, { success: true, setupToken, setupUrl: 'https://tech.gsocd.com/device-setup.html?setup=' + setupToken });
+    }
+
+    /* Apaga el dispositivo activo de un tecnico -- celular perdido, o
+       alguien que ya no trabaja ahi. La proxima vez que ese celular
+       intente usar su DeviceToken guardado, el backend de Tech lo
+       rechaza (ver verify-device en device-auth.js). */
+    if (action === 'revoke-device') {
+      const techId = String(body.techId || '').trim();
+      if (!techId) return jsonResponse(400, { error: 'techId is required' });
+      const rows = await fetchAll(TECH_DEVICE_TOKENS_LIST);
+      const active = rows.filter(it => it.fields && String(it.fields.TechId || '') === techId && truthy(it.fields.Active));
+      await Promise.all(active.map(it => updateListItemByItemId(TECH_DEVICE_TOKENS_LIST, it.id, { Active: false })));
+      return jsonResponse(200, { success: true, revoked: active.length });
     }
 
     /* Tiempo de trabajo estimado por orden -- SOLO para uso interno de
