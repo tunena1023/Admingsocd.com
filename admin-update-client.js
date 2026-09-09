@@ -113,6 +113,15 @@ async function handleBuilding(b) {
     const DAY_COLUMNS = { monOpen: 'MonOpen', tueOpen: 'TueOpen', wedOpen: 'WedOpen', thuOpen: 'ThuOpen', friOpen: 'FriOpen', satOpen: 'SatOpen', sunOpen: 'SunOpen' };
     DAY_FIELDS.forEach(f => { if (bld[f] !== undefined) patch[DAY_COLUMNS[f]] = !!bld[f]; });
 
+    /* Colchon de entrada/salida por edificio -- confirmado con el
+       usuario: no todos los edificios son iguales (elevador vs
+       escaleras), asi que vive aqui, no como un numero fijo para
+       todos. Mismo cuidado que los booleanos de arriba -- "0" es un
+       valor valido (aunque raro), "incoming || ''" lo hubiera borrado
+       por accidente. */
+    if (bld.entryCushionMinutes !== undefined) patch.EntryCushionMinutes = Number(bld.entryCushionMinutes) || 0;
+    if (bld.exitCushionMinutes !== undefined) patch.ExitCushionMinutes = Number(bld.exitCushionMinutes) || 0;
+
     if (patch.Address !== undefined || patch.City !== undefined || patch.Zip !== undefined) {
       const finalAddress = patch.Address !== undefined ? patch.Address : (item.fields.Address || '');
       const finalCity    = patch.City    !== undefined ? patch.City    : (item.fields.City    || '');
@@ -166,6 +175,8 @@ async function handleBuilding(b) {
     SatOpen:        !!bld.satOpen,
     SunOpen:        !!bld.sunOpen,
     OfficeHours:    bld.officeHours    || '',
+    EntryCushionMinutes: Number(bld.entryCushionMinutes) || 0,
+    ExitCushionMinutes:  Number(bld.exitCushionMinutes)  || 0,
     Archived:       false
   };
   if (geo) { newFields.Latitude = geo.lat; newFields.Longitude = geo.lon; }
@@ -285,6 +296,18 @@ exports.handler = async (event) => {
       patch.OfficeHours = next;
       if (!sameValue(oldValue, next)) changes.push({ label: 'Office Hours: Shared', old: oldValue, next });
     }
+    if (b.entryCushionMinutes !== undefined) {
+      const oldValue = Number(f.EntryCushionMinutes) || 0;
+      const next = Number(b.entryCushionMinutes) || 0;
+      patch.EntryCushionMinutes = next;
+      if (oldValue !== next) changes.push({ label: 'Entry Cushion (min)', old: String(oldValue), next: String(next) });
+    }
+    if (b.exitCushionMinutes !== undefined) {
+      const oldValue = Number(f.ExitCushionMinutes) || 0;
+      const next = Number(b.exitCushionMinutes) || 0;
+      patch.ExitCushionMinutes = next;
+      if (oldValue !== next) changes.push({ label: 'Exit Cushion (min)', old: String(oldValue), next: String(next) });
+    }
 
     /* Las 8 columnas de horarios son NUEVAS en Clients (recien
        agregadas por el usuario, o pendientes de agregar) -- si
@@ -293,7 +316,7 @@ exports.handler = async (event) => {
        admin-update-order.js: reintentar sin esos campos, para que
        el resto de la edicion (nombre, telefono, direccion...) nunca
        se bloquee por columnas que el usuario aun no crea. */
-    const HOURS_COLUMNS = ['MonOpen','TueOpen','WedOpen','ThuOpen','FriOpen','SatOpen','SunOpen','OfficeHours'];
+    const HOURS_COLUMNS = ['MonOpen','TueOpen','WedOpen','ThuOpen','FriOpen','SatOpen','SunOpen','OfficeHours','EntryCushionMinutes','ExitCushionMinutes'];
     try {
       await updateListItemByItemId(CLIENTS_LIST, item.id, patch);
     } catch (patchErr) {
