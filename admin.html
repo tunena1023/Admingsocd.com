@@ -1467,81 +1467,36 @@ function filterApprovals() {
   paintApprovals(list);
 }
 
-/* Tarjeta contenedora para Approvals -- a diferencia de Active/History,
-   esta SI tiene su propia accion: supervisor/ventana/fecha compartidos
-   para las N unidades, y un solo "Approve All" que los aplica a cada
-   una y las aprueba de un jalon. Cada unidad sigue teniendo su propio
-   formulario adentro (newOrderApprovalCard sin cambios) por si alguna
-   necesita algo distinto -- editar esa sola no afecta a las demas. */
+/* Tarjeta contenedora para Approvals -- SOLO agrupa visualmente para
+   identificar mas facil las N unidades del mismo pedido (mismo
+   BatchId). Cada unidad se sigue manejando de forma INDEPENDIENTE,
+   exactamente igual que si no estuviera agrupada -- se agenda, se
+   mueve a Active con su propio Mark as Seen, cada una en su propio
+   momento, sin esperar a las demas. Por eso ya no hay un "Approve
+   All": no hay nada que aprobar en bloque, cada unidad ya fluye sola
+   en cuanto Scheduling la asigna (confirmado con el usuario). */
 function batchApprovalGroupCard(batchId, units) {
   const groupOrderId = 'batch-' + batchId;
   const dom = apprDomId(groupOrderId);
   const clientId = units[0].ClientID || '';
   const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
-  const allScheduled = units.every(u => u.Supervisor && String(u.Supervisor).trim() && u.ServiceWindow && String(u.ServiceWindow).trim() && u.DispatchDate && String(u.DispatchDate).trim());
   return `
     <div class="order-card" data-order-id="${esc(groupOrderId)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
         <div>
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
-          <div class="order-meta">${units.length} units awaiting approval</div>
+          <div class="order-meta">${units.length} units awaiting scheduling</div>
         </div>
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-bar" style="margin-bottom:16px">
-          <button class="btn btn-green" ${allScheduled ? '' : 'disabled'} onclick="approveBatchAll('${esc(batchId)}')">Approve All ${units.length} Units</button>
           ${addUnitButtonHtml(clientId, batchId)}
         </div>
         ${addUnitFormHtml(clientId, batchId)}
-        ${allScheduled ? '' : '<div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-bottom:16px">Some units in this PO have not been scheduled yet — Approve All unlocks once all of them are assigned.</div>'}
         <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units</div>
         ${innerHtml}
       </div>
     </div>`;
-}
-
-async function approveBatchAll(batchId) {
-  const units = allOrders.filter(o => o.BatchId === batchId && NEW_ORDER_STATUSES.includes(o.Status));
-  if (!units.length) { showToast('No units left to approve in this order.'); return; }
-
-  /* Mismo chequeo de password del director que usa una orden individual
-     (isOfficeCreatedOrder) -- se checa UNA vez contra la primera unidad,
-     ya que las N unidades del mismo pedido se crearon del mismo lado
-     (cliente u oficina) al mismo tiempo. */
-  let actor = getActorName();
-  try {
-    const detail = await api('/get-order-detail', { body: { orderId: units[0].OrderID } });
-    if (isOfficeCreatedOrder(detail.history || [])) {
-      const directorActor = await promptDirectorPassword();
-      if (!directorActor) return;
-      actor = directorActor;
-    }
-  } catch (e) { /* si falla la consulta, sigue con el flujo normal */ }
-
-  const succeeded = [];
-  const failed = [];
-  showLoadingOverlay('Approving ' + units.length + ' units…');
-  for (const u of units) {
-    if (!u.Supervisor || !String(u.Supervisor).trim() || !u.ServiceWindow || !String(u.ServiceWindow).trim() || !u.DispatchDate || !String(u.DispatchDate).trim()) {
-      failed.push({ orderId: u.OrderID, error: 'not scheduled yet' });
-      continue;
-    }
-    try {
-      await api('/admin-approve-order', {
-        body: { orderId: u.OrderID, decision: 'approve', approvedBy: actor }
-      });
-      succeeded.push(u.OrderID);
-    } catch (e) {
-      failed.push({ orderId: u.OrderID, error: e.message });
-    }
-  }
-
-  let msg = 'Approved ' + succeeded.length + ' of ' + units.length + ' units.';
-  if (failed.length) {
-    msg += ' Could not approve: ' + failed.map(f => f.orderId + ' (' + f.error + ')').join('; ');
-  }
-  showToast(msg);
-  await loadAll();
 }
 
 function newOrderApprovalCard(o) {
