@@ -139,6 +139,7 @@ exports.handler = async (event) => {
       DelayReasonType:  f.DelayReasonType || '',
       DelayReasonNotes: f.DelayReasonNotes || '',
       Technician:       f.Technician || '',
+      TechMarkedComplete: f.TechMarkedComplete === true || f.TechMarkedComplete === 'true',
       CompletedDate:    f.CompletedDate || '',
       Archived:         f.Archived === true || f.Archived === 'true',
       OrderNotificationsEnabled: f.OrderNotificationsEnabled || '',

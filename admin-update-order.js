@@ -174,9 +174,13 @@ exports.handler = async (event) => {
       const oldServices = snapshotServices(svcRows, division);
       const newServices = (services && services.length) ? services : oldServices;
 
-      /* Aplicar de una vez los campos de control propuestos */
-      await updateListItemByItemId(ORDERS_LIST, item.id, {
+      /* Aplicar de una vez los campos de control propuestos.
+         TechMarkedComplete se apaga -- ya no es cierto que "esto es lo
+         que el tecnico dijo que termino" una vez que algo cambia.
+         Respaldo si la columna todavia no existe en SharePoint. */
+      const requestPatch = {
         Status:           'Change Requested',
+        TechMarkedComplete: false,
         Supervisor:       newFieldsSnap.supervisor,
         Notes:            newFieldsSnap.notes,
         EntryDate:        newFieldsSnap.entryDate ? toIsoDate(newFieldsSnap.entryDate) : null,
@@ -186,7 +190,14 @@ exports.handler = async (event) => {
         InspectionDate:   newFieldsSnap.inspectionDate ? toIsoDate(newFieldsSnap.inspectionDate) : null,
         DelayReasonType:  newFieldsSnap.delayReasonType,
         DelayReasonNotes: newFieldsSnap.delayReasonNotes
-      });
+      };
+      try {
+        await updateListItemByItemId(ORDERS_LIST, item.id, requestPatch);
+      } catch (patchErr) {
+        const fallbackPatch = Object.assign({}, requestPatch);
+        delete fallbackPatch.TechMarkedComplete;
+        await updateListItemByItemId(ORDERS_LIST, item.id, fallbackPatch);
+      }
 
       /* Aplicar de una vez los servicios propuestos, si vinieron */
       if (services && services.length) {

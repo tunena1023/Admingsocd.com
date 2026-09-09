@@ -11,7 +11,7 @@
     :root {
       --black: #111111; --gold: #C9A84C; --gold-dk: #8C6F2A; --white: #FFFFFF;
       --bg: #F8F7F4; --gray: #6B6B6B; --border: #E0DDD6;
-      --red: #c0392b; --green: #27ae60;
+      --red: #c0392b; --green: #27ae60; --blue: #1A56C4;
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--black); min-height: 100vh; }
 
@@ -146,6 +146,7 @@
     .appr-bar .field-group { margin-bottom: 0; min-width: 240px; }
     .appr-hint { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
     .btn-green { background: var(--green); color: var(--white); }
+    .btn-blue { background: var(--blue); color: var(--white); }
     .btn-green:hover { background: #219150; }
     .btn:disabled, .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
@@ -3332,7 +3333,9 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         Use the buttons below to mark it done, cancel it, or edit its details.
       </p>
       <div class="btn-actions" style="margin-bottom:20px">
-        <button class="btn btn-green" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>
+        ${displayStatus(o) === 'Working'
+          ? `<button class="btn ${o.TechMarkedComplete ? 'btn-blue' : 'btn-green'}" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
+          : ''}
         <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
         <button class="btn btn-outline" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
@@ -3794,7 +3797,8 @@ function toggleActiveEdit(id) {
    solo un detalle de que tan completa quedo, y perderlo en silencio
    (como pasaba antes) dejaria a SharePoint pensando que todo se hizo. */
 async function markCompleted(orderId) {
-  const technician = window.prompt('Technician who completed the order:');
+  const o = allOrders.find(x => x.OrderID === orderId) || {};
+  const technician = window.prompt('Technician who completed the order:', o.Technician || '');
   if (technician === null) return;
   if (!technician.trim()) {
     showToast('Technician name is required.');

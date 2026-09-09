@@ -67,6 +67,7 @@ exports.handler = async (event) => {
           DelayReasonType: f.DelayReasonType || '',
           DelayReasonNotes: f.DelayReasonNotes || '',
           Technician: f.Technician || '',
+          TechMarkedComplete: f.TechMarkedComplete === true || f.TechMarkedComplete === 'true',
           CompletedDate: f.CompletedDate || '',
           OrderNotificationsEnabled: f.OrderNotificationsEnabled || '',
           OrderNotifyConfirmations:  f.OrderNotifyConfirmations  || '',

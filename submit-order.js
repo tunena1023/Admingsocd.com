@@ -411,9 +411,17 @@ exports.handler = async (event) => {
         dirtLevel: existing.DirtLevel || ''
       });
 
-      await updateListItemByItemId(ORDERS_LIST, existing.itemId,
-        Object.assign({}, orderFields, { Status: newStatus })
-      );
+      /* TechMarkedComplete se apaga -- ya no es cierto que "esto es lo
+         que el tecnico dijo que termino" una vez que algo cambia.
+         Respaldo si la columna todavia no existe en SharePoint. */
+      const requestPatch = Object.assign({}, orderFields, { Status: newStatus, TechMarkedComplete: false });
+      try {
+        await updateListItemByItemId(ORDERS_LIST, existing.itemId, requestPatch);
+      } catch (patchErr) {
+        const fallbackPatch = Object.assign({}, requestPatch);
+        delete fallbackPatch.TechMarkedComplete;
+        await updateListItemByItemId(ORDERS_LIST, existing.itemId, fallbackPatch);
+      }
 
       if (stale.length) {
         await Promise.all(stale.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
