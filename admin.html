@@ -1072,14 +1072,7 @@ function officeHoursFieldsHtml(cid, b) {
     <div style="display:flex;gap:14px;margin-bottom:14px">
       ${officeClockFieldHtml(cid + '-ctl-officeOpen', 'Opens at', open.h, open.m)}
       ${officeClockFieldHtml(cid + '-ctl-officeClose', 'Closes at', close.h, close.m)}
-    </div>
-    <div style="display:flex;gap:14px;margin-bottom:14px;max-width:320px">
-      <div class="field-small" style="max-width:150px"><label>Entry cushion (min)</label>
-        <input type="number" id="${cid}-ctl-entryCushion" min="0" value="${b.entryCushionMinutes || 0}"></div>
-      <div class="field-small" style="max-width:150px"><label>Exit cushion (min)</label>
-        <input type="number" id="${cid}-ctl-exitCushion" min="0" value="${b.exitCushionMinutes || 0}"></div>
-    </div>
-    <p style="font-size:11px;color:var(--gray);margin:-8px 0 14px">Time this address realistically needs to get set up and packed up -- elevators vs stairs, parking, etc. Used later for Times and Routes, not shown to the client.</p>`;
+    </div>`;
 }
 
 /* ===== Holidays -- confirmado con el usuario, "ahi deberian estar" --
@@ -4295,9 +4288,7 @@ async function savePrimaryEdit(clientId) {
     suite:         $f('suite')?.value || '',
     city:          $f('city')?.value || '',
     zip:           $f('zip')?.value || '',
-    officeHours:   buildOfficeHoursString(cid + '-ctl-office'),
-    entryCushionMinutes: $f('entryCushion')?.value || 0,
-    exitCushionMinutes:  $f('exitCushion')?.value || 0
+    officeHours:   buildOfficeHoursString(cid + '-ctl-office')
   };
   DAY_FIELDS.forEach(f => { const el = $f(f); if (el) body[f] = el.checked; });
 
@@ -4340,9 +4331,7 @@ async function saveBuildingEdit(clientId, buildingId) {
     suite:          $f('suite')?.value.trim() || '',
     city:           $f('city')?.value.trim() || '',
     zip:            $f('zip')?.value.trim() || '',
-    officeHours:    buildOfficeHoursString(cid + '-ctl-office'),
-    entryCushionMinutes: $f('entryCushion')?.value || 0,
-    exitCushionMinutes:  $f('exitCushion')?.value || 0
+    officeHours:    buildOfficeHoursString(cid + '-ctl-office')
   };
   DAY_FIELDS.forEach(f => { const el = $f(f); if (el) building[f] = el.checked; });
   if (buildingId) building.addressId = buildingId;
