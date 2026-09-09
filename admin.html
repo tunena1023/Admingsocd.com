@@ -566,6 +566,7 @@
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.4/date-time-picker/date-time-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -1643,8 +1644,8 @@ function newOrderApprovalCard(o) {
       <div class="edit-grid">
         <div class="field-group"><label>Supervisor</label><input type="text" id="${dom}-supervisor" oninput="checkBypassReady('${dom}')"></div>
         <div class="field-group"><label>Service Window</label><select id="${dom}-window" onchange="checkBypassReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select></div>
-        <div class="field-group"><label>Service Date</label><input type="date" id="${dom}-dispatch" onchange="checkBypassReady('${dom}')"></div>
-        <div class="field-group"><label>Inspection Date (optional)</label><input type="date" id="${dom}-inspection"></div>
+        <div class="field-group"><label>Service Date</label>${GSDateTimePicker.dateHtml(dom + '-dispatch', null)}</div>
+        <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml(dom + '-inspection', null)}</div>
       </div>
     </div>`;
 
@@ -1700,6 +1701,12 @@ function checkBypassReady(dom) {
   const ok = document.getElementById(dom + '-ok');
   if (ok) ok.disabled = !ready;
 }
+
+document.addEventListener('gs-date-picked', (e) => {
+  if (e.detail.fieldId.endsWith('-dispatch')) {
+    checkBypassReady(e.detail.fieldId.slice(0, -'-dispatch'.length));
+  }
+});
 
 
 async function decideNewOrder(orderId, action) {
