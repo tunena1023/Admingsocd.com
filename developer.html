@@ -1808,6 +1808,8 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
       ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => '<th style="text-align:center;padding:6px;border:1px solid var(--border)">' + d + '</th>').join('') +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Entry<br>cushion</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Exit<br>cushion</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
   }
@@ -1869,7 +1871,11 @@
       '<td ' + td + ' class="office-hours-cell"><div style="display:flex;gap:4px">' +
         officeClockFieldHtml('ch-' + c.id + '-officeOpen', open.h, open.m, 'onClientHoursChange', c.id) +
         officeClockFieldHtml('ch-' + c.id + '-officeClose', close.h, close.m, 'onClientHoursChange', c.id) +
-      '</div></td>';
+      '</div></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (c.entryCushionMinutes || 0) + '" ' +
+        'onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-entryCushion"></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (c.exitCushionMinutes || 0) + '" ' +
+        'onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-exitCushion"></td>';
   }
 
   async function onClientHoursChange(clientId) {
@@ -1880,10 +1886,12 @@
     const body = { id: clientId };
     DAY_FIELDS.forEach(f => { body[f] = val(f); });
     body.officeHours = buildOfficeHoursString('ch-' + clientId + '-office');
+    body.entryCushionMinutes = val('entryCushion');
+    body.exitCushionMinutes = val('exitCushion');
     try {
       await api('update-client-hours', body);
       const c = allClientsCache.find(x => x.id === clientId);
-      if (c) { DAY_FIELDS.forEach(f => { c[f] = body[f]; }); c.officeHours = body.officeHours; }
+      if (c) { DAY_FIELDS.forEach(f => { c[f] = body[f]; }); c.officeHours = body.officeHours; c.entryCushionMinutes = body.entryCushionMinutes; c.exitCushionMinutes = body.exitCushionMinutes; }
     } catch (e) {
       showToast('Could not update: ' + e.message);
       renderAllClientsTable();
@@ -1910,6 +1918,10 @@
         officeClockFieldHtml('bh-' + esc(a.id) + '-officeOpen', open.h, open.m, 'onBuildingHoursChange', a.id) +
         officeClockFieldHtml('bh-' + esc(a.id) + '-officeClose', close.h, close.m, 'onBuildingHoursChange', a.id) +
       '</div></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (a.entryCushionMinutes || 0) + '" ' +
+        'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-entryCushion"></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (a.exitCushionMinutes || 0) + '" ' +
+        'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-exitCushion"></td>' +
       '<td ' + td + '></td></tr>';
   }
 
@@ -1921,6 +1933,8 @@
     const body = { id: buildingId };
     DAY_FIELDS.forEach(f => { body[f] = val(f); });
     body.officeHours = buildOfficeHoursString('bh-' + buildingId + '-office');
+    body.entryCushionMinutes = val('entryCushion');
+    body.exitCushionMinutes = val('exitCushion');
     try {
       await api('update-building-hours', body);
       /* Reflejar en cache local sin recargar todo desde SharePoint --
@@ -1929,7 +1943,7 @@
          se de cuenta de que ya se guardo. */
       allClientsCache.forEach(c => {
         const b = (c.additionalAddresses || []).find(x => x.id === buildingId);
-        if (b) { DAY_FIELDS.forEach(f => { b[f] = body[f]; }); b.officeHours = body.officeHours; }
+        if (b) { DAY_FIELDS.forEach(f => { b[f] = body[f]; }); b.officeHours = body.officeHours; b.entryCushionMinutes = body.entryCushionMinutes; b.exitCushionMinutes = body.exitCushionMinutes; }
       });
       showToast('Office hours saved.');
     } catch (e) {

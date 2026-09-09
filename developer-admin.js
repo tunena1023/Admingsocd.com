@@ -1693,7 +1693,9 @@ exports.handler = async (event) => {
           friOpen: it.fields.FriOpen === true || it.fields.FriOpen === 'true',
           satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
           sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
-          officeHours: it.fields.OfficeHours || ''
+          officeHours: it.fields.OfficeHours || '',
+          entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
+          exitCushionMinutes: Number(it.fields.ExitCushionMinutes) || 0
         });
       });
 
@@ -1725,6 +1727,8 @@ exports.handler = async (event) => {
           satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
           sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
           officeHours: it.fields.OfficeHours || '',
+          entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
+          exitCushionMinutes: Number(it.fields.ExitCushionMinutes) || 0,
           additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
         };
       }).sort((a, b) => a.businessName.localeCompare(b.businessName));
@@ -1757,7 +1761,9 @@ exports.handler = async (event) => {
         FriOpen: !!body.friOpen,
         SatOpen: !!body.satOpen,
         SunOpen: !!body.sunOpen,
-        OfficeHours: body.officeHours || ''
+        OfficeHours: body.officeHours || '',
+        EntryCushionMinutes: Number(body.entryCushionMinutes) || 0,
+        ExitCushionMinutes: Number(body.exitCushionMinutes) || 0
       });
       return jsonResponse(200, { success: true });
     }
@@ -1778,7 +1784,9 @@ exports.handler = async (event) => {
         FriOpen: !!body.friOpen,
         SatOpen: !!body.satOpen,
         SunOpen: !!body.sunOpen,
-        OfficeHours: body.officeHours || ''
+        OfficeHours: body.officeHours || '',
+        EntryCushionMinutes: Number(body.entryCushionMinutes) || 0,
+        ExitCushionMinutes: Number(body.exitCushionMinutes) || 0
       };
       try {
         await updateListItemByItemId(CLIENTS_LIST, clientItemId, patch);
