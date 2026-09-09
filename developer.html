@@ -456,11 +456,9 @@
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">Each gap between stops is compared against what it should realistically take (exit cushion at the last place + estimated drive time + entry cushion at the next place, plus extra if that order needs office access) — the difference is "unexplained," not "wrong." A building with an elevator and one with stairs shouldn't be judged the same way.</p>
+        <p class="section-sub" style="margin-top:16px">Each gap between stops is compared against what it should realistically take (exit cushion at the last place + real driving time between those exact coordinates, via OpenStreetMap's routing — not an estimate + entry cushion at the next place, plus extra if that order needs office access) — the difference is "unexplained," not "wrong." A building with an elevator and one with stairs shouldn't be judged the same way.</p>
 
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:16px 0;padding:14px;background:var(--bg);border-radius:4px">
-          <div class="field-small" style="max-width:160px;margin-bottom:0"><label>Average driving speed (mph)</label>
-            <input type="number" id="tr-avg-speed" min="1"></div>
           <div class="field-small" style="max-width:200px;margin-bottom:0"><label>Extra min. if needs office access</label>
             <input type="number" id="tr-office-extra" min="0"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="saveTimesRoutesSettings()">Save</button>
@@ -1489,7 +1487,6 @@
     try {
       const res = await api('get-times-and-routes');
       timesRoutesData = res.days || [];
-      document.getElementById('tr-avg-speed').value = res.settings.avgSpeedMph;
       document.getElementById('tr-office-extra').value = res.settings.officeAccessExtraMin;
 
       const techSelect = document.getElementById('tr-tech-filter');
@@ -1524,7 +1521,7 @@
         const color = flagged ? '#A6362D' : 'var(--gray)';
         const detail = s.expectedMinutes != null
           ? '— expected ~' + s.expectedMinutes + ' min' + (u >= 0 ? ', ' + u + ' min unexplained' : ' (faster than expected)')
-          : '— no location data on one end, can\u2019t compare';
+          : '— no route available to compare (missing location, or the map service didn\u2019t answer)';
         return '<div style="padding:6px 0 6px 16px;font-size:11px;color:' + color + (flagged ? ';font-weight:700' : '') + '">' +
           '\u21B3 ' + s.realMinutes + ' min gap' + (s.milesDriven != null ? ' (' + s.milesDriven + ' mi)' : '') + ' ' + detail +
           '</div>';
@@ -1538,7 +1535,6 @@
 
   async function saveTimesRoutesSettings() {
     try {
-      await api('save-setting', { key: 'TimesRoutesAvgSpeedMph', value: document.getElementById('tr-avg-speed').value });
       await api('save-setting', { key: 'TimesRoutesOfficeAccessExtraMin', value: document.getElementById('tr-office-extra').value });
       const saved = document.getElementById('tr-settings-saved');
       saved.style.display = 'inline';

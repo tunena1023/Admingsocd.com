@@ -64,7 +64,9 @@ async function fetchAll(listName) {
    sobra es "sin explicar", para que el usuario decida que hacer con
    eso, no el sistema. ===== */
 
-/* Distancia en millas entre 2 coordenadas (formula de Haversine). */
+/* Distancia en millas entre 2 coordenadas (formula de Haversine) --
+   se usa SOLO para mostrar "cuantas millas", no para calcular el
+   tiempo esperado (eso viene de la ruta real, ver abajo). */
 function milesBetween(lat1, lon1, lat2, lon2) {
   if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
   const R = 3958.8;
@@ -72,6 +74,29 @@ function milesBetween(lat1, lon1, lat2, lon2) {
   const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* Cuanto deberia tardar el camino de verdad -- confirmado con el
+   usuario: NO es velocidad promedio x distancia (eso mide que tan
+   rapido manejaron, que no es lo que importa). Es la ruta REAL de un
+   mapa -- si el mapa dice que ese trayecto son 35 minutos, son 35
+   minutos, sin importar si fueron mas rapido o mas lento. Mismo
+   servicio gratuito (OpenStreetMap) que ya usa geocodeAddress, su
+   motor de rutas (OSRM), sin llave de pago. Si por lo que sea el
+   servicio no contesta, regresa null -- el reporte sigue mostrando
+   el hueco real, solo sin poder comparar contra lo esperado. */
+async function realDriveMinutes(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'GS-Solutions-TimesRoutes/1.0 (internal tool)' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.routes || !data.routes.length) return null;
+    return data.routes[0].duration / 60; // segundos -> minutos
+  } catch (e) {
+    return null;
+  }
 }
 
 /* Fecha (dia de calendario, en hora de Iowa) de un timestamp ISO --
@@ -982,7 +1007,6 @@ exports.handler = async (event) => {
 
       const settings = {};
       settingsRows.forEach(it => { if (it.fields) settings[it.fields.Key] = it.fields.Value; });
-      const avgSpeedMph = Number(settings.TimesRoutesAvgSpeedMph) || 22;
       const officeAccessExtraMin = Number(settings.TimesRoutesOfficeAccessExtraMin) || 10;
 
       /* Orden -> a que cliente/building pertenece, y si necesita
@@ -1062,7 +1086,7 @@ exports.handler = async (event) => {
             const exitCushion = (cushionByPlace[info.clientId + '|' + info.buildingId] || {}).exit || 0;
             const entryCushion = (cushionByPlace[nextInfo.clientId + '|' + nextInfo.buildingId] || {}).entry || 0;
             const miles = milesBetween(s.departureLat, s.departureLon, next.arrivalLat, next.arrivalLon);
-            const travelMin = miles != null ? (miles / avgSpeedMph) * 60 : null;
+            const travelMin = await realDriveMinutes(s.departureLat, s.departureLon, next.arrivalLat, next.arrivalLon);
             const officeExtra = nextInfo.needsOfficeAccess ? officeAccessExtraMin : 0;
             const expectedMin = travelMin != null ? (exitCushion + travelMin + entryCushion + officeExtra) : null;
 
@@ -1080,7 +1104,7 @@ exports.handler = async (event) => {
       }
 
       days.sort((a, b) => b.date.localeCompare(a.date) || a.techName.localeCompare(b.techName));
-      return jsonResponse(200, { days, settings: { avgSpeedMph, officeAccessExtraMin } });
+      return jsonResponse(200, { days, settings: { officeAccessExtraMin } });
     }
 
     /* Tiempo de trabajo estimado por orden -- SOLO para uso interno de
