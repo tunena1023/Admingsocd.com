@@ -165,25 +165,7 @@
     .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
     .svc-toggle input:disabled + .svc-toggle-track { opacity: .5; cursor: not-allowed; }
 
-    /* ===== Picker de servicios para Templates (mismo patron ya usado
-       en admin.html/templates.html) ===== */
-    .svc-chip-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .svc-chip { border: 1px solid var(--border); background: var(--white); padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; border-radius: 2px; font-family: inherit; color: var(--black); }
-    .svc-chip.active { background: var(--gold); border-color: var(--gold); font-weight: 700; }
-    @media (max-width: 900px) { .svc-chip-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 640px) { .svc-chip-grid { grid-template-columns: 1fr; } }
-    .jan-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 3px; margin-bottom: 8px; background: var(--white); transition: border-color .15s, background .15s; }
-    .jan-row.selected { border-color: var(--gold); background: #FEFBF3; }
-    .jan-row-name { font-size: 12px; }
-    .jan-row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .jan-row-grid .jan-row { margin-bottom: 0; padding: 10px 10px; }
-    @media (max-width: 900px) { .jan-row-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 640px) { .jan-row-grid { grid-template-columns: 1fr; } }
-    .lvl-group { display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; flex-shrink: 0; }
-    .lvl-btn { width: 34px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; background: var(--white); color: var(--gray); border-right: 1px solid var(--border); }
-    .lvl-btn:last-child { border-right: none; }
-    .lvl-btn.active { background: var(--gold); color: var(--black); }
-    .lvl-btn:hover:not(.active) { background: var(--off); }
+    /* ===== Selector de servicios: gsocd-shared/service-picker ===== */
     .tpl-svc-row { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; }
     .tpl-svc-row:last-of-type { border-bottom: none; }
     .tpl-svc-cat { color: var(--gold-dk); font-weight: 600; }
