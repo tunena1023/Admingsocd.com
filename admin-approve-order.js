@@ -202,7 +202,7 @@ exports.handler = async (event) => {
     const { orderId, decision, approvedBy, notes } = JSON.parse(event.body || '{}');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
-    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update', 'reassign', 'reschedule'];
+    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update', 'reassign', 'reschedule', 'request-reactivate', 'reactivate-confirm'];
     if (validDecisions.indexOf(decision) === -1) {
       return jsonResponse(400, { error: "decision must be one of: " + validDecisions.join(', ') });
     }
@@ -338,7 +338,7 @@ exports.handler = async (event) => {
         const payload = JSON.parse(lastReq.OldValue || '{}');
         if (payload && payload.restoreTo) restoredStatus = payload.restoreTo;
       } catch (e) { /* deja el fallback 'Assigned' */ }
-      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus });
+      await updateListItemByItemId(ORDERS_LIST, item.id, { Status: restoredStatus, Archived: false });
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   'Order Reactivated',
