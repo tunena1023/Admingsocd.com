@@ -4757,27 +4757,6 @@ function createOrderFormHtml() {
       </div>
       <div id="create-services-wrap" style="display:none">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div class="res-toggle-wrap" id="create-svc-toggle">
-          <span class="res-toggle-label" id="create-svc-toggle-label">Commercial</span>
-          <label class="svc-toggle">
-            <input type="checkbox" onchange="setCreatePropertyType(this.checked ? 'Residential' : 'Commercial')">
-            <span class="svc-toggle-track"></span>
-          </label>
-          <span class="res-toggle-label">Residential</span>
-        </div>
-        <div class="svc-toolbar-row">
-          <input type="text" class="svc-search" id="create-svc-search" placeholder="Search services…" oninput="renderCreateServiceChips()">
-          <div class="svc-toolbar-selall" id="create-selall-group" style="display:none">
-            <span class="selall-label">Select all</span>
-            <div class="lvl-toggle3" id="createSelAllToggle">
-              <div class="lvl-toggle3-thumb" id="createSelAllThumb"></div>
-              <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 1',0)">L1</div>
-              <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 2',1)">L2</div>
-              <div class="lvl-toggle3-opt" onclick="createSelectAllLevel('Level 3',2)">L3</div>
-            </div>
-          </div>
-        </div>
-        <input type="text" class="svc-search svc-search-wide" id="create-svc-search-plain" style="display:none" placeholder="Search services…" oninput="renderCreateServiceChips()">
         <div id="create-services-list"></div>
       </div>
 
@@ -4937,7 +4916,6 @@ function renumberCreateUnitCards() {
    chips -- nunca se muestra el SKU, solo el nombre. ===== */
 let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas una vez
 let createPropertyType = 'Commercial';
-let createSelAllActive = null;   // 0/1/2 = L1/L2/L3 activo arriba (solo Janitorial), null = nada
 
 function setCreateDivision(div) {
   document.getElementById('create-division').value = div;
@@ -4962,107 +4940,27 @@ async function loadCreateServices() {
   }
   createSelected = new Map();
   createPropertyType = 'Commercial';
-  const cb = document.querySelector('#create-svc-toggle input[type=checkbox]');
-  if (cb) cb.checked = false;
-  document.getElementById('create-svc-search').value = '';
-  createSelAllActive = null;
-  const thumb = document.getElementById('createSelAllThumb');
-  if (thumb) thumb.style.opacity = '0';
-  document.querySelectorAll('#createSelAllToggle .lvl-toggle3-opt').forEach(el => el.classList.remove('active'));
   const isJan = div.toLowerCase() === 'janitorial';
-  document.getElementById('create-selall-group').style.display = isJan ? '' : 'none';
   wrap.style.display = 'block';
-  renderCreateServiceChips();
-}
-
-function setCreatePropertyType(type) {
-  createPropertyType = type;
-  renderCreateServiceChips();
-}
-
-/* Janitorial se ve como filas con L1/L2/L3 al final; Renovations y
-   Exteriors se quedan como el grid de chips de siempre -- esos no se
-   miden por nivel. */
-function renderCreateServiceChips() {
-  const listBox = document.getElementById('create-services-list');
-  const div = document.getElementById('create-division').value;
-  const isJan = div.toLowerCase() === 'janitorial';
-  if (!createCatalogCache || !createCatalogCache.length) {
-    listBox.className = '';
-    listBox.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
-    return;
-  }
-  const q = (document.getElementById('create-svc-search').value || '').trim().toLowerCase();
-  let list = createCatalogCache.filter(s => s.division.toLowerCase() === String(div).toLowerCase() && s.propertyType === createPropertyType);
-  if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
-  list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-  if (!list.length) { listBox.className = ''; listBox.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
-
-  if (isJan) {
-    listBox.className = 'jan-row-grid';
-    const levels = ['Level 1', 'Level 2', 'Level 3'];
-    listBox.innerHTML = list.map(s => {
-      const sel = createSelected.get(s.sku);
-      const lvl = sel ? sel.level : null;
-      return '<div class="jan-row' + (lvl ? ' selected' : '') + '">' +
-        '<span class="jan-row-name">' + esc(s.serviceName) + '</span>' +
-        '<div class="lvl-group">' +
-          levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickCreateLevel(\'' + s.sku.replace(/'/g, "\\'") + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
-        '</div></div>';
-    }).join('');
-  } else {
-    listBox.className = 'svc-chip-grid';
-    listBox.innerHTML = list.map(s =>
-      '<button type="button" class="svc-chip' + (createSelected.has(s.sku) ? ' active' : '') + '" onclick="toggleCreateChip(\'' + s.sku.replace(/'/g, "\\'") + '\')">' + esc(s.serviceName) + '</button>'
-    ).join('');
-  }
-}
-
-function toggleCreateChip(sku) {
-  if (createSelected.has(sku)) {
-    createSelected.delete(sku);
-  } else {
-    const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
-    if (svc) createSelected.set(sku, svc);
-  }
-  renderCreateServiceChips();
-}
-
-function pickCreateLevel(sku, level) {
-  const existing = createSelected.get(sku);
-  if (existing && existing.level === level) {
-    createSelected.delete(sku);
-  } else {
-    const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
-    if (svc) createSelected.set(sku, Object.assign({}, svc, { level }));
-  }
-  renderCreateServiceChips();
-}
-
-/* "Select all" de arriba (solo Janitorial) -- toggle redondito de 3
-   posiciones. Clic aplica ese nivel a todo lo visible (respeta el
-   buscador y el toggle Residential/Commercial); clic en la posicion
-   ya activa deshace la seleccion masiva. */
-function createSelectAllLevel(level, idx) {
-  const div = document.getElementById('create-division').value;
-  const q = (document.getElementById('create-svc-search').value || '').trim().toLowerCase();
-  const visible = createCatalogCache.filter(s =>
-    s.division.toLowerCase() === String(div).toLowerCase() && s.propertyType === createPropertyType &&
-    (!q || s.serviceName.toLowerCase().includes(q)));
-  const thumb = document.getElementById('createSelAllThumb');
-
-  if (createSelAllActive === idx) {
-    visible.forEach(s => createSelected.delete(s.sku));
-    createSelAllActive = null;
-    thumb.style.opacity = '0';
-  } else {
-    visible.forEach(s => createSelected.set(s.sku, Object.assign({}, s, { level })));
-    createSelAllActive = idx;
-    thumb.style.opacity = '1';
-    thumb.style.transform = 'translateX(' + (idx * 100) + '%)';
-  }
-  document.querySelectorAll('#createSelAllToggle .lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === createSelAllActive));
-  renderCreateServiceChips();
+  GSServicePicker.mount('create-order', 'create-services-list', {
+    catalog: createCatalogCache,
+    division: div,
+    mode: isJan ? 'levels' : 'toggle',
+    showSelectAll: isJan,
+    propertyType: createPropertyType,
+    onChange: function (sel, lvl, propType) {
+      createPropertyType = propType;
+      createSelected = new Map();
+      Object.entries(sel).forEach(([pt, svcs]) => {
+        Object.entries(svcs).forEach(([svcName, sku]) => {
+          const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
+          if (!svc) return;
+          const level = lvl[pt + '|' + svcName];
+          createSelected.set(sku, level ? Object.assign({}, svc, { level }) : svc);
+        });
+      });
+    }
+  });
 }
 
 async function submitCreateOrder() {
