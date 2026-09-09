@@ -3565,11 +3565,11 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           </div>
           <div class="field-group">
             <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
-            <input type="date" id="edit-entry-${esc(o.OrderID)}" value="${dateInputValue(o.EntryDate)}" disabled>
+            <div style="padding:10px 0;font-size:13px">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
           </div>
           <div class="field-group">
             <label>Due Date</label>
-            <input type="date" id="edit-due-${esc(o.OrderID)}" value="${dateInputValue(o.DueDate)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">
+            ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
           </div>
           <div class="field-group">
             <label>Delay Reason</label>
@@ -3978,6 +3978,12 @@ function refreshConfirmBtn(orderId) {
    estado de "Not completed" -- comparado contra como estaba todo al
    abrir el editor. Antes el boton se veia siempre, sin importar si se
    habia tocado algo. */
+document.addEventListener('gs-date-picked', (e) => {
+  if (e.detail.fieldId.indexOf('edit-due-') === 0) {
+    refreshSaveBtn(e.detail.fieldId.slice('edit-due-'.length));
+  }
+});
+
 function refreshSaveBtn(orderId) {
   const btn = document.getElementById('save-btn-' + orderId);
   if (!btn) return;
