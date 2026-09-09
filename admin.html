@@ -496,7 +496,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.4.0/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.5.0/order-history/order-history.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -1189,7 +1189,7 @@ function isFullyScheduled(o) {
 }
 const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
 const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
-                       'Reschedule Requested', 'Change Requested by Client'];
+                       'Reschedule Requested', 'Change Requested by Client', 'Reactivation Requested'];
 
 /* ============================================================
    CAPACIDADES POR CONTEXTO -- renderOrderDetail() muestra el mismo
@@ -1299,7 +1299,7 @@ function isReactivationPending(history) {
     const h = history[i];
     const type = String(h.ChangeType || '');
     if (REQUEST_TYPES.indexOf(type) !== -1 || type === 'Cancellation Requested') {
-      return type === 'Change Requested' && String(h.FieldChanged || '') === 'Reactivation Pending';
+      return type === 'Reactivation Requested';
     }
   }
   return false;
@@ -1341,7 +1341,7 @@ function supervisorUpdateActor(history) {
 function reactivationRestoreTo(history) {
   for (let i = (history || []).length - 1; i >= 0; i--) {
     const h = history[i];
-    if (String(h.ChangeType || '') === 'Change Requested' && String(h.FieldChanged || '') === 'Reactivation Pending') {
+    if (String(h.ChangeType || '') === 'Reactivation Requested') {
       try {
         const payload = JSON.parse(h.OldValue || '{}');
         if (payload && payload.restoreTo) return payload.restoreTo;

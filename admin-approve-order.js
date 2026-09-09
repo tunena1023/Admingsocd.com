@@ -91,7 +91,7 @@ function sortHistory(rows) {
    el estatus anterior y el snapshot de servicios para revertir. */
 function lastRequestRow(history) {
   const wanted = ['Change Requested', 'Cancellation Requested',
-    'Updated', 'Change Requested by Client', 'Reschedule Requested'];
+    'Updated', 'Change Requested by Client', 'Reschedule Requested', 'Reactivation Requested'];
   for (let i = history.length - 1; i >= 0; i--) {
     const h = history[i];
     const type = String(h.ChangeType || '');
@@ -301,9 +301,13 @@ exports.handler = async (event) => {
       }
       const restoreTo = previousStatus(history, 'Assigned');
       await updateListItemByItemId(ORDERS_LIST, item.id, { Status: 'Change Requested' });
+      /* ChangeType propio ('Reactivation Requested'), en vez de reusar
+         'Change Requested' -- confirmado con el usuario que una
+         reactivacion debe verse distinta a un cambio de servicios
+         normal en el historial, no disfrazada de lo mismo. */
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
-        ChangeType:   'Change Requested',
+        ChangeType:   'Reactivation Requested',
         FieldChanged: 'Reactivation Pending',
         Notes:        (notes && String(notes).trim()) || ('Reactivation requested by ' + actor + '.'),
         OldValue:     JSON.stringify({ reactivation: true, restoreTo: restoreTo }),
@@ -427,6 +431,16 @@ exports.handler = async (event) => {
         if (flds.delayReasonNotes !== undefined) patch.DelayReasonNotes = flds.delayReasonNotes;
       }
       await updateListItemByItemId(ORDERS_LIST, item.id, patch);
+
+      /* Confirmado con el usuario: el historial debe tener TODO lo que
+         paso -- antes este camino no dejaba ningun rastro, la orden
+         quedaba como si el cambio nunca hubiera existido. Ahora si
+         queda registrado, sin exponer los datos crudos del snapshot
+         (ese detalle ya no importa, se descarto). */
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title: nextAdminLabel(), ChangeType: 'Change Request Cancelled', FieldChanged: 'Status',
+        Notes: notes || ('Change request withdrawn by ' + actor + '.'), OldValue: current, NewValue: restoredStatus
+      }));
 
       return jsonResponse(200, { success: true, status: restoredStatus });
     }
