@@ -4677,7 +4677,12 @@ function goToOrderInAnyTab(orderId) {
   if (!order) { showToast('Order not found.'); return; }
   const status = order.Status || '';
   let tab, context, useApprCard;
-  if (NEW_ORDER_STATUSES.includes(status)) { tab = 'approvals'; context = 'approvals'; useApprCard = true; }
+  /* Una 'Received' ya agendada (isFullyScheduled) vive en Active
+     desde el rediseno de Mark as Seen -- ya no en Approvals. Se
+     checa primero, antes que NEW_ORDER_STATUSES, para no mandar el
+     scroll a una tarjeta que ya no esta ahi. */
+  if (NEW_ORDER_STATUSES.includes(status) && isFullyScheduled(order)) { tab = 'active'; context = 'active'; useApprCard = false; }
+  else if (NEW_ORDER_STATUSES.includes(status)) { tab = 'approvals'; context = 'approvals'; useApprCard = true; }
   else if (REVIEW_STATUSES.includes(status)) { tab = 'review'; context = 'review'; useApprCard = true; }
   else if (ACTIVE_STATUSES.includes(status)) { tab = 'active'; context = 'active'; useApprCard = false; }
   else { tab = 'history'; context = 'history'; useApprCard = false; }
