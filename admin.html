@@ -3737,7 +3737,7 @@ function clientCard(c) {
     <div class="order-card" data-client-id="${esc(c.clientId)}">
       <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}')" ondblclick="pinClientCard('${esc(c.clientId)}',this)">
         <div>
-          <div class="order-id">${esc(c.businessName)}<span class="order-pin"></span></div>
+          <div class="order-id">${esc(c.businessName)}${GSOrderBadges.nowOpen({ NowOpenStatus: c.nowOpenStatus })}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(c.clientId)} · ${esc(c.contactPerson||'—')}</div>
         </div>
         <span style="font-size:11px;color:${c.notificationsEnabled!==false ? 'var(--gray)' : '#B33A3A'};text-transform:uppercase;letter-spacing:.05em">
