@@ -202,7 +202,7 @@ exports.handler = async (event) => {
     const { orderId, decision, approvedBy, notes } = JSON.parse(event.body || '{}');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
-    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update'];
+    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update', 'reassign', 'reschedule'];
     if (validDecisions.indexOf(decision) === -1) {
       return jsonResponse(400, { error: "decision must be one of: " + validDecisions.join(', ') });
     }
@@ -371,12 +371,17 @@ exports.handler = async (event) => {
     }
 
     /* ================================================================
-       CANCEL-UPDATE — el staff deshace su propio Update (el que manda
-       "Save Changes (send to Review)") antes de que el director
-       decida. Solo aplica a un Change Requested que la propia oficina
-       origino -- nunca a uno que pidio el cliente, ni a una
-       Cancellation Requested (esa sigue su propio camino). Sin
-       password: es deshacer tu propia accion, no una decision que
+       CANCEL-UPDATE — "Cancel Change Request" en Review: deshace la
+       solicitud pendiente de un Change Requested (sea de la oficina,
+       del cliente, o del supervisor en sitio -- ANTES solo aplicaba
+       a un cambio que la propia oficina origino, restriccion que se
+       quito: el ejemplo real es el cliente pidiendo un cambio y
+       luego llamando a decir que ya no, sin que nadie de oficina
+       sepa que tenia antes -- este boton regresa la orden exacto a
+       como estaba, sin importar quien pidio el cambio). Nunca aplica
+       a una Cancellation Requested (esa sigue su propio camino, con
+       password, en 'reject'/'approve'). Sin password: es deshacer
+       una solicitud que ya nadie quiere, no una decision que
        necesite al director. Y a diferencia de reject, no deja NINGUN
        renglon en el historial -- ni para el cliente ni para el staff
        viendo admin.html. El Update queda como si nunca hubiera
@@ -385,11 +390,6 @@ exports.handler = async (event) => {
     if (decision === 'cancel-update') {
       if (CHANGE_STATUSES.indexOf(current) === -1) {
         return jsonResponse(400, { error: 'This order has no pending update to cancel.' });
-      }
-      const lastReq = lastRequestRow(history);
-      const originatedByOffice = lastReq && String(lastReq.FieldChanged || '').indexOf('Office') === 0;
-      if (!originatedByOffice) {
-        return jsonResponse(400, { error: 'Only an office-initiated update can be cancelled this way.' });
       }
 
       const restoredStatus = previousStatus(history, 'Assigned');
@@ -467,6 +467,12 @@ exports.handler = async (event) => {
         error: "A new order can't be rejected directly — request its cancellation instead."
       });
     }
+    if ((decision === 'reassign' || decision === 'reschedule') && !isChange) {
+      return jsonResponse(400, { error: 'Reassign/Reschedule only apply to a pending change request.' });
+    }
+    if (decision === 'approve' && isChange) {
+      return jsonResponse(400, { error: 'A pending change is resolved with Reassign or Reschedule, not Approve.' });
+    }
     if (decision === 'reject' && isCancel && !String(notes || '').trim()) {
       return jsonResponse(400, { error: 'Please explain why the cancellation is not approved.' });
     }
@@ -481,8 +487,27 @@ exports.handler = async (event) => {
     if (decision === 'approve') {
       if (isNew)         { newStatus = 'Assigned'; changeType = 'Order Approved'; }
       else if (isCancel) { newStatus = 'Cancelled'; changeType = 'Cancellation Approved'; }
-      else               { newStatus = previousStatus(history, 'Assigned');
-                           changeType = 'Change Approved'; }
+      /* isChange ya no llega aqui -- ver 'reassign'/'reschedule' abajo */
+    } else if (decision === 'reassign') {
+      /* La oficina confirmo con el tecnico que si puede -- mismo dia,
+         misma hora, mismo tecnico de antes. Los servicios ya se
+         aplicaron de una vez al momento de pedir el cambio (igual que
+         siempre), asi que aqui no hay nada que tocar de eso -- solo
+         se regresa el Status a como estaba antes de la solicitud.
+         Cualquier fecha/hora nueva que se haya pedido junto con el
+         cambio se IGNORA a proposito -- Reassign nunca aplica una
+         fecha nueva, para eso esta Reschedule. */
+      newStatus = previousStatus(history, 'Assigned');
+      changeType = 'Change Reassigned';
+    } else if (decision === 'reschedule') {
+      /* No se puede con el mismo tecnico/dia/hora -- la orden vuelve
+         a Scheduling limpia. Los servicios ya se aplicaron igual que
+         en Reassign; aqui ademas se confirman las fechas pedidas (si
+         las hubo) en los campos de cara al cliente, y se borra la
+         asignacion vieja (Supervisor/Ventana/Fecha de despacho) para
+         que Scheduling la vuelva a programar desde cero. */
+      newStatus = 'Received';
+      changeType = 'Sent to Scheduling';
     } else {
       /* Rechazo: siempre vuelve al estatus que tenia antes de la solicitud */
       if (isCancel) { newStatus = previousStatus(history, 'Assigned');
@@ -548,10 +573,11 @@ exports.handler = async (event) => {
       }
     }
 
-    /* --- Aprobar un cambio con fechas propuestas: aqui se confirman --- */
+    /* --- Reschedule: aqui se confirman las fechas pedidas, si las hubo.
+       Reassign las ignora a proposito -- se queda con lo que ya habia. --- */
     const datePatch = {};
     const dateLogs = [];
-    if (decision === 'approve' && isChange) {
+    if (decision === 'reschedule') {
       const req = lastRequestRow(history);
       const asked = parseDatesPayload(req && req.NewValue);
       if (asked) {
@@ -575,28 +601,25 @@ exports.handler = async (event) => {
     if (decision === 'approve' && isCancel) patch.Archived = false;
 
     /* ================================================================
-       ITEM 18 -- "Unidad no lista". Si se aprueba un Change Request
-       marcado con delay reason 'Site not ready' Y la fecha real
-       cambio (Due Date, confirmada arriba en datePatch), la
-       asignacion vieja ya no aplica -- la orden vuelve a Scheduling
-       limpia en vez de quedar "Assigned" con un supervisor/ventana
-       que corresponden a la fecha vieja. Si solo se confirmo una
-       ventana de servicio nueva (misma fecha), no hace falta
-       re-agendar. Mismo criterio que la version directa de Admin en
-       admin-update-order.js.
+       RESCHEDULE -- la orden vuelve a Scheduling limpia: se borra la
+       asignacion vieja (Supervisor/Ventana/Fecha de despacho) y el
+       Status ya se puso en 'Received' arriba, para que fluya de
+       nuevo por Approvals/Active exactamente igual que una orden
+       nueva (isFullyScheduled la manda a Active con Mark as Seen en
+       cuanto alguien la vuelva a asignar). Generaliza lo que antes
+       solo pasaba para el caso especial 'Site not ready' -- ahora es
+       la regla para CUALQUIER Reschedule, sin importar el motivo.
     ================================================================ */
     let sentBackToScheduling = false;
-    if (decision === 'approve' && isChange && String(f.DelayReasonType || '') === 'Site not ready') {
-      if (datePatch.DueDate) {
-        patch.Supervisor = '';
-        patch.ServiceWindow = '';
-        patch.DispatchDate = null;
-        sentBackToScheduling = true;
-      }
+    if (decision === 'reschedule') {
+      patch.Supervisor = '';
+      patch.ServiceWindow = '';
+      patch.DispatchDate = null;
       patch.MaterialsReady = false;
       patch.ExpectedReadyDate = null;
       patch.EntryTime = '';
       patch.UnitOccupied = false;
+      sentBackToScheduling = true;
     }
 
     await updateListItemByItemId(ORDERS_LIST, item.id, patch);
@@ -606,7 +629,7 @@ exports.handler = async (event) => {
         Title:        nextAdminLabel(),
         ChangeType:   'Scheduling',
         FieldChanged: 'Scheduling',
-        Notes:        'Sent back to Scheduling — the unit was not ready and the date changed.',
+        Notes:        (notes && String(notes).trim()) || ('Sent back to Scheduling by ' + actor + '.'),
         OldValue:     '',
         NewValue:     ''
       }));
@@ -648,7 +671,7 @@ exports.handler = async (event) => {
 
     /* --- PDF: solo al aprobar (orden nueva o cambio). Nunca en cancelacion --- */
     let pdf = null;
-    if (decision === 'approve' && !isCancel) {
+    if ((decision === 'approve' && !isCancel) || decision === 'reassign') {
       const merged = Object.assign({}, f, patch, { OrderID: orderId });
       const [freshSvc, freshHist] = await Promise.all([
         fetchByOrderId(ORDER_SERVICES_LIST, orderId),

@@ -1829,29 +1829,44 @@ function decisionAreaHtml(o, history) {
   const needsPassword = passwordNeeded(o, history);
   const notesId = dom + '-notes';
 
-  /* El boton Cancel solo tiene sentido para un Update que la propia
-     oficina mando a Review (no para un cambio que pidio el cliente,
-     ni para una Cancellation Requested, que sigue su propio camino
-     via Reject). Deshace la solicitud sin password y sin dejar
-     ningun rastro en el historial -- distinto de Reject, que si
-     queda registrado. */
-  const isOfficeUpdate = status === 'Change Requested' && requestOrigin(history) === 'office';
+  if (isCancel) {
+    /* Cancelacion de la orden completa -- esta es la decision final,
+       siempre con password. "Cancel" termina la orden de verdad
+       (Cancelled -> History); "Reject" la deja viva, regresa al
+       estatus que tenia antes de pedirse. */
+    return `
+      <div class="field-group" style="margin-top:12px">
+        <label>Notes (required if rejecting)</label>
+        <input type="text" id="${notesId}" placeholder="Reason…">
+      </div>
+      <div class="appr-bar">
+        <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Cancel</button>
+        <button class="btn btn-outline" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
+      </div>
+      <p class="appr-hint">Cancel ends the order for good and needs the Operations Director's password. Reject keeps the order alive and returns it to how it was before this was requested.</p>`;
+  }
 
+  /* Cambio pendiente (servicios y/o fecha/hora) -- nunca se "aprueba"
+     a secas, siempre se resuelve de una de estas 3 formas, ninguna
+     pide password:
+       Reassign  -- mismo tecnico/dia/hora de antes, se confirmaron
+                    con el (los servicios ya se aplicaron desde que
+                    se pidio el cambio). Si el cambio traia una fecha
+                    nueva propuesta, se IGNORA a proposito.
+       Reschedule -- no se puede con lo que ya habia asignado, la
+                    orden vuelve a Scheduling limpia (sale de Active,
+                    regresa cuando alguien la vuelva a asignar).
+       Cancel Change Request -- deshacer la solicitud completa, sin
+                    dejar rastro -- para cuando el que pidio el
+                    cambio (cliente u oficina) ya se arrepintio antes
+                    de que nadie decidiera nada. */
   return `
-    <div class="field-group" style="margin-top:12px">
-      <label>Notes ${isCancel ? '(required if rejecting)' : '(required if rejecting, optional if approving)'}</label>
-      <input type="text" id="${notesId}" placeholder="Reason…">
-    </div>
     <div class="appr-bar">
-      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Approve</button>
-      <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
-      ${isOfficeUpdate ? `<button class="btn btn-outline" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel</button>` : ''}
+      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Reassign</button>
+      <button class="btn btn-outline" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
+      <button class="btn btn-outline" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel Change Request</button>
     </div>
-    <p class="appr-hint">
-      ${needsPassword ? "This decision needs the Operations Director's password. " : ''}
-      Approving ${isCancel ? 'cancels the order.' : 'applies the change.'} Rejecting keeps the order as it was before this request.
-      ${isOfficeUpdate ? ' Cancel discards this update with no approval needed and leaves no record — use it if you changed your mind before the director decides.' : ''}
-    </p>`;
+    <p class="appr-hint">Reassign keeps the same tech, day, and time as before. Reschedule sends it back to Scheduling to be assigned fresh. Cancel Change Request discards the request entirely, as if it never happened.</p>`;
 }
 
 async function decideReview(orderId, decision, needsPassword) {
@@ -1879,7 +1894,8 @@ async function decideReview(orderId, decision, needsPassword) {
     const res = await api('/admin-approve-order', {
       body: { orderId, decision, approvedBy: actor, notes: notes || undefined }
     });
-    let msg = 'Order ' + orderId + ' ' + (decision === 'approve' ? 'approved' : 'rejected')
+    const verbByDecision = { approve: 'approved', reject: 'rejected', reassign: 'reassigned', reschedule: 'sent to Scheduling' };
+    let msg = 'Order ' + orderId + ' ' + (verbByDecision[decision] || decision)
       + ' by ' + actor + '. Status: ' + res.status + '.';
     if (res.document) msg += ' Document ' + res.document.name + ' saved.';
     if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
