@@ -126,6 +126,17 @@ function lastServicesSnapshot(history) {
    (con o sin el prefijo "SERVICES:"). */
 function previousStatus(history, fallback) {
   const row = lastRequestRow(history);
+  /* Arreglo real: si el renglon de la solicitud trae un snapshot con
+     el estatus real embebido (status), usar ese directo -- sin esto,
+     una orden que ya estaba Assigned y tuvo un Change Requested
+     terminaba regresando hasta el "Received" original al aprobar o
+     rechazar, porque el OldValue de ESE renglon es puro snapshot de
+     servicios, nunca el estatus, y la busqueda de mas abajo se iba
+     demasiado atras en el historial. */
+  const snap = row ? parseServicesPayload(row.OldValue) : null;
+  if (snap && snap.status && REQUEST_STATUSES.indexOf(snap.status) === -1) {
+    return snap.status;
+  }
   const candidate = String((row && row.OldValue) || '').trim();
   if (candidate && !looksLikeServiceSnapshot(candidate)
       && REQUEST_STATUSES.indexOf(candidate) === -1) {

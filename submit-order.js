@@ -448,12 +448,15 @@ exports.handler = async (event) => {
         ChangedBy:  b.ClientID,
         ChangeDate: new Date().toISOString(),
         Notes:      '',
-        OldValue:   JSON.stringify(stale.map(it => ({
-          Category:    it.fields.Category    || '',
-          ServiceName: it.fields.ServiceName || '',
-          SubOption:   it.fields.SubOption   || '',
-          Division:    it.fields.Division    || existing.Division
-        }))),
+        OldValue:   JSON.stringify({
+          services: stale.map(it => ({
+            Category:    it.fields.Category    || '',
+            ServiceName: it.fields.ServiceName || '',
+            SubOption:   it.fields.SubOption   || '',
+            Division:    it.fields.Division    || existing.Division
+          })),
+          status: existing.Status
+        }),
         NewValue:   JSON.stringify(newServices)
       });
 

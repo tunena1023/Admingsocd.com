@@ -234,7 +234,7 @@ exports.handler = async (event) => {
         FieldChanged: sendToClient ? 'Client Confirmation'
           : (isClientVisible ? 'Office Change' : 'Office Change (Internal)'),
         Notes:        (requestReason && String(requestReason).trim()) || ('Change requested by ' + actor + '.'),
-        OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap }),
+        OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap, status: f.Status || '' }),
         NewValue:     'SERVICES:' + JSON.stringify({ services: newServices, dirtLevel: f.DirtLevel || '', fields: newFieldsSnap })
       });
 
