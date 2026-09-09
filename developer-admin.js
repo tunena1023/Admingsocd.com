@@ -27,7 +27,7 @@ const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
-  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
@@ -56,6 +56,39 @@ async function fetchAll(listName) {
    como formula, no como fecha, y se calcula aqui cada vez que hace
    falta. Devuelve un Date a mediodia UTC (evita problemas de zona
    horaria al comparar solo el dia). */
+/* ===== Times and Routes -- confirmado con el usuario: puros datos,
+   sin avisos ni acusaciones. Compara el hueco REAL entre 2 lugares
+   (segun las fotos/videos) contra lo que DEBERIA tardar (colchon de
+   salida del lugar anterior + camino real + colchon de entrada del
+   siguiente, con extra si necesita acceso de oficina) -- lo que
+   sobra es "sin explicar", para que el usuario decida que hacer con
+   eso, no el sistema. ===== */
+
+/* Distancia en millas entre 2 coordenadas (formula de Haversine). */
+function milesBetween(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 3958.8;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* Fecha (dia de calendario, en hora de Iowa) de un timestamp ISO --
+   mismo criterio de zona horaria ya usado en Now Open. */
+function dayKeyOf(isoDate) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date(isoDate));
+  const map = {};
+  parts.forEach(p => { map[p.type] = p.value; });
+  return map.year + '-' + map.month + '-' + map.day;
+}
+
+function fmtClock(isoDate) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' }).format(new Date(isoDate));
+}
+
 function computeHolidayDate(h, year) {
   if (h.RuleType === 'Fixed') {
     return new Date(Date.UTC(year, (h.Month || 1) - 1, h.Day || 1, 12));
@@ -935,6 +968,119 @@ exports.handler = async (event) => {
       const active = rows.filter(it => it.fields && String(it.fields.TechId || '') === techId && truthy(it.fields.Active));
       await Promise.all(active.map(it => updateListItemByItemId(TECH_DEVICE_TOKENS_LIST, it.id, { Active: false })));
       return jsonResponse(200, { success: true, revoked: active.length });
+    }
+
+    if (action === 'get-times-and-routes') {
+      const [photoRows, orderRows, clientRows, buildingRows, techRows, settingsRows] = await Promise.all([
+        fetchAll(TECH_PHOTO_LOG_LIST),
+        fetchAll(ORDERS_LIST),
+        fetchAll(CLIENTS_LIST),
+        fetchAll(CLIENT_ADDRESSES_LIST),
+        fetchAll(TECHS_LIST),
+        fetchAll(SETTINGS_LIST)
+      ]);
+
+      const settings = {};
+      settingsRows.forEach(it => { if (it.fields) settings[it.fields.Key] = it.fields.Value; });
+      const avgSpeedMph = Number(settings.TimesRoutesAvgSpeedMph) || 22;
+      const officeAccessExtraMin = Number(settings.TimesRoutesOfficeAccessExtraMin) || 10;
+
+      /* Orden -> a que cliente/building pertenece, y si necesita
+         acceso de oficina (ese dato ya existe, lo puso el cliente al
+         hacer el pedido). */
+      const orderInfo = {};
+      orderRows.forEach(it => {
+        if (!it.fields) return;
+        const oid = it.fields.OrderID || it.fields.Title;
+        if (!oid) return;
+        orderInfo[oid] = {
+          clientId: String(it.fields.ClientID || '').trim().toLowerCase(),
+          buildingId: String(it.fields.BuildingId || '').trim(),
+          needsOfficeAccess: truthy(it.fields.NeedsOfficeAccess)
+        };
+      });
+
+      /* clienteId|buildingId -> colchones de ese lugar especifico. */
+      const cushionByPlace = {};
+      clientRows.forEach(it => {
+        if (!it.fields) return;
+        const cid = String(it.fields.ClientID || '').trim().toLowerCase();
+        if (!cid) return;
+        cushionByPlace[cid + '|'] = { entry: Number(it.fields.EntryCushionMinutes) || 0, exit: Number(it.fields.ExitCushionMinutes) || 0 };
+      });
+      buildingRows.forEach(it => {
+        if (!it.fields) return;
+        const cid = String(it.fields.ClientID || '').trim().toLowerCase();
+        if (!cid) return;
+        cushionByPlace[cid + '|' + it.id] = { entry: Number(it.fields.EntryCushionMinutes) || 0, exit: Number(it.fields.ExitCushionMinutes) || 0 };
+      });
+
+      const techName = {};
+      techRows.forEach(it => { if (it.fields) techName[it.id] = (it.fields.FirstName || '') + ' ' + (it.fields.LastName || ''); });
+
+      /* Agrupar cada foto/video por tecnico + dia de calendario. */
+      const byTechDay = {};
+      photoRows.forEach(it => {
+        if (!it.fields || !it.fields.TechId || !it.fields.CapturedDate) return;
+        const key = it.fields.TechId + '|' + dayKeyOf(it.fields.CapturedDate);
+        (byTechDay[key] = byTechDay[key] || []).push(it.fields);
+      });
+
+      const days = [];
+      for (const key in byTechDay) {
+        const [techId, dateKey] = key.split('|');
+        const entries = byTechDay[key].slice().sort((a, b) => String(a.CapturedDate).localeCompare(String(b.CapturedDate)));
+
+        /* Fotos/videos SEGUIDOS de la misma orden = una sola visita
+           (llegada = la primera, salida = la ultima). */
+        const visits = [];
+        entries.forEach(e => {
+          const last = visits[visits.length - 1];
+          if (last && last.orderId === e.OrderID) last.entries.push(e);
+          else visits.push({ orderId: e.OrderID, entries: [e] });
+        });
+        const stops = visits.map(v => {
+          const first = v.entries[0], last = v.entries[v.entries.length - 1];
+          return {
+            orderId: v.orderId, arrival: first.CapturedDate, departure: last.CapturedDate,
+            arrivalLat: first.Latitude, arrivalLon: first.Longitude,
+            departureLat: last.Latitude, departureLon: last.Longitude
+          };
+        });
+
+        const rows = [];
+        for (let i = 0; i < stops.length; i++) {
+          const s = stops[i];
+          rows.push({ type: 'stop', orderId: s.orderId, arrival: fmtClock(s.arrival), departure: fmtClock(s.departure) });
+
+          if (i < stops.length - 1) {
+            const info = orderInfo[s.orderId] || {};
+            const next = stops[i + 1];
+            const nextInfo = orderInfo[next.orderId] || {};
+            const realMin = (new Date(next.arrival) - new Date(s.departure)) / 60000;
+
+            const exitCushion = (cushionByPlace[info.clientId + '|' + info.buildingId] || {}).exit || 0;
+            const entryCushion = (cushionByPlace[nextInfo.clientId + '|' + nextInfo.buildingId] || {}).entry || 0;
+            const miles = milesBetween(s.departureLat, s.departureLon, next.arrivalLat, next.arrivalLon);
+            const travelMin = miles != null ? (miles / avgSpeedMph) * 60 : null;
+            const officeExtra = nextInfo.needsOfficeAccess ? officeAccessExtraMin : 0;
+            const expectedMin = travelMin != null ? (exitCushion + travelMin + entryCushion + officeExtra) : null;
+
+            rows.push({
+              type: 'gap',
+              realMinutes: Math.round(realMin),
+              expectedMinutes: expectedMin != null ? Math.round(expectedMin) : null,
+              unexplainedMinutes: expectedMin != null ? Math.round(realMin - expectedMin) : null,
+              milesDriven: miles != null ? Math.round(miles * 10) / 10 : null
+            });
+          }
+        }
+
+        days.push({ techId, techName: (techName[techId] || 'Unknown').trim(), date: dateKey, stops: rows });
+      }
+
+      days.sort((a, b) => b.date.localeCompare(a.date) || a.techName.localeCompare(b.techName));
+      return jsonResponse(200, { days, settings: { avgSpeedMph, officeAccessExtraMin } });
     }
 
     /* Tiempo de trabajo estimado por orden -- SOLO para uso interno de
