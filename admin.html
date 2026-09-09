@@ -1178,6 +1178,17 @@ function optionsHtml(values, selected) {
    servicios y el estatus anteriores. Las dos cosas quedan en el historial.
 ============================================================ */
 const NEW_ORDER_STATUSES = ['Received'];
+
+/* Una orden "Received" ya tiene todo lo que Scheduling asigna en un
+   solo clic (Assign): Supervisor + Service Window + Dispatch Date.
+   En cuanto los 3 estan llenos, la orden deja de ser "nunca tocada"
+   -- se mueve de Approvals a Active (con Mark as Seen esperando),
+   segun lo acordado con el usuario. */
+function isFullyScheduled(o) {
+  return !!(o.Supervisor && String(o.Supervisor).trim()
+    && o.ServiceWindow && String(o.ServiceWindow).trim()
+    && o.DispatchDate && String(o.DispatchDate).trim());
+}
 const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
 const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
                        'Reschedule Requested', 'Change Requested by Client'];
@@ -1412,7 +1423,7 @@ function pinApprCard(orderId, context, headerEl) {
 
 function approvalsOf(q) {
   const list = allOrders
-    .filter(o => NEW_ORDER_STATUSES.includes(o.Status))
+    .filter(o => NEW_ORDER_STATUSES.includes(o.Status) && !isFullyScheduled(o))
     .sort((a, b) => String(a.createdDateTime).localeCompare(String(b.createdDateTime)));
   if (!q) return list;
   return list.filter(o =>
@@ -1536,15 +1547,11 @@ async function approveBatchAll(batchId) {
 function newOrderApprovalCard(o) {
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
-  const isScheduled = !!(o.Supervisor && String(o.Supervisor).trim() && o.ServiceWindow && String(o.ServiceWindow).trim() && o.DispatchDate && String(o.DispatchDate).trim());
-
-  const readOnlyBlock = isScheduled ? `
-    <div class="edit-grid" style="margin-top:16px">
-      <div class="field-group"><label>Supervisor</label><div style="padding:8px 0;font-size:13px">${esc(o.Supervisor)}</div></div>
-      <div class="field-group"><label>Service Window</label><div style="padding:8px 0;font-size:13px">${esc(o.ServiceWindow || '—')}</div></div>
-      <div class="field-group"><label>Service Date</label><div style="padding:8px 0;font-size:13px">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</div></div>
-      <div class="field-group"><label>Inspection Date</label><div style="padding:8px 0;font-size:13px">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</div></div>
-    </div>` : `
+  /* isFullyScheduled(o) es siempre false aqui -- approvalsOf() ya
+     filtra las agendadas (esas viven en Active con Mark as Seen).
+     Se deja la funcion compartida por si algun dia vuelve a hacer
+     falta el otro branch, pero hoy este card solo tiene un camino. */
+  const readOnlyBlock = `
     <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
       <span>This order has not been scheduled yet.</span>
       <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Go to Scheduling</button>
@@ -1574,18 +1581,11 @@ function newOrderApprovalCard(o) {
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
         ${readOnlyBlock}
         <div class="appr-bar">
-          <button class="btn btn-green" id="${dom}-ok" ${isScheduled ? '' : 'disabled'}
+          <button class="btn btn-green" id="${dom}-ok" disabled
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
-          <button class="btn btn-danger" id="${dom}-no"
-                  onclick="decideNewOrder('${esc(o.OrderID)}','request-cancel')">Request Cancellation</button>
-          ${isScheduled ? '' : `<button class="btn btn-outline" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>`}
+          <button class="btn btn-outline" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
         </div>
-        <p class="appr-hint">
-          ${isScheduled
-            ? 'Approving saves the order document and the client receives it by email.'
-            : 'Scheduling assigns who and when — Approvals only accepts or rejects what was already decided there. Bypass is for urgent cases only and needs the Operations Director\'s password.'}
-          Requesting a cancellation needs the Operations Director's password and sends it to Review.
-        </p>
+        <p class="appr-hint">Scheduling assigns who and when — once assigned, this order moves to Active on its own. Bypass is for urgent cases only and needs the Operations Director's password.</p>
       </div>
     </div>`;
 }
@@ -2395,7 +2395,8 @@ function displayStatus(o) {
 
 function activeOf(q) {
   const list = allOrders
-    .filter(o => ACTIVE_STATUSES.includes(o.Status))
+    .filter(o => ACTIVE_STATUSES.includes(o.Status)
+      || (NEW_ORDER_STATUSES.includes(o.Status) && isFullyScheduled(o)))
     .sort((a,b) => String(a.createdDateTime).localeCompare(String(b.createdDateTime)));
   if (!q) return list;
   return list.filter(o =>
@@ -3242,7 +3243,60 @@ function orderNotificationsLineHtml(o) {
     '</p>';
 }
 
+/* Orden recien agendada desde Schedule -> Orders (Supervisor+Ventana+
+   Fecha ya llenos), pero Status sigue en 'Received' -- todavia nadie
+   de oficina la ha visto. Aparece en Active (ya no en Approvals,
+   segun lo acordado), pero con su propia tarjeta reducida: solo el
+   resumen de lo agendado + Mark as Seen, nada de Cancel/Edit/
+   Completed todavia -- eso es para una orden ya de verdad viva. Por
+   dentro, Mark as Seen hace exactamente lo mismo que el Approve de
+   siempre (PDF, aviso al cliente, Status->Assigned) -- el cambio es
+   nomas donde vive el boton y como se llama. */
+function unseenActiveCardHtml(o, services) {
+  const byCat = {};
+  services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
+  const svcHtml = Object.keys(byCat).length
+    ? Object.entries(byCat).map(([cat, list]) =>
+        `<div class="detail-label" style="margin:14px 0 6px">${esc(cat)}</div>` +
+        list.map(s => `<div class="svc-row"><div class="svc-row-name">${esc(s.ServiceName)}${s.Level ? ' — ' + esc(s.Level) : ''}</div></div>`).join('')
+      ).join('')
+    : '<p class="empty-note">No services recorded.</p>';
+
+  return `
+    <div style="background:#EAF3FF;border:1px solid #BFDBFE;color:#1A56C4;font-size:12px;padding:10px 12px;margin-bottom:16px;font-weight:600">
+      ⬤ Not seen yet — just assigned from Scheduling
+    </div>
+    <div class="edit-grid" style="margin-bottom:16px">
+      <div class="field-group"><label>Supervisor</label><div style="padding:8px 0;font-size:13px">${esc(o.Supervisor)}</div></div>
+      <div class="field-group"><label>Service Window</label><div style="padding:8px 0;font-size:13px">${esc(o.ServiceWindow || '—')}</div></div>
+      <div class="field-group"><label>Service Date</label><div style="padding:8px 0;font-size:13px">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</div></div>
+      <div class="field-group"><label>Inspection Date</label><div style="padding:8px 0;font-size:13px">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</div></div>
+    </div>
+    <p class="detail-label" style="margin-bottom:6px">Services Requested</p>
+    ${svcHtml}
+    <div class="btn-actions" style="margin-top:20px">
+      <button class="btn btn-green" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
+      <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
+    </div>
+    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>`;
+}
+
+async function markSeen(orderId) {
+  try {
+    await api('/admin-approve-order', {
+      body: { orderId, decision: 'approve', approvedBy: getActorName() }
+    });
+    showToast('Order ' + orderId + ' marked as seen.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
 function renderOrderDetail(o, services, history, context, storedDoc) {
+  if (context === 'active' && o.Status === 'Received') {
+    return unseenActiveCardHtml(o, services);
+  }
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
