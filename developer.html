@@ -441,11 +441,6 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
         <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
-          <div style="margin-bottom:10px;padding:10px;background:#FBEAEA;border-radius:4px">
-            <button type="button" class="btn btn-outline btn-sm" onclick="diagnoseColumns('TechDeviceTokens')">🔍 Diagnose TechDeviceTokens columns</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="diagnoseColumns('TechPhotoLog')">🔍 Diagnose TechPhotoLog columns</button>
-            <pre id="diagnose-output" style="font-size:11px;white-space:pre-wrap;margin-top:8px"></pre>
-          </div>
           <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
         </div>
         <table class="staff-table" id="techs-table"><tbody></tbody></table>
@@ -1450,16 +1445,6 @@
   }
 
   let allTechs = [];
-  async function diagnoseColumns(listName) {
-    const out = document.getElementById('diagnose-output');
-    out.textContent = 'Loading…';
-    try {
-      const res = await api('diagnose-list-columns', { listName });
-      out.textContent = res.columns.map(c => c.displayName + '  ->  ' + c.internalName).join('\n');
-    } catch (e) {
-      out.textContent = 'Error: ' + e.message;
-    }
-  }
 
   async function loadTechs() {
     try {
