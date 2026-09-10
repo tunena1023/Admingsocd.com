@@ -313,7 +313,7 @@ exports.handler = async (event) => {
            esto tapaba el error real de Graph con una adivinanza fija
            ("has the Category column been added..."); ahora se manda tal
            cual viene, para saber la causa de verdad en vez de suponerla. */
-        return jsonResponse(400, { error: 'Could not save category: ' + e.message });
+        return jsonResponse(400, { error: e.message });
       }
       return jsonResponse(200, { success: true });
     }
