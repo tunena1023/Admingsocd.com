@@ -441,10 +441,6 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
         <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
-          <div style="margin-bottom:10px;padding:10px;background:#FBEAEA;border-radius:4px">
-            <button type="button" class="btn btn-outline btn-sm" onclick="diagnoseDeviceTokens()">🔍 Diagnose device QR tokens</button>
-            <pre id="diagnose-output" style="font-size:11px;white-space:pre-wrap;margin-top:8px"></pre>
-          </div>
           <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
         </div>
         <table class="staff-table" id="techs-table"><tbody></tbody></table>
@@ -1449,24 +1445,6 @@
   }
 
   let allTechs = [];
-  async function diagnoseDeviceTokens() {
-    const out = document.getElementById('diagnose-output');
-    out.textContent = 'Loading…';
-    try {
-      const res = await api('diagnose-device-tokens', {});
-      let txt = '=== TECHS REALES (' + res.techs.length + ') ===\n';
-      res.techs.forEach(t => { txt += t.id + '  ->  ' + t.name + '\n'; });
-      txt += '\n=== RENGLONES DE TechDeviceTokens (' + res.tokens.length + ') ===\n';
-      res.tokens.forEach(t => {
-        txt += 'rowId=' + t.rowId + '  Title="' + t.titleValue + '" (' + t.titleType + ')  '
-          + (t.matchesATech ? '✅ coincide con: ' + t.matchedTechName : '❌ NO coincide con ningun tech')
-          + '  active=' + t.active + '  token=' + t.setupToken + '\n';
-      });
-      out.textContent = txt;
-    } catch (e) {
-      out.textContent = 'Error: ' + e.message;
-    }
-  }
 
   async function loadTechs() {
     try {
