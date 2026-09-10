@@ -992,35 +992,6 @@ exports.handler = async (event) => {
        para reclamar el dispositivo (ver device-auth.js en
        tech.gsocd.com) -- el DeviceToken permanente se crea alla, no
        aqui, hasta que el tecnico confirme "This Is Me". */
-    /* ===== Diagnostico temporal #2 -- comparar los renglones de
-       TechDeviceTokens (donde Title deberia ser el id de un tecnico
-       real) contra la lista Techs de verdad, para ver exactamente
-       donde no coincide. Se puede borrar una vez resuelto. */
-    if (action === 'diagnose-device-tokens') {
-      const [deviceRows, techRows] = await Promise.all([
-        fetchAll(TECH_DEVICE_TOKENS_LIST),
-        fetchAll(TECHS_LIST)
-      ]);
-      const techs = techRows.filter(it => it.fields).map(it => ({
-        id: it.id,
-        name: (it.fields.FirstName || '') + ' ' + (it.fields.LastName || '')
-      }));
-      const tokens = deviceRows.filter(it => it.fields).map(it => {
-        const titleValue = it.fields.Title;
-        const match = techs.find(t => t.id === String(titleValue || ''));
-        return {
-          rowId: it.id,
-          titleValue: titleValue,
-          titleType: typeof titleValue,
-          matchesATech: !!match,
-          matchedTechName: match ? match.name : null,
-          setupToken: (it.fields.SetupToken || '').slice(0, 8) + '…',
-          active: !!it.fields.Active
-        };
-      });
-      return jsonResponse(200, { tokens, techs });
-    }
-
     if (action === 'generate-device-qr') {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
