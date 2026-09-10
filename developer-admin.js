@@ -1503,10 +1503,11 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-recurring-services') {
-      const [services, assignments, employees] = await Promise.all([
+      const [services, assignments, employees, logRows] = await Promise.all([
         fetchAll(RECURRING_SERVICES_LIST),
         fetchAll(RECURRING_ASSIGNMENTS_LIST),
-        fetchAll(FIELD_EMPLOYEES_LIST)
+        fetchAll(FIELD_EMPLOYEES_LIST),
+        fetchAll(RECURRING_LOG_LIST)
       ]);
 
       const nameByPayroll = {};
@@ -1514,6 +1515,19 @@ exports.handler = async (event) => {
         if (!it.fields || !it.fields.PayrollNumber) return;
         nameByPayroll[String(it.fields.PayrollNumber).trim()] =
           (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+      });
+
+      /* Cuantos "Field Confirmed" hay sin cerrar por contrato --
+         sin importar de que dia son (confirmado con el usuario: nomas
+         un contador/badge de que hay pendientes, no hace falta
+         distinguir que tan viejo es cada uno). Esto es lo que evita
+         que una visita confirmada por el campo se pierda de vista si
+         la oficina no le da click a Completed el mismo dia. */
+      const pendingByService = {};
+      logRows.forEach(it => {
+        if (!it.fields || it.fields.Status !== 'Field Confirmed') return;
+        const rid = String(it.fields.RecurringServiceID || '');
+        pendingByService[rid] = (pendingByService[rid] || 0) + 1;
       });
 
       const list = services.filter(it => it.fields).map(it => {
@@ -1536,7 +1550,8 @@ exports.handler = async (event) => {
           totalHours: Number(f.TotalHours) || 0,
           expirationDate: f.ExpirationDate || '',
           active: truthy(f.Active),
-          assignments: myAssignments
+          assignments: myAssignments,
+          pendingConfirmCount: pendingByService[String(it.id)] || 0
         };
       });
 
@@ -1606,6 +1621,258 @@ exports.handler = async (event) => {
         });
 
       return jsonResponse(200, { employees: overview });
+    }
+
+    /* ============================================================
+       RECURRING LOG -- bitacora real de visitas de un contrato
+       recurrente. Antes esta lista (RecurringLog) existia en el
+       schema pero nunca se usaba desde ningun lado. Confirmado con
+       el usuario: quien, cuando, cuanto tiempo y en donde -- las
+       horas reales las resuelve uAttend aparte (reporte subido en
+       Developer > Hours), aqui NUNCA se capturan a mano.
+
+       IMPORTANTE -- ANTES DE USAR: la lista RecurringLog en
+       SharePoint necesita estas columnas (mismo patron que paso con
+       Category en ServicesCatalog -- si faltan, estas acciones van a
+       fallar con "Field '...' is not recognized"):
+         RecurringServiceID (texto), VisitDate (texto/fecha, formato
+         YYYY-MM-DD), Status (texto: "Completed" | "Pending Review" |
+         "Rejected"), Source (texto: "Office" | "Field"), LoggedBy
+         (texto), PeopleJSON (texto largo), ServicesJSON (texto
+         largo, vacio si coincide exacto con el contrato), Notes
+         (texto largo), ReviewedBy (texto), ReviewedDate (texto),
+         ReviewNotes (texto largo).
+    ============================================================ */
+
+    /* "+ Log Visit" en Admin -- la EXCEPCION (llamada por telefono,
+       etc.), no el camino normal. Autorada por oficina, se aplica
+       directo, nunca pasa por Review -- a diferencia de una
+       sugerencia de campo (esa vive en tech.gsocd.com, endpoint
+       aparte, y SI pasa por Review). */
+    if (action === 'log-recurring-visit') {
+      if (!canView) return jsonResponse(403, { error: 'You do not have access to log a visit.' });
+      const { recurringServiceId, visitDate, people, services, removedNotes, notes } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+      if (!visitDate) return jsonResponse(400, { error: 'visitDate is required' });
+
+      const fields = {
+        Title: recurringServiceId + '-' + visitDate,
+        RecurringServiceID: String(recurringServiceId),
+        VisitDate: visitDate,
+        Status: 'Completed',
+        Source: 'Office',
+        LoggedBy: email || 'Staff',
+        PeopleJSON: JSON.stringify(Array.isArray(people) ? people : []),
+        ServicesJSON: JSON.stringify({ services: Array.isArray(services) ? services : [], removedNotes: Array.isArray(removedNotes) ? removedNotes : [] }),
+        Notes: notes || ''
+      };
+
+      /* BUG REAL encontrado y arreglado: antes esto creaba el
+         renglon siempre, sin revisar si ya habia uno para ese dia
+         (a diferencia del boton simple, que si lo checa). Si el
+         campo ya habia marcado ese dia, quedaban 2 renglones
+         duplicados -- inflando visitas/horas en las estadisticas.
+         Ahora, si ya existe (cualquier estatus -- Field Confirmed,
+         Pending Review, hasta Completed viejo), se ACTUALIZA ese
+         mismo renglon en vez de crear otro -- la oficina es la
+         fuente de verdad cuando usa esta pantalla a proposito. */
+      const existing = await fetchAll(RECURRING_LOG_LIST);
+      const already = existing.find(it => it.fields &&
+        String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
+        String(it.fields.VisitDate) === String(visitDate));
+
+      if (already) {
+        await updateListItemByItemId(RECURRING_LOG_LIST, already.id, fields);
+      } else {
+        await createListItem(RECURRING_LOG_LIST, fields);
+      }
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Boton simple "Completed" (verde->azul, mismo patron exacto que
+       ya usa markCompleted() en una orden normal) -- 2 pasos:
+         1. El campo (Tech, sin desviacion) marca "hecho" -- crea el
+            renglon en Status "Field Confirmed". Esto NO cierra nada
+            todavia, es la senal que pinta el boton de azul aqui.
+         2. La oficina le da click a "Completed" -- si ya existe el
+            renglon "Field Confirmed" de hoy, lo finaliza (Completed).
+            Si no existe (la oficina cierra sin que el campo haya
+            confirmado), crea el renglon directo en Completed.
+       Cero campos en cualquiera de los 2 pasos -- las horas las
+       resuelve uAttend aparte, nunca se capturan aqui. */
+    if (action === 'mark-recurring-visit-complete') {
+      const { recurringServiceId, visitDate, source } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+      if (!visitDate) return jsonResponse(400, { error: 'visitDate is required' });
+      const isFieldConfirm = source === 'Field';
+      if (!isFieldConfirm && !canView) return jsonResponse(403, { error: 'You do not have access to mark this complete.' });
+
+      const existing = await fetchAll(RECURRING_LOG_LIST);
+      const already = existing.find(it => it.fields &&
+        String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
+        String(it.fields.VisitDate) === String(visitDate));
+
+      if (isFieldConfirm) {
+        if (already) return jsonResponse(200, { success: true, alreadyLogged: true });
+        await createListItem(RECURRING_LOG_LIST, {
+          Title: recurringServiceId + '-' + visitDate,
+          RecurringServiceID: String(recurringServiceId),
+          VisitDate: visitDate,
+          Status: 'Field Confirmed',
+          Source: 'Field',
+          LoggedBy: body.actorName || email || 'Field',
+          PeopleJSON: '[]', ServicesJSON: '', Notes: ''
+        });
+        return jsonResponse(200, { success: true });
+      }
+
+      /* Oficina cerrando -- si ya habia un "Field Confirmed" de hoy,
+         se finaliza ese mismo renglon (no se duplica). Si no, se crea
+         uno nuevo directo en Completed. */
+      if (already && already.fields.Status === 'Field Confirmed') {
+        await updateListItemByItemId(RECURRING_LOG_LIST, already.id, { Status: 'Completed' });
+        return jsonResponse(200, { success: true });
+      }
+      if (already) return jsonResponse(200, { success: true, alreadyLogged: true });
+
+      await createListItem(RECURRING_LOG_LIST, {
+        Title: recurringServiceId + '-' + visitDate,
+        RecurringServiceID: String(recurringServiceId),
+        VisitDate: visitDate,
+        Status: 'Completed',
+        Source: 'Office',
+        LoggedBy: email || 'Staff',
+        PeopleJSON: '[]', ServicesJSON: '', Notes: ''
+      });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Historial de visitas de UN contrato -- usado por la tarjeta en
+       recurring.html al expandirla. Solo trae Status=Completed (el
+       historial real); Pending Review vive en la cola de Review,
+       Field Confirmed y Rejected no son historial todavia/nunca --
+       se reflejan aparte via todayStatus, mas abajo. */
+    if (action === 'list-recurring-visits') {
+      if (!canView) return jsonResponse(403, { error: 'You do not have access to this.' });
+      const { recurringServiceId } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+
+      const [rows, employees] = await Promise.all([fetchAll(RECURRING_LOG_LIST), fetchAll(FIELD_EMPLOYEES_LIST)]);
+      const nameByPayroll = {};
+      employees.forEach(it => {
+        if (!it.fields || !it.fields.PayrollNumber) return;
+        nameByPayroll[String(it.fields.PayrollNumber).trim()] =
+          (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+      });
+
+      const visits = rows
+        .filter(it => it.fields && String(it.fields.RecurringServiceID) === String(recurringServiceId) && it.fields.Status === 'Completed')
+        .map(it => {
+          const f = it.fields;
+          let svcPayload = {};
+          try { svcPayload = JSON.parse(f.ServicesJSON || '{}'); } catch (e) { /* deja vacio */ }
+          let people = [];
+          try { people = JSON.parse(f.PeopleJSON || '[]'); } catch (e) { /* deja vacio */ }
+          people = people.map(p => ({ ...p, name: nameByPayroll[String(p.payrollNumber || '').trim()] || p.payrollNumber }));
+          return {
+            id: it.id,
+            visitDate: f.VisitDate || '',
+            status: f.Status || '',
+            source: f.Source || '',
+            loggedBy: f.LoggedBy || '',
+            people,
+            deviated: !!(svcPayload.services && svcPayload.services.length) || !!(svcPayload.removedNotes && svcPayload.removedNotes.length),
+            services: svcPayload.services || [],
+            removedNotes: svcPayload.removedNotes || [],
+            notes: f.Notes || ''
+          };
+        })
+        .sort((a, b) => String(b.visitDate).localeCompare(String(a.visitDate)));
+
+      /* Estado de HOY -- para pintar el boton "Completed" verde/azul,
+         o de plano no mostrarlo si hoy ya quedo cerrado. No es parte
+         del historial (eso son solo renglones Status=Completed). */
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayRow = rows.find(it => it.fields &&
+        String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
+        String(it.fields.VisitDate) === todayISO);
+      let todayStatus = null;
+      if (todayRow) {
+        if (todayRow.fields.Status === 'Completed') todayStatus = 'completed';
+        else if (todayRow.fields.Status === 'Pending Review') todayStatus = 'pending-review';
+        else todayStatus = 'field-confirmed'; // Field Confirmed
+      }
+
+      return jsonResponse(200, { visits, todayStatus });
+    }
+
+    /* ============================================================
+       RECURRING REVIEW -- las sugerencias de campo (Supervisor,
+       desde tech.gsocd.com) llegan aqui como renglones Pending
+       Review, para que aparezcan en el MISMO tab Review de siempre
+       junto a Change Request/Cancellation Request/Supervisor Update,
+       con su propio badge "Recurring Change". No es una cola aparte
+       a proposito -- confirmado con el usuario, "a prueba de
+       estupidos": un solo lugar donde se revisan pendientes.
+    ============================================================ */
+
+    if (action === 'list-recurring-pending') {
+      if (!canView) return jsonResponse(403, { error: 'You do not have access to Review.' });
+      const [rows, services, employees, clients] = await Promise.all([
+        fetchAll(RECURRING_LOG_LIST), fetchAll(RECURRING_SERVICES_LIST),
+        fetchAll(FIELD_EMPLOYEES_LIST), fetchAll(CLIENTS_LIST)
+      ]);
+      const serviceById = {};
+      services.forEach(it => { if (it.fields) serviceById[it.id] = it.fields; });
+      const businessNameByClient = {};
+      clients.forEach(it => { if (it.fields && it.fields.ClientID) businessNameByClient[it.fields.ClientID] = it.fields.Title || it.fields.BusinessName || it.fields.ClientID; });
+
+      const pending = rows
+        .filter(it => it.fields && it.fields.Status === 'Pending Review')
+        .map(it => {
+          const f = it.fields;
+          const svc = serviceById[f.RecurringServiceID] || {};
+          let svcPayload = {};
+          try { svcPayload = JSON.parse(f.ServicesJSON || '{}'); } catch (e) { /* deja vacio */ }
+          return {
+            id: it.id,
+            recurringServiceId: f.RecurringServiceID || '',
+            visitDate: f.VisitDate || '',
+            clientId: svc.ClientID || '',
+            businessName: businessNameByClient[svc.ClientID] || svc.ClientID || '',
+            buildingNumber: svc.BuildingNumber || '',
+            loggedBy: f.LoggedBy || '',
+            services: svcPayload.services || [],
+            removedNotes: svcPayload.removedNotes || [],
+            notes: f.Notes || ''
+          };
+        });
+
+      return jsonResponse(200, { pending });
+    }
+
+    /* Approve -- finaliza el renglon (Status: Completed), queda en el
+       historial normal de ahi en adelante. Reject -- se queda con el
+       rastro (Status: Rejected, nunca se borra), para que la oficina
+       sepa que alguien reporto algo que no se acepto tal cual venia. */
+    if (action === 'decide-recurring-review') {
+      if (!canView) return jsonResponse(403, { error: 'You do not have access to Review.' });
+      const { logId, decision, notes } = body;
+      if (!logId) return jsonResponse(400, { error: 'logId is required' });
+      if (decision !== 'approve' && decision !== 'reject') return jsonResponse(400, { error: 'decision must be approve or reject' });
+
+      /* BUG REAL encontrado y arreglado: antes esto escribia la razon
+         del rechazo directo en Notes, PISANDO la nota original (por
+         que el supervisor quito algo, o que pidio el cliente) para
+         siempre. Ahora la razon del rechazo vive en su propio campo
+         (ReviewNotes), la nota original nunca se toca. */
+      await updateListItemByItemId(RECURRING_LOG_LIST, logId, {
+        Status: decision === 'approve' ? 'Completed' : 'Rejected',
+        ReviewedBy: email || 'Staff',
+        ReviewedDate: new Date().toISOString(),
+        ReviewNotes: notes || undefined
+      });
+      return jsonResponse(200, { success: true });
     }
 
     /* ============================================================
