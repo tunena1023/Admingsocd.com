@@ -574,6 +574,7 @@
   <div class="subtabs">
     <button class="subtab active-subtab active" data-activetab="all" onclick="showActiveSubTab('all')">All</button>
     <button class="subtab active-subtab" data-activetab="employee" onclick="showActiveSubTab('employee')">By Employee</button>
+    <button class="subtab active-subtab" data-activetab="recurring" onclick="location.href='recurring.html'">Recurring</button>
   </div>
   <div class="subpanel active-subpanel active" id="activesub-all">
     <div class="search-bar">
@@ -639,7 +640,6 @@
   <div class="subtabs">
     <button class="subtab clients-subtab active" data-clientstab="list" onclick="showClientsSubTab('list')">Clients</button>
     <button class="subtab clients-subtab" data-clientstab="create" onclick="showClientsSubTab('create')">Create Order</button>
-    <button class="subtab clients-subtab" data-clientstab="recurring" onclick="location.href='recurring.html'">Recurring</button>
   </div>
 
   <div class="subpanel clients-subpanel active" id="clientssub-list">
@@ -921,8 +921,8 @@ function showTab(tab) {
 /* Sub-tabs de Clients (Clients / Create Order) -- namespaced con sus
    propias clases (clients-subtab / clients-subpanel) para no chocar
    con el mismo mecanismo que ya usa Schedule (.subtab / .subpanel a
-   secas). 'Recurring' no entra aqui: es solo un link a recurring.html,
-   nunca cambia de sub-panel. */
+   secas). Recurring vivia aqui antes, se movio al subtab de Active
+   (estaba muy escondido) -- ver active-subtab mas abajo. */
 function showClientsSubTab(tab) {
   document.querySelectorAll('.clients-subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.clientstab === tab));
   document.querySelectorAll('.clients-subpanel').forEach(p => p.classList.toggle('active', p.id === 'clientssub-' + tab));
