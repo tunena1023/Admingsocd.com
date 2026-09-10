@@ -114,9 +114,75 @@
     .field-row { grid-template-columns: 1fr; }
     .assign-row { grid-template-columns: 1fr 90px 32px; }
   }
+
+  /* ============================================================
+     REDISENO recurring.html -- tarjetas expandibles con historial
+     real de visitas + panel "Log Visit" (excepcion, oficina) +
+     boton simple Completed. Mismas clases exactas validadas con el
+     usuario en los minis, sin inventar nada nuevo aqui.
+  ============================================================ */
+
+  /* --- Tarjeta de contrato (antes: .rc-card ya existia pero era
+     estatica, sin expandir -- ahora si tiene .rc-body) --- */
+  .rc-top { cursor: pointer; }
+  .rc-top:hover { background: #FCFBF8; }
+  .rc-right { display:flex; gap:10px; align-items:center; flex-shrink:0; }
+  .rc-badge.expiring { color:#B8862E; border-color:#EDDCB4; background:#FBF3E1; }
+  .rc-badge.pending { color:#2A5AC9; border-color:#C7D8F5; background:#EEF4FF; }
+  .rc-arrow { font-size:12px; color:var(--gray); transition:transform .2s; flex-shrink:0; }
+  .rc-arrow.open { transform:rotate(90deg); }
+  .rc-body { display:none; border-top:1px solid var(--border); background:var(--bg); padding:18px 20px 20px; }
+  .rc-body.open { display:block; }
+  .rc-stat-row { display:flex; gap:22px; margin-bottom:18px; flex-wrap:wrap; }
+  .rc-stat { font-size:12px; }
+  .rc-stat .num { font-size:18px; font-weight:700; display:block; }
+  .rc-stat .lbl { color:var(--gray); text-transform:uppercase; letter-spacing:.04em; font-size:10px; }
+
+  .visit-log-label { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px; flex-wrap:wrap; }
+  .visit-log-label span { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--gray); font-weight:700; }
+
+  .visit { border:1px solid var(--border); background:var(--white); border-radius:4px; padding:12px 14px; margin-bottom:8px; }
+  .visit-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .visit-date { font-size:13px; font-weight:700; }
+  .visit-people { font-size:12px; color:var(--gray); margin-top:2px; }
+  .visit-flag { font-size:10px; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:3px; font-weight:700; flex-shrink:0; }
+  .visit-flag.match { background:#EAF5EE; color:#2E7D4F; }
+  .visit-flag.deviated { background:#FBF3E1; color:#B8862E; }
+  .visit-note { font-size:11.5px; color:var(--gray); font-style:italic; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
+  .visit-svc-change { font-size:11.5px; margin-top:6px; }
+  .visit-svc-change.added { color:#2E7D4F; }
+  .visit-svc-change.removed { color:#B33A3A; text-decoration:line-through; text-decoration-color: rgba(179,58,58,.4); }
+
+  /* --- Boton Completed verde/azul, mismo patron exacto que ya usa
+     admin.html en el detalle de una orden normal. --- */
+  .btn-green { background:#2E7D4F; color:var(--white); }
+  .btn-blue  { background:#2A5AC9; color:var(--white); }
+
+  /* --- Panel "Log Visit" (excepcion, oficina) --- */
+  .logvisit-panel { border: 1px solid var(--gold); background: var(--white); border-radius: 4px; padding: 18px 18px 16px; margin: 4px 0 16px; }
+  .logvisit-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; }
+
+  /* --- Diff vs. el contrato base dentro de Log Visit -- wrapper
+     PROPIO (no vive en el picker compartido), compara lo seleccionado
+     contra lo que ya traia el contrato. --- */
+  .diff-box { background: var(--bg); border: 1px solid var(--border); padding: 12px 14px; margin: 14px 0; border-radius: 4px; }
+  .diff-line { font-size: 12px; margin-bottom: 4px; }
+  .diff-line.removed { color: #B33A3A; }
+  .diff-line.added { color: #2E7D4F; }
+  .diff-empty { font-size: 12px; color: var(--gray); }
+  .um-note-box{background:var(--white);border:1px solid var(--border);padding:12px;margin:8px 0;border-radius:4px}
+  .um-note-box label{font-size:10px;text-transform:uppercase;color:var(--gray);font-weight:700;display:block;margin-bottom:6px}
+  .um-note-box textarea{width:100%;padding:10px;border:1px solid var(--border);font-size:12px;font-family:inherit;resize:vertical;min-height:56px}
+  .um-note-error{font-size:11px;color:#B33A3A;margin-top:6px;display:none}
+  .um-note-error.show{display:block}
+
+  /* --- Log Visit: personas, mismo patron assign-row ya usado arriba --- */
+  .logvisit-actions { display:flex; gap:8px; margin-top:16px; }
 </style>
 </head>
 <body>
+
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.11.0/service-picker/service-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -158,28 +224,8 @@
       <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
     </div>
     <div id="svc-area" style="display:none;margin-bottom:16px">
-      <div class="res-toggle-wrap" id="rc-svc-toggle">
-        <span class="res-toggle-label" id="rc-svc-toggle-label">Commercial</span>
-        <label class="svc-toggle">
-          <input type="checkbox" onchange="setSvcPropertyType(this.checked ? 'Residential' : 'Commercial')">
-          <span class="svc-toggle-track"></span>
-        </label>
-        <span class="res-toggle-label">Residential</span>
-      </div>
-      <div class="svc-toolbar">
-        <input type="text" class="svc-search" id="rc-svc-search" placeholder="Search services…" oninput="renderServiceChips()">
-        <div class="svc-toolbar-selall">
-          <span class="selall-label">Select all</span>
-          <div class="lvl-toggle3" id="rcSelAllToggle">
-            <div class="lvl-toggle3-thumb" id="rcSelAllThumb"></div>
-            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 1',0)">L1</div>
-            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 2',1)">L2</div>
-            <div class="lvl-toggle3-opt" onclick="rcSelectAllLevel('Level 3',2)">L3</div>
-          </div>
-        </div>
-      </div>
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
-      <div class="svc-row-grid" id="svc-chip-grid"></div>
+      <div id="rc-svc-picker-mount"></div>
     </div>
 
     <div class="field-row">
@@ -210,6 +256,7 @@
   </div>
 
   <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Active Recurring Contracts</h2>
+  <div id="rc-pending-summary"></div>
   <div id="rc-list"><p class="empty-note">Loading…</p></div>
 </div>
 
@@ -270,103 +317,66 @@
     wrap.appendChild(row);
   }
 
-  /* ===== Services (catalogo nuevo ServicesCatalog -- division fija en
-     Janitorial porque Recurring nunca es de otra division, toggle
-     Residential/Commercial + buscador + chips, solo el nombre visible,
-     el SKU nunca se muestra) ===== */
-  let rcPropertyType = 'Commercial';
-  let rcSelectedLevels = new Map();   // sku -> 'Level 1'/'Level 2'/'Level 3'
-  let rcServiceNameBySku = {};
-  let rcSelAllActive = null;          // 0/1/2 = L1/L2/L3 activo arriba, null = nada
+  /* ===== Services -- ahora usa el picker COMPARTIDO real
+     (GSServicePicker, mismo estandar que los otros 6 lugares donde
+     se pone/edita una orden), en vez de la implementacion propia de
+     antes. El picker ya trae su propia barra de busqueda, acordeon
+     por categoria, y toggle de Select All -- nada de eso se
+     reconstruye aqui. ===== */
+  let rcPicker = null;
 
-  function setSvcPropertyType(type) {
-    rcPropertyType = type;
-    const cb = document.querySelector('#rc-svc-toggle input[type=checkbox]');
-    if (cb) cb.checked = (type === 'Residential');
-    renderServiceChips();
-  }
-
-  function renderServiceChips() {
-    const grid = document.getElementById('svc-chip-grid');
-    if (!servicesCache || !servicesCache.length) {
-      grid.innerHTML = '<p class="empty-note">No services found — import the catalog in Service Catalog first.</p>';
-      return;
-    }
-    const q = (document.getElementById('rc-svc-search').value || '').trim().toLowerCase();
-    let list = servicesCache.filter(s => s.propertyType === rcPropertyType);
-    if (q) list = list.filter(s => s.serviceName.toLowerCase().includes(q));
-    list.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-    if (!list.length) { grid.innerHTML = '<p class="empty-note">No services match.</p>'; return; }
-    const levels = ['Level 1', 'Level 2', 'Level 3'];
-    grid.innerHTML = list.map(s => {
-      const lvl = rcSelectedLevels.get(s.sku);
-      return '<div class="svc-row' + (lvl ? ' selected' : '') + '">' +
-        '<span class="svc-row-name">' + esc(s.serviceName) + '</span>' +
-        '<div class="lvl-group">' +
-          levels.map((l, i) => '<div class="lvl-btn' + (lvl === l ? ' active' : '') + '" onclick="pickSvcLevel(\'' + escAttr(s.sku) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
-        '</div></div>';
-    }).join('');
-  }
-
-  function pickSvcLevel(sku, level) {
-    if (rcSelectedLevels.get(sku) === level) rcSelectedLevels.delete(sku);
-    else rcSelectedLevels.set(sku, level);
-    renderServiceChips();
-  }
-
-  /* "Select all" de arriba -- 3 posiciones tipo toggle redondito.
-     Clic aplica ese nivel a todo lo visible (respeta el buscador);
-     clic en la posicion ya activa quita la seleccion masiva completa. */
-  function rcSelectAllLevel(level, idx) {
-    const q = (document.getElementById('rc-svc-search').value || '').trim().toLowerCase();
-    const visible = servicesCache.filter(s => s.propertyType === rcPropertyType && (!q || s.serviceName.toLowerCase().includes(q)));
-    const thumb = document.getElementById('rcSelAllThumb');
-
-    if (rcSelAllActive === idx) {
-      visible.forEach(s => rcSelectedLevels.delete(s.sku));
-      rcSelAllActive = null;
-      thumb.style.opacity = '0';
-    } else {
-      visible.forEach(s => rcSelectedLevels.set(s.sku, level));
-      rcSelAllActive = idx;
-      thumb.style.opacity = '1';
-      thumb.style.transform = 'translateX(' + (idx * 100) + '%)';
-    }
-    document.querySelectorAll('#rcSelAllToggle .lvl-toggle3-opt').forEach((el, i) => el.classList.toggle('active', i === rcSelAllActive));
-    renderServiceChips();
+  function mountRcPicker(initialSelected, initialLevels, propertyType) {
+    rcPicker = GSServicePicker.mount('rc-services', 'rc-svc-picker-mount', {
+      catalog: servicesCache,
+      division: 'Janitorial',
+      mode: 'levels',
+      showSelectAll: true,
+      groupByCategory: true,
+      propertyType: propertyType || 'Commercial',
+      initialSelected: initialSelected || {},
+      initialLevels: initialLevels || {}
+    });
   }
 
   function collectSelectedServices() {
-    return Array.from(rcSelectedLevels, ([sku, level]) => ({ sku, serviceName: rcServiceNameBySku[sku] || sku, level }));
+    if (!rcPicker) return [];
+    const selected = rcPicker.getSelected();
+    const levels = rcPicker.getLevels();
+    const out = [];
+    Object.keys(selected).forEach(propType => {
+      Object.entries(selected[propType]).forEach(([serviceName, sku]) => {
+        out.push({ sku, serviceName, level: levels[propType + '|' + serviceName] || '' });
+      });
+    });
+    return out;
   }
 
-  /* Marca las filas que ya estaban guardadas (para Edit). Si el
-     renglon guardado es del formato viejo (por cuarto: category/name/sub,
-     sin sku), no se puede mapear a una fila -- se avisa con la nota y no
-     se pierde nada mientras no se le de Save de nuevo a este contrato. */
-  function applySelectedServices(servicesJson) {
-    rcSelectedLevels = new Map();
-    rcSelAllActive = null;
-    const thumb = document.getElementById('rcSelAllThumb');
-    if (thumb) thumb.style.opacity = '0';
-    document.querySelectorAll('#rcSelAllToggle .lvl-toggle3-opt').forEach(el => el.classList.remove('active'));
+  /* Convierte lo guardado (formato [{sku,serviceName,level}]) a la
+     forma que el picker espera para precargar (initialSelected /
+     initialLevels, agrupado por propertyType). Si el renglon
+     guardado es del formato viejo (por cuarto: category/name/sub,
+     sin sku), no se puede mapear -- se avisa con la nota, sin perder
+     nada mientras no se le de Save de nuevo a este contrato. */
+  function buildInitialSelectedFrom(servicesJson) {
     let services = [];
-    try { services = JSON.parse(servicesJson || '[]'); } catch (e) {}
+    try { services = JSON.parse(servicesJson || '[]'); } catch (e) { /* deja vacio */ }
+    const selected = {};
+    const levels = {};
     let hasLegacy = false;
-    let firstType = null;
+    let firstType = 'Commercial';
     services.forEach(s => {
       if (s && s.sku) {
-        rcSelectedLevels.set(s.sku, s.level || 'Level 1');
-        if (!firstType) {
-          const found = servicesCache.find(c => c.sku === s.sku);
-          if (found) firstType = found.propertyType;
-        }
+        const found = servicesCache.find(c => c.sku === s.sku);
+        const propType = found ? found.propertyType : 'Commercial';
+        if (!selected[propType]) selected[propType] = {};
+        selected[propType][s.serviceName] = s.sku;
+        levels[propType + '|' + s.serviceName] = s.level || 'Level 1';
+        if (found) firstType = propType;
       } else {
         hasLegacy = true;
       }
     });
-    document.getElementById('rc-svc-legacy-note').style.display = hasLegacy ? 'block' : 'none';
-    setSvcPropertyType(firstType || 'Commercial');
+    return { selected, levels, hasLegacy, firstType };
   }
 
   /* ===== Cargar datos iniciales ===== */
@@ -379,14 +389,12 @@
       ]);
       clientsCache = clientsRes.clients || [];
       servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
-      rcServiceNameBySku = {};
-      servicesCache.forEach(s => { rcServiceNameBySku[s.sku] = s.serviceName; });
       employeesCache = employeesRes.employees || [];
 
       document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
 
-      renderServiceChips();
+      mountRcPicker();
       addAssignRow();
       loadRecurringList();
     } catch (e) {
@@ -432,7 +440,7 @@
       document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
       document.getElementById('rc-expiration').value = '';
       document.getElementById('assign-rows').innerHTML = '';
-      document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
+      mountRcPicker();
       document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
       document.getElementById('cancel-edit-btn').style.display = 'none';
       addAssignRow();
@@ -442,44 +450,331 @@
     }
   }
 
-  /* ===== Lista de contratos existentes ===== */
+  /* ===== Lista de contratos existentes -- ahora expandible, con
+     historial de visitas real, boton Completed (verde/azul, mismo
+     patron que una orden normal) y el panel "Log Visit" (excepcion,
+     oficina). ===== */
+  let rcServicesCache = [];
+  let openCardId = null;
+  let loggingFor = null;       // id de contrato con el panel Log Visit abierto
+  let lvPicker = null;
+  let lvBaseSelectedKeys = []; // nombres de servicio del contrato base, para el diff
+  let lvPeopleRows = [];       // [{payrollNumber, hours}]
+
+  const DAY_ABBR = { Sun:'Sun', Mon:'Mon', Tue:'Tue', Wed:'Wed', Thu:'Thu', Fri:'Fri', Sat:'Sat' };
+  function todayDayAbbr() {
+    return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
+  }
+  function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   async function loadRecurringList() {
     const box = document.getElementById('rc-list');
     try {
       const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
-      const services = res.services || [];
-      if (!services.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
-
-      box.innerHTML = services.map(s => {
-        const client = clientsCache.find(c => c.clientId === s.clientId);
-        const clientName = client ? client.businessName : s.clientId;
-        const peopleStr = s.assignments.map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
-
-        let expHtml = '';
-        if (s.expirationDate) {
-          const expDate = new Date(s.expirationDate + 'T12:00:00');
-          const today = new Date(); today.setHours(12,0,0,0);
-          const daysLeft = Math.round((expDate - today) / 86400000);
-          const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
-          const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
-                        (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
-          expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
-        }
-
-        return '<div class="rc-card">' +
-          '<div class="rc-top">' +
-            '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
-            '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
-            '<div style="display:flex;gap:8px;align-items:center">' +
-              '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
-              '<button class="btn-outline" onclick="editRecurring(\'' + s.id + '\')">Edit</button>' +
-              '<button class="btn-outline" onclick="toggleActive(\'' + s.id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>';
-      }).join('');
+      rcServicesCache = res.services || [];
+      renderRecurringList();
     } catch (e) {
       box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderRecurringList() {
+    const box = document.getElementById('rc-list');
+
+    const totalPending = rcServicesCache.reduce((sum, s) => sum + (s.pendingConfirmCount || 0), 0);
+    const summaryEl = document.getElementById('rc-pending-summary');
+    if (summaryEl) {
+      summaryEl.innerHTML = totalPending > 0
+        ? '<div style="background:#EEF4FF;border:1px solid #C7D8F5;color:#2A5AC9;font-size:12.5px;padding:10px 14px;border-radius:6px;margin-bottom:16px">' +
+          totalPending + ' visit' + (totalPending === 1 ? '' : 's') + ' marked done by the field, still waiting for the office to confirm and close.</div>'
+        : '';
+    }
+
+    if (!rcServicesCache.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
+
+    box.innerHTML = rcServicesCache.map(s => {
+      const client = clientsCache.find(c => c.clientId === s.clientId);
+      const clientName = client ? client.businessName : s.clientId;
+      const peopleStr = s.assignments.map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
+      const isOpen = openCardId === s.id;
+
+      let expHtml = '';
+      if (s.expirationDate) {
+        const expDate = new Date(s.expirationDate + 'T12:00:00');
+        const today = new Date(); today.setHours(12,0,0,0);
+        const daysLeft = Math.round((expDate - today) / 86400000);
+        const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
+        const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
+                      (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
+        expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
+      }
+
+      const pendingHtml = s.pendingConfirmCount > 0
+        ? '<span class="rc-badge pending">' + s.pendingConfirmCount + ' pending confirmation</span>'
+        : '';
+
+      return '<div class="rc-card">' +
+        '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
+          '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
+          '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
+          '<div class="rc-right">' +
+            pendingHtml +
+            '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
+            '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
+          '</div>' +
+        '</div>' +
+        (isOpen ? '<div class="rc-body open" id="rc-body-' + s.id + '"><p class="empty-note">Loading…</p></div>' : '') +
+      '</div>';
+    }).join('');
+
+    if (openCardId) loadVisitsInto(openCardId);
+  }
+
+  function toggleContractCard(id) {
+    openCardId = (openCardId === id) ? null : id;
+    loggingFor = null;
+    renderRecurringList();
+  }
+
+  async function loadVisitsInto(id) {
+    const bodyEl = document.getElementById('rc-body-' + id);
+    if (!bodyEl) return;
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-visits', email: adminUser.email, recurringServiceId: id } });
+      renderCardBody(id, res.visits || [], res.todayStatus || null);
+    } catch (e) {
+      bodyEl.innerHTML = '<p class="empty-note">Could not load visits: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderCardBody(id, visits, todayStatus) {
+    const bodyEl = document.getElementById('rc-body-' + id);
+    if (!bodyEl) return;
+    const s = rcServicesCache.find(x => x.id === id);
+    if (!s) return;
+
+    const totalHours = visits.reduce((sum, v) => sum + v.people.reduce((n, p) => n + (Number(p.hours) || 0), 0), 0);
+    const deviatedCount = visits.filter(v => v.deviated).length;
+
+    /* Boton "Completed" -- solo si hoy es un dia programado de este
+       contrato Y todavia no quedo cerrado. Verde = nadie lo ha
+       confirmado; Azul = el campo ya lo marco (Field Confirmed),
+       nomas falta que oficina lo cierre. Mismo patron exacto que
+       markCompleted() en una orden normal.
+
+       Si hoy ya hay una desviacion esperando decision (Pending
+       Review), el boton simple NO se muestra -- antes se confundia
+       con "azul, confia y cierra" cuando en realidad hay algo que
+       la oficina todavia no ha decidido. Se avisa en vez de dejar
+       cerrar a ciegas. */
+    let completeBtnHtml = '';
+    const scheduledToday = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
+    if (scheduledToday && todayStatus === 'pending-review') {
+      completeBtnHtml = '<p style="font-size:12px;color:#B33A3A;font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
+    } else if (scheduledToday && todayStatus !== 'completed') {
+      const isFieldConfirmed = todayStatus === 'field-confirmed';
+      completeBtnHtml = '<button class="btn ' + (isFieldConfirmed ? 'btn-blue' : 'btn-green') + '" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
+        'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>';
+    }
+
+    const visitsHtml = visits.length ? visits.slice(0, 20).map(v => {
+      const peopleLine = v.people.length ? v.people.map(p => p.name + ' · ' + p.hours + 'h').join(' | ') : '';
+      let changesHtml = '';
+      if (v.deviated) {
+        (v.services || []).forEach(sv => { changesHtml += '<div class="visit-svc-change added">+ ' + esc(sv.serviceName || '') + (sv.level ? ' — ' + esc(sv.level) : '') + '</div>'; });
+        (v.removedNotes || []).forEach(rn => {
+          changesHtml += '<div class="visit-svc-change removed">− ' + esc(rn.serviceName || '') + '</div>';
+          if (rn.note) changesHtml += '<div class="visit-note">"' + esc(rn.note) + '"</div>';
+        });
+      }
+      if (v.notes) changesHtml += '<div class="visit-note">"' + esc(v.notes) + '"</div>';
+      return '<div class="visit">' +
+        '<div class="visit-top">' +
+          '<div><div class="visit-date">' + esc(v.visitDate) + '</div>' + (peopleLine ? '<div class="visit-people">' + esc(peopleLine) + '</div>' : '') + '</div>' +
+          '<span class="visit-flag ' + (v.deviated ? 'deviated' : 'match') + '">' + (v.deviated ? 'Deviated' : 'As planned') + '</span>' +
+        '</div>' +
+        changesHtml +
+      '</div>';
+    }).join('') : '<p class="empty-note">No visits logged yet.</p>';
+
+    bodyEl.innerHTML =
+      '<div class="rc-stat-row">' +
+        '<div class="rc-stat"><span class="num">' + visits.length + '</span><span class="lbl">Visits logged</span></div>' +
+        '<div class="rc-stat"><span class="num">' + totalHours.toFixed(1) + 'h</span><span class="lbl">Hours (shown)</span></div>' +
+        '<div class="rc-stat"><span class="num">' + deviatedCount + '</span><span class="lbl">Deviated visits</span></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
+        completeBtnHtml +
+        '<button class="btn-outline" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
+        '<button class="btn-outline" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+      '</div>' +
+      (loggingFor === id ? renderLogVisitPanel(s) : '') +
+      '<div class="visit-log-label"><span>Visit History</span>' +
+        (loggingFor === id ? '' : '<button class="btn-outline" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
+      '</div>' +
+      (loggingFor === id ? '' : visitsHtml);
+
+    if (loggingFor === id) mountLvPicker(s);
+  }
+
+  async function markTodayComplete(id) {
+    try {
+      await api('/developer-admin', { body: { action: 'mark-recurring-visit-complete', email: adminUser.email, recurringServiceId: id, visitDate: todayISO(), source: 'Office' } });
+      /* BUG REAL encontrado en la revision final: esto cerraba la
+         visita pero nunca actualizaba pendingConfirmCount en
+         rcServicesCache -- el badge "N pending confirmation" del
+         header se quedaba con el numero viejo hasta recargar toda
+         la pagina. Se corrige aqui mismo, sin esperar otro fetch. */
+      const s = rcServicesCache.find(x => x.id === id);
+      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
+      renderRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  /* ===== "+ Log Visit" -- la EXCEPCION (llamada por telefono, etc),
+     no el camino normal. Usa el mismo picker compartido real que el
+     resto del formulario, precargado con los servicios base del
+     contrato; el diff contra ese base se calcula aparte (eso no vive
+     en el picker, es logica propia de esta pantalla), y cada servicio
+     que ya estaba y se quito pide nota obligatoria antes de guardar. */
+  function openLogVisit(id) {
+    loggingFor = id;
+    lvPeopleRows = [];
+    renderRecurringList();
+  }
+  function closeLogVisit() {
+    loggingFor = null;
+    lvPicker = null;
+    renderRecurringList();
+  }
+
+  function renderLogVisitPanel(s) {
+    if (!lvPeopleRows.length) {
+      lvPeopleRows = s.assignments.length ? s.assignments.map(a => ({ payrollNumber: a.payrollNumber, hours: a.hoursAllocated })) : [{ payrollNumber: '', hours: 8 }];
+    }
+
+    const empOptions = employeesCache.filter(e => e.janitorial);
+    const peopleRowsHtml = lvPeopleRows.map((p, i) =>
+      '<div class="assign-row">' +
+        '<div class="field-group"><label>' + (i === 0 ? 'Employee' : '') + '</label><select onchange="lvSetPerson(' + i + ', this.value)">' +
+          empOptions.map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === p.payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') +
+        '</select></div>' +
+        '<div class="field-group"><label>' + (i === 0 ? 'Hours' : '') + '</label><input type="number" step="0.5" value="' + p.hours + '" oninput="lvSetPersonHours(' + i + ', this.value)"></div>' +
+        '<button class="remove-assign" onclick="lvRemovePerson(' + i + ')">✕</button>' +
+      '</div>').join('');
+
+    return '<div class="logvisit-panel">' +
+      '<div class="logvisit-title">Log a Visit — ' + esc(clientsCache.find(c => c.clientId === s.clientId)?.businessName || s.clientId) + '</div>' +
+      '<div class="field-row"><div class="field-group"><label>Date</label><input type="date" id="lv-date" value="' + todayISO() + '"></div><div></div></div>' +
+      '<div class="field-group" style="margin-bottom:8px"><label>Who worked this visit</label></div>' +
+      peopleRowsHtml +
+      '<div class="add-more-link" onclick="lvAddPerson()">+ Add person</div>' +
+      '<div class="field-group" style="margin-bottom:8px"><label>Services done this visit</label></div>' +
+      '<div id="lv-svc-picker-mount"></div>' +
+      '<div id="lv-diff-slot"></div>' +
+      '<div class="field-group" style="margin-top:14px"><label>General note (optional)</label><textarea id="lv-note"></textarea></div>' +
+      '<div class="logvisit-actions">' +
+        '<button class="btn-gold" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
+        '<button class="btn-outline" onclick="closeLogVisit()">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* Se llama DESPUES de que el HTML de arriba ya este en el DOM real
+     -- un <script> metido via innerHTML nunca se ejecuta en el
+     navegador, por eso el mount del picker va aparte, no embebido. */
+  function mountLvPicker(s) {
+    const built = buildInitialSelectedFrom(s.servicesJson);
+    lvBaseSelectedKeys = [];
+    Object.values(built.selected).forEach(m => Object.keys(m).forEach(name => lvBaseSelectedKeys.push(name)));
+    lvPicker = GSServicePicker.mount('log-visit', 'lv-svc-picker-mount', {
+      catalog: servicesCache, division: 'Janitorial', mode: 'levels', showSelectAll: false,
+      groupByCategory: true, propertyType: built.firstType || 'Commercial',
+      initialSelected: built.selected, initialLevels: built.levels,
+      onChange: function () { renderLvDiff(); }
+    });
+    renderLvDiff();
+  }
+
+  function lvAddPerson() { lvPeopleRows.push({ payrollNumber: '', hours: 8 }); renderRecurringList(); }
+  function lvRemovePerson(i) { lvPeopleRows.splice(i, 1); renderRecurringList(); }
+  function lvSetPerson(i, val) { lvPeopleRows[i].payrollNumber = val; }
+  function lvSetPersonHours(i, val) { lvPeopleRows[i].hours = Number(val) || 0; }
+
+  function renderLvDiff() {
+    const slot = document.getElementById('lv-diff-slot');
+    if (!slot || !lvPicker) return;
+    const selected = lvPicker.getSelected();
+    const nowNames = new Set();
+    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
+    const baseNames = new Set(lvBaseSelectedKeys);
+    const removed = [...baseNames].filter(n => !nowNames.has(n));
+    const added = [...nowNames].filter(n => !baseNames.has(n));
+
+    if (!removed.length && !added.length) {
+      slot.innerHTML = '<div class="diff-box"><span class="diff-empty">Matches the contract exactly — no changes to note.</span></div>';
+      return;
+    }
+    let html = '<div class="diff-box"><div class="field-group" style="margin-bottom:8px"><label>Difference vs. the contract</label></div>';
+    added.forEach(n => html += '<div class="diff-line added">+ ' + esc(n) + '</div>');
+    removed.forEach((n, i) => {
+      html += '<div class="diff-line removed">− ' + esc(n) + '</div>';
+      html += '<div class="um-note-box">' +
+        '<label>Why was "' + esc(n) + '" skipped this visit? (required)</label>' +
+        '<textarea id="lv-diffnote-' + i + '" data-name="' + escAttr(n) + '" placeholder="e.g. Client had an event, area was inaccessible"></textarea>' +
+        '<p class="um-note-error" id="lv-diffnote-error-' + i + '">Please add a note.</p>' +
+      '</div>';
+    });
+    html += '</div>';
+    slot.innerHTML = html;
+  }
+
+  async function lvSave(id) {
+    if (!lvPicker) return;
+    const selected = lvPicker.getSelected();
+    const levels = lvPicker.getLevels();
+    const services = [];
+    Object.keys(selected).forEach(propType => {
+      Object.entries(selected[propType]).forEach(([name, sku]) => {
+        if (!lvBaseSelectedKeys.includes(name)) services.push({ sku, serviceName: name, level: levels[propType + '|' + name] || '' });
+      });
+    });
+    const nowNames = new Set();
+    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
+    const removedNotes = [];
+    let ok = true;
+    lvBaseSelectedKeys.filter(n => !nowNames.has(n)).forEach((n, i) => {
+      const input = document.getElementById('lv-diffnote-' + i);
+      if (!input || !input.value.trim()) {
+        const errEl = document.getElementById('lv-diffnote-error-' + i);
+        if (errEl) errEl.classList.add('show');
+        ok = false;
+        return;
+      }
+      removedNotes.push({ serviceName: n, note: input.value.trim() });
+    });
+    if (!ok) return;
+
+    const people = lvPeopleRows.filter(p => p.payrollNumber).map(p => ({ payrollNumber: p.payrollNumber, hours: p.hours }));
+    const visitDate = document.getElementById('lv-date').value;
+    if (!visitDate) { alert('Pick a date.'); return; }
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'log-recurring-visit', email: adminUser.email,
+          recurringServiceId: id, visitDate, people, services, removedNotes,
+          notes: (document.getElementById('lv-note').value || '').trim()
+        }
+      });
+      closeLogVisit();
+      loadVisitsInto(id);
+    } catch (e) {
+      alert('Error: ' + e.message);
     }
   }
 
@@ -508,7 +803,9 @@
 
     document.getElementById('svc-area').style.display = 'block';
     document.getElementById('add-services-btn').style.display = 'none';
-    applySelectedServices(svc.servicesJson);
+    const built = buildInitialSelectedFrom(svc.servicesJson);
+    document.getElementById('rc-svc-legacy-note').style.display = built.hasLegacy ? 'block' : 'none';
+    mountRcPicker(built.selected, built.levels, built.firstType);
 
     const days = (svc.daysOfWeek || '').split(',');
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
@@ -533,7 +830,7 @@
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
     document.getElementById('rc-expiration').value = '';
     document.getElementById('assign-rows').innerHTML = '';
-    document.querySelectorAll('.svc-check').forEach(c => c.checked = false);
+    mountRcPicker();
     document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
     document.getElementById('cancel-edit-btn').style.display = 'none';
     addAssignRow();
