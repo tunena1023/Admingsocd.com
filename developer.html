@@ -869,13 +869,16 @@
       return;
     }
     wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
-      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Price</th><th>Active</th>' +
+      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
         '<td>' + esc(r.serviceName) + '</td>' +
         '<td class="diff-sku">' + esc(r.sku) + '</td>' +
         '<td>' + esc(r.division) + '</td>' +
         '<td>' + esc(r.propertyType) + '</td>' +
+        '<td><input type="text" list="catalog-category-options" value="' + esc(r.category) + '" placeholder="Uncategorized" ' +
+          'style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;font-family:inherit" ' +
+          'onchange="saveCatalogCategory(\'' + r.id + '\', this.value)"></td>' +
         '<td>' + (r.price != null ? '$' + Number(r.price).toFixed(2) : '\u2014') + '</td>' +
         '<td><label class="svc-toggle">' +
           '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
@@ -883,7 +886,21 @@
           '<span class="svc-toggle-track"></span>' +
         '</label></td>' +
         '</tr>').join('') +
-      '</tbody></table>';
+      '</tbody></table>' +
+      '<datalist id="catalog-category-options">' +
+        [...new Set(allCatalogRows.map(r => r.category).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '">').join('') +
+      '</datalist>';
+  }
+
+  async function saveCatalogCategory(id, category) {
+    try {
+      await api('update-catalog-category', { id, category });
+      const r = allCatalogRows.find(x => x.id === id);
+      if (r) r.category = category;
+    } catch (e) {
+      showToast('Could not save category: ' + e.message);
+      renderCatalogTable();
+    }
   }
 
   /* ============================================================

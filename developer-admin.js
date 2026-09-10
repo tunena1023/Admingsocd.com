@@ -286,9 +286,32 @@ exports.handler = async (event) => {
         propertyType: it.fields.PropertyType || '',
         description: it.fields.Description || '',
         price: it.fields.Price != null ? it.fields.Price : null,
-        active: truthy(it.fields.Active)
+        active: truthy(it.fields.Active),
+        /* Categoria manual -- confirmado con el usuario, con el hallazgo
+           de por medio: el catalogo viene de QuickBooks (Division/
+           PropertyType/Price se sobreescriben en cada import), pero
+           esto NO -- el import solo manda un PATCH con esos campos
+           especificos, nunca toca Category. El usuario decidio que
+           vale la pena mantenerla al dia el mismo, categorizando lo
+           nuevo que llegue. */
+        category: it.fields.Category || ''
       }));
       return jsonResponse(200, { services });
+    }
+
+    /* Guardar la categoria de UN servicio -- separado de todo lo
+       demas del catalogo a proposito, para no arriesgar tocar nada
+       que si viene de QuickBooks. */
+    if (action === 'update-catalog-category') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const svcId = String(body.id || '').trim();
+      if (!svcId) return jsonResponse(400, { error: 'id is required' });
+      try {
+        await updateListItemByItemId(SERVICES_CATALOG_LIST, svcId, { Category: String(body.category || '').trim() });
+      } catch (e) {
+        return jsonResponse(400, { error: 'Could not save -- has the Category column been added to the Services Catalog list yet?' });
+      }
+      return jsonResponse(200, { success: true });
     }
 
     /* Recibe las filas ya parseadas del CSV en el navegador

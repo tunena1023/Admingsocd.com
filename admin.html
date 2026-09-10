@@ -221,6 +221,10 @@
     .yn-row { display: flex; gap: 10px; }
     .yn-btn { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--white); border-radius: 3px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--black); }
     .yn-btn.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+    .toggle-b { position: relative; width: 74px; height: 32px; border-radius: 16px; background: var(--border); cursor: pointer; flex-shrink: 0; }
+    .toggle-b-thumb { position: absolute; top: 3px; left: 3px; width: 44px; height: 26px; background: var(--white); border-radius: 13px; transition: transform .2s cubic-bezier(.4,0,.2,1); box-shadow: 0 1px 3px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--gray); }
+    .toggle-b.on { background: var(--gold); }
+    .toggle-b.on .toggle-b-thumb { transform: translateX(27px); color: var(--black); }
     .field-sub { font-size: 11px; color: var(--gray); margin: 2px 0 8px; line-height: 1.5; }
 
     .field-group select:focus, .field-group input:focus, .field-group textarea:focus {
@@ -495,7 +499,7 @@
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.2.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.9.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
@@ -2375,6 +2379,7 @@ function mountApprServicePicker(orderId, division) {
     division: division,
     mode: isJan ? 'levels' : 'toggle',
     showSelectAll: isJan,
+    groupByCategory: true,
     propertyType: window['apprPropType_' + orderId] || 'Commercial',
     initialSelected: window['apprSvc_' + orderId] || {},
     initialLevels: window['apprLevel_' + orderId] || {},
@@ -3512,6 +3517,7 @@ function mountAdminServicePicker(orderId, division) {
     mode: isJan ? 'levels' : 'toggle',
     filterMode: 'selected-plus-search',
     showSelectAll: isJan,
+    groupByCategory: true,
     propertyType: window['adminPropType_' + orderId] || 'Commercial',
     initialSelected: window['adminSvc_' + orderId] || {},
     initialLevels: window['adminLevel_' + orderId] || {},
@@ -4727,9 +4733,8 @@ function createOrderFormHtml() {
       <div class="field-group" id="create-office-need-block" style="margin-top:16px">
         <label>Do we need anything from the property office?</label>
         <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
-        <div class="yn-row">
-          <button type="button" id="create-office-need-no" class="yn-btn active" onclick="setCreateOfficeNeed(false)">No</button>
-          <button type="button" id="create-office-need-yes" class="yn-btn" onclick="setCreateOfficeNeed(true)">Yes</button>
+        <div class="toggle-b" id="create-office-toggle" onclick="setCreateOfficeNeed(!createOfficeNeedYes)">
+          <div class="toggle-b-thumb" id="create-office-toggle-thumb">No</div>
         </div>
         <div id="create-office-need-detail" style="display:none;margin-top:12px">
           <label>What do we need from the office?</label>
@@ -4766,8 +4771,8 @@ function createOrderFormHtml() {
 let createOfficeNeedYes = false;
 function setCreateOfficeNeed(yes) {
   createOfficeNeedYes = yes;
-  document.getElementById('create-office-need-no').classList.toggle('active', !yes);
-  document.getElementById('create-office-need-yes').classList.toggle('active', yes);
+  document.getElementById('create-office-toggle').classList.toggle('on', yes);
+  document.getElementById('create-office-toggle-thumb').textContent = yes ? 'Yes' : 'No';
   document.getElementById('create-office-need-detail').style.display = yes ? 'block' : 'none';
 }
 
@@ -4899,6 +4904,7 @@ async function loadCreateServices() {
     division: div,
     mode: isJan ? 'levels' : 'toggle',
     showSelectAll: isJan,
+    groupByCategory: true,
     propertyType: createPropertyType,
     onChange: function (sel, lvl, propType) {
       createPropertyType = propType;
