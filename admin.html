@@ -499,7 +499,7 @@
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.10.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.11.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
@@ -517,7 +517,7 @@
 
 <div class="tab-bar">
   <button class="tab active" onclick="showTab('approvals')">Approvals<span class="tab-count zero" id="appr-count">0</span></button>
-  <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span></button>
+  <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span></button>
   <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
   <button class="tab" onclick="showTab('history')">History</button>
   <button class="tab" onclick="showTab('clients')">Clients</button>
@@ -546,6 +546,12 @@
   </div>
   <div id="review-toolbar"></div>
   <div id="review-list"><p class="empty-note">Loading…</p></div>
+
+  <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
+    <h2 class="section-title">Recurring Changes</h2>
+    <p class="section-sub">Deviations reported on-site for a recurring contract (a supervisor removed or added a service for one visit). Approve logs the visit as reported; reject discards it -- nothing was applied to the contract itself, so the office should follow up on what actually happened.</p>
+    <div id="recurring-change-list"><p class="empty-note">Nothing pending.</p></div>
+  </div>
 
   <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
     <h2 class="section-title">Materials Ready</h2>
@@ -872,6 +878,7 @@ async function api(path, opts = {}) {
 let allOrders = [];
 let allClients = [];
 let allTechs = [];
+let recurringPendingCache = [];
 let allServices = null;
 /* Cache del HTML ya renderizado de cada orden (Active/History), para
    que reabrir una que ya se vio antes sea instantaneo, sin volver a
@@ -952,12 +959,13 @@ function showHistorySubTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes] = await Promise.all([
+    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
       api('/get-services', { method: 'GET' }),
       api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
-      api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] }))
+      api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] })),
+      api('/developer-admin', { body: { action: 'list-recurring-pending', email: adminUser.email } }).catch(() => ({ pending: [] }))
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
@@ -967,6 +975,7 @@ async function loadAll() {
        aparte cada vez que se abre un editor. Solo activos. */
     activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
     allTechs = techsRes.techs || [];
+    recurringPendingCache = recurringPendingRes.pending || [];
     orderDetailCache = {};
     renderApprovals();
     renderReview();
@@ -2425,7 +2434,76 @@ function renderReview() {
   }
   renderSortFilterToolbar('review', all, 'filterReview');
   filterReview();
+  renderRecurringChangeReview();
   renderMaterialsReadyReview();
+}
+
+/* Recurring: desviaciones reportadas en campo (Supervisor, desde
+   tech.gsocd.com) para un contrato recurrente. Mismo patron que
+   Materials Ready -- seccion propia, badge propio -- porque la
+   fuente de datos (RecurringLog) es distinta a Orders, no encaja en
+   reviewOf/approvalCard/loadApprovalDetail (esas 3 son especificas
+   de ordenes con OrderID). SI necesita decision (a diferencia de
+   Materials Ready), por eso trae Approve/Reject, no solo "Mark as
+   Seen". */
+function renderRecurringChangeReview() {
+  const list = recurringPendingCache;
+  const badge = document.getElementById('review-recurring-count');
+  if (badge) {
+    badge.textContent = list.length;
+    badge.classList.toggle('zero', list.length === 0);
+  }
+  const box = document.getElementById('recurring-change-list');
+  if (!box) return;
+  box.innerHTML = list.length
+    ? list.map(p => {
+        const addedHtml = (p.services || []).map(s => '<div class="change-row"><span class="change-icon">➕</span><span class="added-val">' + esc(s.serviceName || '') + (s.level ? ' — ' + esc(s.level) : '') + '</span></div>').join('');
+        const removedHtml = (p.removedNotes || []).map(r =>
+          '<div class="change-row"><span class="change-icon">➖</span><span class="removed-val">' + esc(r.serviceName || '') + '</span></div>' +
+          (r.note ? '<div class="change-sub">"' + esc(r.note) + '"</div>' : '')
+        ).join('');
+        const notesId = 'rcv-notes-' + p.id;
+        return `
+        <div class="order-card">
+          <div class="order-card-header" style="align-items:center">
+            <div>
+              <div class="order-id">${esc(p.businessName)}${p.buildingNumber ? ' — Bldg ' + esc(p.buildingNumber) : ''} <span class="status-updated" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:#EEF4FF;color:#2A5AC9;font-weight:600;margin-left:8px">Recurring Change</span></div>
+              <div class="order-meta">Visit: ${esc(p.visitDate)} · reported by ${esc(p.loggedBy)}</div>
+            </div>
+          </div>
+          <div class="appr-body" style="padding:16px 20px">
+            ${addedHtml}${removedHtml}
+            ${p.notes ? '<p class="meta-line" style="margin-top:10px">Note: ' + esc(p.notes) + '</p>' : ''}
+            <div class="field-group" style="margin-top:14px">
+              <label>Notes (required if rejecting)</label>
+              <input type="text" id="${notesId}" placeholder="Reason…">
+            </div>
+            <div class="appr-bar">
+              <button class="btn btn-green" onclick="decideRecurringReview('${p.id}','approve')">Approve</button>
+              <button class="btn btn-danger" onclick="decideRecurringReview('${p.id}','reject')">Reject</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<p class="empty-note">Nothing pending.</p>';
+}
+
+async function decideRecurringReview(logId, decision) {
+  const notesInput = document.getElementById('rcv-notes-' + logId);
+  const notes = notesInput ? notesInput.value.trim() : '';
+  if (decision === 'reject' && !notes) {
+    showToast('Please explain why this is not approved.');
+    if (notesInput) notesInput.focus();
+    return;
+  }
+  try {
+    await api('/developer-admin', { body: { action: 'decide-recurring-review', email: adminUser.email, logId, decision, notes: notes || undefined } });
+    recurringPendingCache = recurringPendingCache.filter(p => p.id !== logId);
+    renderRecurringChangeReview();
+    showToast(decision === 'approve' ? 'Visit logged.' : 'Discarded.');
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
 }
 
 /* Renovations: avisos de "materials ready" sin marcar como vistos.
