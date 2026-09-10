@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Recurring Services — GS Solutions</title>
 <style>
-  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; }
+  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#27ae60; --blue:#1A56C4; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--black); }
 
@@ -146,13 +146,21 @@
   .visit-date { font-size:13px; font-weight:700; }
   .visit-people { font-size:12px; color:var(--gray); margin-top:2px; }
   .visit-flag { font-size:10px; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:3px; font-weight:700; flex-shrink:0; }
-  .visit-flag.match { background:#EAF5EE; color:#2E7D4F; }
+  .visit-flag.match { background:#EAF5EE; color:var(--green); }
   .visit-flag.deviated { background:#FBF3E1; color:#B8862E; }
-  .visit-note { font-size:11.5px; color:var(--gray); font-style:italic; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
-  .visit-svc-change { font-size:11.5px; margin-top:6px; }
-  .visit-svc-change.added { color:#2E7D4F; }
-  .visit-svc-change.removed { color:#B33A3A; text-decoration:line-through; text-decoration-color: rgba(179,58,58,.4); }
+  /* .visit-svc-change/.visit-note se quitan -- eran clases paralelas
+     inventadas para algo que YA EXISTE: .change-row/.added-val/
+     .removed-val/.change-sub, la misma tarjeta de diff que ya se usa
+     en Review. Se reusan esas, no se inventa una segunda version. */
 
+  /* Clase base .btn -- copiada exacta de admin.html. Faltaba por
+     completo: el HTML ya usaba class="btn btn-green" (mismo patron
+     que markCompleted() de una orden normal), pero sin esta clase,
+     btn-green/btn-blue solo ponian el color, sin padding/fuente/
+     nada -- por eso se veia sin forma. */
+  .btn { padding: 10px 20px; border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: .04em; cursor: pointer; border: none; }
+  .btn-green { background:var(--green); color:var(--white); }
+  .btn-blue  { background:var(--blue); color:var(--white); }
   /* --- Boton Completed verde/azul, mismo patron exacto que ya usa
      admin.html en el detalle de una orden normal. --- */
   .btn-green { background:#2E7D4F; color:var(--white); }
@@ -583,13 +591,13 @@
       const peopleLine = v.people.length ? v.people.map(p => p.name + ' · ' + p.hours + 'h').join(' | ') : '';
       let changesHtml = '';
       if (v.deviated) {
-        (v.services || []).forEach(sv => { changesHtml += '<div class="visit-svc-change added">+ ' + esc(sv.serviceName || '') + (sv.level ? ' — ' + esc(sv.level) : '') + '</div>'; });
+        (v.services || []).forEach(sv => { changesHtml += '<div class="change-row"><span class="change-icon">➕</span><span class="added-val">' + esc(sv.serviceName || '') + (sv.level ? ' — ' + esc(sv.level) : '') + '</span></div>'; });
         (v.removedNotes || []).forEach(rn => {
-          changesHtml += '<div class="visit-svc-change removed">− ' + esc(rn.serviceName || '') + '</div>';
-          if (rn.note) changesHtml += '<div class="visit-note">"' + esc(rn.note) + '"</div>';
+          changesHtml += '<div class="change-row"><span class="change-icon">➖</span><span class="removed-val">' + esc(rn.serviceName || '') + '</span></div>';
+          if (rn.note) changesHtml += '<div class="change-sub">"' + esc(rn.note) + '"</div>';
         });
       }
-      if (v.notes) changesHtml += '<div class="visit-note">"' + esc(v.notes) + '"</div>';
+      if (v.notes) changesHtml += '<p class="meta-line" style="margin-top:6px;font-style:italic">"' + esc(v.notes) + '"</p>';
       return '<div class="visit">' +
         '<div class="visit-top">' +
           '<div><div class="visit-date">' + esc(v.visitDate) + '</div>' + (peopleLine ? '<div class="visit-people">' + esc(peopleLine) + '</div>' : '') + '</div>' +
