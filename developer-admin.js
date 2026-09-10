@@ -1005,6 +1005,21 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true, setupToken, setupUrl: 'https://tech.gsocd.com/device-setup.html?setup=' + setupToken });
     }
 
+    /* ===== Diagnostico temporal -- para encontrar el nombre INTERNO
+       real de las columnas de una lista, cuando SharePoint le puso
+       algo distinto al Display Name que se ve en la interfaz (esto
+       fue lo que trono en TechDeviceTokens: 'TechId' no reconocido).
+       Se puede borrar una vez resuelto, no es parte del producto. */
+    if (action === 'diagnose-list-columns') {
+      const listName = String(body.listName || '').trim();
+      if (!listName) return jsonResponse(400, { error: 'listName is required' });
+      const data = await graphFetch(siteListPath(listName).replace('/items', '/columns'));
+      const columns = (data.value || [])
+        .filter(c => !c.readOnly && !c.hidden)
+        .map(c => ({ displayName: c.displayName, internalName: c.name }));
+      return jsonResponse(200, { columns });
+    }
+
     /* Apaga el dispositivo activo de un tecnico -- celular perdido, o
        alguien que ya no trabaja ahi. La proxima vez que ese celular
        intente usar su DeviceToken guardado, el backend de Tech lo
