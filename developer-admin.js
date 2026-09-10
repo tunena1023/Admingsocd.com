@@ -309,7 +309,11 @@ exports.handler = async (event) => {
       try {
         await updateListItemByItemId(SERVICES_CATALOG_LIST, svcId, { Category: String(body.category || '').trim() });
       } catch (e) {
-        return jsonResponse(400, { error: 'Could not save -- has the Category column been added to the Services Catalog list yet?' });
+        /* Diagnostico temporal -- se quita en cuanto se resuelva. Antes
+           esto tapaba el error real de Graph con una adivinanza fija
+           ("has the Category column been added..."); ahora se manda tal
+           cual viene, para saber la causa de verdad en vez de suponerla. */
+        return jsonResponse(400, { error: 'Could not save category: ' + e.message });
       }
       return jsonResponse(200, { success: true });
     }
