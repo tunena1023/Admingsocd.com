@@ -936,7 +936,7 @@ exports.handler = async (event) => {
         if (!it.fields) return;
         const f = it.fields;
         if (!truthy(f.Active)) return;
-        const techId = String(f.TechId || '');
+        const techId = String(f.Title || '');
         const existing = activeDeviceByTech[techId];
         if (!existing || String(f.CreatedDate || '') > String(existing.CreatedDate || '')) {
           activeDeviceByTech[techId] = f;
@@ -993,8 +993,7 @@ exports.handler = async (event) => {
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
       const setupToken = require('crypto').randomBytes(16).toString('hex');
       await createListItem(TECH_DEVICE_TOKENS_LIST, {
-        Title: 'setup-' + setupToken.slice(0, 8),
-        TechId: techId,
+        Title: techId,
         SetupToken: setupToken,
         SetupTokenUsed: false,
         DeviceToken: '',
@@ -1028,7 +1027,7 @@ exports.handler = async (event) => {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
       const rows = await fetchAll(TECH_DEVICE_TOKENS_LIST);
-      const active = rows.filter(it => it.fields && String(it.fields.TechId || '') === techId && truthy(it.fields.Active));
+      const active = rows.filter(it => it.fields && String(it.fields.Title || '') === techId && truthy(it.fields.Active));
       await Promise.all(active.map(it => updateListItemByItemId(TECH_DEVICE_TOKENS_LIST, it.id, { Active: false })));
       return jsonResponse(200, { success: true, revoked: active.length });
     }
