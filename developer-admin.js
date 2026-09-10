@@ -1677,9 +1677,12 @@ exports.handler = async (event) => {
          mismo renglon en vez de crear otro -- la oficina es la
          fuente de verdad cuando usa esta pantalla a proposito. */
       const existing = await fetchAll(RECURRING_LOG_LIST);
-      const already = existing.find(it => it.fields &&
+      const todayRowsForOffice = existing.filter(it => it.fields &&
         String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
         String(it.fields.VisitDate) === String(visitDate));
+      const already = todayRowsForOffice.length
+        ? todayRowsForOffice.reduce((a, b) => (new Date(a.createdDateTime) > new Date(b.createdDateTime) ? a : b))
+        : null;
 
       if (already) {
         await updateListItemByItemId(RECURRING_LOG_LIST, already.id, fields);
@@ -1708,9 +1711,12 @@ exports.handler = async (event) => {
       if (!isFieldConfirm && !canView) return jsonResponse(403, { error: 'You do not have access to mark this complete.' });
 
       const existing = await fetchAll(RECURRING_LOG_LIST);
-      const already = existing.find(it => it.fields &&
+      const todayRowsForComplete = existing.filter(it => it.fields &&
         String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
         String(it.fields.VisitDate) === String(visitDate));
+      const already = todayRowsForComplete.length
+        ? todayRowsForComplete.reduce((a, b) => (new Date(a.createdDateTime) > new Date(b.createdDateTime) ? a : b))
+        : null;
 
       if (isFieldConfirm) {
         if (already) return jsonResponse(200, { success: true, alreadyLogged: true });
@@ -1730,7 +1736,9 @@ exports.handler = async (event) => {
          se finaliza ese mismo renglon (no se duplica). Si no, se crea
          uno nuevo directo en Completed. */
       if (already && already.fields.Status === 'Field Confirmed') {
-        await updateListItemByItemId(RECURRING_LOG_LIST, already.id, { Status: 'Completed' });
+        await updateListItemByItemId(RECURRING_LOG_LIST, already.id, {
+          Status: 'Completed', ReviewedBy: email || 'Staff', ReviewedDate: new Date().toISOString()
+        });
         return jsonResponse(200, { success: true });
       }
       if (already) return jsonResponse(200, { success: true, alreadyLogged: true });
@@ -1743,6 +1751,38 @@ exports.handler = async (event) => {
         Source: 'Office',
         LoggedBy: email || 'Staff',
         PeopleJSON: '[]', ServicesJSON: '', Notes: ''
+      });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* "Send Back" -- la oficina revisa lo que el campo marco como
+       hecho y decide que en realidad no esta listo. Nota obligatoria
+       (mismo criterio de siempre, sin excepcion), va al mismo campo
+       ReviewNotes que ya usa el rechazo de Review -- no se pisa nada,
+       cada uno tiene su renglon. El tecnico puede volver a marcar
+       "Mark as Done" despues (submit-recurring-complete.js ya
+       contempla Sent Back como "vuelve a intentar", no lo bloquea). */
+    if (action === 'send-back-recurring-visit') {
+      if (!canView) return jsonResponse(403, { error: 'You do not have access to do this.' });
+      const { recurringServiceId, visitDate, reason } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+      if (!visitDate) return jsonResponse(400, { error: 'visitDate is required' });
+      if (!reason || !reason.trim()) return jsonResponse(400, { error: 'A reason is required to send this back.' });
+
+      const existing = await fetchAll(RECURRING_LOG_LIST);
+      const todayRowsForSendBack = existing.filter(it => it.fields &&
+        String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
+        String(it.fields.VisitDate) === String(visitDate));
+      const todayRow = todayRowsForSendBack.length
+        ? todayRowsForSendBack.reduce((a, b) => (new Date(a.createdDateTime) > new Date(b.createdDateTime) ? a : b))
+        : null;
+      if (!todayRow) return jsonResponse(404, { error: 'No visit found for that day to send back.' });
+
+      await updateListItemByItemId(RECURRING_LOG_LIST, todayRow.id, {
+        Status: 'Sent Back',
+        ReviewedBy: email || 'Staff',
+        ReviewedDate: new Date().toISOString(),
+        ReviewNotes: reason.trim()
       });
       return jsonResponse(200, { success: true });
     }
@@ -1793,17 +1833,21 @@ exports.handler = async (event) => {
          o de plano no mostrarlo si hoy ya quedo cerrado. No es parte
          del historial (eso son solo renglones Status=Completed). */
       const todayISO = new Date().toISOString().slice(0, 10);
-      const todayRow = rows.find(it => it.fields &&
+      const todayRowsHere = rows.filter(it => it.fields &&
         String(it.fields.RecurringServiceID) === String(recurringServiceId) &&
         String(it.fields.VisitDate) === todayISO);
+      const todayRow = todayRowsHere.length
+        ? todayRowsHere.reduce((a, b) => (new Date(a.createdDateTime) > new Date(b.createdDateTime) ? a : b))
+        : null;
       let todayStatus = null;
       if (todayRow) {
         if (todayRow.fields.Status === 'Completed') todayStatus = 'completed';
         else if (todayRow.fields.Status === 'Pending Review') todayStatus = 'pending-review';
+        else if (todayRow.fields.Status === 'Sent Back') todayStatus = 'sent-back';
         else todayStatus = 'field-confirmed'; // Field Confirmed
       }
 
-      return jsonResponse(200, { visits, todayStatus });
+      return jsonResponse(200, { visits, todayStatus, todaySentBackReason: (todayStatus === 'sent-back' ? todayRow.fields.ReviewNotes || '' : '') });
     }
 
     /* ============================================================
