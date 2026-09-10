@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Recurring Services — GS Solutions</title>
 <style>
-  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#27ae60; --blue:#1A56C4; }
+  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#27ae60; --blue:#1A56C4; --red:#c0392b; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--black); }
 
@@ -160,6 +160,7 @@
      nada -- por eso se veia sin forma. */
   .btn { padding: 10px 20px; border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: .04em; cursor: pointer; border: none; }
   .btn-green { background:var(--green); color:var(--white); }
+  .btn-danger { background:var(--red); color:var(--white); }
   .btn-blue  { background:var(--blue); color:var(--white); }
   /* --- Boton Completed verde/azul, mismo patron exacto que ya usa
      admin.html en el detalle de una orden normal. --- */
@@ -551,13 +552,13 @@
     if (!bodyEl) return;
     try {
       const res = await api('/developer-admin', { body: { action: 'list-recurring-visits', email: adminUser.email, recurringServiceId: id } });
-      renderCardBody(id, res.visits || [], res.todayStatus || null);
+      renderCardBody(id, res.visits || [], res.todayStatus || null, res.todaySentBackReason || '');
     } catch (e) {
       bodyEl.innerHTML = '<p class="empty-note">Could not load visits: ' + esc(e.message) + '</p>';
     }
   }
 
-  function renderCardBody(id, visits, todayStatus) {
+  function renderCardBody(id, visits, todayStatus, todaySentBackReason) {
     const bodyEl = document.getElementById('rc-body-' + id);
     if (!bodyEl) return;
     const s = rcServicesCache.find(x => x.id === id);
@@ -576,15 +577,31 @@
        Review), el boton simple NO se muestra -- antes se confundia
        con "azul, confia y cierra" cuando en realidad hay algo que
        la oficina todavia no ha decidido. Se avisa en vez de dejar
-       cerrar a ciegas. */
+       cerrar a ciegas.
+
+       "Send Back" -- solo aparece junto a Completed cuando el campo
+       ya marco Field Confirmed (azul). No tiene caso ofrecerlo si
+       nadie ha marcado nada (verde) -- no hay nada que devolver. */
     let completeBtnHtml = '';
     const scheduledToday = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
     if (scheduledToday && todayStatus === 'pending-review') {
-      completeBtnHtml = '<p style="font-size:12px;color:#B33A3A;font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
+      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
+    } else if (scheduledToday && todayStatus === 'sent-back') {
+      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">Sent back to the tech today: "' + esc(todaySentBackReason || '') + '" — waiting for them to redo it.</p>';
     } else if (scheduledToday && todayStatus !== 'completed') {
       const isFieldConfirmed = todayStatus === 'field-confirmed';
-      completeBtnHtml = '<button class="btn ' + (isFieldConfirmed ? 'btn-blue' : 'btn-green') + '" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
-        'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>';
+      completeBtnHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="btn ' + (isFieldConfirmed ? 'btn-blue' : 'btn-green') + '" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
+          'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>' +
+        (isFieldConfirmed ? '<button class="btn btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
+      '</div>' +
+      (isFieldConfirmed ? '<div id="sendback-box-' + id + '" style="display:none;margin-top:10px">' +
+        '<div class="field-group"><label>Reason (required)</label><input type="text" id="sendback-reason-' + id + '" placeholder="What still needs to be fixed?"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+          '<button class="btn btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
+          '<button class="btn-outline" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
+        '</div>' +
+      '</div>' : '');
     }
 
     const visitsHtml = visits.length ? visits.slice(0, 20).map(v => {
@@ -635,6 +652,24 @@
          rcServicesCache -- el badge "N pending confirmation" del
          header se quedaba con el numero viejo hasta recargar toda
          la pagina. Se corrige aqui mismo, sin esperar otro fetch. */
+      const s = rcServicesCache.find(x => x.id === id);
+      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
+      renderRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  function toggleSendBack(id) {
+    const box = document.getElementById('sendback-box-' + id);
+    if (box) box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  }
+
+  async function confirmSendBack(id) {
+    const input = document.getElementById('sendback-reason-' + id);
+    if (!input || !input.value.trim()) { if (input) input.focus(); return; }
+    try {
+      await api('/developer-admin', { body: { action: 'send-back-recurring-visit', email: adminUser.email, recurringServiceId: id, visitDate: todayISO(), reason: input.value.trim() } });
       const s = rcServicesCache.find(x => x.id === id);
       if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
       renderRecurringList();
