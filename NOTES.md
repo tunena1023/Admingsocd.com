@@ -50,6 +50,21 @@ resueltas, ni subir cosas sin permiso. Léelo completo antes de tocar código.
    quedarse callado si algo cruza a un insulto directo — se puede reconocer
    el error real sin necesidad de repetir el insulto.
 
+7. **Antes de subir CUALQUIER cambio al repo (aunque ya esté "confirmado" y
+   listo para el commit), hay que revisarlo de punta a punta como si fuera
+   un caso real** — seguir el flujo completo, paso a paso, desde que algo
+   se crea/pide hasta que se completa/cierra, buscando específicamente: dos
+   flujos que puedan pisarse o duplicarse, un dato que se pierda en el
+   camino entre una pantalla y otra, una pantalla que no se entere de un
+   cambio que hizo otra, y campos usados en el código que no coincidan con
+   lo documentado como columnas necesarias en SharePoint. Esto no es
+   opcional ni solo para features grandes — es el último paso antes de
+   cualquier "dale", cada vez. En esta sesión, esta revisión encontró 7
+   bugs reales que el código "ya terminado" traía escondidos — ninguno era
+   un error de sintaxis (esos ya se habían validado con `node --check`),
+   todos eran de lógica: cosas que se ven perfectas archivo por archivo
+   pero fallan en la costura entre dos archivos.
+
 ## Mapa de la arquitectura (para no perderse)
 
 **4 repos, todos de `tunena1023` en GitHub, cada uno su propio proyecto en
