@@ -2497,7 +2497,7 @@ async function decideRecurringReview(logId, decision) {
     return;
   }
   try {
-    await api('/developer-admin', { body: { action: 'decide-recurring-review', email: adminUser.email, logId, decision, notes: notes || undefined } });
+    await api('/developer-admin', { body: { action: 'decide-recurring-review', email: adminUser.email, actorName: getActorName(), logId, decision, notes: notes || undefined } });
     recurringPendingCache = recurringPendingCache.filter(p => p.id !== logId);
     renderRecurringChangeReview();
     showToast(decision === 'approve' ? 'Visit logged.' : 'Discarded.');
