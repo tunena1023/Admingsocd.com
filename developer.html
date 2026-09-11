@@ -1809,6 +1809,7 @@
         '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
         '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
         clientHoursRowCellsHtml(c, td) +
+        '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c.showEstimatedTime ? 'checked' : '') + ' onchange="toggleClientShowEstimatedTime(\'' + c.id + '\',this.checked)"></td>' +
         '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
       html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
       return html;
@@ -1828,6 +1829,7 @@
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Entry<br>cushion</th>' +
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Exit<br>cushion</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Est. Time</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
   }
@@ -1977,6 +1979,17 @@
       renderAllClientsTable();
     } catch (e) {
       showToast('Could not update: ' + e.message);
+    }
+  }
+
+  async function toggleClientShowEstimatedTime(id, show) {
+    try {
+      await api('toggle-client-show-estimated-time', { id, show });
+      const c = allClientsCache.find(x => x.id === id);
+      if (c) c.showEstimatedTime = show;
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+      renderAllClientsTable(); // regresa el checkbox a como estaba de verdad
     }
   }
 

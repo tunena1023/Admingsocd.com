@@ -515,7 +515,9 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.11.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
+<!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
+     (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.13.0/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
 <nav>
@@ -2261,7 +2263,7 @@ function approvalDetailHtml(card, o, services, history) {
      ve arriba en "Requested by...") -- confirmado con el usuario que
      eso esta mal: el historial debe ser acumulativo, la misma orden
      debe verse igual sin importar en que tab se este mirando. */
-  const historyHtml = GSOrderHistory.html(card.OrderID, history, { mode: 'staff' });
+  const historyHtml = GSOrderHistory.html(card.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
 
   return '<div class="detail-grid">' +
     '<div>' + rows.join('') + '</div>' +
@@ -3343,7 +3345,7 @@ function unseenActiveCardHtml(o, services, history) {
     </div>
     <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>
     <p class="appr-h" style="margin-top:20px">History</p>
-    ${GSOrderHistory.html(o.OrderID, history, { mode: 'staff' })}`;
+    ${GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku })}`;
 }
 
 async function markSeen(orderId) {
@@ -3365,7 +3367,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
-  const histHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff' });
+  const histHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};

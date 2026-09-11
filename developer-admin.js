@@ -2066,6 +2066,11 @@ exports.handler = async (event) => {
           officeHours: it.fields.OfficeHours || '',
           entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
           exitCushionMinutes: Number(it.fields.ExitCushionMinutes) || 0,
+          /* Quien puede ver el tiempo estimado en sus ordenes desde
+             Orders -- apagado por default (columna ShowEstimatedTime,
+             Yes/No, default No en SharePoint). Se activa cliente por
+             cliente desde aqui. */
+          showEstimatedTime: truthy(f.ShowEstimatedTime),
           additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
         };
       }).sort((a, b) => a.businessName.localeCompare(b.businessName));
@@ -2080,6 +2085,16 @@ exports.handler = async (event) => {
       const clientItemId = String(body.id || '').trim();
       if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
       await updateListItemByItemId(CLIENTS_LIST, clientItemId, { Active: !!body.active });
+      return jsonResponse(200, { success: true });
+    }
+
+    /* Quien puede ver el tiempo estimado en sus ordenes desde Orders --
+       cliente por cliente, apagado por default. Mismo patron que
+       toggle-client-active. */
+    if (action === 'toggle-client-show-estimated-time') {
+      const clientItemId = String(body.id || '').trim();
+      if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(CLIENTS_LIST, clientItemId, { ShowEstimatedTime: !!body.show });
       return jsonResponse(200, { success: true });
     }
 
