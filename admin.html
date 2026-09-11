@@ -39,6 +39,15 @@
     .svc-row-reason { display: none; margin-top: 6px; }
     .svc-row-reason.show { display: block; }
     .svc-row-reason input { width: 100%; font-size: 13px; padding: 6px 8px; }
+    /* Tiempo estimado de la orden -- suma de sus servicios (Developer
+       > Service Times). Informativo nomas, nunca editable. */
+    .est-time-row {
+      margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+      display: flex; align-items: baseline; justify-content: space-between;
+    }
+    .est-time-label { font-size: 12px; color: var(--gray); }
+    .est-time-value { font-size: 15px; font-weight: 600; color: var(--gold-dk); }
+    .est-time-breakdown { font-size: 11px; color: var(--gray); margin-top: 4px; }
 
     .svc-remove-btn { background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 3px 6px; }
 
@@ -889,6 +898,7 @@ let orderDetailCacheData = {};
 let createSelectedClient = null;
 let createSelected = new Map();   // sku -> fila del catalogo { serviceName, division, propertyType }
 let activeCatalogCache = null;    // ServicesCatalog activo, precargado en loadAll()
+let serviceTimesBySku = new Map(); // SKU -> {sku, serviceName, division, level1, level2, level3}, precargado en loadAll()
 let createMultiOn = false;
 let createUnitCardCounter = 0;
 
@@ -959,13 +969,19 @@ function showHistorySubTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes] = await Promise.all([
+    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
       api('/get-services', { method: 'GET' }),
       api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
       api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] })),
-      api('/developer-admin', { body: { action: 'list-recurring-pending', email: adminUser.email } }).catch(() => ({ pending: [] }))
+      api('/developer-admin', { body: { action: 'list-recurring-pending', email: adminUser.email } }).catch(() => ({ pending: [] })),
+      /* Tiempos por servicio (Developer > Service Times), para calcular
+         el tiempo estimado de cada orden segun sus servicios/niveles.
+         Se precarga igual que el resto -- si algun servicio no tiene
+         tiempo puesto todavia, sale null y ese renglon simplemente no
+         suma (no truena, no inventa un numero). */
+      api('/developer-admin', { body: { action: 'list-service-times', email: adminUser.email } }).catch(() => ({ services: [] }))
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
@@ -974,6 +990,9 @@ async function loadAll() {
        para que Active/Approvals lo tengan listo sin esperar un fetch
        aparte cada vez que se abre un editor. Solo activos. */
     activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
+    /* Tiempos por SKU, en un Map para busqueda O(1) desde
+       calcOrderEstimatedMinutes() cada vez que se abre una orden. */
+    serviceTimesBySku = new Map((serviceTimesRes.services || []).map(s => [String(s.sku).trim(), s]));
     allTechs = techsRes.techs || [];
     recurringPendingCache = recurringPendingRes.pending || [];
     orderDetailCache = {};
@@ -3571,6 +3590,80 @@ function buildAdminLegacyNote(orderId) {
     '. They stay on the order exactly as they are — re-select the matching service below (and Save) to move them to the new catalog.</p>';
 }
 
+/* Mismo aplanado que ya hace buildAdminSelectedListHtml (sel/lvl del
+   picker -> renglones), pero en la forma que necesita
+   calcOrderEstimatedMinutes. Se usa tanto en el render inicial como
+   despues de cada cambio en vivo del picker, para que el tiempo
+   estimado nunca quede desfasado de lo que se ve seleccionado. */
+function flattenSelectedForEstimate(orderId) {
+  const sel = window['adminSvc_' + orderId] || {};
+  const lvl = window['adminLevel_' + orderId] || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
+      rows.push({ ServiceName: svcName, SubOption: sub, Level: lvl[ncKey(cat, svcName)] || '' });
+    });
+  });
+  return rows;
+}
+
+/* ============================================================
+   TIEMPO ESTIMADO -- suma el tiempo de cada servicio de la orden
+   (segun su SKU y, si es Janitorial, su Level) usando los tiempos que
+   se pusieron en Developer > Service Times. Solo informativo por
+   ahora -- nunca se guarda, nunca se edita a mano; si un tiempo esta
+   mal, se corrige en Developer (o el Level del servicio) y este total
+   se recalcula solo la proxima vez que se abra la orden.
+
+   Funcion aparte a proposito (no pegada a ninguna pantalla) para que,
+   cuando se conecte a costeo o asignacion de tecnicos mas adelante,
+   se pueda reusar tal cual en vez de reescribirla.
+
+   `services`: arreglo de renglones de la orden (cada uno con SubOption
+   = SKU, y Level cuando aplica). Devuelve null si la orden no tiene
+   ningun servicio con tiempo conocido todavia (para no mostrar "0min"
+   como si fuera un dato real). */
+function calcOrderEstimatedMinutes(services) {
+  let total = 0;
+  let anyKnown = false;
+  const lines = [];
+  (services || []).forEach(s => {
+    const svc = serviceTimesBySku.get(String(s.SubOption || '').trim());
+    if (!svc) return; // servicio sin tiempo puesto todavia en Developer -- no suma, no truena
+    let minutes;
+    if (svc.division === 'Janitorial' && s.Level === 'Level 2') minutes = svc.level2;
+    else if (svc.division === 'Janitorial' && s.Level === 'Level 3') minutes = svc.level3;
+    else minutes = svc.level1; // Level 1, o no-Janitorial (siempre level1)
+    if (minutes == null) return;
+    anyKnown = true;
+    total += minutes;
+    lines.push(s.ServiceName + ': ' + minutes + 'min');
+  });
+  if (!anyKnown) return null;
+  return { totalMinutes: total, lines: lines };
+}
+
+function fmtDuration(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  if (h && m) return h + 'h ' + m + 'min';
+  if (h) return h + 'h';
+  return m + 'min';
+}
+
+/* HTML del renglon de "Estimated time", o '' si ningun servicio de la
+   orden tiene tiempo conocido todavia (nada que mostrar). */
+function estimatedTimeHtml(services) {
+  const result = calcOrderEstimatedMinutes(services);
+  if (!result) return '';
+  return '<div class="est-time-row">' +
+    '<div>' +
+      '<div class="est-time-label">Estimated time</div>' +
+      '<div class="est-time-breakdown">' + esc(result.lines.join(' · ')) + '</div>' +
+    '</div>' +
+    '<div class="est-time-value">' + esc(fmtDuration(result.totalMinutes)) + '</div>' +
+  '</div>';
+}
+
 function buildServiceRows(orderId, division) {
   if (window['adminPropType_' + orderId] === undefined) {
     window['adminPropType_' + orderId] = inferPropType(orderId, division);
@@ -3581,7 +3674,8 @@ function buildServiceRows(orderId, division) {
   return buildAdminLegacyNote(orderId) +
     `<div id="admin-svc-picker-${orderId}"></div>
     <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
-    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
+    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
+    <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
 }
 
 function mountAdminServicePicker(orderId, division) {
@@ -3605,6 +3699,8 @@ function mountAdminServicePicker(orderId, division) {
       window['adminPropType_' + orderId] = propType;
       const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
       if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+      const estBox = document.getElementById('admin-est-time-' + orderId);
+      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
       refreshConfirmBtn(orderId);
       refreshSaveBtn(orderId);
     }
@@ -5124,8 +5220,18 @@ function cancelCreate() {
 ============================================================ */
 function goToScheduleForOrder(orderId) {
   pendingDirectLinkOrderId = orderId;
+  /* Si esta es la PRIMERA vez que se abre Schedule en esta sesion,
+     showTab() de abajo dispara onScheduleTabOpened(), que YA por su
+     cuenta abre el sub-tab 'orders' (ver esa funcion) -- eso consume
+     pendingDirectLinkOrderId y abre la orden correctamente. Si aqui
+     se vuelve a llamar showSubTab('orders') sin mas, es una SEGUNDA
+     carga que pisa a la primera, ahora sin ninguna orden marcada (ya
+     se habia consumido), y la orden nunca se abre. Por eso solo se
+     llama explicito cuando Schedule YA estaba inicializado de antes
+     (onScheduleTabOpened no va a hacer nada esta vez). */
+  const alreadyInitialized = scheduleTabInitialized;
   showTab('schedule');
-  showSubTab('orders');
+  if (alreadyInitialized) showSubTab('orders');
 }
 let pendingDirectLinkOrderId = null;
 
