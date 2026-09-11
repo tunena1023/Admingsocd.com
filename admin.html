@@ -349,6 +349,16 @@
       .routing-map-half { height: 260px; }
       .routing-right-half { height: 480px; }
       .calendar-table-wrap { overflow-x: auto; }
+
+      /* Piezas de hoy (tiempo estimado, candidatos de Scheduling) --
+         ninguna tenia regla movil todavia. Sin esto, 3 renglones en
+         una fila (nombre + 2 estadisticas) se salen del ancho real de
+         un telefono -- confirmado a mano contra el ancho real, no
+         nomas visualmente. */
+      .est-time-box { flex-wrap: wrap; gap: 4px 12px; }
+      .est-time-box-value { font-size: 18px; }
+      .candidate-row { flex-wrap: wrap; row-gap: 4px; }
+      .candidate-name { flex-basis: 100%; }
     }
 
     /* ============================================================
