@@ -2283,13 +2283,15 @@ function reviewSvcTableHtml(services) {
       const subTxt = (r.sub ? esc(r.sub) : '—') +
         (nc ? ' <b style="color:#B06A2A">· not completed' +
               (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</b>' : '');
+      const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level);
       return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
+        '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
         '</tr>';
     }).join('') +
-    '</table></div>';
+    '</table></div>' + estimatedTimeHtml(services);
 }
 
 /* ============================================================
@@ -2323,7 +2325,7 @@ function apprReadOnlySvcHtml(orderId) {
     Object.entries(svcs).forEach(([svcName, sub], i) => {
       const lvl = levelState[ncKey(cat, svcName)];
       const subTxt = isCatalogSku(sub) ? (lvl || '') : (sub || '');
-      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt });
+      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt, sku: sub, lvl: lvl });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
@@ -2333,8 +2335,9 @@ function apprReadOnlySvcHtml(orderId) {
       '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
       '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
+      '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
       '</tr>').join('') +
-    '</table></div>';
+    '</table></div>' + estimatedTimeHtml(apprServicesArray(orderId));
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
@@ -3495,7 +3498,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || '') }));
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), sku: s.SubOption, lvl: s.Level }));
   });
   const svcTableHtml = svcRows.length
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -3503,6 +3506,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : esc(displayStatus(o))) + '</td>' +
+        '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
         '</tr>').join('') +
       '</table>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
@@ -3616,6 +3620,21 @@ function flattenSelected(sel, lvl) {
 }
 function flattenSelectedForEstimate(orderId) {
   return flattenSelected(window['adminSvc_' + orderId] || {}, window['adminLevel_' + orderId] || {});
+}
+
+/* Tiempo de UN solo servicio (para mostrarlo junto a cada renglon,
+   no solo en el total de abajo) -- misma logica y mismo catalogo que
+   calcOrderEstimatedMinutes, nomas para un servicio suelto. '' si
+   todavia no se conoce su tiempo. */
+function svcMinutesLabel(sku, level) {
+  const svc = serviceTimesBySku.get(String(sku || '').trim());
+  if (!svc) return '';
+  let minutes;
+  if (svc.division === 'Janitorial' && level === 'Level 2') minutes = svc.level2;
+  else if (svc.division === 'Janitorial' && level === 'Level 3') minutes = svc.level3;
+  else minutes = svc.level1;
+  if (minutes == null) return '';
+  return fmtDuration(minutes);
 }
 
 /* ============================================================
@@ -3734,8 +3753,9 @@ function buildAdminSelectedListHtml(orderId) {
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
     const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
+    const mins = svcMinutesLabel(r.sub, lvl);
     return `<div class="svc-row">
-      <b style="font-size:13px">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}</b>
+      <b style="font-size:13px">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}</b>
       <div class="svc-row-nc">
         <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
           onchange="toggleNotCompleted('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this,'${rid}')">
