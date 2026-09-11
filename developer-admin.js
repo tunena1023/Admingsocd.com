@@ -269,7 +269,7 @@ exports.handler = async (event) => {
         Title: body.orderId + '-seen',
         OrderID: body.orderId,
         ChangeType: 'Materials Ready Seen',
-        ChangedBy: (email || 'Staff'),
+        ChangedBy: (body.actorName || email || 'Staff'),
         ChangeDate: new Date().toISOString(),
         Notes: ''
       });
