@@ -734,7 +734,7 @@
 
     return '<div class="logvisit-panel">' +
       '<div class="logvisit-title">Log a Visit — ' + esc(clientsCache.find(c => c.clientId === s.clientId)?.businessName || s.clientId) + '</div>' +
-      '<div class="field-row"><div class="field-group"><label>Date</label><input type="date" id="lv-date" value="' + todayISO() + '"></div><div></div></div>' +
+      '<div class="field-row"><div class="field-group"><label>Date</label>' + GSDateTimePicker.dateHtml('lv-date', todayISO()) + '</div><div></div></div>' +
       '<div class="field-group" style="margin-bottom:8px"><label>Who worked this visit</label></div>' +
       peopleRowsHtml +
       '<div class="add-more-link" onclick="lvAddPerson()">+ Add person</div>' +
