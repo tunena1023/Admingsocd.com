@@ -297,6 +297,11 @@
   }
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  /* Mismo patron real que ya usa admin.html -- faltaba aqui. BUG REAL
+     encontrado por el usuario: se mandaba el email crudo como "quien
+     hizo esto" en vez del nombre, inconsistente con TODO el resto del
+     codigo (Tech siempre resuelve el nombre real, nunca el email). */
+  function getActorName() { return (adminUser && (adminUser.name || adminUser.email)) || 'Admin'; }
   function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
   let clientsCache = [];
@@ -646,7 +651,7 @@
 
   async function markTodayComplete(id) {
     try {
-      await api('/developer-admin', { body: { action: 'mark-recurring-visit-complete', email: adminUser.email, recurringServiceId: id, visitDate: todayISO(), source: 'Office' } });
+      await api('/developer-admin', { body: { action: 'mark-recurring-visit-complete', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), source: 'Office' } });
       /* BUG REAL encontrado en la revision final: esto cerraba la
          visita pero nunca actualizaba pendingConfirmCount en
          rcServicesCache -- el badge "N pending confirmation" del
@@ -669,7 +674,7 @@
     const input = document.getElementById('sendback-reason-' + id);
     if (!input || !input.value.trim()) { if (input) input.focus(); return; }
     try {
-      await api('/developer-admin', { body: { action: 'send-back-recurring-visit', email: adminUser.email, recurringServiceId: id, visitDate: todayISO(), reason: input.value.trim() } });
+      await api('/developer-admin', { body: { action: 'send-back-recurring-visit', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), reason: input.value.trim() } });
       const s = rcServicesCache.find(x => x.id === id);
       if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
       renderRecurringList();
@@ -809,7 +814,7 @@
     try {
       await api('/developer-admin', {
         body: {
-          action: 'log-recurring-visit', email: adminUser.email,
+          action: 'log-recurring-visit', email: adminUser.email, actorName: getActorName(),
           recurringServiceId: id, visitDate, people, services, removedNotes,
           notes: (document.getElementById('lv-note').value || '').trim()
         }
