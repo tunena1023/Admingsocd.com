@@ -193,6 +193,7 @@
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.11.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -246,12 +247,12 @@
           <div class="day-pill" data-day="Wed">W</div><div class="day-pill" data-day="Thu">T</div><div class="day-pill" data-day="Fri">F</div><div class="day-pill" data-day="Sat">S</div>
         </div>
       </div>
-      <div class="field-group"><label>Time</label><input type="time" id="rc-time" value="06:00"></div>
+      <div class="field-group"><label>Time</label><div id="rc-time-mount"></div></div>
     </div>
 
     <div class="field-row">
       <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5"></div>
-      <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><input type="date" id="rc-expiration"></div>
+      <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><div id="rc-expiration-mount"></div></div>
     </div>
 
     <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
@@ -353,6 +354,18 @@
     });
   }
 
+  /* Reloj y calendario real (gsocd-shared/date-time-picker) -- antes
+     esto eran <input type="time">/<input type="date"> nativos del
+     navegador, que no combinan con el estilo del resto de la app.
+     Se vuelve a llamar cada vez que se necesita un valor distinto
+     (crear/editar/limpiar) -- el componente mismo documenta que
+     regenerar con el mismo fieldId es seguro y limpia el estado
+     anterior correctamente. */
+  function mountRcDateTimeFields(time, expirationDate) {
+    document.getElementById('rc-time-mount').innerHTML = GSDateTimePicker.timeHtml('rc-time', time || '06:00');
+    document.getElementById('rc-expiration-mount').innerHTML = GSDateTimePicker.dateHtml('rc-expiration', expirationDate || null);
+  }
+
   function collectSelectedServices() {
     if (!rcPicker) return [];
     const selected = rcPicker.getSelected();
@@ -410,6 +423,7 @@
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
 
       mountRcPicker();
+      mountRcDateTimeFields();
       addAssignRow();
       loadRecurringList();
     } catch (e) {
@@ -424,9 +438,9 @@
     const clientId = document.getElementById('rc-client').value;
     const buildingNumber = document.getElementById('rc-building').value.trim();
     const days = selectedDays();
-    const time = document.getElementById('rc-time').value;
+    const time = GSDateTimePicker.getTime('rc-time');
     const totalHours = document.getElementById('rc-total-hours').value;
-    const expirationDate = document.getElementById('rc-expiration').value;
+    const expirationDate = GSDateTimePicker.getDate('rc-expiration') || '';
     const services = collectSelectedServices();
 
     const assignments = Array.from(document.querySelectorAll('.assign-row')).map(row => ({
@@ -453,9 +467,9 @@
       document.getElementById('rc-client').value = '';
       document.getElementById('rc-building').value = '';
       document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
-      document.getElementById('rc-expiration').value = '';
       document.getElementById('assign-rows').innerHTML = '';
       mountRcPicker();
+      mountRcDateTimeFields();
       document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
       document.getElementById('cancel-edit-btn').style.display = 'none';
       addAssignRow();
@@ -610,42 +624,45 @@
       '</div>' : '');
     }
 
-    const visitsHtml = visits.length ? visits.slice(0, 20).map(v => {
-      const peopleLine = v.people.length ? v.people.map(p => p.name + ' · ' + p.hours + 'h').join(' | ') : '';
-      let changesHtml = '';
+    /* Opcion A (elegida por el usuario de las 3 que se le mostraron):
+       mismo layout que el detalle de una orden normal -- izquierda
+       datos + acciones, derecha el historial real (GSOrderHistory),
+       en vez de los numeros grandes inventados que habia antes. */
+    const historyEvents = visits.slice().reverse().map(v => {
+      const parts = [];
       if (v.deviated) {
-        (v.services || []).forEach(sv => { changesHtml += '<div class="change-row"><span class="change-icon">➕</span><span class="added-val">' + esc(sv.serviceName || '') + (sv.level ? ' — ' + esc(sv.level) : '') + '</span></div>'; });
-        (v.removedNotes || []).forEach(rn => {
-          changesHtml += '<div class="change-row"><span class="change-icon">➖</span><span class="removed-val">' + esc(rn.serviceName || '') + '</span></div>';
-          if (rn.note) changesHtml += '<div class="change-sub">"' + esc(rn.note) + '"</div>';
-        });
+        (v.services || []).forEach(sv => parts.push('Added ' + (sv.serviceName || '') + (sv.level ? ' — ' + sv.level : '')));
+        (v.removedNotes || []).forEach(rn => parts.push('Removed ' + (rn.serviceName || '') + (rn.note ? ': ' + rn.note : '')));
       }
-      if (v.notes) changesHtml += '<p class="meta-line" style="margin-top:6px;font-style:italic">"' + esc(v.notes) + '"</p>';
-      return '<div class="visit">' +
-        '<div class="visit-top">' +
-          '<div><div class="visit-date">' + esc(v.visitDate) + '</div>' + (peopleLine ? '<div class="visit-people">' + esc(peopleLine) + '</div>' : '') + '</div>' +
-          '<span class="visit-flag ' + (v.deviated ? 'deviated' : 'match') + '">' + (v.deviated ? 'Deviated' : 'As planned') + '</span>' +
-        '</div>' +
-        changesHtml +
-      '</div>';
-    }).join('') : '<p class="empty-note">No visits logged yet.</p>';
+      if (v.notes) parts.push(v.notes);
+      return { ChangeType: 'Completed', ChangeDate: v.visitDate + 'T12:00:00Z', ChangedBy: v.loggedBy || 'Staff', Notes: parts.join(' | ') };
+    });
+    const historyHtml = historyEvents.length
+      ? GSOrderHistory.html('RC-' + id, historyEvents, { mode: 'staff' })
+      : '<p class="empty-note">No visits logged yet.</p>';
 
     bodyEl.innerHTML =
-      '<div class="rc-stat-row">' +
-        '<div class="rc-stat"><span class="num">' + visits.length + '</span><span class="lbl">Visits logged</span></div>' +
-        '<div class="rc-stat"><span class="num">' + totalHours.toFixed(1) + 'h</span><span class="lbl">Hours (shown)</span></div>' +
-        '<div class="rc-stat"><span class="num">' + deviatedCount + '</span><span class="lbl">Deviated visits</span></div>' +
-      '</div>' +
-      '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
-        completeBtnHtml +
-        '<button class="btn-outline" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
-        '<button class="btn-outline" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
-      '</div>' +
-      (loggingFor === id ? renderLogVisitPanel(s) : '') +
-      '<div class="visit-log-label"><span>Visit History</span>' +
-        (loggingFor === id ? '' : '<button class="btn-outline" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
-      '</div>' +
-      (loggingFor === id ? '' : visitsHtml);
+      '<div class="detail-grid">' +
+        '<div>' +
+          '<p class="detail-label">Contract Details</p>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:16px">' +
+            '<div><div class="field-caption">Visits Logged</div><div class="field-value">' + visits.length + '</div></div>' +
+            '<div><div class="field-caption">Deviated Visits</div><div class="field-value">' + deviatedCount + '</div></div>' +
+          '</div>' +
+          '<p class="meta-line" style="margin-bottom:16px">Hours come from uAttend, not tracked here.</p>' +
+          '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
+            completeBtnHtml +
+            '<button class="btn btn-outline" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
+            '<button class="btn btn-outline" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+            (loggingFor === id ? '' : '<button class="btn btn-outline" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
+          '</div>' +
+          (loggingFor === id ? renderLogVisitPanel(s) : '') +
+        '</div>' +
+        '<div>' +
+          '<p class="detail-label">History</p>' +
+          (loggingFor === id ? '' : historyHtml) +
+        '</div>' +
+      '</div>';
 
     if (loggingFor === id) mountLvPicker(s);
   }
@@ -860,9 +877,8 @@
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
       p.classList.toggle('active', days.includes(p.dataset.day));
     });
-    document.getElementById('rc-time').value = svc.time || '06:00';
+    mountRcDateTimeFields(svc.time, svc.expirationDate);
     document.getElementById('rc-total-hours').value = svc.totalHours || 8;
-    document.getElementById('rc-expiration').value = svc.expirationDate || '';
 
     document.getElementById('assign-rows').innerHTML = '';
     (svc.assignments.length ? svc.assignments : [{}]).forEach(a => addAssignRow(a.payrollNumber, a.hoursAllocated));
@@ -877,9 +893,9 @@
     document.getElementById('rc-client').value = '';
     document.getElementById('rc-building').value = '';
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
-    document.getElementById('rc-expiration').value = '';
     document.getElementById('assign-rows').innerHTML = '';
     mountRcPicker();
+    mountRcDateTimeFields();
     document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
     document.getElementById('cancel-edit-btn').style.display = 'none';
     addAssignRow();
