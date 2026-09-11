@@ -118,12 +118,23 @@ exports.handler = async (event) => {
     /* Resumen de servicios por orden, para poder filtrar por servicio
        en la lista sin tener que abrir cada orden. */
     const servicesByOrder = {};
+    /* Detalle completo (no solo el nombre) -- lo necesita Scheduling
+       para calcular el tiempo estimado sin tener que pedir la orden
+       completa aparte solo por eso. Aparte de Services (que se queda
+       igual, string[], lo sigue usando el filtro de abajo). */
+    const servicesDetailedByOrder = {};
     svcRows.forEach(it => {
       if (!it.fields) return;
       const oid = it.fields.OrderID;
       const name = it.fields.ServiceName;
       if (!oid || !name) return;
       (servicesByOrder[oid] = servicesByOrder[oid] || []).push(name);
+      (servicesDetailedByOrder[oid] = servicesDetailedByOrder[oid] || []).push({
+        ServiceName: name,
+        SubOption: it.fields.SubOption || '',
+        Division: it.fields.Division || '',
+        Level: it.fields.Level || ''
+      });
     });
 
     /* Lugares (cliente principal + cada building) por clave "clientId|buildingId"
@@ -241,7 +252,8 @@ exports.handler = async (event) => {
           NeedsOfficeAccess: f.NeedsOfficeAccess === true || f.NeedsOfficeAccess === 'true',
           OfficeNeedNotes: f.OfficeNeedNotes || '',
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
-          Services: servicesByOrder[f.OrderID || f.Title] || []
+          Services: servicesByOrder[f.OrderID || f.Title] || [],
+          ServicesDetailed: servicesDetailedByOrder[f.OrderID || f.Title] || []
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));

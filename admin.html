@@ -480,7 +480,10 @@
     .hours-hist-val { font-size: 12px; font-weight: 700; }
     .hours-hist-services { font-size: 10px; color: var(--gray); margin-top: 1px; }
 
-    .candidate-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; margin-bottom: 6px; }
+    .candidate-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); background: var(--bg); font-size: 12px; margin-bottom: 6px; cursor: pointer; transition: background .12s, border-color .12s; }
+    .candidate-row:hover { background: var(--white); border-color: var(--gold); }
+    .candidate-row.selected { background: rgba(201,168,76,0.18); border-color: var(--gold); }
+    .candidate-row.selected .candidate-name::before { content: '✓ '; color: var(--gold-dk); }
     .candidate-name { font-weight: 700; flex: 1; }
     .candidate-stat { color: var(--gray); font-size: 11px; }
     .candidate-stat b { color: var(--black); }
@@ -2141,6 +2144,10 @@ function approvalDetailHtml(card, o, services, history) {
      aprueba o se rechaza tal cual llego — no se edita en ese paso. */
   const editable = kind.label === 'New Order';
   const rows = [];
+  /* Se sube a nivel de funcion (antes vivia solo dentro del if de
+     abajo) para poder reusarlo en la seccion de Services -- ahi hace
+     falta para calcular el preview de tiempo antes/despues. */
+  let req = null;
 
   /* --- Lo que se pidio ---
      Se muestra para cualquier solicitud de cambio/cancelacion (Review),
@@ -2150,7 +2157,6 @@ function approvalDetailHtml(card, o, services, history) {
      un solo camino, en vez de un bloque aparte para cada caso. */
   if (!editable || isOfficeCreatedOrder(history)) {
     rows.push('<div class="appr-section">');
-    let req = null;
     for (let i = history.length - 1; i >= 0; i--) {
       const t = String(history[i].ChangeType || '');
       if (REQUEST_TYPES.includes(t) || t === 'Cancellation Requested' || t === 'Created') { req = history[i]; break; }
@@ -2233,6 +2239,17 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
     rows.push(reviewSvcTableHtml(services));
+    /* Preview antes/despues: si la peticion pendiente (req, ya
+       encontrada arriba) trae un snapshot de servicios viejo/nuevo
+       (formato SERVICES:, lo escribe submit-supervisor-update.js),
+       se compara contra eso. Si no, se muestra nomas el tiempo actual. */
+    const reqPay = req ? parseSvcPayload(req.NewValue) : null;
+    const reqOldPay = req ? parseSvcPayload(req.OldValue) : null;
+    if (reqPay && reqOldPay) {
+      rows.push(estimatedTimeCompareHtml(reqOldPay.services, reqPay.services));
+    } else {
+      rows.push(estimatedTimeHtml(services));
+    }
   }
   rows.push('</div>');
 
@@ -2294,7 +2311,24 @@ function reviewSvcTableHtml(services) {
         '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
         '</tr>';
     }).join('') +
-    '</table></div>' + estimatedTimeHtml(services);
+    '</table></div>';
+}
+
+/* Preview de tiempo antes/despues -- para cuando hay un cambio de
+   servicios PENDIENTE de decidir (Review): "esto es lo que dura hoy,
+   esto es lo que duraria si se aprueba". Si no hay ambos lados (o son
+   iguales), cae de vuelta al recuadro sencillo de siempre. */
+function estimatedTimeCompareHtml(oldServices, newServices) {
+  const oldR = oldServices ? calcOrderEstimatedMinutes(oldServices) : null;
+  const newR = newServices ? calcOrderEstimatedMinutes(newServices) : null;
+  if (oldR && newR && oldR.totalMinutes !== newR.totalMinutes) {
+    return '<div class="est-time-box">' +
+      '<span class="est-time-box-label">Estimated time</span>' +
+      '<span class="est-time-box-value">' + esc(fmtDuration(oldR.totalMinutes)) +
+        ' <span style="font-size:15px;font-weight:400">→</span> ' + esc(fmtDuration(newR.totalMinutes)) + '</span>' +
+    '</div>';
+  }
+  return estimatedTimeHtml(newServices || oldServices || []);
 }
 
 /* ============================================================
@@ -5544,21 +5578,40 @@ let pendingDirectLinkOrderId = null;
       return (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors);
     }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
 
-    if (!candidates.length) {
-      return '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>';
-    }
+    const candidatesHtml = !candidates.length
+      ? '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>'
+      : candidates.map(c => `
+        <div class="candidate-row" data-payroll="${escAttr(c.payrollNumber)}" data-selected="false" onclick="toggleCandidateRow(this)">
+          <span class="candidate-name">${esc(c.name)}</span>
+          <span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span>
+          <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
+        </div>`).join('');
 
-    const rows = candidates.map(c => `
-      <div class="candidate-row">
-        <input type="checkbox" value="${escAttr(c.payrollNumber)}" class="cand-check" style="width:auto">
-        <span class="candidate-name">${esc(c.name)}</span>
-        <span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span>
-        <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
-      </div>`).join('');
+    /* Servicios de la orden + su tiempo, mismo formato de tabla que ya
+       usa el resto de la app (Active/Review/Approvals) -- antes este
+       panel no mostraba ni uno ni otro. */
+    const services = o.ServicesDetailed || [];
+    const svcHtml = !services.length
+      ? '<p class="empty-note" style="padding:6px 0">No services on this order.</p>'
+      : '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        services.map((s, i) => '<tr' + (i < services.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+          '<td style="padding:9px 10px 9px 0">' + esc(s.ServiceName) + (s.Level ? ' <span style="color:var(--gray)">— ' + esc(s.Level) + '</span>' : '') + '</td>' +
+          '<td style="padding:9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + esc(svcMinutesLabel(s.SubOption, s.Level) || '') + '</td>' +
+          '</tr>').join('') +
+        '</table>';
 
     return `
-      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Candidates — ${esc(o.Division)}</div>
-      ${rows}
+      <div class="detail-grid" style="margin:0 0 20px">
+        <div>
+          <p class="detail-label">Services</p>
+          ${svcHtml}
+          ${estimatedTimeHtml(services)}
+        </div>
+        <div>
+          <p class="detail-label">Candidates — ${esc(o.Division)}</p>
+          ${candidatesHtml}
+        </div>
+      </div>
       <div class="toggle-row" style="margin-top:14px">
         <input type="checkbox" id="starts-office-${escAttr(o.OrderID)}" style="width:auto">
         <label for="starts-office-${escAttr(o.OrderID)}">Starts from office</label>
@@ -5580,12 +5633,22 @@ let pendingDirectLinkOrderId = null;
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
   }
 
+  /* Clic en cualquier parte del renglon lo prende/apaga -- sigue
+     siendo multi-seleccion (se puede asignar mas de una persona a la
+     vez a la misma orden, eso ya existia y no se quito), nomas ya no
+     hay un checkbox chiquito que atinarle. */
+  function toggleCandidateRow(el) {
+    const on = el.dataset.selected === 'true';
+    el.dataset.selected = on ? 'false' : 'true';
+    el.classList.toggle('selected', !on);
+  }
+
   async function submitAssignment(orderId) {
     const errEl = document.getElementById('assign-error-' + orderId);
     errEl.textContent = '';
 
     const body = document.getElementById('order-body-' + orderId);
-    const checked = Array.from(body.querySelectorAll('.cand-check:checked')).map(c => c.value);
+    const checked = Array.from(body.querySelectorAll('.candidate-row[data-selected="true"]')).map(c => c.dataset.payroll);
     const assignedDate = document.getElementById('assign-date-' + orderId).value;
     const serviceWindow = document.getElementById('assign-window-' + orderId).value;
     const inspectionDate = document.getElementById('assign-inspection-' + orderId).value;
