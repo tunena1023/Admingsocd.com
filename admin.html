@@ -549,7 +549,7 @@
 
   <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
     <h2 class="section-title">Recurring Changes</h2>
-    <p class="section-sub">Deviations reported on-site for a recurring contract (a supervisor removed or added a service for one visit). Approve logs the visit as reported; reject discards it -- nothing was applied to the contract itself, so the office should follow up on what actually happened.</p>
+    <p class="section-sub">Deviations reported on-site for a recurring contract.</p>
     <div id="recurring-change-list"><p class="empty-note">Nothing pending.</p></div>
   </div>
 
@@ -3402,7 +3402,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
         <div class="edit-grid">
           <div class="field-group" style="grid-column:1/-1">
-            <label>Who / When <span style="text-transform:none;font-weight:400;color:var(--gray)">(assigned by Scheduling — not editable here)</span></label>
+            <label>Who / When</label>
             <div style="padding:10px 0;font-size:13px;line-height:1.7">
               Supervisor: <b>${o.Supervisor ? esc(o.Supervisor) : '—'}</b> ·
               Window: <b>${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</b> ·
