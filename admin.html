@@ -2543,7 +2543,7 @@ function renderMaterialsReadyReview() {
 
 async function markMaterialsSeen(orderId) {
   try {
-    await api('/developer-admin', { body: { action: 'mark-materials-seen', email: adminUser.email, orderId } });
+    await api('/developer-admin', { body: { action: 'mark-materials-seen', email: adminUser.email, actorName: getActorName(), orderId } });
     const o = allOrders.find(x => x.OrderID === orderId);
     if (o) o.MaterialsReadySeen = true;
     renderMaterialsReadyReview();
