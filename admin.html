@@ -2172,6 +2172,9 @@ function approvalDetailHtml(card, o, services, history) {
       const lines = historyChangeLines(req);
       lines.forEach(l => rows.push('<p>' + l + '</p>'));
       if (!note && !lines.length && verb === 'Requested') rows.push('<p>No description was recorded with the request.</p>');
+      const reqPay = parseSvcPayload(req.NewValue);
+      const reqOldPay = parseSvcPayload(req.OldValue);
+      if (reqPay && reqOldPay) rows.push(estimatedTimeCompareHtml(reqOldPay.services, reqPay.services));
     } else {
       rows.push('<p>The original request row is missing from the history.</p>');
     }
@@ -2239,17 +2242,11 @@ function approvalDetailHtml(card, o, services, history) {
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
     rows.push(reviewSvcTableHtml(services));
-    /* Preview antes/despues: si la peticion pendiente (req, ya
-       encontrada arriba) trae un snapshot de servicios viejo/nuevo
-       (formato SERVICES:, lo escribe submit-supervisor-update.js),
-       se compara contra eso. Si no, se muestra nomas el tiempo actual. */
-    const reqPay = req ? parseSvcPayload(req.NewValue) : null;
-    const reqOldPay = req ? parseSvcPayload(req.OldValue) : null;
-    if (reqPay && reqOldPay) {
-      rows.push(estimatedTimeCompareHtml(reqOldPay.services, reqPay.services));
-    } else {
-      rows.push(estimatedTimeHtml(services));
-    }
+    /* El preview antes/despues ya se muestra arriba, junto al diff de
+       Added/Removed (mas natural verlo ahi primero) -- aqui solo se
+       deja el total sencillo, para cuando no hay snapshot de servicios
+       que comparar (p. ej. Cancellation Requested). */
+    rows.push(estimatedTimeHtml(services));
   }
   rows.push('</div>');
 
