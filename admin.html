@@ -2397,7 +2397,9 @@ function apprServiceEditorHtml(orderId, division) {
   if (window['apprPropType_' + orderId] === undefined) {
     window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
-  return apprLegacyNote(orderId) + `<div id="appr-svc-picker-${orderId}"></div>`;
+  return apprLegacyNote(orderId) +
+    `<div id="appr-svc-picker-${orderId}"></div>
+    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}))}</div>`;
 }
 
 function mountApprServicePicker(orderId, division) {
@@ -2415,6 +2417,8 @@ function mountApprServicePicker(orderId, division) {
       window['apprSvc_' + orderId] = sel;
       window['apprLevel_' + orderId] = lvl;
       window['apprPropType_' + orderId] = propType;
+      const estBox = document.getElementById('appr-est-time-' + orderId);
+      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl));
     }
   });
 }
@@ -3532,6 +3536,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           </div>
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
+        ${estimatedTimeHtml(services)}
       </div>
       <div>
         <p class="detail-label">History</p>
@@ -3595,16 +3600,22 @@ function buildAdminLegacyNote(orderId) {
    calcOrderEstimatedMinutes. Se usa tanto en el render inicial como
    despues de cada cambio en vivo del picker, para que el tiempo
    estimado nunca quede desfasado de lo que se ve seleccionado. */
-function flattenSelectedForEstimate(orderId) {
-  const sel = window['adminSvc_' + orderId] || {};
-  const lvl = window['adminLevel_' + orderId] || {};
+/* Aplanado generico sel/lvl (del picker) -> renglones para el calculo.
+   flattenSelectedForEstimate(orderId) sigue existiendo para Active
+   (que guarda su estado en window['adminSvc_'+orderId]), pero
+   Approvals y Create Order tienen su propio estado por separado --
+   cada quien llama esto directo con su sel/lvl. */
+function flattenSelected(sel, lvl) {
   const rows = [];
-  Object.entries(sel).forEach(([cat, svcs]) => {
+  Object.entries(sel || {}).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      rows.push({ ServiceName: svcName, SubOption: sub, Level: lvl[ncKey(cat, svcName)] || '' });
+      rows.push({ ServiceName: svcName, SubOption: sub, Level: (lvl || {})[ncKey(cat, svcName)] || '' });
     });
   });
   return rows;
+}
+function flattenSelectedForEstimate(orderId) {
+  return flattenSelected(window['adminSvc_' + orderId] || {}, window['adminLevel_' + orderId] || {});
 }
 
 /* ============================================================
@@ -4890,6 +4901,7 @@ function createOrderFormHtml() {
       <div id="create-services-wrap" style="display:none">
         <p class="detail-label" style="margin-bottom:10px">Services</p>
         <div id="create-services-list"></div>
+        <div id="create-est-time"></div>
       </div>
 
       <div class="mode-toggle" style="display:flex;border:1.5px solid var(--border);margin:20px 0">
@@ -5073,6 +5085,7 @@ async function loadCreateServices() {
   createPropertyType = 'Commercial';
   const isJan = div.toLowerCase() === 'janitorial';
   wrap.style.display = 'block';
+  document.getElementById('create-est-time').innerHTML = '';
   GSServicePicker.mount('create-order', 'create-services-list', {
     catalog: createCatalogCache,
     division: div,
@@ -5091,6 +5104,12 @@ async function loadCreateServices() {
           createSelected.set(sku, level ? Object.assign({}, svc, { level }) : svc);
         });
       });
+      /* Mismo Map que ya usa submitCreateOrder() para armar el
+         renglon final -- se reusa tal cual para el calculo, en vez
+         de duplicar la logica de aplanado. */
+      const rows = Array.from(createSelected.entries()).map(([sku, svc]) =>
+        ({ ServiceName: svc.serviceName, SubOption: sku, Level: svc.level || '' }));
+      document.getElementById('create-est-time').innerHTML = estimatedTimeHtml(rows);
     }
   });
 }
