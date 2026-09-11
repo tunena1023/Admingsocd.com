@@ -40,14 +40,17 @@
     .svc-row-reason.show { display: block; }
     .svc-row-reason input { width: 100%; font-size: 13px; padding: 6px 8px; }
     /* Tiempo estimado de la orden -- suma de sus servicios (Developer
-       > Service Times). Informativo nomas, nunca editable. */
-    .est-time-row {
-      margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
-      display: flex; align-items: baseline; justify-content: space-between;
+       > Service Times). Informativo nomas, nunca editable. Mismo peso
+       visual que la nota de "Keys/office need" que ya existe
+       (gs-office-need-note en gsocd-shared) -- recuadro de color,
+       nada de desglose aqui (eso ya vive junto a cada servicio). */
+    .est-time-box {
+      margin-top: 14px; padding: 12px 16px; border-radius: 4px;
+      background: #FDF3E0; border-left: 4px solid #8C6F2A;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .est-time-label { font-size: 12px; color: var(--gray); }
-    .est-time-value { font-size: 15px; font-weight: 600; color: var(--gold-dk); }
-    .est-time-breakdown { font-size: 11px; color: var(--gray); margin-top: 4px; }
+    .est-time-box-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8C6F2A; }
+    .est-time-box-value { font-size: 22px; font-weight: 700; color: #8C6F2A; }
 
     .svc-remove-btn { background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 3px 6px; }
 
@@ -3685,12 +3688,9 @@ function fmtDuration(mins) {
 function estimatedTimeHtml(services) {
   const result = calcOrderEstimatedMinutes(services);
   if (!result) return '';
-  return '<div class="est-time-row">' +
-    '<div>' +
-      '<div class="est-time-label">Estimated time</div>' +
-      '<div class="est-time-breakdown">' + esc(result.lines.join(' · ')) + '</div>' +
-    '</div>' +
-    '<div class="est-time-value">' + esc(fmtDuration(result.totalMinutes)) + '</div>' +
+  return '<div class="est-time-box">' +
+    '<span class="est-time-box-label">Estimated time</span>' +
+    '<span class="est-time-box-value">' + esc(fmtDuration(result.totalMinutes)) + '</span>' +
   '</div>';
 }
 
