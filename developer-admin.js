@@ -1661,7 +1661,7 @@ exports.handler = async (event) => {
         VisitDate: visitDate,
         Status: 'Completed',
         Source: 'Office',
-        LoggedBy: email || 'Staff',
+        LoggedBy: body.actorName || email || 'Staff',
         PeopleJSON: JSON.stringify(Array.isArray(people) ? people : []),
         ServicesJSON: JSON.stringify({ services: Array.isArray(services) ? services : [], removedNotes: Array.isArray(removedNotes) ? removedNotes : [] }),
         Notes: notes || ''
@@ -1737,7 +1737,7 @@ exports.handler = async (event) => {
          uno nuevo directo en Completed. */
       if (already && already.fields.Status === 'Field Confirmed') {
         await updateListItemByItemId(RECURRING_LOG_LIST, already.id, {
-          Status: 'Completed', ReviewedBy: email || 'Staff', ReviewedDate: new Date().toISOString()
+          Status: 'Completed', ReviewedBy: body.actorName || email || 'Staff', ReviewedDate: new Date().toISOString()
         });
         return jsonResponse(200, { success: true });
       }
@@ -1749,7 +1749,7 @@ exports.handler = async (event) => {
         VisitDate: visitDate,
         Status: 'Completed',
         Source: 'Office',
-        LoggedBy: email || 'Staff',
+        LoggedBy: body.actorName || email || 'Staff',
         PeopleJSON: '[]', ServicesJSON: '', Notes: ''
       });
       return jsonResponse(200, { success: true });
@@ -1780,7 +1780,7 @@ exports.handler = async (event) => {
 
       await updateListItemByItemId(RECURRING_LOG_LIST, todayRow.id, {
         Status: 'Sent Back',
-        ReviewedBy: email || 'Staff',
+        ReviewedBy: body.actorName || email || 'Staff',
         ReviewedDate: new Date().toISOString(),
         ReviewNotes: reason.trim()
       });
@@ -1912,7 +1912,7 @@ exports.handler = async (event) => {
          (ReviewNotes), la nota original nunca se toca. */
       await updateListItemByItemId(RECURRING_LOG_LIST, logId, {
         Status: decision === 'approve' ? 'Completed' : 'Rejected',
-        ReviewedBy: email || 'Staff',
+        ReviewedBy: body.actorName || email || 'Staff',
         ReviewedDate: new Date().toISOString(),
         ReviewNotes: notes || undefined
       });
