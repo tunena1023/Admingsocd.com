@@ -4966,31 +4966,7 @@ function renderCreateClientList() {
 function createOrderFormHtml() {
   return `
     <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
-      <div class="field-group">
-        <p class="section-sub" style="margin-bottom:10px">Select a division to see its available services.</p>
-        <div class="gs-ofp-card gs-ofp-card-3" id="create-div-card">
-          <svg class="gs-ofp-tri" style="top:calc(50% - 199px);right:-60px;width:450px;height:426px;opacity:.55" viewBox="0 0 900 851">
-            <path d="M141.77,6.05 L209.78,829.96 L892.14,356.10 Z" fill="none" stroke="#FFF3D6" stroke-width="6"/>
-          </svg>
-          <div class="gs-ofp-tabsrow" id="create-div-tabs">
-            <div class="gs-ofp-tab active" data-div="Janitorial" onclick="setCreateDivision('Janitorial', this)">Janitorial</div>
-            <div class="gs-ofp-tab" data-div="Renovations" onclick="setCreateDivision('Renovations', this)">Renovations</div>
-            <div class="gs-ofp-tab" data-div="Exteriors" onclick="setCreateDivision('Exteriors', this)">Exteriors</div>
-          </div>
-          <div class="gs-ofp-uline-track">
-            <div class="gs-ofp-uline-active" id="create-div-underline" style="left:0;width:76px"></div>
-          </div>
-          <div class="gs-ofp-goldbase"></div>
-        </div>
-        <input type="hidden" id="create-division" value="">
-      </div>
-      <div id="create-services-wrap" style="display:none">
-        <p class="detail-label" style="margin-bottom:10px">Services</p>
-        <div id="create-services-list"></div>
-        <div id="create-est-time"></div>
-      </div>
-
-      <div class="gs-ofp-unit-header" style="margin-top:20px">
+      <div class="gs-ofp-unit-header">
         <div class="toggle-b" id="create-unit-mode-toggle" onclick="setCreateOrderMode(createMultiOn ? 'single' : 'multi')">
           <div class="toggle-b-thumb" id="create-unit-mode-thumb">Single</div>
         </div>
@@ -5028,6 +5004,34 @@ function createOrderFormHtml() {
         </div>
       </div>
 
+      <div id="create-multi-units-wrap" style="display:none;margin-top:20px">
+        <div id="create-unit-cards"></div>
+      </div>
+
+      <div class="field-group" style="margin-top:20px">
+        <p class="section-sub" style="margin-bottom:10px">Select a division to see its available services.</p>
+        <div class="gs-ofp-card gs-ofp-card-3" id="create-div-card">
+          <svg class="gs-ofp-tri" style="top:calc(50% - 199px);right:-60px;width:450px;height:426px;opacity:.55" viewBox="0 0 900 851">
+            <path d="M141.77,6.05 L209.78,829.96 L892.14,356.10 Z" fill="none" stroke="#FFF3D6" stroke-width="6"/>
+          </svg>
+          <div class="gs-ofp-tabsrow" id="create-div-tabs">
+            <div class="gs-ofp-tab active" data-div="Janitorial" onclick="setCreateDivision('Janitorial', this)">Janitorial</div>
+            <div class="gs-ofp-tab" data-div="Renovations" onclick="setCreateDivision('Renovations', this)">Renovations</div>
+            <div class="gs-ofp-tab" data-div="Exteriors" onclick="setCreateDivision('Exteriors', this)">Exteriors</div>
+          </div>
+          <div class="gs-ofp-uline-track">
+            <div class="gs-ofp-uline-active" id="create-div-underline" style="left:0;width:76px"></div>
+          </div>
+          <div class="gs-ofp-goldbase"></div>
+        </div>
+        <input type="hidden" id="create-division" value="">
+      </div>
+      <div id="create-services-wrap" style="display:none">
+        <p class="detail-label" style="margin-bottom:10px">Services</p>
+        <div id="create-services-list"></div>
+        <div id="create-est-time"></div>
+      </div>
+
       <div class="field-group" id="create-office-need-block" style="margin-top:20px">
         <label>Do we need anything from the property office?</label>
         <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
@@ -5048,13 +5052,10 @@ function createOrderFormHtml() {
         <div class="field-group"><label>Due Date</label>${GSDateTimePicker.dateHtml('create-due-date', null)}</div>
       </div>
 
-      <div id="create-multi-container" style="display:none;margin-top:20px">
-        <div id="create-unit-cards"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-          <div class="field-group"><label>Entry Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-entry-date', null)}</div>
-          <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
-          <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
-        </div>
+      <div id="create-multi-dates-wrap" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
+        <div class="field-group"><label>Entry Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-entry-date', null)}</div>
+        <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
+        <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
       </div>
 
       <div class="btn-actions">
@@ -5098,7 +5099,9 @@ function setCreateOrderMode(mode) {
   document.getElementById('create-add-unit-btn').style.display = createMultiOn ? 'block' : 'none';
 
   document.getElementById('create-single-fields').style.display = createMultiOn ? 'none' : 'flex';
-  document.getElementById('create-multi-container').style.display = createMultiOn ? 'block' : 'none';
+  document.getElementById('create-multi-units-wrap').style.display = createMultiOn ? 'block' : 'none';
+  document.getElementById('create-single-dates').style.display = createMultiOn ? 'none' : 'grid';
+  document.getElementById('create-multi-dates-wrap').style.display = createMultiOn ? 'grid' : 'none';
 
   if (createMultiOn && !document.getElementById('create-unit-cards').children.length) {
     addCreateUnitCard();
