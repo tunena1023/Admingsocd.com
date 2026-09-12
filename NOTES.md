@@ -127,3 +127,14 @@ habían quedado en una versión vieja del componente sin el acordeón.
 - 404 de `Logo.jpg` / `NavBackground.jpg` en Orders (`/api/site-image`) —
   pendiente de que el dueño confirme el nombre real de esos archivos en la
   raíz del drive de SharePoint (Onlineorders).
+- **Pendiente menor, sin resolver:** la barra dorada de pestañas se ve
+  "ligeramente más grande" en Admin que en Orders/Tech, aun usando el
+  mismo `nav-premium.js` compartido (mismo CSS, confirmado byte por
+  byte). Se probaron 2 hipótesis con medición real en navegador (badges
+  de contador SI/NO, font-family del body) y ninguna mostró diferencia
+  medible — puede ser una diferencia real muy chica (1-2px) o solo
+  percepción por el zoom del navegador. La usuaria decidió dejarlo así
+  por ahora, no vale la pena seguirle. Si se retoma: medir con
+  `getBoundingClientRect()` en las 2 apps reales (no en un test
+  aislado) para descartar que sea algo del layout completo de la
+  página, no solo del componente.
