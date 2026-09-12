@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery — GS Solutions</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--black); }
+
+  nav {
+    background: var(--white);
+    background-image: url('/api/site-image?name=NavBackground.jpg');
+    background-size: cover; background-position: center;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 40px; height:60px; position:sticky; top:0; z-index:100;
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo img { height:48px; object-fit:contain; }
+  .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size:22px; color:var(--black); display:none; }
+  .nav-right { display:flex; align-items:center; gap:20px; }
+  .nav-user { font-size:13px; color:var(--gray); }
+  .nav-back, .btn-signout { font-size:12px; color:#8C6F2A; background:none; border:none; cursor:pointer; letter-spacing:.04em; text-decoration:none; }
+
+  .wrap { max-width: 720px; margin:0 auto; padding:32px 40px 60px; }
+  h1.page-title { font-family: 'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin:0 0 4px; }
+  p.page-sub { font-size:13px; color:var(--gray); margin:0 0 20px; }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .wrap { padding: 24px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img id="nav-logo" src="/api/site-image?name=Logo.jpg" alt="GS Solutions"
+         onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
+    <span id="nav-logo-text" class="nav-logo-text">GS Solutions</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-back" href="admin.html">&larr; Back to Admin</a>
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<div id="gsNav"></div>
+
+<div class="wrap">
+  <h1 class="page-title">Gallery</h1>
+  <p class="page-sub">Photos and videos taken across all orders, grouped by order.</p>
+  <div id="gallery-search-wrap"></div>
+  <div id="gallery-groups-list"><p class="empty-note" style="font-size:12px;color:var(--gray);text-align:center;padding:20px">Loading…</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.4/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.0/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
+<script>
+const stored = sessionStorage.getItem('admin_account');
+let adminUser = null;
+if (!stored) {
+  window.location.href = 'index.html';
+} else {
+  adminUser = JSON.parse(stored);
+  document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+
+  GSNavPremium.init('gsNav', [
+    { label: 'Approvals', href: 'admin.html?tab=approvals' },
+    { label: 'Review', href: 'admin.html?tab=review' },
+    { label: 'Active', href: 'admin.html?tab=active' },
+    { label: 'History', href: 'admin.html?tab=history' },
+    { label: 'Clients', href: 'admin.html?tab=clients' },
+    { label: 'Gallery', href: 'gallery.html', active: true },
+    { label: 'QuickBooks', href: 'quickbooks.html' },
+    { label: 'Schedule', href: 'admin.html?tab=schedule' },
+    { label: 'Developer', href: 'developer.html' }
+  ]);
+
+  document.getElementById('gallery-search-wrap').innerHTML =
+    GSGalleryGroups.searchHtml('gallery-search', 'Search by order number or client…');
+  document.getElementById('gallery-search').addEventListener('input', renderGallery);
+
+  loadGallery();
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    method: opts.method || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+  return data;
+}
+
+let galleryGroups = [];
+
+async function loadGallery() {
+  const box = document.getElementById('gallery-groups-list');
+  try {
+    const data = await api('/get-admin-gallery', { body: { statusFilter: 'all' } });
+    galleryGroups = data.groups || [];
+    renderGallery();
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note" style="font-size:12px;color:var(--gray);text-align:center;padding:20px">Could not load photos: ' + e.message + '</p>';
+  }
+}
+
+function renderGallery() {
+  const q = (document.getElementById('gallery-search').value || '').trim().toLowerCase();
+  let groups = galleryGroups;
+  if (q) {
+    groups = groups.filter(g =>
+      String(g.orderId || '').toLowerCase().includes(q) ||
+      String(g.clientLabel || '').toLowerCase().includes(q));
+  }
+  GSGalleryGroups.render('gallery-groups-list', groups, {
+    emptyMessage: q ? 'No orders match that search.' : 'No photos yet.'
+  });
+}
+
+function signOut() {
+  sessionStorage.removeItem('admin_account');
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
