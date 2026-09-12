@@ -532,6 +532,7 @@
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.2/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
@@ -707,6 +708,24 @@
   </div>
 </div>
 
+<!-- GALLERY -->
+<div class="panel" id="panel-gallery">
+  <h2 style="font-family:'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin-bottom:4px">Gallery</h2>
+  <p class="section-sub" style="margin-bottom:20px">Photos and videos taken across all orders, grouped by order.</p>
+  <div id="gallery-search-wrap"></div>
+  <div id="gallery-groups-list"><p class="empty-note">Loading…</p></div>
+</div>
+
+<!-- QUICKBOOKS -->
+<div class="panel" id="panel-quickbooks">
+  <div style="max-width:640px;margin:60px auto;padding:0 24px;text-align:center">
+    <div style="font-size:40px;margin-bottom:20px">&#128179;</div>
+    <h1 style="font-family:'Cormorant Garamond', serif; font-size:30px; font-weight:600; margin-bottom:10px">QuickBooks</h1>
+    <p style="font-size:14px;color:var(--gray);line-height:1.7">This section is not built yet. It will connect GS Solutions orders and billing<br>
+       to QuickBooks. Check back soon.</p>
+  </div>
+</div>
+
 <!-- SCHEDULE -->
 <div class="panel" id="panel-schedule">
 
@@ -845,8 +864,8 @@ async function initAuth() {
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
     { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
-    { label: 'Gallery', href: 'gallery.html' },
-    { label: 'QuickBooks', onclick: "location.href=\'quickbooks.html\'" },
+    { label: 'Gallery', dataView: 'gallery', onclick: "showTab('gallery')", active: initialAdminTab === 'gallery' },
+    { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
   ]);
@@ -871,8 +890,8 @@ async function initAuth() {
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
     { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
-    { label: 'Gallery', href: 'gallery.html' },
-    { label: 'QuickBooks', onclick: "location.href=\'quickbooks.html\'" },
+    { label: 'Gallery', dataView: 'gallery', onclick: "showTab('gallery')", active: initialAdminTab === 'gallery' },
+    { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
   ]);
@@ -1049,13 +1068,15 @@ async function loadAll() {
     recurringPendingCache = recurringPendingRes.pending || [];
     orderDetailCache = {};
     orderPhotosMap = {};
-    (galleryRes.groups || []).forEach(g => { orderPhotosMap[g.orderId] = g.photos || []; });
+    allGalleryGroups = galleryRes.groups || [];
+    allGalleryGroups.forEach(g => { orderPhotosMap[g.orderId] = g.photos || []; });
     renderApprovals();
     renderReview();
     renderActive();
     renderHistory();
     renderClients();
     renderCreateClientList();
+    renderGalleryPanel();
     GSNavPremium.refresh('gsNav');
   } catch (e) {
     showToast('Error loading data: ' + e.message);
@@ -2999,6 +3020,32 @@ function filterHistory() {
    importar su estatus). Los 3 tipos de tarjeta de orden (Approvals,
    Review, Active/History) lo consultan igual via esta funcion. */
 let orderPhotosMap = {};
+/* Mismos datos que orderPhotosMap, sin aplanar -- para dibujar el
+   panel de Gallery completo (agrupado por orden, con GSGalleryGroups). */
+let allGalleryGroups = [];
+let galleryOpenedFromUrl = false;
+
+function renderGalleryPanel() {
+  const wrap = document.getElementById('gallery-search-wrap');
+  if (wrap && !document.getElementById('gallery-search')) {
+    wrap.innerHTML = GSGalleryGroups.searchHtml('gallery-search', 'Search by order number or client…');
+    document.getElementById('gallery-search').addEventListener('input', renderGalleryPanel);
+  }
+  const q = (document.getElementById('gallery-search') || {}).value || '';
+  const qLower = q.trim().toLowerCase();
+  let groups = allGalleryGroups;
+  if (qLower) {
+    groups = groups.filter(g =>
+      String(g.orderId || '').toLowerCase().includes(qLower) ||
+      String(g.clientLabel || '').toLowerCase().includes(qLower));
+  }
+  const urlOrder = new URLSearchParams(location.search).get('order');
+  GSGalleryGroups.render('gallery-groups-list', groups, {
+    emptyMessage: qLower ? 'No orders match that search.' : 'No photos yet.',
+    openOrderId: (urlOrder && !galleryOpenedFromUrl) ? urlOrder : null
+  });
+  if (urlOrder) galleryOpenedFromUrl = true;
+}
 
 function orderPhotoStripHtml(orderId) {
   const photos = orderPhotosMap[orderId];
@@ -3010,8 +3057,15 @@ function orderPhotoStripHtml(orderId) {
   ).join('');
   const moreHtml = extra > 0 ? '<span class="order-photo-more">+' + extra + '</span>' : '';
   return '<div class="order-photo-strip">' +
-    '<a href="gallery.html?order=' + encodeURIComponent(orderId) + '" title="View in Gallery" style="display:flex;align-items:center;gap:6px">' + thumbsHtml + moreHtml + '</a>' +
+    '<a href="javascript:void(0)" onclick="openGalleryForOrder(\'' + esc(orderId).replace(/'/g, "\\'") + '\')" title="View in Gallery" style="display:flex;align-items:center;gap:6px">' + thumbsHtml + moreHtml + '</a>' +
     '</div>';
+}
+
+function openGalleryForOrder(orderId) {
+  galleryOpenedFromUrl = false;
+  history.replaceState(null, '', 'admin.html?tab=gallery&order=' + encodeURIComponent(orderId));
+  showTab('gallery');
+  renderGalleryPanel();
 }
 
 function orderCard(o, context) {
