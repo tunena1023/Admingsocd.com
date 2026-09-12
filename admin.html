@@ -4441,11 +4441,23 @@ function renderGalleryPanel() {
      action, son cosas distintas que compartian nombre por accidente. */
 
   async function init() {
-    try {
-      const res = await devApi('whoami');
-      myRole = res.role;
-    } catch (e) {
-      myRole = null;
+    /* whoami parece ser poco confiable a veces (falla sin motivo
+       claro, tal vez por como Graph/SharePoint cachea el token o la
+       lista Staff). Antes habia 2 llamadas separadas (una aqui, otra
+       en checkDeveloperAccess()) que sin querer daban una segunda
+       oportunidad -- al juntarlas en una sola, un solo fallo dejaba a
+       la usuaria totalmente sin la pestana. Ahora se reintenta hasta
+       3 veces (con una pausa corta entre cada una) antes de darse
+       por vencido de verdad. */
+    myRole = null;
+    for (let intento = 1; intento <= 3 && !myRole; intento++) {
+      try {
+        const res = await devApi('whoami');
+        myRole = res.role || null;
+      } catch (e) {
+        myRole = null;
+      }
+      if (!myRole && intento < 3) await new Promise(r => setTimeout(r, 400));
     }
     /* Mismo resultado de whoami de arriba, tambien decide si se
        muestra la PESTANA de Developer -- antes esto se pedia por
