@@ -1630,7 +1630,6 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
-    checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
     return;
@@ -1657,7 +1656,6 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
-  checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
 }
@@ -1668,22 +1666,6 @@ async function initAuth() {
 function applyUrlTabParam() {
   const tab = new URLSearchParams(location.search).get('tab');
   if (tab) showTab(tab);
-}
-
-/* Muestra el tab "Developer" solo si el correo logueado tiene un rol
-   asignado en la lista Staff (Staff/Director/Developer -- cualquiera
-   de los 3 entra al tab, adentro varia que puede ver/editar). Si Staff
-   no existe todavia o el correo no esta ahi, el tab simplemente no
-   aparece -- no truena nada. */
-async function checkDeveloperAccess() {
-  if (!adminUser || !adminUser.email) return;
-  try {
-    const res = await api('/developer-admin', { body: { action: 'whoami', email: adminUser.email } });
-    if (res.role) {
-      const btn = document.getElementById('developer-tab-btn');
-      if (btn) btn.style.display = '';
-    }
-  } catch (e) { /* si falla, el tab simplemente no se muestra */ }
 }
 
 function signOut() {
@@ -4465,6 +4447,18 @@ function renderGalleryPanel() {
     } catch (e) {
       myRole = null;
     }
+    /* Mismo resultado de whoami de arriba, tambien decide si se
+       muestra la PESTANA de Developer -- antes esto se pedia por
+       separado en checkDeveloperAccess(), una segunda llamada al
+       mismo whoami disparada casi al mismo tiempo que esta. Dos
+       llamadas identicas y simultaneas al backend eran una condicion
+       de carrera real: a veces una respondia bien y la otra no,
+       dejando la pestana visible pero el contenido en "No access"
+       (o viceversa). Con una sola llamada ya no puede haber
+       contradiccion entre las dos. */
+    const devBtn = document.getElementById('developer-tab-btn');
+    if (devBtn) devBtn.style.display = myRole ? '' : 'none';
+
     document.getElementById('loading-wrap').style.display = 'none';
     if (!myRole) {
       document.getElementById('denied-wrap').style.display = 'block';
