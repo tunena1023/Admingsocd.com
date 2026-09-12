@@ -60,10 +60,9 @@
       background-image: url('/api/site-image?name=NavBackground.jpg');
       background-size: cover; background-position: center;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 40px; min-height: 72px; position: sticky; top: 0; z-index: 100;
+      position: sticky; top: 0; z-index: 100;
       border-bottom: 1px solid var(--border);
     }
-    .nav-logo img { height: 80px; object-fit: contain; }
     .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--black); }
     .nav-right { display: flex; align-items: center; gap: 20px; }
     .nav-user { font-size: 13px; color: var(--gray); }
@@ -337,7 +336,6 @@
     .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 28px; }
 
     @media (max-width: 768px) {
-      nav { padding: 0 20px; }
       .tab-bar { padding: 0 16px; overflow-x: auto; }
       .subtabs { overflow-x: auto; flex-wrap: nowrap; }
       .subtab { flex-shrink: 0; padding: 12px 14px; }
@@ -781,7 +779,7 @@
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.23.0/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.24.0/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
@@ -1610,6 +1608,7 @@ let msalInstance;
 let adminUser = null;
 
 async function initAuth() {
+  GSNavPremium.applyChrome();
   msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
   await msalInstance.initialize();
 
