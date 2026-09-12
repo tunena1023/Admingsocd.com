@@ -631,8 +631,151 @@
   #panel-recurring .logvisit-actions { display:flex; gap:8px; margin-top:16px; }
   #panel-recurring .btn-blue { background:#2A5AC9; color:var(--white); }
   #panel-recurring .btn-green { background:#2E7D4F; color:var(--white); }
+
+  /* ============================================================
+     PANEL DEVELOPER -- todas las reglas de aqui abajo vienen de
+     developer.html (su propia pagina antes de unirla aqui).
+     Encapsuladas bajo #panel-developer por seguridad, ya que
+     comparte muchos nombres de clase con el resto de admin.html
+     (.btn, .field-row, .order-card, .svc-cat-*, .modal-*, etc.)
+     -- algunos identicos, otros no, no vale la pena revisar los
+     68+ uno por uno cuando encapsular todo es igual de seguro.
+  ============================================================ */
+  #panel-developer .office-hours-cell .gs-dtp-trigger { min-width: 78px; font-size: 11px; padding: 5px 8px; }
+  #panel-developer .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  #panel-developer #content-wrap.wrap { max-width: none; }
+  #panel-developer .stub-wrap { max-width: 640px; margin: 90px auto; padding: 0 24px; text-align: center; }
+  #panel-developer .stub-icon { font-size: 40px; margin-bottom: 20px; }
+  #panel-developer .stub-wrap h1 { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; }
+  #panel-developer .stub-wrap p { font-size: 14px; color: var(--gray); line-height: 1.7; }
+  #panel-developer h1.page-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; margin-bottom: 4px; }
+  #panel-developer .role-note { font-size: 13px; color: var(--gray); margin-bottom: 32px; }
+  #panel-developer section { margin-bottom: 0; }
+  #panel-developer .section-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--gray); margin-bottom: 6px; }
+  #panel-developer .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 18px; }
+  #panel-developer .dev-layout { display: flex; gap: 32px; align-items: flex-start; }
+  #panel-developer .dev-sidebar { width: 180px; flex-shrink: 0; position: sticky; top: 24px; }
+  #panel-developer .dev-side-item { padding: 13px 16px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--gray); border-left: 3px solid transparent; border-radius: 0 3px 3px 0; }
+  #panel-developer .dev-side-item:hover { background: var(--bg); }
+  #panel-developer .dev-side-item.active { color: var(--black); border-left-color: var(--gold); background: rgba(201,168,76,0.08); }
+  #panel-developer .dev-content { flex: 1; min-width: 0; }
+  @media (max-width: 700px) {
+    #panel-developer .dev-layout { flex-direction: column; }
+    #panel-developer .dev-sidebar { width: 100%; position: static; display: flex; overflow-x: auto; gap: 4px; }
+    #panel-developer .dev-side-item { flex-shrink: 0; border-left: none; border-bottom: 3px solid transparent; white-space: nowrap; }
+    #panel-developer .dev-side-item.active { border-left-color: transparent; border-bottom-color: var(--gold); }
+  }
+  #panel-developer .upload-card { border: 1px solid var(--border); background: var(--white); padding: 24px; margin-bottom: 16px; }
+  #panel-developer .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+  #panel-developer .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px; cursor: pointer; background: rgba(201,168,76,0.12); }
+  #panel-developer .order-card-header:hover { background: rgba(201,168,76,0.18); }
+  #panel-developer .order-id { font-weight: 600; font-size: 15px; }
+  #panel-developer .order-meta { font-size: 12px; color: var(--gray); }
+  #panel-developer .order-desc { font-size: 12px; color: var(--gray); margin-top: 4px; font-weight: 400; }
+  #panel-developer .dev-chevron { font-size: 11px; color: var(--gray); }
+  #panel-developer .appr-body { padding: 0 24px 24px; border-top: 1px solid var(--border); }
+  #panel-developer .tpl-editor-body { padding: 0 24px 24px; border-top: 1px solid var(--border); }
+  #panel-developer .upload-card h3 { font-size: 14px; margin: 0 0 6px; }
+  #panel-developer .upload-card p { font-size: 12px; color: var(--gray); margin: 0 0 14px; }
+  #panel-developer .result-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; }
+  #panel-developer .warn-list { background: #FFF8E6; border: 1px solid #E8D9A0; color: #8C6F2A; font-size: 12px; padding: 12px 14px; margin-top: 10px; }
+  #panel-developer table.grid-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 12px; }
+  #panel-developer .grid-table th, #panel-developer .grid-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+  #panel-developer .grid-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
+  #panel-developer .field-group { margin-bottom: 16px; }
+  #panel-developer .field-group label { display: block; font-size: 12px; font-weight: 500; color: var(--gray); margin-bottom: 6px; letter-spacing: .04em; text-transform: uppercase; }
+  #panel-developer .field-group select, #panel-developer .field-group input, #panel-developer .field-group textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 3px;
+      font-family: 'Inter', sans-serif; font-size: 14px; color: var(--black);
+      background: var(--white); outline: none;
+    }
+  #panel-developer .field-group select:focus, #panel-developer .field-group input:focus, #panel-developer .field-group textarea:focus { border-color: var(--gold); }
+  #panel-developer .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  #panel-developer .btn { padding: 9px 18px; border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: .04em; cursor: pointer; border: none; }
+  #panel-developer .btn-gold { background: var(--gold); color: var(--white); }
+  #panel-developer .btn-gold:hover { background: #b8943e; }
+  #panel-developer .btn-outline { background: none; border: 1px solid var(--border); color: var(--black); }
+  #panel-developer .btn-outline:hover { border-color: var(--black); }
+  #panel-developer .btn-danger { background: var(--red); color: var(--white); }
+  #panel-developer .btn-sm { padding: 4px 12px; font-size: 12px; }
+  #panel-developer .btn-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  #panel-developer .empty-note { color: var(--gray); font-size: 14px; padding: 24px 0; text-align: center; }
+  #panel-developer .svc-cat-group { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+  #panel-developer .svc-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; background: var(--white); }
+  #panel-developer .svc-cat-header:hover { background: var(--bg); }
+  #panel-developer .svc-cat-header .svc-cat-name { font-size: 14px; font-weight: 600; }
+  #panel-developer .svc-cat-header .svc-cat-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px;
+      border-radius: 10px; background: var(--gold); color: var(--white);
+      font-size: 11px; font-weight: 700;
+    }
+  #panel-developer .svc-cat-arrow { font-size: 12px; color: var(--gray); transition: transform .2s; }
+  #panel-developer .svc-cat-pin { font-size: 11px; margin-left: 4px; }
+  #panel-developer .diff-card { border: 1px solid var(--border); border-radius: 4px; margin-top: 20px; background: var(--white); }
+  #panel-developer .diff-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  #panel-developer .diff-count { background: var(--bg); border-radius: 20px; padding: 2px 10px; font-size: 12px; color: var(--gray); }
+  #panel-developer .diff-row { padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+  #panel-developer .diff-row:last-child { border-bottom: none; }
+  #panel-developer .diff-row label { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; }
+  #panel-developer .diff-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gold); }
+  #panel-developer .diff-sku { color: var(--gray); font-size: 12px; }
+  #panel-developer .diff-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  #panel-developer .tag-create { background: #EAF4EC; color: var(--green, #3F7D4F); }
+  #panel-developer .tag-update { background: #F0F0F0; color: var(--gray); }
+  #panel-developer .tag-reactivate { background: #FDF3E0; color: #8C6F2A; }
+  #panel-developer .tag-deactivate { background: #FBEAEA; color: var(--red, #B33A3A); }
+  #panel-developer .warn-box { border: 1px solid var(--gold); background: #FDF8EC; border-radius: 4px; padding: 14px 18px; font-size: 13px; margin-top: 20px; line-height: 1.6; }
+  #panel-developer .skip-note { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
+  #panel-developer table.cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+  #panel-developer table.cat-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  #panel-developer table.cat-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  #panel-developer table.cat-table tr.inactive td { color: var(--gray); }
+  #panel-developer .search-input { width: 100%; max-width: 320px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 3px; font-family: 'Inter', sans-serif; font-size: 13px; margin-bottom: 4px; }
+  #panel-developer .svc-toggle { position: relative; display: inline-block; width: 40px; height: 22px; vertical-align: middle; cursor: pointer; }
+  #panel-developer .svc-toggle input { opacity: 0; width: 0; height: 0; }
+  #panel-developer .svc-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; transition: background .2s; }
+  #panel-developer .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  #panel-developer .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
+  #panel-developer .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
+  #panel-developer .svc-toggle input:disabled + .svc-toggle-track { opacity: .5; cursor: not-allowed; }
+  #panel-developer .tpl-svc-row { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; }
+  #panel-developer .tpl-svc-row:last-of-type { border-bottom: none; }
+  #panel-developer .tpl-svc-cat { color: var(--gold-dk); font-weight: 600; }
+  #panel-developer .svc-cat-body { display: none; padding: 4px 16px 14px; background: var(--bg); }
+  #panel-developer .svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  #panel-developer .svc-row:last-child { border-bottom: none; }
+  #panel-developer .svc-row-name { font-size: 13px; }
+  #panel-developer .svc-row-name .svc-row-sub { color: var(--gray); }
+  #panel-developer .svc-row-inactive { opacity: .45; }
+  #panel-developer .svc-row-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  #panel-developer .svc-row-actions button { font-size: 11px; padding: 3px 10px; border-radius: 3px; border: 1px solid var(--border); background: var(--white); cursor: pointer; }
+  #panel-developer .svc-row-actions button:hover { border-color: var(--black); }
+  #panel-developer .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  #panel-developer .modal-box { background: var(--white); border-radius: 6px; padding: 28px; max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  #panel-developer .modal-box h3 { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; margin-bottom: 18px; }
+  #panel-developer table.staff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #panel-developer table.staff-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  #panel-developer table.staff-table td.role-cell { color: var(--gray); }
+  #panel-developer table.staff-table th { padding: 8px; text-align: left; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
+  #panel-developer table.staff-table input[type=number] { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px; font-family: inherit; }
+  #panel-developer .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--black); color: var(--white); padding: 12px 22px; border-radius: 4px;
+      font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 300;
+    }
+  #panel-developer .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #panel-developer .tab-bar { background: var(--white); border-bottom: 1px solid var(--border); display: flex; padding: 0 40px; gap: 0; overflow-x: auto; }
+  #panel-developer .tab { padding: 16px 24px; font-size: 13px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; border: none; background: none; color: var(--gray); border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
+  #panel-developer .tab.active { color: var(--black); border-bottom-color: var(--gold); }
+  @media (max-width: 768px) {
+    #panel-developer .tab-bar { padding: 0 16px; }
+    #panel-developer .wrap { padding: 24px 16px; }
+    #panel-developer .field-row { grid-template-columns: 1fr; }
+  }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -885,6 +1028,464 @@
   <div id="rc-list"><p class="empty-note">Loading…</p></div>
 </div>
 
+<!-- DEVELOPER -->
+<div class="panel" id="panel-developer">
+<div id="loading-wrap" class="stub-wrap">
+  <p class="empty-note">Loading…</p>
+</div>
+
+<div id="denied-wrap" class="stub-wrap" style="display:none">
+  <div class="stub-icon">&#128274;</div>
+  <h1>No access</h1>
+  <p>Your account doesn't have a role assigned for this page. Ask a Developer to add you in Staff &amp; Roles.</p>
+</div>
+
+<div id="content-wrap" class="wrap" style="display:none">
+  <h1 class="page-title">Developer</h1>
+  <p class="role-note" id="role-note"></p>
+
+  <div class="dev-layout">
+    <div class="dev-sidebar" id="dev-sidebar">
+      <div class="dev-side-item active" data-cat="services" onclick="switchDevCategory('services')">Services</div>
+      <div class="dev-side-item" data-cat="templates" onclick="switchDevCategory('templates')">Templates</div>
+      <div class="dev-side-item" data-cat="holidays" onclick="switchDevCategory('holidays')">Holidays</div>
+      <div class="dev-side-item" data-cat="customers" onclick="switchDevCategory('customers')">Customers</div>
+      <div class="dev-side-item" data-cat="reports" onclick="switchDevCategory('reports')">Reports</div>
+      <div class="dev-side-item" data-cat="settings" onclick="switchDevCategory('settings')">Settings</div>
+    </div>
+    <div class="dev-content" id="dev-content">
+
+  <section id="import-section" data-category="services" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Import from QuickBooks</div>
+        <div class="order-desc">Upload the Products/Services report and update the catalog by SKU.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
+          100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
+          Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
+          list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
+          never edited by hand here.
+        </p>
+        <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
+        <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div id="catalog-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="browse-section" data-category="services">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Service Catalog</div>
+        <div class="order-desc">Every active and inactive service, with price and SKU — search and toggle them here.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="catalog-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" id="browse-sub" style="margin-top:16px">Loading…</p>
+        <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
+        <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="templates-section" data-category="templates" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Client &amp; Office Templates</div>
+        <div class="order-desc">Every template saved by clients, plus office-made ones. Mark any as Public so every client can see and use it.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin:16px 0">
+          <button type="button" class="btn btn-gold" onclick="startNewOfficeTemplate()">+ New Office Template</button>
+        </div>
+        <div id="tpl-admin-table-wrap"><p class="empty-note">Loading templates…</p></div>
+      </div>
+    </div>
+
+    <div class="order-card" id="tpl-admin-editor-card" style="display:none">
+      <div class="order-card-header">
+        <div><div class="order-id" id="tpl-admin-editor-title">New Office Template</div>
+        <div class="order-desc">Office templates start Private — publish them from the table once they look right.</div></div>
+      </div>
+      <div class="tpl-editor-body" style="display:block">
+        <div style="margin-top:16px;margin-bottom:24px;max-width:420px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Template name</label>
+          <input type="text" id="tpl-admin-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
+        </div>
+        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
+          <button type="button" class="active" data-div="Janitorial" onclick="tplAdminSelectDiv('Janitorial', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Janitorial</button>
+          <button type="button" data-div="Renovations" onclick="tplAdminSelectDiv('Renovations', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Renovations</button>
+          <button type="button" data-div="Exteriors" onclick="tplAdminSelectDiv('Exteriors', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Exteriors</button>
+        </div>
+        <div id="tpl-admin-picker"></div>
+        <div style="margin-top:20px;display:flex;gap:10px">
+          <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
+          <button type="button" class="btn btn-outline" onclick="closeOfficeTemplateEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="holidays-section" data-category="holidays" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Holidays</div>
+        <div class="order-desc">The list every client picks from in their Profile. Add one here and it becomes an option for everyone — a client still chooses for themselves whether they're open or closed.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin:16px 0">
+          <button type="button" class="btn btn-outline" onclick="seedStandardHolidays()">Load standard US holidays</button>
+          <button type="button" class="btn btn-gold" onclick="startNewHoliday()">+ Add Holiday</button>
+        </div>
+        <div id="holidays-table-wrap"><p class="empty-note">Loading holidays…</p></div>
+      </div>
+    </div>
+
+    <div class="order-card" id="holiday-editor-card" style="display:none">
+      <div class="order-card-header">
+        <div><div class="order-id" id="holiday-editor-title">New Holiday</div>
+        <div class="order-desc">Most US holidays don't fall on a fixed date every year — pick whichever kind this one is.</div></div>
+      </div>
+      <div class="tpl-editor-body" style="display:block">
+        <div style="margin-top:16px;margin-bottom:20px;max-width:420px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Holiday name</label>
+          <input type="text" id="hol-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
+        </div>
+        <div class="mode-toggle" id="hol-rule-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
+          <button type="button" class="active" data-rule="Fixed" onclick="holSelectRule('Fixed', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Same date every year</button>
+          <button type="button" data-rule="NthWeekday" onclick="holSelectRule('NthWeekday', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Nth weekday of a month</button>
+        </div>
+
+        <div id="hol-fixed-fields" style="display:flex;gap:16px;max-width:420px;margin-bottom:20px">
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Month</label>
+            <select id="hol-fixed-month" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Day</label>
+            <input type="number" id="hol-fixed-day" min="1" max="31" value="1" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit"></div>
+        </div>
+
+        <div id="hol-nth-fields" style="display:none;gap:16px;max-width:600px;margin-bottom:20px">
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Which one</label>
+            <select id="hol-nth-nth" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+              <option value="4">4th</option><option value="5">Last</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Day of week</label>
+            <select id="hol-nth-weekday" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+              <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+            </select></div>
+          <div style="flex:1"><label style="display:block;font-size:11px;color:var(--gray);margin-bottom:6px">Month</label>
+            <select id="hol-nth-month" style="width:100%;padding:12px;border:1.5px solid var(--border);font-family:inherit">
+              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select></div>
+        </div>
+
+        <div style="margin-top:20px;display:flex;gap:10px">
+          <button type="button" class="btn btn-gold" onclick="saveHolidayFromEditor()">Save Holiday</button>
+          <button type="button" class="btn btn-outline" onclick="closeHolidayEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="staff-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Staff &amp; Roles</div>
+        <div class="order-desc">Who can see this page, and who can edit the service catalog.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="staff-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
+        <table class="staff-table" id="staff-table"><tbody></tbody></table>
+        <div class="btn-actions">
+          <button class="btn btn-gold" onclick="openStaffModal(null)">+ Add Staff</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="techs-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Techs &amp; Roles</div>
+        <div class="order-desc">Everyone registered on tech.gsocd.com — assign division and role.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="techs-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
+        <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
+          <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+        </div>
+        <table class="staff-table" id="techs-table"><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="times-routes-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Times and Routes</div>
+        <div class="order-desc">Arrival/departure times per stop, from photo and video timestamps — plain data, no flags or warnings. You decide what's worth a closer look.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Each gap between stops is compared against what it should realistically take (exit cushion at the last place + real driving time between those exact coordinates, via OpenStreetMap's routing — not an estimate + entry cushion at the next place, plus extra if that order needs office access) — the difference is "unexplained," not "wrong." A building with an elevator and one with stairs shouldn't be judged the same way.</p>
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:16px 0;padding:14px;background:var(--bg);border-radius:4px">
+          <div class="field-small" style="max-width:200px;margin-bottom:0"><label>Extra min. if needs office access</label>
+            <input type="number" id="tr-office-extra" min="0"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="saveTimesRoutesSettings()">Save</button>
+          <span id="tr-settings-saved" style="font-size:11px;color:#1F7A3F;display:none">Saved.</span>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <select id="tr-tech-filter" onchange="renderTimesRoutes()" style="padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+            <option value="">All employees</option>
+          </select>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadTimesRoutes()">Refresh</button>
+        </div>
+
+        <div id="times-routes-wrap"><p class="empty-note">Loading…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="service-times-section" data-category="services" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Service Times</div>
+        <div class="order-desc">How long each service takes in minutes, by level — used to estimate Scheduling.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="service-times-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+          <button class="btn btn-outline" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+        </div>
+        <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
+        <table class="staff-table" id="service-times-table">
+          <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="password-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Operations Director Password</div>
+        <div class="order-desc">The password used across Approvals, Review and Reactivate.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Used across Approvals, Review and Reactivate whenever a director-level decision is needed.</p>
+        <div class="field-row" style="max-width:440px">
+          <div class="field-group">
+            <label>New password</label>
+            <input type="text" id="new-director-password" placeholder="Leave blank to keep current">
+          </div>
+          <div class="field-group" style="display:flex;align-items:flex-end">
+            <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="reports-section" data-category="reports" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Employee Report</div>
+        <div class="order-desc">Update the field employee catalog and create tech.gsocd.com logins.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
+        <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
+        <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div style="margin-top:12px">
+          <button class="btn btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+        </div>
+        <div id="employee-result" class="result-box" style="display:none"></div>
+        <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
+        <div id="upload-history-employee"><p class="empty-note">Loading…</p></div>
+      </div>
+    </div>
+
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Punch Report</div>
+        <div class="order-desc">Calculate real weekly hours from raw clock in/out punches.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
+        <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
+        <button class="btn btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
+        <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div style="margin-top:12px">
+          <button class="btn btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+        </div>
+        <div id="hours-result" class="result-box" style="display:none"></div>
+        <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
+        <div id="upload-history-hours"><p class="empty-note">Loading…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="all-clients-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">All Clients</div>
+        <div class="order-desc">Every client on file, same view as the import preview — read only.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="all-clients-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div id="all-clients-table" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="bulk-clients-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Bulk Import Clients</div>
+        <div class="order-desc">Upload a client list from QuickBooks — only creates the ones that don't exist yet.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
+        <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
+        <button class="btn" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
+        <span id="bulk-clients-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div id="bulk-clients-preview" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="bulk-hours-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Bulk Set Office Hours</div>
+        <div class="order-desc">Give every client's primary address the same default hours — for whoever came in blank from the last import.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">This overwrites the primary address hours for every client — including ones who already set their own. Buildings are never touched here.</p>
+        <div style="display:flex;gap:10px;justify-content:space-between;margin-bottom:14px;max-width:320px" id="bulk-hours-daycells">
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Mon<input type="checkbox" id="bh-monOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Tue<input type="checkbox" id="bh-tueOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Wed<input type="checkbox" id="bh-wedOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Thu<input type="checkbox" id="bh-thuOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Fri<input type="checkbox" id="bh-friOpen" checked></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Sat<input type="checkbox" id="bh-satOpen"></label>
+          <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">Sun<input type="checkbox" id="bh-sunOpen"></label>
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:16px">
+          <div class="field-small" style="max-width:150px"><label>Opens at</label><div id="bh-open-field"></div></div>
+          <div class="field-small" style="max-width:150px"><label>Closes at</label><div id="bh-close-field"></div></div>
+        </div>
+        <button class="btn btn-gold" onclick="startBulkHours()">Apply to All Clients</button>
+        <div id="bulk-hours-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="geocode-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Scheduling — Building Coordinates</div>
+        <div class="order-desc">Fill in the location of old buildings that don't have it yet.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">One-time backfill: resolves Latitude/Longitude (via Nominatim/OpenStreetMap, free) for any saved building that doesn't have them yet. New buildings created from now on geocode themselves automatically — this is only for the ones that already existed before that.</p>
+        <div class="btn-actions">
+          <button class="btn btn-gold" id="geocode-btn" onclick="runGeocodeBackfill()">Run Backfill</button>
+        </div>
+        <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="debug-section" data-category="settings" style="display:none">
+    <div class="order-card" style="border-color:#B33A3A">
+      <div class="order-card-header" onclick="toggleDevCard(this)" style="background:#FFF5F5">
+        <div><div class="order-id" style="color:#B33A3A">⚠ Debug — Wipe Test Data</div>
+        <div class="order-desc">Deletes all test data. Testing only, never production.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none;background:#FFF5F5">
+        <p class="section-sub" style="margin-top:16px">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
+        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
+        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
+        <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
+  </section>
+
+    </div>
+  </div>
+</div>
+
+<div id="staff-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="staff-modal-title">Add Staff</h3>
+    <input type="hidden" id="staff-id">
+    <div class="field-group">
+      <label>Email (Microsoft account)</label>
+      <input type="text" id="staff-email" placeholder="name@company.com">
+    </div>
+    <div class="field-group">
+      <label>Role</label>
+      <select id="staff-role">
+        <option value="Staff">Staff — view catalog only</option>
+        <option value="Director">Director — view + edit catalog</option>
+        <option value="Developer">Developer — full access</option>
+      </select>
+    </div>
+    <div class="btn-actions">
+      <button class="btn btn-gold" onclick="saveStaff()">Save</button>
+      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
+      <button class="btn btn-danger" id="staff-delete-btn" style="display:none;margin-left:auto" onclick="deleteStaffFromModal()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="device-qr-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="text-align:center">
+    <h3 id="device-qr-title">Set Up Phone</h3>
+    <p style="font-size:12px;color:var(--gray);margin:10px 0 18px">Open the camera on <b id="device-qr-name-inline"></b>'s phone and scan this — do this together, in the office.</p>
+    <div id="device-qr-canvas" style="display:flex;justify-content:center;margin-bottom:16px"></div>
+    <p style="font-size:11px;color:var(--gray);margin-bottom:16px">This code only works once. Generating a new one for the same person turns off their old phone automatically.</p>
+    <div class="btn-actions" style="justify-content:center">
+      <button class="btn btn-outline" onclick="closeDeviceQRModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
 <!-- SCHEDULE -->
 <div class="panel" id="panel-schedule">
 
@@ -1027,7 +1628,7 @@ async function initAuth() {
     { label: 'Recurring', dataView: 'recurring', onclick: "showTab('recurring')", active: initialAdminTab === 'recurring' },
     { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
-    { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
+    { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
     checkDeveloperAccess();
@@ -1054,7 +1655,7 @@ async function initAuth() {
     { label: 'Recurring', dataView: 'recurring', onclick: "showTab('recurring')", active: initialAdminTab === 'recurring' },
     { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
-    { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
+    { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
   checkDeveloperAccess();
@@ -1239,6 +1840,7 @@ async function loadAll() {
     renderCreateClientList();
     renderGalleryPanel();
     loadInitialData();
+    init();
     GSNavPremium.refresh('gsNav');
   } catch (e) {
     showToast('Error loading data: ' + e.message);
@@ -3816,6 +4418,1858 @@ function renderGalleryPanel() {
     addAssignRow();
   }
 
+
+/* ============================================================
+   PANEL DEVELOPER -- todo el JS de aqui abajo viene de
+   developer.html (su propia pagina antes de unirla aqui).
+
+   Renombres hechos para evitar choques reales (nombres iguales,
+   comportamiento distinto):
+   - api(action, extra) -> devApi(action, extra): la de admin.html
+     es generica (path+opts hacia cualquier endpoint); esta SIEMPRE
+     llama a /developer-admin con una action. Compartian nombre por
+     accidente, no por ser lo mismo.
+   - refreshAllClients() -> refreshDevClientsTable(): la de
+     admin.html refresca allClients (la lista de ordenes-admin); esta
+     limpia el cache propio de la tabla "All Clients" de Developer.
+   - officeClockFieldHtml(...) -> devOfficeClockFieldHtml(...): firma
+     de parametros distinta a la de admin.html (esta trae
+     onDoneFnName/rowId para un callback propio).
+
+   Se quitaron (identicas o mejores en admin.html, sin renombrar):
+   esc, showToast, signOut, adminUser, fmtDateTime,
+   buildOfficeHoursString, parseOfficeHoursRange.
+
+   init() (el control de acceso por rol de Developer) se llama desde
+   loadAll(), igual que loadInitialData() de Recurring.
+============================================================ */
+  let myRole = null;
+  let allStaff = [];
+  let allCatalogRows = [];
+  let allTemplates = [];
+  let allHolidays = [];
+  let canEditCatalog = false;
+  let currentPreview = null;   // { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized }
+  let currentRows = null;      // filas validas que se mandaron a preview, para reusarlas en apply si hiciera falta
+
+  /* esc, showToast, signOut, adminUser ya existen en admin.html
+     (identicos o mejores) -- no se duplican aqui. devApi() SI se
+     renombro a devApi() -- la version de admin.html es generica
+     (path+opts), pero esta SIEMPRE llama a /developer-admin con una
+     action, son cosas distintas que compartian nombre por accidente. */
+
+  async function init() {
+    try {
+      const res = await devApi('whoami');
+      myRole = res.role;
+    } catch (e) {
+      myRole = null;
+    }
+    document.getElementById('loading-wrap').style.display = 'none';
+    if (!myRole) {
+      document.getElementById('denied-wrap').style.display = 'block';
+      return;
+    }
+    document.getElementById('content-wrap').style.display = 'block';
+    document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
+
+    const canEdit = myRole === 'Director' || myRole === 'Developer';
+    canEditCatalog = canEdit;
+    document.getElementById('browse-section').classList.add('role-eligible');
+    if (canEdit) {
+      document.getElementById('import-section').classList.add('role-eligible');
+      document.getElementById('bulk-clients-section').classList.add('role-eligible');
+      document.getElementById('bulk-hours-section').classList.add('role-eligible');
+      document.getElementById('all-clients-section').classList.add('role-eligible');
+      document.getElementById('reports-section').classList.add('role-eligible');
+      document.getElementById('templates-section').classList.add('role-eligible');
+      document.getElementById('holidays-section').classList.add('role-eligible');
+    }
+
+    if (myRole === 'Developer') {
+      ['staff-section', 'techs-section', 'times-routes-section', 'service-times-section', 'password-section', 'geocode-section', 'debug-section']
+        .forEach(id => document.getElementById(id).classList.add('role-eligible'));
+      loadStaff();
+      loadTechs();
+      loadServiceTimes();
+    }
+
+    loadCatalogBrowse();
+    if (canEdit) { loadAllTemplates(); loadHolidays(); }
+    switchDevCategory('services');
+  }
+
+  /* Menu lateral -- solo se ve una categoria a la vez. Una seccion
+     se muestra si su categoria coincide CON la seleccionada Y es
+     elegible para el rol de quien esta viendo la pagina (las 2
+     condiciones, no solo una). */
+  function switchDevCategory(cat) {
+    document.querySelectorAll('.dev-side-item').forEach(item => item.classList.toggle('active', item.dataset.cat === cat));
+    document.querySelectorAll('#dev-content > section').forEach(sec => {
+      const matches = sec.dataset.category === cat;
+      const eligible = sec.classList.contains('role-eligible');
+      sec.style.display = (matches && eligible) ? 'block' : 'none';
+    });
+  }
+
+  /* Acordeon -- una sola tarjeta abierta a la vez, mismo
+     comportamiento que Approvals/Review. Como switchDevCategory ya
+     oculta las secciones de otras categorias, cerrar TODAS las
+     tarjetas del documento al abrir una es suficiente -- las de
+     otras categorias estan ocultas de todos modos. */
+  function toggleDevCard(headerEl) {
+    const body = headerEl.nextElementSibling;
+    const wasOpen = body.style.display === 'block';
+    document.querySelectorAll('#dev-content .appr-body').forEach(b => { b.style.display = 'none'; });
+    document.querySelectorAll('#dev-content .dev-chevron').forEach(c => { c.textContent = '▸'; });
+    if (!wasOpen) {
+      body.style.display = 'block';
+      headerEl.querySelector('.dev-chevron').textContent = '▾';
+      if (body.querySelector('#upload-history-employee') || body.querySelector('#upload-history-hours')) loadUploadHistory();
+      if (body.querySelector('#all-clients-table')) loadAllClients();
+      if (body.querySelector('#times-routes-wrap') && !body.dataset.trLoaded) { body.dataset.trLoaded = 'true'; loadTimesRoutes(); }
+    }
+  }
+
+  /* ============================================================
+     CATALOGO (ServicesCatalog) -- import de QuickBooks + tabla con
+     toggle on/off. Antes vivia en una pagina aparte (service-catalog.html,
+     ya eliminada); se movio directo a Developer, y el selector viejo
+     por-cuarto (Category/ServiceName/SubOption, con Add/Edit/Delete a
+     mano) se retiro por completo -- ya no se usa.
+  ============================================================ */
+  async function loadCatalogBrowse() {
+    try {
+      const res = await devApi('list-catalog');
+      allCatalogRows = res.services || [];
+      const activeCount = allCatalogRows.filter(s => s.active).length;
+      document.getElementById('browse-sub').textContent =
+        allCatalogRows.length
+          ? activeCount + ' active of ' + allCatalogRows.length + ' total services in ServicesCatalog.'
+          : 'Nothing imported yet -- upload a QuickBooks report above to get started.';
+      document.getElementById('catalog-count-badge').textContent = allCatalogRows.length ? activeCount + ' active' : '';
+      renderCatalogTable();
+    } catch (e) {
+      document.getElementById('catalog-table-wrap').innerHTML =
+        '<p class="empty-note">Could not load the catalog: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function toggleCatalogActive(id, active) {
+    const row = allCatalogRows.find(r => r.id === id);
+    const prevActive = row ? row.active : !active;
+    if (row) row.active = active;
+    try {
+      await devApi('toggle-catalog-active', { id, active });
+      renderCatalogTable();
+    } catch (e) {
+      if (row) row.active = prevActive;
+      renderCatalogTable();
+      showToast('Could not update: ' + e.message);
+    }
+  }
+
+  function renderCatalogTable() {
+    const wrap = document.getElementById('catalog-table-wrap');
+    const q = (document.getElementById('catalog-search').value || '').trim().toLowerCase();
+    let rows = allCatalogRows.slice().sort((a, b) =>
+      a.division.localeCompare(b.division) || a.propertyType.localeCompare(b.propertyType) || a.serviceName.localeCompare(b.serviceName));
+    if (q) {
+      rows = rows.filter(r =>
+        r.serviceName.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q));
+    }
+    if (!rows.length) {
+      wrap.innerHTML = '<p class="empty-note">No services match.</p>';
+      return;
+    }
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
+        '<td>' + esc(r.serviceName) + '</td>' +
+        '<td class="diff-sku">' + esc(r.sku) + '</td>' +
+        '<td>' + esc(r.division) + '</td>' +
+        '<td>' + esc(r.propertyType) + '</td>' +
+        '<td><input type="text" list="catalog-category-options" value="' + esc(r.category) + '" placeholder="Uncategorized" ' +
+          'style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;font-family:inherit" ' +
+          'onchange="saveCatalogCategory(\'' + r.id + '\', this.value)"></td>' +
+        '<td>' + (r.price != null ? '$' + Number(r.price).toFixed(2) : '\u2014') + '</td>' +
+        '<td><label class="svc-toggle">' +
+          '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
+          ' onchange="toggleCatalogActive(\'' + r.id + '\', this.checked)">' +
+          '<span class="svc-toggle-track"></span>' +
+        '</label></td>' +
+        '</tr>').join('') +
+      '</tbody></table>' +
+      '<datalist id="catalog-category-options">' +
+        [...new Set(allCatalogRows.map(r => r.category).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '">').join('') +
+      '</datalist>';
+  }
+
+  async function saveCatalogCategory(id, category) {
+    try {
+      await devApi('update-catalog-category', { id, category });
+      const r = allCatalogRows.find(x => x.id === id);
+      if (r) r.category = category;
+    } catch (e) {
+      showToast('Could not save category: ' + e.message);
+      renderCatalogTable();
+    }
+  }
+
+  /* ============================================================
+     TEMPLATES -- tabla general + picker para crear/editar templates
+     de oficina. Reusa allCatalogRows (ya cargado por
+     loadCatalogBrowse) como fuente del catalogo, en vez de pedirlo
+     otra vez.
+  ============================================================ */
+  let tplAdminCurrentDiv = 'Janitorial';
+  let tplAdminPropertyType = 'Commercial';
+  let tplAdminSelected = {};
+  let tplAdminSvcLevel = {};
+  let tplAdminEditingId = null;
+
+  function tplAdminSvcKey(p, n) { return p + '|' + n; }
+
+  async function loadAllTemplates() {
+    try {
+      const res = await devApi('list-all-templates');
+      allTemplates = res.templates || [];
+      renderTemplatesAdminTable();
+    } catch (e) {
+      document.getElementById('tpl-admin-table-wrap').innerHTML =
+        '<p class="empty-note">Could not load templates: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderTemplatesAdminTable() {
+    const wrap = document.getElementById('tpl-admin-table-wrap');
+    if (!allTemplates.length) {
+      wrap.innerHTML = '<p class="empty-note">No templates saved yet.</p>';
+      return;
+    }
+    const rows = allTemplates.slice().sort((a, b) =>
+      a.clientName.localeCompare(b.clientName) || a.name.localeCompare(b.name));
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Client</th><th>Template</th><th>Division</th><th>Services</th><th>Public</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map(t => '<tr>' +
+        '<td>' + esc(t.clientName) + '</td>' +
+        '<td>' + esc(t.name) + '</td>' +
+        '<td>' + esc(t.division) + '</td>' +
+        '<td>' + t.services.length + '</td>' +
+        '<td><label class="svc-toggle">' +
+          '<input type="checkbox" ' + (t.isPublic ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
+          ' onchange="toggleTemplatePublic(\'' + t.id + '\', this.checked)">' +
+          '<span class="svc-toggle-track"></span>' +
+        '</label></td>' +
+        '<td style="white-space:nowrap">' +
+          (canEditCatalog
+            ? (t.isOffice
+                ? '<button type="button" class="btn btn-outline btn-sm" onclick="editOfficeTemplate(\'' + t.id + '\')">Edit</button>'
+                : '<button type="button" class="btn btn-outline btn-sm" onclick="copyTemplateToOffice(\'' + t.id + '\')">Copy to office</button>')
+              + ' <button type="button" class="btn btn-danger btn-sm" onclick="deleteTemplateAdmin(\'' + t.id + '\')">Delete</button>'
+            : '') +
+        '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  async function toggleTemplatePublic(id, isPublic) {
+    const row = allTemplates.find(t => t.id === id);
+    const prev = row ? row.isPublic : !isPublic;
+    if (row) row.isPublic = isPublic;
+    try {
+      await devApi('toggle-template-public', { id, isPublic });
+    } catch (e) {
+      if (row) row.isPublic = prev;
+      renderTemplatesAdminTable();
+      showToast('Could not update: ' + e.message);
+    }
+  }
+
+  async function copyTemplateToOffice(id) {
+    try {
+      await devApi('copy-template-to-office', { id });
+      showToast('Copied to office templates -- edit it below before publishing.');
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not copy: ' + e.message);
+    }
+  }
+
+  async function deleteTemplateAdmin(id) {
+    if (!confirm('Delete this template? This cannot be undone.')) return;
+    try {
+      await devApi('delete-template-admin', { id });
+      showToast('Template deleted.');
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not delete: ' + e.message);
+    }
+  }
+
+  /* ===== Holidays -- lista maestra que cada cliente elige en su
+     propio Profile (ver ordersgsocd.com). Se guarda como REGLA (fecha
+     fija, o "Nth dia-de-semana de un mes"), no como fecha -- la mayoria
+     de los festivos de EEUU no caen en el mismo numero cada año. */
+  const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const NTH_NAMES = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: 'Last' };
+
+  function holFmtDate(isoDateOnly) {
+    const d = new Date(isoDateOnly + 'T12:00:00Z');
+    return MONTH_NAMES[d.getUTCMonth() + 1] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+  }
+
+  function holidayRuleText(h) {
+    if (h.ruleType === 'Fixed') return MONTH_NAMES[h.month] + ' ' + h.day + ', every year';
+    return NTH_NAMES[h.nth] + ' ' + WEEKDAY_NAMES[h.weekday] + ' of ' + MONTH_NAMES[h.month];
+  }
+
+  async function loadHolidays() {
+    try {
+      const res = await devApi('list-holidays');
+      allHolidays = res.holidays || [];
+      renderHolidaysTable();
+    } catch (e) {
+      document.getElementById('holidays-table-wrap').innerHTML =
+        '<p class="empty-note">Could not load holidays: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function seedStandardHolidays() {
+    try {
+      const res = await devApi('seed-standard-holidays');
+      showToast(res.seeded ? 'Added ' + res.seeded + ' holidays.' + (res.skipped ? ' (' + res.skipped + ' already existed.)' : '') : 'All 11 were already there — nothing to add.');
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not load standard holidays: ' + e.message);
+    }
+  }
+
+  function renderHolidaysTable() {
+    const wrap = document.getElementById('holidays-table-wrap');
+    if (!allHolidays.length) {
+      wrap.innerHTML = '<p class="empty-note">No holidays added yet.</p>';
+      return;
+    }
+    wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
+      '<th>Holiday</th><th>Rule</th><th>This year</th><th></th>' +
+      '</tr></thead><tbody>' +
+      allHolidays.map(h => '<tr>' +
+        '<td>' + esc(h.name) + '</td>' +
+        '<td>' + esc(holidayRuleText(h)) + '</td>' +
+        '<td>' + esc(holFmtDate(h.date)) + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="editHoliday(\'' + h.id + '\')">Edit</button> ' +
+          '<button type="button" class="btn btn-danger btn-sm" onclick="deleteHoliday(\'' + h.id + '\')">Delete</button>' +
+        '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  async function deleteHoliday(id) {
+    if (!confirm('Delete this holiday? Any client who already picked it will lose that choice.')) return;
+    try {
+      await devApi('delete-holiday', { id });
+      showToast('Holiday deleted.');
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not delete: ' + e.message);
+    }
+  }
+
+  let holEditingId = null;
+
+  function startNewHoliday() {
+    holEditingId = null;
+    document.getElementById('holiday-editor-title').textContent = 'New Holiday';
+    document.getElementById('hol-name').value = '';
+    document.getElementById('hol-fixed-month').value = '1';
+    document.getElementById('hol-fixed-day').value = '1';
+    document.getElementById('hol-nth-nth').value = '1';
+    document.getElementById('hol-nth-weekday').value = '1';
+    document.getElementById('hol-nth-month').value = '1';
+    holSelectRule('Fixed', document.querySelector('#hol-rule-toggle button[data-rule="Fixed"]'));
+    document.getElementById('holiday-editor-card').style.display = 'block';
+    document.getElementById('holiday-editor-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function editHoliday(id) {
+    const h = allHolidays.find(x => x.id === id);
+    if (!h) return;
+    holEditingId = id;
+    document.getElementById('holiday-editor-title').textContent = 'Edit ' + h.name;
+    document.getElementById('hol-name').value = h.name;
+    document.getElementById('hol-fixed-month').value = h.ruleType === 'Fixed' ? h.month : 1;
+    document.getElementById('hol-fixed-day').value = h.ruleType === 'Fixed' ? h.day : 1;
+    document.getElementById('hol-nth-nth').value = h.ruleType === 'NthWeekday' ? h.nth : 1;
+    document.getElementById('hol-nth-weekday').value = h.ruleType === 'NthWeekday' ? h.weekday : 1;
+    document.getElementById('hol-nth-month').value = h.ruleType === 'NthWeekday' ? h.month : 1;
+    holSelectRule(h.ruleType, document.querySelector('#hol-rule-toggle button[data-rule="' + h.ruleType + '"]'));
+    document.getElementById('holiday-editor-card').style.display = 'block';
+    document.getElementById('holiday-editor-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function closeHolidayEditor() {
+    document.getElementById('holiday-editor-card').style.display = 'none';
+    holEditingId = null;
+  }
+
+  function holSelectRule(rule, el) {
+    document.querySelectorAll('#hol-rule-toggle button').forEach(b => {
+      const active = b === el;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('hol-fixed-fields').style.display = rule === 'Fixed' ? 'flex' : 'none';
+    document.getElementById('hol-nth-fields').style.display = rule === 'NthWeekday' ? 'flex' : 'none';
+    document.getElementById('hol-fixed-fields').dataset.selected = rule === 'Fixed' ? '1' : '0';
+  }
+
+  async function saveHolidayFromEditor() {
+    const name = document.getElementById('hol-name').value.trim();
+    if (!name) { showToast('Please enter a holiday name.'); return; }
+    const ruleType = document.getElementById('hol-fixed-fields').style.display !== 'none' ? 'Fixed' : 'NthWeekday';
+    const holiday = ruleType === 'Fixed'
+      ? { id: holEditingId, name, ruleType, month: parseInt(document.getElementById('hol-fixed-month').value, 10), day: parseInt(document.getElementById('hol-fixed-day').value, 10) }
+      : { id: holEditingId, name, ruleType, nth: parseInt(document.getElementById('hol-nth-nth').value, 10), weekday: parseInt(document.getElementById('hol-nth-weekday').value, 10), month: parseInt(document.getElementById('hol-nth-month').value, 10) };
+    try {
+      await devApi('save-holiday', { holiday });
+      showToast('Holiday saved.');
+      closeHolidayEditor();
+      await loadHolidays();
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
+  }
+
+  /* ===== Bulk Set Office Hours -- confirmado con el usuario: SI se
+     sobreescribe todo, pero primero avisa quien ya tenia algo puesto
+     por su cuenta, para que Developer decida con esa informacion. */
+  document.getElementById('bh-open-field').innerHTML = GSDateTimePicker.timeHtml('bh-openTime', '09:00');
+  document.getElementById('bh-close-field').innerHTML = GSDateTimePicker.timeHtml('bh-closeTime', '17:00');
+
+  function readBulkHoursForm() {
+    const to12 = (hhmm) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const isPM = h >= 12; let h12 = h % 12; if (h12 === 0) h12 = 12;
+      return h12 + ':' + String(m).padStart(2, '0') + ' ' + (isPM ? 'PM' : 'AM');
+    };
+    const openEl = document.getElementById('bh-openTime'), closeEl = document.getElementById('bh-closeTime');
+    return {
+      officeHours: to12(openEl.value || '09:00') + ' - ' + to12(closeEl.value || '17:00'),
+      monOpen: document.getElementById('bh-monOpen').checked, tueOpen: document.getElementById('bh-tueOpen').checked,
+      wedOpen: document.getElementById('bh-wedOpen').checked, thuOpen: document.getElementById('bh-thuOpen').checked,
+      friOpen: document.getElementById('bh-friOpen').checked, satOpen: document.getElementById('bh-satOpen').checked,
+      sunOpen: document.getElementById('bh-sunOpen').checked
+    };
+  }
+
+  async function startBulkHours() {
+    const resultEl = document.getElementById('bulk-hours-result');
+    resultEl.innerHTML = '<p class="empty-note">Checking clients…</p>';
+    try {
+      const res = await devApi('preview-bulk-office-hours');
+      let msg = 'This will set the same hours on all ' + res.totalClients + ' clients.';
+      if (res.alreadySetCount) {
+        msg += ' ' + res.alreadySetCount + ' of them already have hours set: ' +
+          res.alreadySetNames.slice(0, 8).join(', ') + (res.alreadySetNames.length > 8 ? ', and ' + (res.alreadySetNames.length - 8) + ' more' : '') +
+          '. Overwrite those too?';
+      } else {
+        msg += ' None of them have hours set yet.';
+      }
+      resultEl.innerHTML = '<p style="margin-bottom:10px">' + esc(msg) + '</p>' +
+        '<button class="btn btn-gold btn-sm" onclick="applyBulkHoursConfirmed()">Yes, apply to all</button> ' +
+        '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulk-hours-result\').innerHTML=\'\'">Cancel</button>';
+    } catch (e) {
+      resultEl.innerHTML = '<p class="empty-note">Could not check clients: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function applyBulkHoursConfirmed() {
+    const resultEl = document.getElementById('bulk-hours-result');
+    resultEl.innerHTML = '<p class="empty-note">Applying…</p>';
+    try {
+      const hours = readBulkHoursForm();
+      const res = await devApi('apply-bulk-office-hours', { hours });
+      resultEl.innerHTML = '<p style="color:var(--gold-dk)">Done — updated ' + res.updated + ' clients' + (res.failed ? ' (' + res.failed + ' failed)' : '') + '.</p>';
+      showToast('Office hours applied to ' + res.updated + ' clients.');
+    } catch (e) {
+      resultEl.innerHTML = '<p class="empty-note">Could not apply: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  /* ===== Picker (mismo patron ya usado en templates.html) ===== */
+  function tplAdminActiveCatalog() {
+    return allCatalogRows.filter(r => r.active);
+  }
+
+  function startNewOfficeTemplate() {
+    tplAdminEditingId = null;
+    document.getElementById('tpl-admin-editor-title').textContent = 'New Office Template';
+    document.getElementById('tpl-admin-name').value = '';
+    tplAdminCurrentDiv = 'Janitorial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b.dataset.div === tplAdminCurrentDiv;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('tpl-admin-editor-card').style.display = 'block';
+    tplAdminRenderPicker();
+    document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function editOfficeTemplate(id) {
+    const t = allTemplates.find(x => x.id === id);
+    if (!t) return;
+    tplAdminEditingId = id;
+    document.getElementById('tpl-admin-editor-title').textContent = 'Editing: ' + t.name;
+    document.getElementById('tpl-admin-name').value = t.name;
+    tplAdminCurrentDiv = t.division || 'Janitorial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    (t.services || []).forEach(s => {
+      const cat = s.Category || 'Commercial';
+      if (!tplAdminSelected[cat]) tplAdminSelected[cat] = {};
+      tplAdminSelected[cat][s.ServiceName] = s.SubOption;
+      if (s.Level) tplAdminSvcLevel[tplAdminSvcKey(cat, s.ServiceName)] = s.Level;
+    });
+    const firstCat = Object.keys(tplAdminSelected)[0];
+    if (firstCat) tplAdminPropertyType = firstCat;
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b.dataset.div === tplAdminCurrentDiv;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    document.getElementById('tpl-admin-editor-card').style.display = 'block';
+    tplAdminRenderPicker();
+    document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closeOfficeTemplateEditor() {
+    document.getElementById('tpl-admin-editor-card').style.display = 'none';
+    tplAdminEditingId = null;
+  }
+
+  function tplAdminSelectDiv(div, el) {
+    tplAdminCurrentDiv = div;
+    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
+      const active = b === el;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--gold)' : 'var(--white)';
+      b.style.color = active ? 'var(--black)' : 'var(--gray)';
+    });
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    tplAdminRenderPicker();
+  }
+
+  function tplAdminRenderPicker() {
+    const container = document.getElementById('tpl-admin-picker');
+    const catalog = tplAdminActiveCatalog();
+    if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
+    GSServicePicker.mount('tpl-admin', container, {
+      catalog: catalog,
+      division: tplAdminCurrentDiv,
+      mode: tplAdminCurrentDiv === 'Janitorial' ? 'levels' : 'toggle',
+      filterMode: 'selected-plus-search',
+      groupByCategory: true,
+      propertyType: tplAdminPropertyType,
+      initialSelected: tplAdminSelected,
+      initialLevels: tplAdminSvcLevel,
+      onChange: function (sel, lvl, propType) {
+        tplAdminSelected = sel;
+        tplAdminSvcLevel = lvl;
+        tplAdminPropertyType = propType;
+      }
+    });
+  }
+
+  function tplAdminBuildServicesArray() {
+    const out = [];
+    Object.entries(tplAdminSelected).forEach(([propType, svcs]) => {
+      Object.entries(svcs).forEach(([svcName, sku]) => {
+        out.push({
+          Category:    propType,
+          ServiceName: svcName,
+          SubOption:   sku,
+          Division:    tplAdminCurrentDiv,
+          Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || ''
+        });
+      });
+    });
+    return out;
+  }
+
+  async function saveOfficeTemplate() {
+    const name = document.getElementById('tpl-admin-name').value.trim();
+    const services = tplAdminBuildServicesArray();
+    if (!name) { showToast('Please give this template a name.'); return; }
+    if (!services.length) { showToast('Select at least one service first.'); return; }
+    try {
+      await devApi('save-office-template', { templateId: tplAdminEditingId || undefined, name, division: tplAdminCurrentDiv, services });
+      showToast(tplAdminEditingId ? 'Template updated.' : 'Template saved -- still Private, publish it from the table when ready.');
+      closeOfficeTemplateEditor();
+      await loadAllTemplates();
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
+  }
+
+  function onCatalogFileChosen() {
+    const input = document.getElementById('catalog-file');
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('catalog-file-name').textContent = file.name;
+    currentPreview = null;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        if (!rows.length) throw new Error('File is empty.');
+
+        const headers = rows[0];
+        const colName = findCol(headers, ['product/service name', 'product', 'service name']);
+        const colSku = findCol(headers, ['sku']);
+        const colPrice = findCol(headers, ['price']);
+        const colDesc = findCol(headers, ['sales description', 'description']);
+
+        const parsed = rows.slice(1)
+          .filter(r => r && r.length)
+          .map(r => ({
+            serviceName: String((colName >= 0 ? r[colName] : '') || '').trim(),
+            sku: String((colSku >= 0 ? r[colSku] : '') || '').trim(),
+            price: colPrice >= 0 ? String(r[colPrice] || '').replace(/[^0-9.\-]/g, '') : '',
+            description: String((colDesc >= 0 ? r[colDesc] : '') || '').trim()
+          }))
+          .filter(r => r.serviceName);
+
+        if (!parsed.length) throw new Error('No usable rows found -- check the file has a "Product/Service Name" column.');
+
+        currentRows = parsed;
+        document.getElementById('catalog-preview').innerHTML = '<p class="empty-note">Comparing against the current catalog...</p>';
+        const preview = await devApi('preview-catalog-import', { rows: parsed });
+        currentPreview = preview;
+        renderCatalogPreview();
+      } catch (e) {
+        document.getElementById('catalog-preview').innerHTML =
+          '<p class="empty-note">' + esc(e.message) + '</p>';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderCatalogPreview() {
+    const p = currentPreview;
+    const box = document.getElementById('catalog-preview');
+    if (!p) { box.innerHTML = ''; return; }
+
+    const nothing = !p.toCreate.length && !p.toUpdate.length && !p.toReactivate.length && !p.toDeactivate.length;
+    let html = '';
+
+    if (p.toCreate.length) {
+      html += catalogDiffCard('New services', 'tag-create', p.toCreate, false, 'create');
+    }
+    if (p.toUpdate.length) {
+      html += catalogDiffCard('Will be updated (name, price or description changed)', 'tag-update', p.toUpdate, false, 'update');
+    }
+    if (p.toReactivate.length) {
+      html += '<div class="warn-box">These services were turned off before, and reappeared in this report. Uncheck any you don\'t want to turn back on.</div>' +
+        catalogDiffCard('Reactivate', 'tag-reactivate', p.toReactivate, true, 'reactivate');
+    }
+    if (p.toDeactivate.length) {
+      html += '<div class="warn-box">These active services did not appear anywhere in this report. Uncheck any you want to keep active anyway.</div>' +
+        catalogDiffCard('Turn off (missing from this report)', 'tag-deactivate', p.toDeactivate, true, 'deactivate');
+    }
+    if (p.skippedNoSku.length || p.skippedUnrecognized.length) {
+      html += '<p class="skip-note">' +
+        (p.skippedNoSku.length ? 'Skipped, no SKU: ' + p.skippedNoSku.map(esc).join(', ') + '. ' : '') +
+        (p.skippedUnrecognized.length ? 'Skipped, unrecognized SKU prefix: ' + p.skippedUnrecognized.map(esc).join(', ') + '.' : '') +
+        '</p>';
+    }
+    if (nothing) {
+      html += '<p class="empty-note">No changes -- this report matches the catalog already on file.</p>';
+    } else {
+      html += '<div class="btn-actions"><button class="btn btn-gold" onclick="confirmCatalogImport()">Confirm Import</button></div>';
+    }
+    html += '<div id="catalog-import-result" style="margin-top:14px;font-size:13px"></div>';
+    box.innerHTML = html;
+  }
+
+  function catalogDiffCard(title, tagClass, items, withCheckbox, kind) {
+    return '<div class="diff-card"><div class="diff-card-header">' +
+      '<span>' + esc(title) + '</span><span class="diff-count">' + items.length + '</span></div>' +
+      items.map((it, i) => '<div class="diff-row">' +
+        (withCheckbox
+          ? '<label><input type="checkbox" class="diff-check" data-kind="' + kind + '" data-idx="' + i + '" checked>' +
+            '<span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span></label>'
+          : '<span><span class="diff-tag ' + tagClass + '"></span> ' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>'
+        ) +
+        '</div>').join('') +
+      '</div>';
+  }
+
+  async function confirmCatalogImport() {
+    if (!currentPreview) return;
+    const resultBox = document.getElementById('catalog-import-result');
+    const confirmedReactivate = currentPreview.toReactivate.filter((it, i) =>
+      document.querySelector('.diff-check[data-kind="reactivate"][data-idx="' + i + '"]').checked);
+    const confirmedDeactivate = currentPreview.toDeactivate.filter((it, i) =>
+      document.querySelector('.diff-check[data-kind="deactivate"][data-idx="' + i + '"]').checked);
+
+    try {
+      const res = await devApi('apply-catalog-import', {
+        toCreate: currentPreview.toCreate,
+        toUpdate: currentPreview.toUpdate,
+        confirmedReactivate,
+        confirmedDeactivate
+      });
+      showToast('Catalog updated.');
+      resultBox.innerHTML = res.created + ' created, ' + res.updated + ' updated, ' +
+        res.reactivated + ' reactivated, ' + res.deactivated + ' turned off.';
+      document.getElementById('catalog-file').value = '';
+      document.getElementById('catalog-file-name').textContent = '';
+      currentPreview = null;
+      currentRows = null;
+      loadCatalogBrowse();
+    } catch (e) {
+      resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    }
+  }
+
+
+  /* ============================================================
+     STAFF & ROLES (solo Developer)
+  ============================================================ */
+  async function loadStaff() {
+    try {
+      const res = await devApi('list-staff');
+      allStaff = res.staff || [];
+      renderStaff();
+    } catch (e) {
+      document.getElementById('staff-table').innerHTML = '<tr><td class="empty-note">Could not load staff: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  let devAllTechs = [];
+
+  async function loadTechs() {
+    try {
+      const res = await devApi('list-techs');
+      devAllTechs = res.techs || [];
+      renderTechs();
+    } catch (e) {
+      document.getElementById('techs-table').innerHTML = '<tr><td class="empty-note">Could not load techs: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  /* ===== Acceso por QR -- confirmado con el usuario: se genera aqui
+     y se escanea EN PERSONA, con el celular del propio empleado, ahi
+     mismo en la oficina. */
+  async function startDeviceQR(techId) {
+    const t = devAllTechs.find(x => x.id === techId);
+    if (!t) return;
+    try {
+      const res = await devApi('generate-device-qr', { techId });
+      document.getElementById('device-qr-title').textContent = 'Set Up Phone — ' + t.firstName + ' ' + t.lastName;
+      document.getElementById('device-qr-name-inline').textContent = t.firstName;
+      const canvasWrap = document.getElementById('device-qr-canvas');
+      canvasWrap.innerHTML = '';
+      new QRCode(canvasWrap, { text: res.setupUrl, width: 220, height: 220 });
+      document.getElementById('device-qr-modal-overlay').style.display = 'flex';
+    } catch (e) {
+      showToast('Could not generate QR: ' + e.message);
+    }
+  }
+
+  function closeDeviceQRModal() {
+    document.getElementById('device-qr-modal-overlay').style.display = 'none';
+    loadTechs();
+  }
+
+  async function revokeDevice(techId) {
+    const t = devAllTechs.find(x => x.id === techId);
+    if (!t) return;
+    if (!confirm('Turn off phone access for ' + t.firstName + ' ' + t.lastName + '? They will need a new QR code to get back in.')) return;
+    try {
+      await devApi('revoke-device', { techId });
+      showToast('Device access turned off.');
+      await loadTechs();
+    } catch (e) {
+      showToast('Could not revoke: ' + e.message);
+    }
+  }
+
+  /* ===== Times and Routes -- puros datos, sin avisos ni acusaciones
+     (confirmado con el usuario). El color rojo en un hueco es solo
+     visual, para que salte a la vista mas rapido -- no bloquea nada
+     ni le manda ningun aviso a nadie mas. */
+  let timesRoutesData = null;
+
+  async function loadTimesRoutes() {
+    const wrap = document.getElementById('times-routes-wrap');
+    wrap.innerHTML = '<p class="empty-note">Loading…</p>';
+    try {
+      const res = await devApi('get-times-and-routes');
+      timesRoutesData = res.days || [];
+      document.getElementById('tr-office-extra').value = res.settings.officeAccessExtraMin;
+
+      const techSelect = document.getElementById('tr-tech-filter');
+      const currentPick = techSelect.value;
+      const uniqueTechs = [...new Set(timesRoutesData.map(d => d.techName))].sort();
+      techSelect.innerHTML = '<option value="">All employees</option>' +
+        uniqueTechs.map(n => '<option value="' + esc(n) + '"' + (n === currentPick ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+
+      renderTimesRoutes();
+    } catch (e) {
+      wrap.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function renderTimesRoutes() {
+    const wrap = document.getElementById('times-routes-wrap');
+    if (!timesRoutesData) return;
+    const filterTech = document.getElementById('tr-tech-filter').value;
+    const filtered = filterTech ? timesRoutesData.filter(d => d.techName === filterTech) : timesRoutesData;
+
+    if (!filtered.length) { wrap.innerHTML = '<p class="empty-note">No photos or videos logged yet.</p>'; return; }
+
+    wrap.innerHTML = filtered.map(day => {
+      const rowsHtml = day.stops.map(s => {
+        if (s.type === 'stop') {
+          return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">' +
+            '<b>' + esc(s.orderId) + '</b> — arrived ' + esc(s.arrival) + ', left ' + esc(s.departure) +
+            '</div>';
+        }
+        const u = s.unexplainedMinutes;
+        const flagged = u != null && u > 20;
+        const color = flagged ? '#A6362D' : 'var(--gray)';
+        const detail = s.expectedMinutes != null
+          ? '— expected ~' + s.expectedMinutes + ' min' + (u >= 0 ? ', ' + u + ' min unexplained' : ' (faster than expected)')
+          : '— no route available to compare (missing location, or the map service didn\u2019t answer)';
+        return '<div style="padding:6px 0 6px 16px;font-size:11px;color:' + color + (flagged ? ';font-weight:700' : '') + '">' +
+          '\u21B3 ' + s.realMinutes + ' min gap' + (s.milesDriven != null ? ' (' + s.milesDriven + ' mi)' : '') + ' ' + detail +
+          '</div>';
+      }).join('');
+      return '<div class="order-card" style="margin-bottom:10px">' +
+        '<div style="padding:12px 16px;font-weight:700;font-size:13px;border-bottom:1px solid var(--border)">' + esc(day.techName) + ' — ' + esc(day.date) + '</div>' +
+        '<div style="padding:12px 16px">' + rowsHtml + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  async function saveTimesRoutesSettings() {
+    try {
+      await devApi('save-setting', { key: 'TimesRoutesOfficeAccessExtraMin', value: document.getElementById('tr-office-extra').value });
+      const saved = document.getElementById('tr-settings-saved');
+      saved.style.display = 'inline';
+      setTimeout(() => { saved.style.display = 'none'; }, 2000);
+      await loadTimesRoutes();
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
+  }
+
+  function renderTechs() {
+    document.getElementById('techs-count-badge').textContent = devAllTechs.length + ' registered';
+    const q = (document.getElementById('techs-search').value || '').trim().toLowerCase();
+    const list = devAllTechs.filter(t => !q ||
+      (t.firstName + ' ' + t.lastName).toLowerCase().includes(q) ||
+      t.phone.toLowerCase().includes(q) ||
+      t.email.toLowerCase().includes(q)
+    );
+    const tbody = document.querySelector('#techs-table tbody');
+    if (!list.length) { tbody.innerHTML = '<tr><td class="empty-note">No techs match that search.</td></tr>'; return; }
+
+    const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors'];
+    tbody.innerHTML = list.map(t => `
+      <tr>
+        <td>
+          <div>${esc(t.firstName)} ${esc(t.lastName)}</div>
+          <div style="font-size:11px;color:var(--gray)">${esc(t.phone)}${t.email ? ' · ' + esc(t.email) : ''}</div>
+        </td>
+        <td class="role-cell">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : '<span style="color:#B06A2A">No payroll ID yet</span>'}</td>
+        <td>
+          <select onchange="updateTech('${t.id}','role',this.value)">
+            <option value="Employee" ${t.role === 'Employee' ? 'selected' : ''}>Employee</option>
+            <option value="Supervisor" ${t.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
+            <option value="Developer" ${t.role === 'Developer' ? 'selected' : ''}>Developer</option>
+          </select>
+        </td>
+        <td>
+          <select onchange="updateTech('${t.id}','division',this.value)">
+            ${divisionOpts.map(d => '<option value="' + d + '"' + (t.division === d ? ' selected' : '') + '>' + (d || 'No division') + '</option>').join('')}
+          </select>
+        </td>
+        <td>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)">
+            <input type="checkbox" ${t.active ? 'checked' : ''} onchange="updateTech('${t.id}','active',this.checked)"> Active
+          </label>
+        </td>
+        <td>
+          ${t.hasActiveDevice
+            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="btn btn-outline btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="btn btn-danger btn-sm" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
+            : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="btn btn-gold btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
+        </td>
+      </tr>`).join('');
+  }
+
+  async function updateTech(techId, field, value) {
+    try {
+      await devApi('update-tech', { techId, [field]: value });
+      const t = devAllTechs.find(x => x.id === techId);
+      if (t) t[field] = value;
+      showToast('Saved.');
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      loadTechs();
+    }
+  }
+
+  /* ===== Service Times ===== */
+  let allServiceTimes = [];
+  async function loadServiceTimes() {
+    try {
+      const res = await devApi('list-service-times');
+      allServiceTimes = res.services || [];
+      renderServiceTimes();
+    } catch (e) {
+      document.querySelector('#service-times-table tbody').innerHTML =
+        '<tr><td colspan="5" class="empty-note">Could not load: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderServiceTimes() {
+    const q = (document.getElementById('service-times-search').value || '').trim().toLowerCase();
+    const list = allServiceTimes.filter(s => !q ||
+      s.serviceName.toLowerCase().includes(q) || s.sku.toLowerCase().includes(q));
+    const tbody = document.querySelector('#service-times-table tbody');
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No services match that search.</td></tr>'; return; }
+
+    const missing = allServiceTimes.filter(s => s.level1 == null).length;
+    const badge = document.getElementById('service-times-count-badge');
+    badge.textContent = missing ? missing + ' missing' : (allServiceTimes.length ? 'all set' : '');
+    badge.style.color = missing ? '#B06A2A' : '';
+    const note = document.getElementById('service-times-note');
+    if (missing) {
+      note.style.display = 'block';
+      note.textContent = missing + ' service' + (missing === 1 ? '' : 's') + ' still without a time — use "Fill missing with placeholder times" to test with something, or set them by hand below.';
+    } else {
+      note.style.display = 'none';
+    }
+
+    tbody.innerHTML = list.map(s => {
+      const isJan = s.division === 'Janitorial';
+      return '<tr>' +
+        '<td>' + esc(s.serviceName) + '<div style="font-size:11px;color:var(--gray)">' + esc(s.sku) + '</div></td>' +
+        '<td class="role-cell">' + esc(s.division) + '</td>' +
+        '<td><input type="number" min="0" value="' + (s.level1 != null ? s.level1 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level1\',this.value)"></td>' +
+        '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level2 != null ? s.level2 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level2\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
+        '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level3 != null ? s.level3 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level3\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  async function saveServiceTime(sku, field, value) {
+    const s = allServiceTimes.find(x => String(x.sku) === String(sku));
+    if (!s) return;
+    const payload = { sku: s.sku, serviceName: s.serviceName, division: s.division, level1: s.level1, level2: s.level2, level3: s.level3 };
+    payload[field] = value === '' ? '' : Number(value);
+    try {
+      await devApi('save-service-time', payload);
+      s[field] = value === '' ? null : Number(value);
+      showToast('Saved.');
+      renderServiceTimes();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+      loadServiceTimes();
+    }
+  }
+
+  async function seedPlaceholderServiceTimes() {
+    if (!confirm('This fills in a placeholder time (not real) for every service that has none yet, so you can test the calculation. It never overwrites a time you already set. Continue?')) return;
+    try {
+      const res = await devApi('seed-placeholder-service-times');
+      showToast(res.seeded + ' placeholder time(s) added.');
+      loadServiceTimes();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  function renderStaff() {
+    document.getElementById('staff-count-badge').textContent = allStaff.length ? allStaff.length + ' people' : '';
+    const tbody = document.querySelector('#staff-table tbody');
+    if (!allStaff.length) {
+      tbody.innerHTML = '<tr><td class="empty-note">No staff added yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allStaff.map(s => `
+      <tr>
+        <td>${esc(s.Email)}</td>
+        <td class="role-cell">${esc(s.Role)}</td>
+        <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
+      </tr>`).join('');
+  }
+
+  function openStaffModal(id) {
+    const s = id ? allStaff.find(x => x.id === id) : null;
+    document.getElementById('staff-modal-title').textContent = s ? 'Edit Staff' : 'Add Staff';
+    document.getElementById('staff-id').value = s ? s.id : '';
+    document.getElementById('staff-email').value = s ? s.Email : '';
+    document.getElementById('staff-role').value = s ? s.Role : 'Staff';
+    document.getElementById('staff-delete-btn').style.display = s ? '' : 'none';
+    document.getElementById('staff-modal-overlay').style.display = 'flex';
+  }
+  function closeStaffModal() {
+    document.getElementById('staff-modal-overlay').style.display = 'none';
+  }
+
+  async function saveStaff() {
+    const id = document.getElementById('staff-id').value || null;
+    const staff = {
+      id: id || undefined,
+      Email: document.getElementById('staff-email').value.trim(),
+      Role: document.getElementById('staff-role').value
+    };
+    if (!staff.Email) { showToast('Email is required.'); return; }
+    try {
+      await devApi('save-staff', { staff });
+      showToast('Staff saved.');
+      closeStaffModal();
+      loadStaff();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  async function deleteStaffFromModal() {
+    const id = document.getElementById('staff-id').value;
+    if (!id) return;
+    if (!confirm('Remove this person\'s access?')) return;
+    try {
+      await devApi('delete-staff', { id });
+      showToast('Staff removed.');
+      closeStaffModal();
+      loadStaff();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  /* ============================================================
+     PASSWORD DEL DIRECTOR (solo Developer)
+  ============================================================ */
+  async function saveDirectorPassword() {
+    const val = document.getElementById('new-director-password').value.trim();
+    if (!val) { showToast('Enter a new password first.'); return; }
+    try {
+      await devApi('save-setting', { key: 'DirectorPassword', value: val });
+      showToast('Director password updated.');
+      document.getElementById('new-director-password').value = '';
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
+  }
+
+  /* Encuentra la columna cuyo encabezado contenga alguna de las
+     palabras clave (insensible a mayusculas) -- asi aguanta variantes
+     razonables de nombre de columna entre distintos exports, sin
+     depender de que el encabezado sea exacto. */
+  function findCol(headers, keywords) {
+    return headers.findIndex(h => keywords.some(k => String(h || '').toLowerCase().includes(k)));
+  }
+
+  let bulkClientsRows = [];
+
+  /* All Clients -- solo lectura, misma tabla que el preview de Bulk
+     Import pero sin nada editable ni boton de importar. Se carga
+     perezoso la primera vez que se abre la tarjeta, se cachea
+     despues (no cambia seguido, y ya trae un boton de Refresh por si
+     acaso se acaba de importar algo). */
+  let allClientsCache = null;
+  async function loadAllClients() {
+    const box = document.getElementById('all-clients-table');
+    try {
+      if (!allClientsCache) {
+        box.innerHTML = '<p class="empty-note">Loading…</p>';
+        const res = await devApi('list-all-clients');
+        allClientsCache = res.clients || [];
+      }
+      renderAllClientsTable();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load clients: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  /* DAY_FIELDS ya existe en admin.html, identica. */
+
+  function renderAllClientsTable() {
+    const box = document.getElementById('all-clients-table');
+    document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
+    if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
+    const td = 'style="padding:6px;border:1px solid var(--border)"';
+
+    const rowsHtml = allClientsCache.map(c => {
+      let html = '<tr' + (c.active === false ? ' style="opacity:.5"' : '') + '>' +
+        '<td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
+        '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
+        '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
+        clientHoursRowCellsHtml(c, td) +
+        '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c.showEstimatedTime ? 'checked' : '') + ' onchange="toggleClientShowEstimatedTime(\'' + c.id + '\',this.checked)"></td>' +
+        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
+      html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
+      return html;
+    }).join('');
+
+    box.innerHTML =
+      '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">' +
+      '<button type="button" class="btn btn-outline" style="padding:4px 12px;font-size:12px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
+      '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<tr style="background:var(--bg);position:sticky;top:0"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => '<th style="text-align:center;padding:6px;border:1px solid var(--border)">' + d + '</th>').join('') +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Entry<br>cushion</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Exit<br>cushion</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Est. Time</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
+      rowsHtml + '</table></div>';
+  }
+
+  /* ===== Reloj oficial generico (mismo componente/patron ya usado en
+     tracking.html/admin.html/profile.html) -- keyed por fieldId, deja
+     el valor en un <input type=time> oculto sin ninguna accion de
+     guardado fija. Se usa aqui para "Opens at"/"Closes at" en la
+     tabla de All Clients. ===== */
+  const officeClockDoneCallback = {};
+
+  document.addEventListener('gs-time-picked', (e) => {
+    const onDone = officeClockDoneCallback[e.detail.fieldId];
+    if (onDone) onDone();
+  });
+
+  /* parseOfficeHoursRange ya existe en admin.html, identica. */
+  function devOfficeClockFieldHtml(fieldId, h24, mm, onDoneFnName, rowId) {
+    officeClockDoneCallback[fieldId] = onDoneFnName ? () => window[onDoneFnName](rowId) : null;
+    const hhmm = String(h24).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    return GSDateTimePicker.timeHtml(fieldId, hhmm);
+  }
+  /* buildOfficeHoursString ya existe en admin.html, identica. */
+
+
+  function clientHoursRowCellsHtml(c, td) {
+    const dayCells = DAY_FIELDS.map(f =>
+      '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c[f] ? 'checked' : '') +
+      ' onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-' + f + '"></td>'
+    ).join('');
+    const parsed = parseOfficeHoursRange(c.officeHours);
+    const open = parsed.open || { h: 9, m: 0 };
+    const close = parsed.close || { h: 17, m: 0 };
+    return dayCells +
+      '<td ' + td + ' class="office-hours-cell"><div style="display:flex;gap:4px">' +
+        devOfficeClockFieldHtml('ch-' + c.id + '-officeOpen', open.h, open.m, 'onClientHoursChange', c.id) +
+        devOfficeClockFieldHtml('ch-' + c.id + '-officeClose', close.h, close.m, 'onClientHoursChange', c.id) +
+      '</div></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (c.entryCushionMinutes || 0) + '" ' +
+        'onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-entryCushion"></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (c.exitCushionMinutes || 0) + '" ' +
+        'onchange="onClientHoursChange(\'' + c.id + '\')" id="ch-' + c.id + '-exitCushion"></td>';
+  }
+
+  async function onClientHoursChange(clientId) {
+    const val = id => {
+      const el = document.getElementById('ch-' + clientId + '-' + id);
+      return el ? (el.type === 'checkbox' ? el.checked : el.value) : '';
+    };
+    const body = { id: clientId };
+    DAY_FIELDS.forEach(f => { body[f] = val(f); });
+    body.officeHours = buildOfficeHoursString('ch-' + clientId + '-office');
+    body.entryCushionMinutes = val('entryCushion');
+    body.exitCushionMinutes = val('exitCushion');
+    try {
+      await devApi('update-client-hours', body);
+      const c = allClientsCache.find(x => x.id === clientId);
+      if (c) { DAY_FIELDS.forEach(f => { c[f] = body[f]; }); c.officeHours = body.officeHours; c.entryCushionMinutes = body.entryCushionMinutes; c.exitCushionMinutes = body.exitCushionMinutes; }
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+      renderAllClientsTable();
+    }
+  }
+
+  /* Renglon de edificio adicional con sus 8 celdas de horario editables.
+     Se guarda todo junto (los 7 checkboxes + el horario) en una sola
+     llamada al backend, al salir de cualquiera de esas celdas -- igual
+     de responsivo que el patron ya usado en Bulk Import, sin disparar
+     8 escrituras separadas por cada click. */
+  function buildingHoursRowHtml(a, td) {
+    const dayCells = DAY_FIELDS.map(f =>
+      '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (a[f] ? 'checked' : '') +
+      ' onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-' + f + '"></td>'
+    ).join('');
+    const parsed = parseOfficeHoursRange(a.officeHours);
+    const open = parsed.open || { h: 9, m: 0 };
+    const close = parsed.close || { h: 17, m: 0 };
+    return '<tr style="background:var(--bg)"><td ' + td + ' colspan="2" style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + esc(a.label) + (a.address ? ' — ' + esc(a.address) : '') + '</td>' +
+      '<td ' + td + '>' + esc(a.city) + '</td><td ' + td + '>' + esc(a.zip) + '</td><td ' + td + ' colspan="2"></td>' +
+      dayCells +
+      '<td ' + td + ' class="office-hours-cell"><div style="display:flex;gap:4px">' +
+        devOfficeClockFieldHtml('bh-' + esc(a.id) + '-officeOpen', open.h, open.m, 'onBuildingHoursChange', a.id) +
+        devOfficeClockFieldHtml('bh-' + esc(a.id) + '-officeClose', close.h, close.m, 'onBuildingHoursChange', a.id) +
+      '</div></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (a.entryCushionMinutes || 0) + '" ' +
+        'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-entryCushion"></td>' +
+      '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (a.exitCushionMinutes || 0) + '" ' +
+        'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-exitCushion"></td>' +
+      '<td ' + td + '></td></tr>';
+  }
+
+  async function onBuildingHoursChange(buildingId) {
+    const val = id => {
+      const el = document.getElementById('bh-' + buildingId + '-' + id);
+      return el ? (el.type === 'checkbox' ? el.checked : el.value) : '';
+    };
+    const body = { id: buildingId };
+    DAY_FIELDS.forEach(f => { body[f] = val(f); });
+    body.officeHours = buildOfficeHoursString('bh-' + buildingId + '-office');
+    body.entryCushionMinutes = val('entryCushion');
+    body.exitCushionMinutes = val('exitCushion');
+    try {
+      await devApi('update-building-hours', body);
+      /* Reflejar en cache local sin recargar todo desde SharePoint --
+         la tabla ya se ve correcta, esto es solo para que un refresh
+         accidental de la vista no la borre antes de que el usuario
+         se de cuenta de que ya se guardo. */
+      allClientsCache.forEach(c => {
+        const b = (c.additionalAddresses || []).find(x => x.id === buildingId);
+        if (b) { DAY_FIELDS.forEach(f => { b[f] = body[f]; }); b.officeHours = body.officeHours; b.entryCushionMinutes = body.entryCushionMinutes; b.exitCushionMinutes = body.exitCushionMinutes; }
+      });
+      showToast('Office hours saved.');
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
+  }
+
+  async function toggleClientActive(id, makeActive) {
+    try {
+      await devApi('toggle-client-active', { id, active: makeActive });
+      const c = allClientsCache.find(x => x.id === id);
+      if (c) c.active = makeActive;
+      renderAllClientsTable();
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+    }
+  }
+
+  async function toggleClientShowEstimatedTime(id, show) {
+    try {
+      await devApi('toggle-client-show-estimated-time', { id, show });
+      const c = allClientsCache.find(x => x.id === id);
+      if (c) c.showEstimatedTime = show;
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+      renderAllClientsTable(); // regresa el checkbox a como estaba de verdad
+    }
+  }
+
+  function refreshDevClientsTable() {
+    allClientsCache = null;
+    loadAllClients();
+  }
+
+  function onBulkClientsFileChosen() {
+    const input = document.getElementById('bulk-clients-file');
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('bulk-clients-file-name').textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        if (!rows.length) throw new Error('File is empty.');
+
+        const headers = rows[0];
+        const colName = findCol(headers, ['company name', 'company']);
+        const colFallbackName = findCol(headers, ['name']);
+        const colAddress = findCol(headers, ['street address', 'address']);
+        const colCity = findCol(headers, ['city']);
+        const colState = findCol(headers, ['state']);
+        const colZip = findCol(headers, ['zip']);
+        const colPhone = findCol(headers, ['phone']);
+        const colEmail = findCol(headers, ['email']);
+        const colUnit = findCol(headers, ['unit']);
+
+        bulkClientsRows = rows.slice(1)
+          .filter(r => r && r.length)
+          .map(r => ({
+            businessName: String((colName >= 0 ? r[colName] : '') || (colFallbackName >= 0 ? r[colFallbackName] : '') || '').trim(),
+            contactPerson: String((colFallbackName >= 0 ? r[colFallbackName] : '') || '').trim(),
+            address: String((colAddress >= 0 ? r[colAddress] : '') || '').trim(),
+            suite: String((colUnit >= 0 ? r[colUnit] : '') || '').trim(),
+            city: String((colCity >= 0 ? r[colCity] : '') || '').trim(),
+            state: String((colState >= 0 ? r[colState] : '') || '').trim(),
+            zip: String((colZip >= 0 ? r[colZip] : '') || '').trim(),
+            phone: String((colPhone >= 0 ? r[colPhone] : '') || '').trim(),
+            email: String((colEmail >= 0 ? r[colEmail] : '') || '').trim(),
+            additionalAddresses: [] // se llenan a mano en el preview, el Excel no trae esto
+          }))
+          .filter(c => c.businessName);
+
+        renderBulkClientsPreview();
+      } catch (e) {
+        document.getElementById('bulk-clients-preview').innerHTML =
+          '<p style="color:#B33A3A;font-size:13px">Could not read the file: ' + e.message + '</p>';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /* Se revisa cada renglon ANTES de importar -- si algo se ve mal con
+     la direccion, ese cliente no se guarda hasta que se corrija (aqui
+     mismo, editando la celda, o en el archivo y volviendo a subir).
+     Mejor prevenir esto aqui que dejar que se guarde medio completo y
+     descubrirlo hasta que Routing no pueda geocodificarlo semanas
+     despues. */
+  /* Renombrada de bulkClientAddressIssue -- ya no solo valida
+     direccion, ahora valida la fila completa. Todo cliente debe
+     venir con: nombre del negocio, direccion completa, telefono,
+     email, y un nombre de contacto real -- si falta cualquiera de
+     los 5, no se importa. */
+  function bulkClientRowIssue(c) {
+    const extras = c.additionalAddresses || [];
+    const missingLabel = extras.find(a => (a.address || a.city || a.zip) && !a.label);
+    if (missingLabel) return 'An extra address is missing its Label';
+    /* BUG real encontrado: un edificio con Label lleno pero Address/City/Zip
+       vacios se colaba sin avisar -- pasaba cuando alguien pegaba la
+       direccion completa en el campo Label en vez del campo Address (el
+       truco de separar sola solo vivia en el campo Address). Ahora se
+       revisa tambien al reves: si hay Label pero no hay calle, se marca. */
+    const missingAddr = extras.find(a => a.label && !a.address);
+    if (missingAddr) return 'Extra address "' + missingAddr.label + '" is missing its Street Address (paste the full address there and it will split itself)';
+    if (!c.businessName) return 'Missing business name';
+    if (!c.address) return 'Missing address';
+    /* "1209 & 1301 W 16th St" / "123 Main St / 456 Oak Ave" -- alguien
+       junto 2+ direcciones en un solo campo al llenar el Excel. */
+    if (/\s(&|\/)\s/.test(c.address)) return 'Looks like 2 addresses combined into one field';
+    if (!c.city) return 'Missing city';
+    if (!c.zip) return 'Missing zip';
+    if (!c.phone) return 'Missing phone';
+    if (!c.email) return 'Missing email';
+    if (!c.contactPerson) return 'Missing contact person';
+    return null;
+  }
+
+  /* Celda editable tipo Excel -- un <input> transparente en vez de
+     texto plano. onchange (no oninput) para no volver a dibujar toda
+     la tabla en cada tecla, lo que le haria perder el foco al campo a
+     medio escribir. Se actualiza al salir del campo (Tab/click afuera/
+     Enter), momento en el que tambien se revalida esa fila. */
+  function bulkCellInput(rowIdx, field, value, placeholder) {
+    const handler = field === 'address'
+      ? 'updateBulkClientFieldSmart(' + rowIdx + ',this.value)'
+      : 'updateBulkClientField(' + rowIdx + ',\'' + field + '\',this.value)';
+    return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
+      'onchange="' + handler + '" ' +
+      'style="width:100%;min-width:90px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
+      'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
+      'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
+  }
+
+  function updateBulkClientFieldSmart(rowIdx, value) {
+    const parsed = parseFullAddress(value);
+    if (parsed) {
+      Object.assign(bulkClientsRows[rowIdx], parsed);
+    } else {
+      bulkClientsRows[rowIdx].address = value;
+    }
+    renderBulkClientsPreview();
+  }
+
+  function updateBulkClientField(rowIdx, field, value) {
+    bulkClientsRows[rowIdx][field] = value;
+    renderBulkClientsPreview();
+  }
+
+  function updateBulkClientExtraAddr(rowIdx, addrIdx, field, value) {
+    bulkClientsRows[rowIdx].additionalAddresses[addrIdx][field] = value;
+    renderBulkClientsPreview();
+  }
+
+  function addBulkClientAddress(rowIdx) {
+    if (!bulkClientsRows[rowIdx].additionalAddresses) bulkClientsRows[rowIdx].additionalAddresses = [];
+    /* Un edificio extra casi siempre es OTRA propiedad del MISMO cliente
+       -- misma ciudad y mismo zip que la linea de arriba, solo cambia la
+       calle. Se heredan de una vez para que en la linea nueva solo haya
+       que escribir el numero y la calle, no repetir Ciudad/Zip a mano. */
+    const parent = bulkClientsRows[rowIdx];
+    bulkClientsRows[rowIdx].additionalAddresses.push({
+      label: '', address: '', suite: '',
+      city: parent.city || '', zip: parent.zip || ''
+    });
+    renderBulkClientsPreview();
+  }
+
+  function removeBulkClientAddress(rowIdx, addrIdx) {
+    bulkClientsRows[rowIdx].additionalAddresses.splice(addrIdx, 1);
+    renderBulkClientsPreview();
+  }
+
+  function renderBulkClientsPreview() {
+    const box = document.getElementById('bulk-clients-preview');
+    if (!bulkClientsRows.length) {
+      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check that the file has a "Company name" or "Name" column.</p>';
+      return;
+    }
+    const flagged = bulkClientsRows.map(c => bulkClientRowIssue(c));
+    const cleanCount = flagged.filter(issue => !issue).length;
+    const issueCount = flagged.length - cleanCount;
+    const td = 'style="padding:4px;border:1px solid var(--border)"';
+
+    const rowsHtml = bulkClientsRows.map((c, i) => {
+      const issue = flagged[i];
+      const extras = c.additionalAddresses || [];
+      let html = '<tr' + (issue ? ' style="background:#FFF5F5"' : '') + '>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'businessName', c.businessName) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'address', c.address) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'city', c.city) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'zip', c.zip) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'phone', c.phone) + '</td>' +
+        '<td ' + td + '>' + bulkCellInput(i, 'email', c.email) + '</td>' +
+        '<td ' + td + '>' + (issue ? '<span style="color:#B33A3A;font-weight:600;font-size:11px">⚠ ' + esc(issue) + '</span>' : '') + '</td>' +
+        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 8px;font-size:11px;white-space:nowrap" onclick="addBulkClientAddress(' + i + ')">+ Address</button></td>' +
+        '</tr>';
+      html += extras.map((a, ai) =>
+        '<tr style="background:var(--bg)">' +
+        '<td ' + td + ' style="padding-left:20px;font-size:11px;color:var(--gray)">↳ ' + extraCellInput(i, ai, 'label', a.label, 'Label (required)') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'address', a.address, 'Address') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'city', a.city, 'City') + '</td>' +
+        '<td ' + td + '>' + extraCellInput(i, ai, 'zip', a.zip, 'Zip') + '</td>' +
+        '<td ' + td + ' colspan="3"></td>' +
+        '<td ' + td + '><button type="button" style="background:none;border:none;color:#B33A3A;cursor:pointer" onclick="removeBulkClientAddress(' + i + ',' + ai + ')">✕ Remove</button></td>' +
+        '</tr>'
+      ).join('');
+      return html;
+    }).join('');
+
+    box.innerHTML =
+      '<p style="font-size:13px;margin-bottom:10px"><b>' + bulkClientsRows.length + '</b> clients found in the file. Click any cell to edit it. Clients that already exist by business name will be skipped automatically.</p>' +
+      (issueCount ? '<div class="warn-list" style="margin-bottom:10px"><b>' + issueCount + ' need attention</b> — fix the highlighted cells below, they will NOT be imported yet.</div>' : '') +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<tr style="background:var(--bg)"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Issue</th>' +
+      '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
+      rowsHtml +
+      '</table></div>' +
+      '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()"' + (cleanCount ? '' : ' disabled') + '>Import ' + cleanCount + ' Client' + (cleanCount === 1 ? '' : 's') + '</button>' +
+      '<div id="bulk-clients-result" style="margin-top:12px;font-size:13px"></div>';
+  }
+
+  /* Igual que bulkCellInput, pero para las direcciones extra dentro de
+     additionalAddresses (necesitan rowIdx + addrIdx, no solo rowIdx). */
+  /* Si alguien pega la direccion COMPLETA en el campo de Address
+     (ej. "1209 W 16th St S, Newton, IA 50208"), se separa sola en
+     calle/ciudad/zip en vez de quedarse todo junto en un campo. Solo
+     se activa si se ve claramente como una direccion completa (trae
+     un zip de 5 digitos Y al menos una coma) -- una calle sola sin
+     eso se deja tal cual, no se le adivina nada. */
+  function parseFullAddress(text) {
+    const t = String(text || '').trim();
+    const zipMatch = t.match(/(\d{5})(-\d{4})?\s*$/);
+    if (!zipMatch || !t.includes(',')) return null;
+    const zip = zipMatch[1];
+    let rest = t.slice(0, zipMatch.index).trim().replace(/,\s*$/, '').trim();
+    const stateMatch = rest.match(/,?\s*[A-Za-z]{2}\s*$/);
+    if (stateMatch) rest = rest.slice(0, stateMatch.index).trim().replace(/,\s*$/, '').trim();
+    const parts = rest.split(',');
+    if (parts.length < 2) return null;
+    const city = parts.pop().trim();
+    const address = parts.join(',').trim();
+    if (!address || !city) return null;
+    return { address, city, zip };
+  }
+
+  function updateBulkClientExtraAddrSmart(rowIdx, addrIdx, value) {
+    const parsed = parseFullAddress(value);
+    const addr = bulkClientsRows[rowIdx].additionalAddresses[addrIdx];
+    if (parsed) {
+      Object.assign(addr, parsed);
+      if (!addr.label) addr.label = parsed.address;
+    } else {
+      addr.address = value;
+      if (!addr.label) addr.label = value; // mismo dual-proposito que Label, no pisa uno ya escrito a mano
+    }
+    renderBulkClientsPreview();
+  }
+
+  /* Mismo truco que updateBulkClientExtraAddrSmart, pero para cuando la
+     direccion completa se pega en el campo LABEL en vez del campo
+     Address -- que es justo como se coló el bug real (edificio con
+     Label = "604 E 3rd St S" pero Address/City/Zip vacios). Si se
+     reconoce como direccion completa (calle + ciudad + zip), se separa
+     Address/City/Zip y se deja el Label limpio (solo la calle).
+
+     BUG real encontrado despues: si solo se escribe la calle SOLA (sin
+     ciudad/zip pegados, que es lo normal para un edificio extra de la
+     MISMA propiedad), el parseo no la reconoce como "direccion
+     completa" y antes se quedaba solo en Label sin tocar Address --
+     dejandolo vacio y disparando la alerta aunque la calle si estuviera
+     bien escrita. Ahora, si no se pudo separar, la calle se copia
+     tambien a Address (Ciudad/Zip ya vienen heredados del cliente de
+     arriba desde que se crea la linea con addBulkClientAddress). */
+  function updateBulkClientExtraLabelSmart(rowIdx, addrIdx, value) {
+    const parsed = parseFullAddress(value);
+    const addr = bulkClientsRows[rowIdx].additionalAddresses[addrIdx];
+    if (parsed) {
+      addr.label = parsed.address;
+      addr.address = parsed.address;
+      addr.city = parsed.city;
+      addr.zip = parsed.zip;
+    } else {
+      addr.label = value;
+      addr.address = value;
+    }
+    renderBulkClientsPreview();
+  }
+
+  function extraCellInput(rowIdx, addrIdx, field, value, placeholder) {
+    const handler = field === 'address'
+      ? 'updateBulkClientExtraAddrSmart(' + rowIdx + ',' + addrIdx + ',this.value)'
+      : field === 'label'
+      ? 'updateBulkClientExtraLabelSmart(' + rowIdx + ',' + addrIdx + ',this.value)'
+      : 'updateBulkClientExtraAddr(' + rowIdx + ',' + addrIdx + ',\'' + field + '\',this.value)';
+    return '<input type="text" value="' + esc(value || '') + '" placeholder="' + esc(placeholder || '') + '" ' +
+      'onchange="' + handler + '" ' +
+      'style="width:100%;min-width:80px;border:1px solid transparent;background:transparent;font:inherit;padding:4px;border-radius:2px" ' +
+      'onfocus="this.style.borderColor=\'var(--gold)\';this.style.background=\'var(--white)\'" ' +
+      'onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'">';
+  }
+
+  async function confirmBulkImport() {
+    const resultBox = document.getElementById('bulk-clients-result');
+    const cleanRows = bulkClientsRows.filter(c => !bulkClientRowIssue(c));
+    if (!cleanRows.length) return;
+    resultBox.textContent = 'Importing…';
+    try {
+      const res = await devApi('bulk-import-clients', { rows: cleanRows });
+      allClientsCache = null; // se acaban de agregar clientes -- que se recargue de verdad la proxima vez que se abra All Clients
+      let msg = '<b>' + res.created + ' client(s) created.</b>';
+      if (res.extraAddressesCreated) msg += ' (' + res.extraAddressesCreated + ' extra building' + (res.extraAddressesCreated === 1 ? '' : 's') + ' added.)';
+      if (res.skipped && res.skipped.length) {
+        msg += '<br>Skipped ' + res.skipped.length + ' (already existed): ' + res.skipped.join(', ');
+      }
+      const issueCount = bulkClientsRows.length - cleanRows.length;
+      if (issueCount) msg += '<br>' + issueCount + ' not imported (needs fixing) — see highlighted rows above.';
+      resultBox.innerHTML = msg;
+    } catch (e) {
+      resultBox.innerHTML = '<span style="color:#B33A3A">Error: ' + e.message + '</span>';
+    }
+  }
+
+  async function runGeocodeBackfill() {
+    const btn = document.getElementById('geocode-btn');
+    const box = document.getElementById('geocode-result');
+    btn.disabled = true;
+    let totalGeocoded = 0;
+    const totalFailed = [];
+    try {
+      let remaining = 1; // arranca en 1 nomas para entrar al bucle
+      while (remaining > 0) {
+        box.textContent = 'Processing… (' + totalGeocoded + ' resolved so far)';
+        const res = await devApi('geocode-buildings-backfill');
+        totalGeocoded += res.geocoded;
+        totalFailed.push(...(res.failed || []));
+        remaining = res.remaining;
+        if (res.processed === 0) break; // nada que procesar, listo desde el inicio
+      }
+      let msg = totalGeocoded + ' buildings geocoded.';
+      if (totalFailed.length) msg += ' Could not locate: ' + totalFailed.join(', ');
+      box.textContent = msg;
+    } catch (e) {
+      box.textContent = 'Error: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ============================================================
+     REPORTS -- movido aqui desde Schedule (Admingsocd.com/admin.html)
+     por instruccion del usuario. Misma logica exacta, solo se
+     adaptaron las llamadas a la firma de devApi() de esta pagina
+     (devApi('accion', {...}) en vez de devApi('/developer-admin', {body:{...}})).
+  ============================================================ */
+  /* fmtDateTime ya existe en admin.html, identica. */
+
+  /* ===== Parser CSV robusto (comillas, comas dentro de comillas) ===== */
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else field += c;
+      }
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  /* ===== Employee Report ===== */
+  let employeeRows = null;
+  function onEmployeeFileChosen() {
+    const input = document.getElementById('employee-report-file');
+    const file = input.files[0];
+    document.getElementById('employee-result').style.display = 'none';
+    if (!file) { document.getElementById('employee-upload-btn').disabled = true; return; }
+    document.getElementById('employee-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCSV(reader.result);
+        /* Columnas confirmadas con el reporte real: First Name, Last
+           Name, Email, Phone, Department Name, Department Code,
+           Payroll Number, Active Status. */
+        employeeRows = rows.slice(1).filter(r => r.length > 1 && r[0].trim()).map(r => ({
+          firstName: r[0].trim(),
+          lastName: r[1].trim(),
+          email: (r[2] || '').trim(),
+          phone: (r[3] || '').trim(),
+          departmentName: (r[4] || '').trim(),
+          departmentCode: (r[5] || '').trim(),
+          payrollNumber: (r[6] || '').trim(),
+          activeStatus: (r[7] || '').trim()
+        }));
+        document.getElementById('employee-upload-btn').disabled = employeeRows.length === 0;
+      } catch (e) {
+        alert('Could not read the file: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function uploadEmployeeReport() {
+    if (!employeeRows || !employeeRows.length) return;
+    const btn = document.getElementById('employee-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await devApi('upload-employee-report', { rows: employeeRows });
+      const box = document.getElementById('employee-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.created + '</b> added · <b>' + res.updated + '</b> updated · <b>' + res.deactivated + '</b> deactivated · ' +
+        '<span style="color:var(--gray)">' + res.officeCount + ' office employees recorded (never assignable)</span>' +
+        '<div style="margin-top:6px">Tech portal: <b>' + res.techsCreated + '</b> new accounts · <b>' + res.techsUpdated + '</b> updated</div>';
+      if (res.missingPhone && res.missingPhone.length) {
+        box.innerHTML += '<div class="warn-list"><b>No valid phone number</b> — no tech portal account was created for these (needs the last 4 digits to log in):<br>' +
+          res.missingPhone.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      if (res.missingPayroll && res.missingPayroll.length) {
+        box.innerHTML += '<div class="warn-list"><b>Missing Payroll Number in uAttend</b> — add it there and upload the report again. Until then, they\'re not available to assign:<br>' +
+          res.missingPayroll.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      uploadHistoryCache = null; loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  /* ===== Hours (Punch) Report ===== */
+  let hoursRows = null;
+  function toISODateLocal(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function onHoursFileChosen() {
+    const input = document.getElementById('hours-report-file');
+    const file = input.files[0];
+    document.getElementById('hours-result').style.display = 'none';
+    if (!file) { document.getElementById('hours-upload-btn').disabled = true; return; }
+    document.getElementById('hours-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+
+        /* Columnas: EMP L NAME(0), EMP F NAME(1), EMP##(2), DATE(3),
+           IN(4), OUT(5), TOTAL(6), DEPT CODE(7)... Header en fila 3
+           (indice 2), datos desde la fila 4 (indice 3). EMP## sirve
+           directo como PayrollNumber. TOTAL ya viene resuelto
+           correcto por uAttend incluso cruzando medianoche.
+
+           REGLA DE ALMUERZO: uAttend descuenta 30 minutos cuando el
+           turno CRUDO del dia suma 6 horas o mas. Se agrupa primero
+           por (persona, dia) sumando todos los renglones de ese dia,
+           y hasta despues se resta la media hora si aplica.
+
+           Cada persona empieza cada domingo con 40 horas para
+           trabajar; se manda un renglon POR DIA (columna Date en
+           WeeklyHours) y el total de semana se suma al leerlo, nunca
+           se guarda como un numero fijo que algo mas pueda pisar. */
+        const dailyTotals = {};
+        for (let i = 3; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.length < 7) continue;
+          const payrollNumber = String(r[2] || '').trim();
+          const dateCell = r[3], totalCell = r[6];
+          if (!payrollNumber || !(dateCell instanceof Date) || !(totalCell instanceof Date)) continue;
+
+          const hours = totalCell.getHours() + totalCell.getMinutes() / 60;
+          const dayKey = payrollNumber + '|' + toISODateLocal(dateCell);
+          if (!dailyTotals[dayKey]) dailyTotals[dayKey] = { payrollNumber, dateCell, hours: 0 };
+          dailyTotals[dayKey].hours += hours;
+        }
+
+        const daily = {};
+        Object.values(dailyTotals).forEach(day => {
+          const dayHours = day.hours >= 6 ? day.hours - 0.5 : day.hours;
+
+          const dow = day.dateCell.getDay();
+          const weekStart = new Date(day.dateCell.getFullYear(), day.dateCell.getMonth(), day.dateCell.getDate() - dow);
+          const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+          const wsISO = toISODateLocal(weekStart), weISO = toISODateLocal(weekEnd);
+
+          const key = day.payrollNumber + '|' + toISODateLocal(day.dateCell);
+          daily[key] = {
+            payrollNumber: day.payrollNumber,
+            date: toISODateLocal(day.dateCell),
+            weekStart: wsISO,
+            weekEnd: weISO,
+            hours: Math.round(dayHours * 100) / 100
+          };
+        });
+
+        hoursRows = Object.values(daily);
+        document.getElementById('hours-upload-btn').disabled = hoursRows.length === 0;
+      } catch (e) {
+        alert('Could not read the file: ' + e.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function uploadHoursReport() {
+    if (!hoursRows || !hoursRows.length) return;
+    const btn = document.getElementById('hours-upload-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const res = await devApi('upload-hours-report', { rows: hoursRows });
+      const box = document.getElementById('hours-result');
+      box.style.display = 'block';
+      box.innerHTML = '<b>' + res.created + '</b> new days · <b>' + res.updated + '</b> updated.';
+      if (res.unmatched && res.unmatched.length) {
+        box.innerHTML += '<div class="warn-list"><b>Payroll Number not in the catalog</b> (not in FieldEmployees):<br>' +
+          res.unmatched.map(n => '• ' + n).join('<br>') + '</div>';
+      }
+      uploadHistoryCache = null; loadUploadHistory();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Upload';
+    }
+  }
+
+  /* Separado por tipo -- cada tarjeta (Employee Report / Punch
+     Report) trae su propio historial adentro, no uno solo compartido
+     con los dos tipos mezclados. */
+  let uploadHistoryCache = null;
+  async function loadUploadHistory() {
+    const boxEmployee = document.getElementById('upload-history-employee');
+    const boxHours = document.getElementById('upload-history-hours');
+    try {
+      if (!uploadHistoryCache) {
+        const res = await devApi('list-report-uploads');
+        uploadHistoryCache = res.uploads || [];
+      }
+      renderUploadHistoryFor(boxEmployee, 'Employee Report');
+      renderUploadHistoryFor(boxHours, 'Punch Report');
+    } catch (e) {
+      const msg = '<p class="empty-note">Could not load history: ' + esc(e.message) + '</p>';
+      boxEmployee.innerHTML = msg;
+      boxHours.innerHTML = msg;
+    }
+  }
+
+  function renderUploadHistoryFor(box, reportType) {
+    if (!box) return;
+    const uploads = (uploadHistoryCache || []).filter(u => u.ReportType === reportType);
+    if (!uploads.length) { box.innerHTML = '<p class="empty-note">No uploads yet.</p>'; return; }
+    box.innerHTML = '<table class="grid-table"><tr><th>Date</th><th>Result</th></tr>' +
+      uploads.map(u => '<tr><td>' + fmtDateTime(u.UploadDate) + '</td><td>' + esc(u.Summary) + '</td></tr>').join('') +
+      '</table>';
+  }
+
+  /* Debug temporal, solo para pruebas -- borrar este boton entero
+     (seccion HTML + esta funcion + la accion wipe-test-data en
+     developer-admin.js) cuando ya no haga falta. Doble candado: un
+     confirm() de "estas seguro" primero, y la password exacta
+     despues -- ninguno de los dos solo es suficiente. */
+  async function debugWipeTestData() {
+    const sure = confirm('This will PERMANENTLY delete ALL Orders, Scheduling and Recurring data. Clients and Services are NOT touched. This cannot be undone. Continue?');
+    if (!sure) return;
+
+    const pass = window.prompt('Type the exact confirmation password:');
+    if (pass === null) return;
+
+    const box = document.getElementById('debug-wipe-result');
+    box.textContent = 'Wiping…';
+    try {
+      const res = await devApi('wipe-test-data', { password: pass });
+      box.textContent = 'Done. ' + Object.entries(res.deleted).map(([list, n]) => list + ': ' + n).join(' · ');
+    } catch (e) {
+      box.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function debugWipeClientsOnly() {
+    const sure = confirm('This will PERMANENTLY delete ALL Clients, their buildings, contacts and history. Orders, Scheduling, Recurring and Services are NOT touched. This cannot be undone. Continue?');
+    if (!sure) return;
+
+    const pass = window.prompt('Type the exact confirmation password:');
+    if (pass === null) return;
+
+    const box = document.getElementById('debug-wipe-result');
+    box.textContent = 'Wiping…';
+    try {
+      const res = await devApi('wipe-clients-only', { password: pass });
+      const d = res.deleted;
+      box.textContent = 'Done. Clients: ' + d.clients + ' · Buildings: ' + d.addresses + ' · Contacts: ' + d.contacts + ' · History: ' + d.history;
+      allClientsCache = null; // que se recargue vacio la proxima vez que se abra All Clients
+    } catch (e) {
+      box.textContent = 'Error: ' + e.message;
+    }
+  }
 
 function orderPhotoStripHtml(orderId) {
   const photos = orderPhotosMap[orderId];
