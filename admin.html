@@ -781,7 +781,7 @@
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.2/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.23.0/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
@@ -1741,11 +1741,12 @@ function showTab(tab) {
      sub-tab dentro de Clients. Se redirige aqui por si algun link
      viejo (favorito, ?tab=create) todavia apunta al nombre anterior. */
   if (tab === 'create') { showTab('clients'); showClientsSubTab('create'); return; }
-  document.querySelectorAll('[data-view]').forEach((t) => {
-    t.classList.toggle('active', t.dataset.view === tab);
-  });
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + tab).classList.add('active');
+
+  /* La parte generica (activar la pestana, mostrar solo su panel)
+     vive en gsocd-shared/nav-premium -- lo unico de aqui en adelante
+     es lo que le toca especificamente a Admin. */
+  GSNavPremium.showPanel(tab);
+
   if (tab === 'schedule' && typeof onScheduleTabOpened === 'function') onScheduleTabOpened();
   /* Se vuelve a pedir la lista de clientes fresca cada vez que se abre
      este tab -- asi Clients y el picker de "Create Order" reflejan un
