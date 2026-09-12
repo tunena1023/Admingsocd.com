@@ -72,7 +72,7 @@
      to QuickBooks. Check back soon.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.1/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.2/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/admin-tab-counts/admin-tab-counts.js"></script>
 <script>
   /* Misma sesion que admin.html: si no hay cuenta guardada, no dejamos
@@ -108,6 +108,7 @@
         const badge = document.getElementById(key === 'approvals' ? 'appr-count' : key + '-count');
         if (badge) { badge.textContent = counts[key]; badge.classList.toggle('zero', counts[key] === 0); }
       });
+      GSNavPremium.refresh('gsNav');
     } catch (e) {
       /* si falla, los contadores se quedan en 0 -- no bloquea el resto de la pagina */
     }
