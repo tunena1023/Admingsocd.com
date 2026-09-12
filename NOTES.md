@@ -169,3 +169,25 @@ uno nuevo cada vez, y el dueño lo revoca al terminar.
 Repos: tunena1023/Admingsocd.com, tunena1023/tech.gsocd.com,
 tunena1023/ordersgsocd.com.
 
+
+## Regla reforzada (12/09/2026): nunca tocar codigo en produccion directo
+
+Todo cambio de codigo se hace SIEMPRE sobre la copia local del repo (el
+sandbox de la sesion), nunca hay edicion directa a lo ya desplegado. El
+commit + push (que dispara el deploy en Vercel) SOLO pasa cuando el dueño
+lo autoriza explicitamente para ESE cambio puntual -- una autorizacion
+general de "asi trabajamos" no cuenta como luz verde para subir algo
+especifico. Si el dueño pide varios ajustes seguidos, se acumulan en
+local (ver regla 4 de arriba) hasta que diga que los suba.
+
+
+## Regla reforzada (12/09/2026): leer TODO este archivo antes de tocar nada
+
+Antes de tocar codigo, revisar un bug, o proponer un cambio -- lo primero,
+siempre, es leer este NOTES.md completo (los 3 repos, no solo el que se
+va a tocar, porque comparten arquitectura y gsocd-shared). No asumir que
+"ya se sabe" el contexto de sesiones anteriores sin haber leido esta
+version actual del archivo -- puede haber pendientes, decisiones o
+cambios en local sin subir que cambian por completo cual es la forma
+correcta de resolver algo.
+
