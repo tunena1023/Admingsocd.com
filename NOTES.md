@@ -249,7 +249,7 @@ este formulario de todos modos van a ir a la dirección default del
 cliente, no a la del PO. No se bloqueó por esto porque el dueño ya dio la
 instrucción explícita; queda anotado por si se vuelve un problema real.
 
-## En local, sin subir (12/09/2026): Office Access unificado en gsocd-shared
+## SUBIDO Y DESPLEGADO (12/09/2026): Office Access unificado en gsocd-shared
 
 Se reemplazaron las 2 tarjetas duplicadas de "Need anything from the
 office?" en este repo (flujo de crear orden y formulario de Add Unit)
@@ -273,7 +273,11 @@ arrastra el estado (toggle prendido / nota escrita) del cliente anterior
 Título/label/placeholder nuevos confirmados con jsdom sobre el código
 real de `admin.html` (no solo el componente aislado): 14/14 en Add Unit.
 
-**Pendiente:** este cambio depende de que `gsocd-shared@v1.25.0` se
-suba a GitHub primero (ver su NOTES.md) — si se sube este repo sin haber
-subido antes el tag, el `<script src>` apuntaría a una versión que no
-existe todavía en jsDelivr.
+**Estado real (12/09/2026, verificado con fetch directo a producción):**
+`gsocd-shared@v1.25.0` se subió primero (repo + tag), luego este repo.
+`admin.html` en producción ya referencia `gsocd-shared@v1.25.0` en su
+`<script src>`, y el archivo servido ya no trae ningún rastro del texto
+viejo ("Need anything from the office?", "What do we need from the
+office?", "Keys for the mailroom...") ni del CSS huérfano (`.field-sub`).
+Deployment en Vercel: `READY`, sin errores nuevos en runtime logs.
+
