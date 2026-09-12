@@ -63,16 +63,7 @@
   </div>
 </nav>
 
-<div class="tab-bar">
-  <a class="tab" href="admin.html?tab=approvals">Approvals</a>
-  <a class="tab" href="admin.html?tab=review">Review</a>
-  <a class="tab" href="admin.html?tab=active">Active</a>
-  <a class="tab" href="admin.html?tab=history">History</a>
-  <a class="tab" href="admin.html?tab=clients">Clients</a>
-  <a class="tab active" href="quickbooks.html">QuickBooks</a>
-  <a class="tab" href="admin.html?tab=schedule">Schedule</a>
-  <a class="tab" href="developer.html">Developer</a>
-</div>
+<div id="gsNav"></div>
 
 <div class="stub-wrap">
   <div class="stub-icon">&#128179;</div>
@@ -81,6 +72,7 @@
      to QuickBooks. Check back soon.</p>
 </div>
 
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.2/nav-premium/nav-premium.js"></script>
 <script>
   /* Misma sesion que admin.html: si no hay cuenta guardada, no dejamos
      ver ni siquiera este stub -- no es informacion publica. */
@@ -90,6 +82,16 @@
   } else {
     const adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+    GSNavPremium.init('gsNav', [
+      { label: 'Approvals', href: 'admin.html?tab=approvals' },
+      { label: 'Review', href: 'admin.html?tab=review' },
+      { label: 'Active', href: 'admin.html?tab=active' },
+      { label: 'History', href: 'admin.html?tab=history' },
+      { label: 'Clients', href: 'admin.html?tab=clients' },
+      { label: 'QuickBooks', href: 'quickbooks.html', active: true },
+      { label: 'Schedule', href: 'admin.html?tab=schedule' },
+      { label: 'Developer', href: 'developer.html' }
+    ]);
   }
 
   function signOut() {

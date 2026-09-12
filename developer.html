@@ -213,6 +213,7 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.2/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
 
@@ -229,16 +230,7 @@
   </div>
 </nav>
 
-<div class="tab-bar">
-  <a class="tab" href="admin.html?tab=approvals">Approvals</a>
-  <a class="tab" href="admin.html?tab=review">Review</a>
-  <a class="tab" href="admin.html?tab=active">Active</a>
-  <a class="tab" href="admin.html?tab=history">History</a>
-  <a class="tab" href="admin.html?tab=clients">Clients</a>
-  <a class="tab" href="quickbooks.html">QuickBooks</a>
-  <a class="tab" href="admin.html?tab=schedule">Schedule</a>
-  <a class="tab active" href="developer.html">Developer</a>
-</div>
+<div id="gsNav"></div>
 
 <div id="loading-wrap" class="stub-wrap">
   <p class="empty-note">Loading…</p>
@@ -712,6 +704,16 @@
   } else {
     adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+    GSNavPremium.init('gsNav', [
+      { label: 'Approvals', href: 'admin.html?tab=approvals' },
+      { label: 'Review', href: 'admin.html?tab=review' },
+      { label: 'Active', href: 'admin.html?tab=active' },
+      { label: 'History', href: 'admin.html?tab=history' },
+      { label: 'Clients', href: 'admin.html?tab=clients' },
+      { label: 'QuickBooks', href: 'quickbooks.html' },
+      { label: 'Schedule', href: 'admin.html?tab=schedule' },
+      { label: 'Developer', href: 'developer.html', active: true }
+    ]);
     init();
   }
 
