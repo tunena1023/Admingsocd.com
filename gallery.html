@@ -58,7 +58,8 @@
   <div id="gallery-groups-list"><p class="empty-note" style="font-size:12px;color:var(--gray);text-align:center;padding:20px">Loading…</p></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.4/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/admin-tab-counts/admin-tab-counts.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script>
@@ -71,9 +72,9 @@ if (!stored) {
   document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
 
   GSNavPremium.init('gsNav', [
-    { label: 'Approvals', href: 'admin.html?tab=approvals' },
-    { label: 'Review', href: 'admin.html?tab=review' },
-    { label: 'Active', href: 'admin.html?tab=active' },
+    { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
+    { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
+    { label: 'Active', href: 'admin.html?tab=active', badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
     { label: 'History', href: 'admin.html?tab=history' },
     { label: 'Clients', href: 'admin.html?tab=clients' },
     { label: 'Gallery', href: 'gallery.html', active: true },
@@ -81,12 +82,26 @@ if (!stored) {
     { label: 'Schedule', href: 'admin.html?tab=schedule' },
     { label: 'Developer', href: 'developer.html' }
   ]);
+  loadTabCounts();
 
   document.getElementById('gallery-search-wrap').innerHTML =
     GSGalleryGroups.searchHtml('gallery-search', 'Search by order number or client…');
   document.getElementById('gallery-search').addEventListener('input', renderGallery);
 
   loadGallery();
+}
+
+async function loadTabCounts() {
+  try {
+    const data = await api('/admin-get-orders', { body: {} });
+    const counts = GSAdminCounts.compute(data.orders || []);
+    ['approvals', 'review', 'active'].forEach(key => {
+      const badge = document.getElementById(key === 'approvals' ? 'appr-count' : key + '-count');
+      if (badge) { badge.textContent = counts[key]; badge.classList.toggle('zero', counts[key] === 0); }
+    });
+  } catch (e) {
+    /* si falla, los contadores se quedan en 0 -- no bloquea el resto de la pagina */
+  }
 }
 
 async function api(path, opts = {}) {

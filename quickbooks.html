@@ -72,7 +72,8 @@
      to QuickBooks. Check back soon.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.4/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/admin-tab-counts/admin-tab-counts.js"></script>
 <script>
   /* Misma sesion que admin.html: si no hay cuenta guardada, no dejamos
      ver ni siquiera este stub -- no es informacion publica. */
@@ -83,9 +84,9 @@
     const adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
     GSNavPremium.init('gsNav', [
-      { label: 'Approvals', href: 'admin.html?tab=approvals' },
-      { label: 'Review', href: 'admin.html?tab=review' },
-      { label: 'Active', href: 'admin.html?tab=active' },
+      { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
+      { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
+      { label: 'Active', href: 'admin.html?tab=active', badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
       { label: 'History', href: 'admin.html?tab=history' },
       { label: 'Clients', href: 'admin.html?tab=clients' },
       { label: 'Gallery', href: 'gallery.html' },
@@ -93,6 +94,23 @@
       { label: 'Schedule', href: 'admin.html?tab=schedule' },
       { label: 'Developer', href: 'developer.html' }
     ]);
+    loadTabCounts();
+  }
+
+  async function loadTabCounts() {
+    try {
+      const res = await fetch('/api/admin-get-orders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      const counts = GSAdminCounts.compute(data.orders || []);
+      ['approvals', 'review', 'active'].forEach(key => {
+        const badge = document.getElementById(key === 'approvals' ? 'appr-count' : key + '-count');
+        if (badge) { badge.textContent = counts[key]; badge.classList.toggle('zero', counts[key] === 0); }
+      });
+    } catch (e) {
+      /* si falla, los contadores se quedan en 0 -- no bloquea el resto de la pagina */
+    }
   }
 
   function signOut() {
