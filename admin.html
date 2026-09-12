@@ -1629,7 +1629,7 @@ async function initAuth() {
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
-  // document.getElementById('developer-tab-btn').style.display = 'none'; -- DESACTIVADO A PETICION EXPLICITA: tab siempre visible, sin verificacion
+  document.getElementById('developer-tab-btn').style.display = 'none';
     checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
@@ -1656,7 +1656,7 @@ async function initAuth() {
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
-  // document.getElementById('developer-tab-btn').style.display = 'none'; -- DESACTIVADO A PETICION EXPLICITA: tab siempre visible, sin verificacion
+  document.getElementById('developer-tab-btn').style.display = 'none';
   checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
@@ -4514,26 +4514,19 @@ function renderGalleryPanel() {
   }
 
   async function init() {
-    /* VERIFICACION DE ROL DESACTIVADA A PETICION EXPLICITA DE LA
-       USUARIA (12/09/2026) -- el tab se quedaba sin acceso de forma
-       intermitente y se necesitaba entrar YA. Se intenta obtener el
-       rol real solo para mostrarlo en pantalla (Signed in as...),
-       pero YA NO bloquea nada: si falla o tarda, se usa 'Developer'
-       por respaldo y el contenido se muestra siempre.
-       PENDIENTE: reactivar la verificacion real una vez que se
-       confirme por que whoami sigue fallando incluso con
-       getMyRole() (memoizado + 3 reintentos) -- ver NOTES.md. */
-    try {
-      myRole = await getMyRole();
-    } catch (e) {
-      myRole = null;
-    }
-    if (!myRole) myRole = 'Developer';
-
+    myRole = await getMyRole();
+    /* Mismo resultado de whoami de arriba, tambien decide si se
+       muestra la PESTANA de Developer -- una sola llamada compartida
+       (getMyRole) decide tanto la pestana como el contenido, para
+       que nunca puedan contradecirse entre si. */
     const devBtn = document.getElementById('developer-tab-btn');
-    if (devBtn) devBtn.style.display = '';
+    if (devBtn) devBtn.style.display = myRole ? '' : 'none';
 
     document.getElementById('loading-wrap').style.display = 'none';
+    if (!myRole) {
+      document.getElementById('denied-wrap').style.display = 'block';
+      return;
+    }
     document.getElementById('content-wrap').style.display = 'block';
     document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
 
