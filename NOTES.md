@@ -127,6 +127,19 @@ habían quedado en una versión vieja del componente sin el acordeón.
 - 404 de `Logo.jpg` / `NavBackground.jpg` en Orders (`/api/site-image`) —
   pendiente de que el dueño confirme el nombre real de esos archivos en la
   raíz del drive de SharePoint (Onlineorders).
+- **BUG REAL arreglado (12/09/2026): `devApi` no existia en admin.html.**
+  Al fusionar developer.html dentro de admin.html (mismo dia), se
+  renombraron todas las llamadas de su `api()` original a `devApi()`
+  (para no chocar con el `api(path, opts)` generico que ya tenia
+  admin.html) -- pero la funcion en si nunca se copio. Todo Developer
+  (whoami, Staff, Techs, catalogo, Recurring, Service Times) llamaba a
+  una funcion inexistente, capturado en silencio por cada try/catch
+  -- por eso nunca se vio el error real hasta que la consola mostro
+  "devApi is not defined". Se agrego `devApi(action, extra)`, identica
+  a la `api()` original de developer.html. Leccion para la proxima
+  fusion de paginas sueltas: cuando se renombra una funcion para
+  evitar choque de nombres, verificar explicitamente que la funcion
+  renombrada tambien se haya copiado -- no solo sus llamadas.
 - **Pendiente menor, sin resolver:** la barra dorada de pestañas se ve
   "ligeramente más grande" en Admin que en Orders/Tech, aun usando el
   mismo `nav-premium.js` compartido (mismo CSS, confirmado byte por
