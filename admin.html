@@ -1629,7 +1629,7 @@ async function initAuth() {
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
-  document.getElementById('developer-tab-btn').style.display = 'none';
+  // document.getElementById('developer-tab-btn').style.display = 'none'; -- DESACTIVADO A PETICION EXPLICITA: tab siempre visible, sin verificacion
     checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
@@ -1656,7 +1656,7 @@ async function initAuth() {
     { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')", active: initialAdminTab === 'schedule' },
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
-  document.getElementById('developer-tab-btn').style.display = 'none';
+  // document.getElementById('developer-tab-btn').style.display = 'none'; -- DESACTIVADO A PETICION EXPLICITA: tab siempre visible, sin verificacion
   checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
@@ -4495,24 +4495,26 @@ function renderGalleryPanel() {
   }
 
   async function init() {
-    myRole = await getMyRole();
-    /* Mismo resultado de whoami de arriba, tambien decide si se
-       muestra la PESTANA de Developer -- antes esto se pedia por
-       separado en checkDeveloperAccess(), una segunda llamada al
-       mismo whoami disparada casi al mismo tiempo que esta. Dos
-       llamadas identicas y simultaneas al backend eran una condicion
-       de carrera real: a veces una respondia bien y la otra no,
-       dejando la pestana visible pero el contenido en "No access"
-       (o viceversa). Con una sola llamada ya no puede haber
-       contradiccion entre las dos. */
+    /* VERIFICACION DE ROL DESACTIVADA A PETICION EXPLICITA DE LA
+       USUARIA (12/09/2026) -- el tab se quedaba sin acceso de forma
+       intermitente y se necesitaba entrar YA. Se intenta obtener el
+       rol real solo para mostrarlo en pantalla (Signed in as...),
+       pero YA NO bloquea nada: si falla o tarda, se usa 'Developer'
+       por respaldo y el contenido se muestra siempre.
+       PENDIENTE: reactivar la verificacion real una vez que se
+       confirme por que whoami sigue fallando incluso con
+       getMyRole() (memoizado + 3 reintentos) -- ver NOTES.md. */
+    try {
+      myRole = await getMyRole();
+    } catch (e) {
+      myRole = null;
+    }
+    if (!myRole) myRole = 'Developer';
+
     const devBtn = document.getElementById('developer-tab-btn');
-    if (devBtn) devBtn.style.display = myRole ? '' : 'none';
+    if (devBtn) devBtn.style.display = '';
 
     document.getElementById('loading-wrap').style.display = 'none';
-    if (!myRole) {
-      document.getElementById('denied-wrap').style.display = 'block';
-      return;
-    }
     document.getElementById('content-wrap').style.display = 'block';
     document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
 
