@@ -151,3 +151,21 @@ habían quedado en una versión vieja del componente sin el acordeón.
   `getBoundingClientRect()` en las 2 apps reales (no en un test
   aislado) para descartar que sea algo del layout completo de la
   página, no solo del componente.
+
+## Cómo conectarse (para que una sesión nueva no tenga que preguntar)
+
+**Vercel:** ya está disponible como conector en Claude -- no requiere token,
+solo usar las herramientas Vercel: list_teams / list_projects / get_project
+etc. Team: "GS Solutions" (team_JW18RqqLyzjaO9nYs4NWVAVA).
+
+**GitHub:** NO hay conector instalado en Claude -- no existe, no hay que
+buscarlo dos veces. La unica forma de acceso es que el dueño pegue un
+Personal Access Token (fine-grained, scope: Contents Read/Write + Metadata
+Read, limitado a los 3 repos de tunena1023) directo en el chat. Con ese
+token se clonan los repos por HTTPS (`git clone https://<token>@github.com/
+tunena1023/<repo>.git`). El token NO se guarda entre sesiones -- se pide
+uno nuevo cada vez, y el dueño lo revoca al terminar.
+
+Repos: tunena1023/Admingsocd.com, tunena1023/tech.gsocd.com,
+tunena1023/ordersgsocd.com.
+
