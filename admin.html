@@ -522,6 +522,7 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.2/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
@@ -543,16 +544,7 @@
   </div>
 </nav>
 
-<div class="tab-bar">
-  <button class="tab active" onclick="showTab('approvals')">Approvals<span class="tab-count zero" id="appr-count">0</span></button>
-  <button class="tab" onclick="showTab('review')">Review<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span></button>
-  <button class="tab" onclick="showTab('active')">Active<span class="tab-count zero" id="active-count">0</span></button>
-  <button class="tab" onclick="showTab('history')">History</button>
-  <button class="tab" onclick="showTab('clients')">Clients</button>
-  <button class="tab" onclick="location.href='quickbooks.html'">QuickBooks</button>
-  <button class="tab" onclick="showTab('schedule')">Schedule</button>
-  <button class="tab" id="developer-tab-btn" style="display:none" onclick="location.href='developer.html'">Developer</button>
-</div>
+<div id="gsNav"></div>
 
 <!-- APPROVALS -->
 <div class="panel active" id="panel-approvals">
@@ -837,6 +829,17 @@ async function initAuth() {
   if (stored) {
     adminUser = JSON.parse(stored);
     document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+  GSNavPremium.init('gsNav', [
+    { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: true, badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
+    { label: 'Review', dataView: 'review', onclick: "showTab('review')", badgeHtml: '<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span>' },
+    { label: 'Active', dataView: 'active', onclick: "showTab('active')", badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
+    { label: 'History', dataView: 'history', onclick: "showTab('history')" },
+    { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')" },
+    { label: 'QuickBooks', onclick: "location.href=\'quickbooks.html\'" },
+    { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')" },
+    { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
+  ]);
+  document.getElementById('developer-tab-btn').style.display = 'none';
     checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
@@ -850,6 +853,17 @@ async function initAuth() {
   }
   adminUser = { name: accounts[0].name, email: accounts[0].username };
   document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+  GSNavPremium.init('gsNav', [
+    { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: true, badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
+    { label: 'Review', dataView: 'review', onclick: "showTab('review')", badgeHtml: '<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span>' },
+    { label: 'Active', dataView: 'active', onclick: "showTab('active')", badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
+    { label: 'History', dataView: 'history', onclick: "showTab('history')" },
+    { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')" },
+    { label: 'QuickBooks', onclick: "location.href=\'quickbooks.html\'" },
+    { label: 'Schedule', dataView: 'schedule', onclick: "showTab('schedule')" },
+    { label: 'Developer', id: 'developer-tab-btn', onclick: "location.href=\'developer.html\'" }
+  ]);
+  document.getElementById('developer-tab-btn').style.display = 'none';
   checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
@@ -933,9 +947,8 @@ function showTab(tab) {
      sub-tab dentro de Clients. Se redirige aqui por si algun link
      viejo (favorito, ?tab=create) todavia apunta al nombre anterior. */
   if (tab === 'create') { showTab('clients'); showClientsSubTab('create'); return; }
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['approvals','review','active','history','clients', null, 'schedule'];
-    t.classList.toggle('active', tabs[i] === tab);
+  document.querySelectorAll('[data-view]').forEach((t) => {
+    t.classList.toggle('active', t.dataset.view === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
