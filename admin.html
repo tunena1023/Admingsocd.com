@@ -4442,6 +4442,25 @@ function renderGalleryPanel() {
    loadAll(), igual que loadInitialData() de Recurring.
 ============================================================ */
   let myRole = null;
+
+  /* devApi() -- FALTABA POR COMPLETO desde la fusion original de
+     Developer dentro de admin.html. Se renombraron todas las
+     LLAMADAS de api() a devApi() (para no chocar con el api(path,
+     opts) generico que ya existia en admin.html), pero la funcion
+     en si nunca se copio -- quedo llamandose a una funcion
+     inexistente en TODO Developer, no solo en whoami. Identica a la
+     api() original de developer.html. */
+  async function devApi(action, extra) {
+    const res = await fetch('/api/developer-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ action, email: adminUser.email }, extra || {}))
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
   let allStaff = [];
   let allCatalogRows = [];
   let allTemplates = [];
