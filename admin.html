@@ -1630,6 +1630,7 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
+    checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
     return;
@@ -1656,6 +1657,7 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
+  checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
 }
@@ -1666,6 +1668,20 @@ async function initAuth() {
 function applyUrlTabParam() {
   const tab = new URLSearchParams(location.search).get('tab');
   if (tab) showTab(tab);
+}
+
+/* Decide si se muestra la pestana "Developer" al cargar la pagina.
+   Usa getMyRole() (definida mas abajo, junto al resto de Developer)
+   -- la MISMA llamada compartida y memoizada que usa init() para
+   decidir el contenido, para que nunca puedan verse resultados
+   distintos entre la pestana y lo de adentro. */
+async function checkDeveloperAccess() {
+  if (!adminUser || !adminUser.email) return;
+  const role = await getMyRole();
+  if (role) {
+    const btn = document.getElementById('developer-tab-btn');
+    if (btn) btn.style.display = '';
+  }
 }
 
 function signOut() {
@@ -4440,25 +4456,46 @@ function renderGalleryPanel() {
      (path+opts), pero esta SIEMPRE llama a /developer-admin con una
      action, son cosas distintas que compartian nombre por accidente. */
 
-  async function init() {
-    /* whoami parece ser poco confiable a veces (falla sin motivo
-       claro, tal vez por como Graph/SharePoint cachea el token o la
-       lista Staff). Antes habia 2 llamadas separadas (una aqui, otra
-       en checkDeveloperAccess()) que sin querer daban una segunda
-       oportunidad -- al juntarlas en una sola, un solo fallo dejaba a
-       la usuaria totalmente sin la pestana. Ahora se reintenta hasta
-       3 veces (con una pausa corta entre cada una) antes de darse
-       por vencido de verdad. */
-    myRole = null;
-    for (let intento = 1; intento <= 3 && !myRole; intento++) {
-      try {
-        const res = await devApi('whoami');
-        myRole = res.role || null;
-      } catch (e) {
-        myRole = null;
-      }
-      if (!myRole && intento < 3) await new Promise(r => setTimeout(r, 400));
+  /* Una sola fuente de verdad para el rol del usuario en Developer,
+     compartida entre la visibilidad de la PESTANA (que decide
+     admin.html, mas arriba en el archivo) y la del CONTENIDO (que
+     decide init(), aqui abajo).
+
+     Antes de fusionar Developer dentro de admin.html, developer.html
+     era una pagina aparte: su whoami se pedia solo, sin competir con
+     nada mas. Ahora que todo vive en un solo archivo, TODOS los
+     paneles piden sus datos al mismo tiempo al cargar la pagina
+     (ordenes, clientes, servicios, catalogo, tecnicos, Recurring...)
+     -- 10+ peticiones simultaneas al backend. whoami, siendo una
+     peticion mas de ese mismo paquete, a veces se quedaba sin
+     respuesta util en medio de tanto trafico junto.
+
+     getMyRole() resuelve esto de raiz: memoiza la promesa, asi que
+     sin importar cuantas veces se llame (desde checkDeveloperAccess
+     al cargar la pagina, o desde init() al abrir el tab), SOLO se
+     hace una llamada real de red -- todos los que la necesiten
+     esperan la MISMA promesa. Ademas reintenta hasta 3 veces (con
+     pausa) antes de darse por vencida, por si el primer intento cae
+     justo en medio del pico de trafico inicial. */
+  let whoamiPromise = null;
+  function getMyRole() {
+    if (!whoamiPromise) {
+      whoamiPromise = (async () => {
+        for (let intento = 1; intento <= 3; intento++) {
+          try {
+            const res = await devApi('whoami');
+            if (res.role) return res.role;
+          } catch (e) { /* se reintenta abajo */ }
+          if (intento < 3) await new Promise(r => setTimeout(r, 500));
+        }
+        return null;
+      })();
     }
+    return whoamiPromise;
+  }
+
+  async function init() {
+    myRole = await getMyRole();
     /* Mismo resultado de whoami de arriba, tambien decide si se
        muestra la PESTANA de Developer -- antes esto se pedia por
        separado en checkDeveloperAccess(), una segunda llamada al
