@@ -102,6 +102,15 @@
     .order-id { font-weight: 600; font-size: 15px; }
     .order-pin { font-size: 12px; }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
+    /* Tira de miniaturas dentro de la tarjeta de orden (Approvals/
+       Review/Active/History) -- crecen un poco al pasar el mouse
+       (sin necesidad de clic), y el clic manda a Gallery con esa
+       orden ya abierta. Si la orden no tiene fotos, la funcion que
+       genera esto regresa vacio y no ocupa espacio. */
+    .order-photo-strip { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .order-photo-thumb { width: 34px; height: 34px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; transition: transform .15s, box-shadow .15s; position: relative; z-index: 1; }
+    .order-photo-thumb:hover { transform: scale(2.4); box-shadow: 0 4px 16px rgba(0,0,0,.35); z-index: 5; }
+    .order-photo-more { font-size: 11px; color: #8C6F2A; font-weight: 700; cursor: pointer; text-decoration: underline; }
     /* Badge de unidad ocupada -- mismo diseno aprobado en Admin/Cliente/Tech */
     /* El CSS de los badges ahora lo trae GSOrderBadges (gsocd-shared) --
        solo el margen queda aqui, porque es especifico de esta posicion
@@ -1005,7 +1014,7 @@ function showHistorySubTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes] = await Promise.all([
+    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes, galleryRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
       api('/get-services', { method: 'GET' }),
@@ -1017,7 +1026,14 @@ async function loadAll() {
          Se precarga igual que el resto -- si algun servicio no tiene
          tiempo puesto todavia, sale null y ese renglon simplemente no
          suma (no truena, no inventa un numero). */
-      api('/developer-admin', { body: { action: 'list-service-times', email: adminUser.email } }).catch(() => ({ services: [] }))
+      api('/developer-admin', { body: { action: 'list-service-times', email: adminUser.email } }).catch(() => ({ services: [] })),
+      /* Fotos de TODAS las ordenes (cualquier estatus), para poder
+         mostrar una tira de miniaturas en la tarjeta de cada orden
+         en Approvals/Review/Active/History -- ver orderPhotoStripHtml().
+         Mismo endpoint que ya usa Gallery, solo que aqui se pide todo
+         de una vez en vez de por sub-tab. Si falla, las tarjetas
+         simplemente no muestran fotos -- no bloquea nada mas. */
+      api('/get-admin-gallery', { body: { statusFilter: 'all' } }).catch(() => ({ groups: [] }))
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
@@ -1032,6 +1048,8 @@ async function loadAll() {
     allTechs = techsRes.techs || [];
     recurringPendingCache = recurringPendingRes.pending || [];
     orderDetailCache = {};
+    orderPhotosMap = {};
+    (galleryRes.groups || []).forEach(g => { orderPhotosMap[g.orderId] = g.photos || []; });
     renderApprovals();
     renderReview();
     renderActive();
@@ -1729,6 +1747,7 @@ function newOrderApprovalCard(o) {
         <div>
           <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
+          ${orderPhotoStripHtml(o.OrderID)}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password"></span>
@@ -1906,6 +1925,7 @@ function approvalCard(o) {
         <div>
           <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDate(o.createdDateTime)}</div>
+          ${orderPhotoStripHtml(o.OrderID)}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
@@ -2973,6 +2993,26 @@ function filterHistory() {
    uno con su propio estado, independientes entre si). Doble clic
    fija una abierta con candadito, igual que el acordeon de servicios.
 ============================================================ */
+/* Mapa orderId -> fotos, armado una vez en loadAll() a partir de
+   /get-admin-gallery (statusFilter:'all', trae TODAS las ordenes sin
+   importar su estatus). Los 3 tipos de tarjeta de orden (Approvals,
+   Review, Active/History) lo consultan igual via esta funcion. */
+let orderPhotosMap = {};
+
+function orderPhotoStripHtml(orderId) {
+  const photos = orderPhotosMap[orderId];
+  if (!photos || !photos.length) return '';
+  const shown = photos.slice(0, 3);
+  const extra = photos.length - shown.length;
+  const thumbsHtml = shown.map(p =>
+    '<img class="order-photo-thumb" src="' + esc(p.downloadUrl) + '" loading="lazy">'
+  ).join('');
+  const moreHtml = extra > 0 ? '<span class="order-photo-more">+' + extra + '</span>' : '';
+  return '<div class="order-photo-strip">' +
+    '<a href="gallery.html?order=' + encodeURIComponent(orderId) + '" title="View in Gallery" style="display:flex;align-items:center;gap:6px">' + thumbsHtml + moreHtml + '</a>' +
+    '</div>';
+}
+
 function orderCard(o, context) {
   const id = 'order-' + context + '-' + o.OrderID.replace(/[^a-z0-9]/gi,'_');
   return `
@@ -2981,6 +3021,7 @@ function orderCard(o, context) {
         <div>
           <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDate(o.createdDateTime)}</div>
+          ${orderPhotoStripHtml(o.OrderID)}
         </div>
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
       </div>

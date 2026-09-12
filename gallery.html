@@ -59,7 +59,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.20.4/nav-premium/nav-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.0/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script>
 const stored = sessionStorage.getItem('admin_account');
@@ -113,6 +113,8 @@ async function loadGallery() {
   }
 }
 
+let openedFromUrl = false;
+
 function renderGallery() {
   const q = (document.getElementById('gallery-search').value || '').trim().toLowerCase();
   let groups = galleryGroups;
@@ -121,9 +123,12 @@ function renderGallery() {
       String(g.orderId || '').toLowerCase().includes(q) ||
       String(g.clientLabel || '').toLowerCase().includes(q));
   }
+  const urlOrder = new URLSearchParams(location.search).get('order');
   GSGalleryGroups.render('gallery-groups-list', groups, {
-    emptyMessage: q ? 'No orders match that search.' : 'No photos yet.'
+    emptyMessage: q ? 'No orders match that search.' : 'No photos yet.',
+    openOrderId: (urlOrder && !openedFromUrl) ? urlOrder : null
   });
+  if (urlOrder) openedFromUrl = true;
 }
 
 function signOut() {
