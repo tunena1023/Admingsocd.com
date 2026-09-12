@@ -245,7 +245,6 @@
     .toggle-b-thumb { position: absolute; top: 3px; left: 3px; width: 44px; height: 26px; background: var(--white); border-radius: 13px; transition: transform .2s cubic-bezier(.4,0,.2,1); box-shadow: 0 1px 3px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--gray); }
     .toggle-b.on { background: var(--gold); }
     .toggle-b.on .toggle-b-thumb { transform: translateX(27px); color: var(--black); }
-    .field-sub { font-size: 11px; color: var(--gray); margin: 2px 0 8px; line-height: 1.5; }
 
     .field-group select:focus, .field-group input:focus, .field-group textarea:focus {
       border-color: var(--gold);
@@ -277,6 +276,17 @@
     .edit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
     .svc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
     .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ===== "+ Add a Unit" (Approvals) rediseñado -- aprobado en mini
+       (12/09/2026). Mismos 6 campos y mismas acciones Add Unit/Cancel
+       de siempre, solo con el look premium de gs-ofp (ya cargado via
+       order-form-premium.js en esta pagina, se usa igual en Create
+       Order). La tarjeta "Do we need anything from you?" (antes
+       .addunit-office-card local) ahora vive unificada en gsocd-shared
+       como GSOrderFormPremium.officeAccessHtml(dom, {compact:true}) --
+       ver v1.25.0. */
+    .addunit-dates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+    @media (max-width: 600px) { .addunit-dates-grid { grid-template-columns: 1fr; } }
 
     /* ACTION OVERLAY -- pantalla completa oscura con logo + mensaje,
        reemplaza el toast chiquito de la esquina que pasaba
@@ -784,7 +794,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.19.0/order-form-premium/order-form-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.0/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.14.0/order-history/order-history.js"></script>
@@ -3596,31 +3606,49 @@ function addUnitButtonHtml(clientId, batchId) {
 
 function addUnitFormHtml(clientId, batchId) {
   const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
-  const c = allClients.find(x => x.clientId === clientId);
-  const buildings = (c && c.buildings) ? c.buildings.filter(b => !b.archived) : [];
-  let bldgOptions = '';
-  buildings.forEach(b => {
-    bldgOptions += '<option value="' + esc(b.id) + '">' + esc(b.label || 'Building') + (b.buildingNumber ? ' #' + esc(b.buildingNumber) : '') + '</option>';
-  });
-  if (!bldgOptions) bldgOptions = '<option value="">No saved buildings for this client</option>';
 
   return `
     <div id="${dom}-form" style="display:none;border:1px dashed var(--border);padding:16px;margin-top:12px;margin-bottom:16px">
-      <div class="edit-grid">
-        <div class="field-group"><label>Building</label><select id="${dom}-building">${bldgOptions}</select></div>
-        <div class="field-group"><label>Unit #</label><input type="text" id="${dom}-unit-number"></div>
-        <div class="field-group"><label>Bedrooms</label><input type="number" id="${dom}-bedrooms" min="1" max="5"></div>
-        <div class="field-group"><label>Bathrooms</label><input type="number" id="${dom}-bathrooms" min="1" max="3"></div>
+      <div class="gs-ofp-unitrow gs-ofp-unitline" style="margin-bottom:20px">
+        <div class="gs-ofp-unitfield">
+          <div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M12 21V9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12"/><path d="M8 8h1M8 12h1M8 16h1M16 12h1M16 16h1"/></svg>Building # (optional)</div>
+          <input type="text" id="${dom}-building-number" placeholder="e.g. 1215">
+        </div>
+        <div class="gs-ofp-unitfield">
+          <div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M4 10h16"/></svg>Unit #</div>
+          <input type="text" id="${dom}-unit-number">
+        </div>
+        <div class="gs-ofp-unitfield">
+          <div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/><path d="M2 10h20v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3z"/><path d="M2 18l1-4M22 18l-1-4"/></svg>Bedrooms</div>
+          <input type="number" id="${dom}-bedrooms" min="1" max="5">
+        </div>
+        <div class="gs-ofp-unitfield">
+          <div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M4 12a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2M4 12V7a2 2 0 0 1 2-2h1"/><circle cx="7" cy="8" r="1"/><path d="M6 18l-1 3M18 18l1 3"/></svg>Bathrooms</div>
+          <input type="number" id="${dom}-bathrooms" min="1" max="3">
+        </div>
+      </div>
+
+      ${GSOrderFormPremium.officeAccessHtml(dom, { compact: true })}
+
+      <div class="addunit-dates-grid">
         <div class="field-group"><label>Entry Date</label>${GSDateTimePicker.dateHtml(dom + '-entry', null)}</div>
         <div class="field-group"><label>Due Date</label>${GSDateTimePicker.dateHtml(dom + '-due', null)}</div>
       </div>
-      <div class="appr-bar">
+
+      <div class="appr-bar" style="margin-top:18px">
         <button class="btn btn-green" onclick="event.stopPropagation(); submitAddBatchUnitAdmin('${esc(clientId)}','${esc(batchId)}','${dom}')">Add Unit</button>
         <button class="btn btn-outline" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">Cancel</button>
       </div>
       <p class="dialog-error" id="${dom}-error"></p>
     </div>`;
 }
+
+/* El toggle "Do we need anything from you?" de este formulario ahora
+   vive completo en gsocd-shared/order-form-premium --
+   GSOrderFormPremium.setOfficeNeed(dom, yes)/getOfficeNeedValue(dom)/
+   getOfficeNeedNotes(dom). Sigue trayendo una entrada por dom
+   (batchId) internamente, para que varios formularios de distintos PO
+   puedan estar abiertos sin pisarse, igual que antes. */
 
 /* Se queda como estaba, junta boton+formulario, para batchOrderGroupCard
    (Active) que no necesita separarlos. */
@@ -3637,14 +3665,15 @@ function toggleAddUnitForm(dom) {
 async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
   const val = id => (document.getElementById(dom + '-' + id) || {}).value || '';
   const errEl = document.getElementById(dom + '-error');
-  const buildingId = val('building');
+  const buildingNumber = val('building-number').trim();
   const unitNumber = val('unit-number').trim();
   const bedrooms = val('bedrooms').trim();
   const bathrooms = val('bathrooms').trim();
   const entryDateVal = val('entry');
   const dueDateVal = val('due');
+  const needsOfficeAccess = GSOrderFormPremium.getOfficeNeedValue(dom);
+  const officeNeedNotes = GSOrderFormPremium.getOfficeNeedNotes(dom);
 
-  if (!buildingId)  { if (errEl) errEl.textContent = 'Please choose a building.'; return; }
   if (!unitNumber)  { if (errEl) errEl.textContent = 'Please enter the Unit Number.'; return; }
   if (!bedrooms || parseInt(bedrooms) < 1)  { if (errEl) errEl.textContent = 'Please enter valid Bedrooms.'; return; }
   if (!bathrooms || parseInt(bathrooms) < 1) { if (errEl) errEl.textContent = 'Please enter valid Bathrooms.'; return; }
@@ -3654,9 +3683,10 @@ async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
   const body = {
     ClientID: clientId,
     AddUnitToBatch: {
-      batchId, buildingId, unitNumber, bedrooms, bathrooms,
+      batchId, buildingNumber, unitNumber, bedrooms, bathrooms,
       entryDate: new Date(entryDateVal + 'T08:00').toISOString(),
-      dueDate:   new Date(dueDateVal + 'T23:59:59').toISOString()
+      dueDate:   new Date(dueDateVal + 'T23:59:59').toISOString(),
+      needsOfficeAccess, officeNeedNotes
     },
     changedBy: getActorName()
   };
@@ -8413,19 +8443,7 @@ function createOrderFormHtml() {
         <div id="create-est-time"></div>
       </div>
 
-      <div class="field-group" id="create-office-need-block" style="margin-top:20px">
-        <label>Do we need anything from the property office?</label>
-        <div class="field-sub">Keys, storage access, or anything like that before we start.</div>
-        <div class="toggle-b" id="create-office-toggle" onclick="setCreateOfficeNeed(!createOfficeNeedYes)">
-          <div class="toggle-b-thumb" id="create-office-toggle-thumb">No</div>
-        </div>
-        <div id="create-office-need-detail" style="display:none;margin-top:12px">
-          <div class="gs-ofp-notewrap">
-            <label class="gs-ofp-notelabel">What do we need from the office?</label>
-            <textarea id="create-office-need-text" class="gs-ofp-notetextarea" placeholder="e.g. Keys for the mailroom, gate code, access to the roof..."></textarea>
-          </div>
-        </div>
-      </div>
+      ${GSOrderFormPremium.officeAccessHtml('create')}
 
       <div id="create-single-dates" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
         <div class="field-group"><label>Entry Date</label>${GSDateTimePicker.dateHtml('create-entry-date', null)}</div>
@@ -8447,27 +8465,22 @@ function createOrderFormHtml() {
 }
 
 
-/* ===== "Do we need anything from the office?" -- reemplaza a Notes,
-   las 3 divisiones (mismo patron de customer.html). */
-let createOfficeNeedYes = false;
-function setCreateOfficeNeed(yes) {
-  createOfficeNeedYes = yes;
-  document.getElementById('create-office-toggle').classList.toggle('on', yes);
-  document.getElementById('create-office-toggle-thumb').textContent = yes ? 'Yes' : 'No';
-  document.getElementById('create-office-need-detail').style.display = yes ? 'block' : 'none';
-}
+/* "Do we need anything from you?" -- ahora vive en gsocd-shared/
+   order-form-premium (GSOrderFormPremium.getOfficeNeedValue('create')/
+   getOfficeNeedNotes('create')), unificado con el mismo toggle que
+   usa Orders y el formulario de Add Unit (12/09/2026). */
 
 function startCreateOrderFor(clientId) {
   const c = allClients.find(x => x.clientId === clientId);
   if (!c) return;
   createSelectedClient = c;
   createSelected = new Map();
-  createOfficeNeedYes = false;
   const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const content = document.getElementById(cid + '-content');
   if (!content) return;
   content.innerHTML = createClientRecentOrdersHtml(clientId) + createOrderFormHtml();
   GSOrderFormPremium.styleTag();
+  GSOrderFormPremium.setOfficeNeed('create', false);
   GSOrderFormPremium.renderDivDecos('Janitorial', 'create-div-card');
   setCreateOrderMode('single');
 }
@@ -8647,8 +8660,8 @@ async function submitCreateOrder() {
     changedBy:      getActorName(),
     /* Reemplaza al viejo campo de Notes libres -- aplica a las 3
        divisiones, no solo Exteriors. */
-    NeedsOfficeAccess: createOfficeNeedYes,
-    OfficeNeedNotes:   createOfficeNeedYes ? document.getElementById('create-office-need-text').value.trim() : ''
+    NeedsOfficeAccess: GSOrderFormPremium.getOfficeNeedValue('create'),
+    OfficeNeedNotes:   GSOrderFormPremium.getOfficeNeedNotes('create')
   };
 
   if (createMultiOn) {

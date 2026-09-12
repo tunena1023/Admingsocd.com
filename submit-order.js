@@ -8,7 +8,7 @@
 ============================================================ */
 
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENT_ADDRESSES_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENT_ADDRESSES_LIST, CLIENTS_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, geocodeAddress,
   jsonResponse
@@ -168,16 +168,16 @@ exports.handler = async (event) => {
     if (b.AddUnitToBatch) {
       const add = b.AddUnitToBatch;
       if (!add.batchId)    return jsonResponse(400, { error: 'batchId is required' });
-      if (!add.buildingId) return jsonResponse(400, { error: 'Please choose a building.' });
       if (!add.unitNumber) return jsonResponse(400, { error: 'Please enter the Unit Number.' });
       if (!add.bedrooms)   return jsonResponse(400, { error: 'Please enter Bedrooms.' });
       if (!add.bathrooms)  return jsonResponse(400, { error: 'Please enter Bathrooms.' });
       if (!add.entryDate)  return jsonResponse(400, { error: 'Please enter the entry date.' });
       if (!add.dueDate)    return jsonResponse(400, { error: 'Please enter the due date.' });
+      /* add.buildingNumber es OPCIONAL a proposito -- ver el fallback abajo. */
 
-      const [allOrders, allBuildings] = await Promise.all([
+      const [allOrders, allClientsRows] = await Promise.all([
         fetchAll(ORDERS_LIST),
-        fetchAll(CLIENT_ADDRESSES_LIST)
+        fetchAll(CLIENTS_LIST)
       ]);
 
       const clientOrders = allOrders.filter(it =>
@@ -186,17 +186,39 @@ exports.handler = async (event) => {
       const siblings = clientOrders.filter(it => it.fields.BatchId === add.batchId);
       if (!siblings.length) return jsonResponse(404, { error: 'That order was not found.' });
 
-      const building = allBuildings.find(it =>
-        it.id === String(add.buildingId) &&
+      /* La unidad nueva SIEMPRE usa la direccion del cliente (mismo
+         criterio que el modo Single de crear orden) -- ya no se elige
+         entre direcciones guardadas (CLIENT_ADDRESSES_LIST). Building #
+         es texto libre y opcional: si se deja vacio, se autorellena
+         con los digitos iniciales de la direccion del cliente
+         (confirmado con el dueño 12/09/2026 -- antes esto era un
+         <select> obligatorio). */
+      const clientItem = allClientsRows.find(it =>
         it.fields && String(it.fields.ClientID || '').trim().toLowerCase() === String(b.ClientID).trim().toLowerCase()
       );
-      if (!building) return jsonResponse(403, { error: 'That building does not belong to this client.' });
-      const bf = building.fields;
+      const cf = clientItem ? clientItem.fields : {};
+      let buildingNumber = String(add.buildingNumber || '').trim();
+      if (!buildingNumber) {
+        const m = String(cf.Address || '').match(/^\s*(\d+)/);
+        buildingNumber = m ? m[1] : '';
+      }
+      const bf = { BuildingNumber: buildingNumber, Address: cf.Address || '', Suite: cf.Suite || '', City: cf.City || '', Zip: cf.Zip || '' };
 
       const template = siblings[0].fields;
       const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
       const suffix = nextGlobalSuffix(allOrders);
       const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + add.batchId;
+      /* needsOfficeAccess/officeNeedNotes son de ESTA unidad nueva
+         especificamente (el toggle del formulario de Add Unit), no se
+         heredan del resto del PO -- cada unidad puede necesitar algo
+         distinto de la oficina. */
+      const needsOfficeAccess = add.needsOfficeAccess === true || add.needsOfficeAccess === 'true';
+      const officeNeedNotes = add.officeNeedNotes || '';
+      /* Ya no hay buildingId ligado (era de donde salian las
+         coordenadas ya geocodificadas) -- se reusa la misma funcion
+         que ya existe para el flujo normal, que en ese caso
+         geocodifica la direccion de texto directo (Nominatim). */
+      const coords = await resolveOrderCoordinates(null, bf.Address, bf.City, bf.Zip);
 
       await createListItem(ORDERS_LIST, {
         Title:          template.BusinessName || '',
@@ -217,14 +239,13 @@ exports.handler = async (event) => {
         Zip:            bf.Zip     || '',
         Email:          template.Email || '',
         Notes:          template.Notes || '',
+        NeedsOfficeAccess: needsOfficeAccess,
+        OfficeNeedNotes:   officeNeedNotes,
         EntryDate:      add.entryDate,
         DueDate:        add.dueDate,
         DraftData:      '',
         BatchId:        add.batchId,
-        BuildingId:     String(add.buildingId),
-        /* El Building ya se geocodifico solo (admin-update-client.js) --
-           se copian sus coordenadas, sin volver a preguntarle a Nominatim. */
-        ...(bf.Latitude != null && bf.Longitude != null ? { Latitude: bf.Latitude, Longitude: bf.Longitude } : {})
+        ...(coords ? { Latitude: coords.lat, Longitude: coords.lon } : {})
       });
 
       try {

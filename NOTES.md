@@ -191,3 +191,89 @@ version actual del archivo -- puede haber pendientes, decisiones o
 cambios en local sin subir que cambian por completo cual es la forma
 correcta de resolver algo.
 
+
+## En local, sin subir (12/09/2026): rediseño de "+ Add a Unit" en Admin
+
+Cambios en `admin.html` (función `addUnitFormHtml`, `submitAddBatchUnitAdmin`,
+nuevas `addUnitOfficeNeedState`/`setAddUnitOfficeNeed`, más CSS
+`.addunit-office-card`/`.addunit-dates-grid`) y en `submit-order.js` (bloque
+`AddUnitToBatch` ahora acepta y guarda `NeedsOfficeAccess`/`OfficeNeedNotes`,
+que antes no se persistían ahí para unidades agregadas a un PO existente).
+Aprobado en un mini interactivo tras varias iteraciones de ajuste visual.
+
+Resultado: mismos 6 campos y mismas acciones "Add Unit" (verde)/"Cancel" de
+siempre — solo con el look premium `gs-ofp-*` (ya cargado en la página,
+mismo componente que usa Create Order) en vez de inputs genéricos. Se agregó
+la tarjeta "Need anything from the office?" — versión MÁS DELGADA que la de
+Create Order (padding/fuente/íconos más chicos, aprobado así en el mini),
+con el toggle conectado de verdad.
+
+Vive en el sandbox de esta sesión, no en GitHub — si no aparece en el repo
+y no se sabe por qué, es por esto.
+
+**Pendiente, mismo tema, sin resolver:** el modal equivalente en Orders
+(`ordersgsocd.com/customer.html`, `addunit-dialog`) NO se ha tocado — se
+analizó pero nunca se confirmó si el mismo rediseño aplica ahí también.
+
+## Pendiente de CONFIRMAR (no urgente, revisar al cerrar el proyecto)
+
+- **Fechas heredadas + resplandor en "+ Add a Unit"**: se había acordado
+  (pensando que era Orders) que Entry/Due date de la unidad nueva
+  vinieran pre-llenadas con las fechas del PO, con un resplandor dorado
+  suave mientras no se tocaran. Al construir la version real de Admin
+  esto se quedó fuera (las fechas quedan vacías, "Pick a date"). El
+  dueño decidió NO resolverlo ahora — queda pendiente de confirmar si
+  se agrega, y en Admin, Orders, o ambos. Revisar cuando el dueño diga
+  "ya acabé" con el resto del proyecto.
+
+## En local, sin subir (12/09/2026): Building # pasó de select a texto libre
+
+Corrección sobre el rediseño de "+ Add a Unit" documentado arriba: el campo
+Building dejó de ser un `<select>` de direcciones guardadas
+(`CLIENT_ADDRESSES_LIST`) y ahora es texto libre y OPCIONAL, igual que
+"Building #" en el modo Single de crear orden. La unidad nueva SIEMPRE usa
+la dirección del cliente (`Clients` list) — ya no elige entre varias
+propiedades guardadas. Si se deja vacío, el backend (`submit-order.js`,
+bloque `AddUnitToBatch`) autorellena con los dígitos iniciales de esa
+dirección (`"4720 NW 59th Ave"` → `"4720"`), regex `/^\s*(\d+)/`.
+
+Las coordenadas para Routing ya no vienen de un building ligado (ya no
+existe ese concepto aquí) — se reutilizó `resolveOrderCoordinates()`, que
+ya existía en el archivo para el flujo normal, pasándole `null` como
+buildingId para que geocodifique la dirección de texto directo.
+
+**Aviso dado en el chat, no confirmado explícitamente:** si un cliente
+maneja varias propiedades distintas y el PO original se creó bajo una
+dirección que NO es la default del cliente, las unidades agregadas por
+este formulario de todos modos van a ir a la dirección default del
+cliente, no a la del PO. No se bloqueó por esto porque el dueño ya dio la
+instrucción explícita; queda anotado por si se vuelve un problema real.
+
+## En local, sin subir (12/09/2026): Office Access unificado en gsocd-shared
+
+Se reemplazaron las 2 tarjetas duplicadas de "Need anything from the
+office?" en este repo (flujo de crear orden y formulario de Add Unit)
+por llamadas al componente unificado en `gsocd-shared/order-form-premium`
+(ver su NOTES.md nuevo para el detalle completo). Se quitaron
+`createOfficeNeedYes`/`setCreateOfficeNeed` y
+`addUnitOfficeNeedState`/`setAddUnitOfficeNeed` locales — ahora se lee/
+escribe con `GSOrderFormPremium.getOfficeNeedValue(dom)`/
+`getOfficeNeedNotes(dom)`/`setOfficeNeed(dom, yes)`. `<script src>`
+actualizado a `gsocd-shared@v1.25.0`.
+
+Detalle importante que se agregó en `startCreateOrderFor()`: el reset del
+toggle (`GSOrderFormPremium.setOfficeNeed('create', false)`) se movió a
+DESPUÉS de que el HTML nuevo ya exista en el DOM (antes solo se ponía en
+`false` una variable local, ahora hay que tocar elementos reales que
+todavía no existen si se hace antes de `content.innerHTML = ...`).
+Probado con jsdom que reabrir el formulario para un cliente distinto no
+arrastra el estado (toggle prendido / nota escrita) del cliente anterior
+(7/7).
+
+Título/label/placeholder nuevos confirmados con jsdom sobre el código
+real de `admin.html` (no solo el componente aislado): 14/14 en Add Unit.
+
+**Pendiente:** este cambio depende de que `gsocd-shared@v1.25.0` se
+suba a GitHub primero (ver su NOTES.md) — si se sube este repo sin haber
+subido antes el tag, el `<script src>` apuntaría a una versión que no
+existe todavía en jsDelivr.
