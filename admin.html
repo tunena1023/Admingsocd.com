@@ -1344,17 +1344,29 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">Import Recurring Contracts</div>
-        <div class="order-desc">Upload the cleaned recurring-clients report — create each contract one at a time after confirming client and tech.</div></div>
+        <div class="order-desc">Upload the cleaned recurring-clients report — matched rows land in Recurring Services Scheduler below.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">
-          Upload the <b>Recurrentes Organizado</b> spreadsheet (columns: Edificio, Cliente en QuickBooks, Frecuencia, Lunes…Domingo, Horas por visita, Técnico sugerido). Matches columns automatically. Only Semanal contracts can be created today — RecurringServices doesn't support Quincenal/Mensual yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Field Employees lists, same as the regular Recurring form — nothing here is typed free-text into the system.
+          Upload the <b>Recurring Organized</b> spreadsheet (columns: Building, Client in QuickBooks, Frequency, Monday…Sunday, Hours per visit, Suggested tech). Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Field Employees lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
         </p>
         <input type="file" id="import-recurring-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onImportRecurringFileChosen()">
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('import-recurring-file').click()">Choose file…</button>
         <span id="import-recurring-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-        <div id="import-recurring-preview" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="recurring-scheduler-section" data-category="services" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Recurring Services Scheduler</div>
+        <div class="order-desc">Editable table from the last uploaded report — create new contracts or update ones that already exist, right here.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div id="import-recurring-preview" style="margin-top:16px"><p class="section-sub">Upload a report in Import Recurring Contracts above to populate this table.</p></div>
       </div>
     </div>
   </section>
@@ -4223,9 +4235,9 @@ function renderGalleryPanel() {
         '</td>'
       ).join('');
       const freqNote = r.frecuencia !== 'Semanal' && !r.alreadyExisted
-        ? '<div style="font-size:10px;color:var(--red)">era ' + esc(r.frecuencia) + ' -- se crea como semanal en los dias marcados</div>' : '';
+        ? '<div style="font-size:10px;color:var(--red)">was ' + esc(r.frecuencia) + ' -- will be created as weekly on the checked days</div>' : '';
       const existsNote = r.alreadyExisted
-        ? '<div style="font-size:10px;color:var(--green);font-weight:600">✓ ya existe -- editando el contrato real</div>' : '';
+        ? '<div style="font-size:10px;color:var(--green);font-weight:600">✓ already exists -- editing the real contract</div>' : '';
       // Mismo patron que assign-rows del formulario normal de Recurring (Employee +
       // Hours + boton de quitar), solo que aqui vive por renglon del import en vez
       // de una sola vez por pagina -- por eso cada control lleva el id del renglon.
@@ -4890,6 +4902,7 @@ function renderGalleryPanel() {
       document.getElementById('templates-section').classList.add('role-eligible');
       document.getElementById('holidays-section').classList.add('role-eligible');
       document.getElementById('import-recurring-section').classList.add('role-eligible');
+      document.getElementById('recurring-scheduler-section').classList.add('role-eligible');
     }
 
     if (myRole === 'Developer') {
