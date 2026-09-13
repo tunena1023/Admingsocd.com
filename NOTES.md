@@ -65,6 +65,24 @@ resueltas, ni subir cosas sin permiso. Léelo completo antes de tocar código.
    todos eran de lógica: cosas que se ven perfectas archivo por archivo
    pero fallan en la costura entre dos archivos.
 
+8. **Todo cambio visual o de comportamiento se considera en mobile ANTES de
+   proponerlo o subirlo — no después.** No basta con que se vea bien en
+   desktop. En la sesión del 13/09/2026 esto se pasó por alto varias veces
+   seguidas sobre el mismo componente compartido
+   (`gsocd-shared/order-form-premium`): un fix se probaba, se declaraba
+   listo, se subía, y el dueño encontraba en su propio celular que seguía
+   roto — o que se veía distinto entre Admin y Orders aunque los dos usan
+   el mismo componente, porque el padding/contexto que lo envuelve en cada
+   app es distinto. Esto obligó a repetir el mismo ciclo de investigación
+   3-4 veces sobre lo mismo (filas de unidad, pestañas de división, padding
+   de tarjetas). La lección: antes de decir "ya está" sobre cualquier
+   componente visual — sobre todo uno compartido, usado en más de un lugar
+   — hay que verificar con un render real (no solo leer el CSS) a un ancho
+   angosto realista (320-375px, el peor caso siendo un iPhone SE de 320px),
+   y hacerlo DENTRO de cada contexto donde ese componente se usa, no solo
+   uno — un componente puede verse perfecto en una pantalla y roto en otra
+   por lo que lo rodea, no por el componente en sí.
+
 ## Mapa de la arquitectura (para no perderse)
 
 **4 repos, todos de `tunena1023` en GitHub, cada uno su propio proyecto en
