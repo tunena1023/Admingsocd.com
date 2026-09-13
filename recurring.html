@@ -197,6 +197,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.22/order-form-premium/order-form-premium.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -225,7 +226,7 @@
 
     <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
       <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
-      <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
+      <div style="text-align:right"><button class="gs-ofp-btn-secondary" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
     </div>
     <div id="svc-area" style="display:none;margin-bottom:16px">
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
@@ -253,8 +254,8 @@
     <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
 
     <div style="margin-top:16px">
-      <button class="btn-gold" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
-      <button class="btn-outline" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
+      <button class="gs-ofp-btn-primary" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
+      <button class="gs-ofp-btn-secondary" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
       <p class="dialog-error" id="rc-error"></p>
     </div>
   </div>
@@ -265,7 +266,8 @@
 </div>
 
 <script>
-  const stored = sessionStorage.getItem('admin_account');
+GSOrderFormPremium.styleTag();
+const stored = sessionStorage.getItem('admin_account');
   let adminUser = null;
   if (!stored) {
     window.location.href = 'index.html';
@@ -630,15 +632,15 @@
     } else if (scheduledToday && todayStatus !== 'completed') {
       const isFieldConfirmed = todayStatus === 'field-confirmed';
       completeBtnHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        '<button class="btn ' + (isFieldConfirmed ? 'btn-blue' : 'btn-green') + '" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
+        '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
           'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>' +
-        (isFieldConfirmed ? '<button class="btn btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
+        (isFieldConfirmed ? '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
       '</div>' +
       (isFieldConfirmed ? '<div id="sendback-box-' + id + '" style="display:none;margin-top:10px">' +
         '<div class="field-group"><label>Reason (required)</label><input type="text" id="sendback-reason-' + id + '" placeholder="What still needs to be fixed?"></div>' +
         '<div style="display:flex;gap:8px;margin-top:8px">' +
-          '<button class="btn btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
-          '<button class="btn-outline" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
+          '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
+          '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
         '</div>' +
       '</div>' : '');
     }
@@ -670,9 +672,9 @@
           '</div>' +
           '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
             completeBtnHtml +
-            '<button class="btn btn-outline" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
-            '<button class="btn btn-outline" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
-            (loggingFor === id ? '' : '<button class="btn btn-outline" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+            (loggingFor === id ? '' : '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
           '</div>' +
           (loggingFor === id ? renderLogVisitPanel(s) : '') +
         '</div>' +
@@ -762,8 +764,8 @@
       '<div id="lv-diff-slot"></div>' +
       '<div class="field-group" style="margin-top:14px"><label>General note (optional)</label><textarea id="lv-note"></textarea></div>' +
       '<div class="logvisit-actions">' +
-        '<button class="btn-gold" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
-        '<button class="btn-outline" onclick="closeLogVisit()">Cancel</button>' +
+        '<button class="gs-ofp-btn-primary" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
+        '<button class="gs-ofp-btn-secondary" onclick="closeLogVisit()">Cancel</button>' +
       '</div>' +
     '</div>';
   }

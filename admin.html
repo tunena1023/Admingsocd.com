@@ -981,7 +981,7 @@
   <div class="subpanel clients-subpanel active" id="clientssub-list">
     <div class="search-bar">
       <input type="text" id="client-search" placeholder="Search by name, ID or email…" oninput="filterClients()">
-      <button class="btn btn-gold" onclick="showAddClient()">+ Add Client</button>
+      <button class="gs-ofp-btn-primary" onclick="showAddClient()">+ Add Client</button>
     </div>
     <div id="add-client-form" style="display:none;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:20px">
       <p class="detail-label" style="margin-bottom:16px">New Client</p>
@@ -996,8 +996,8 @@
         <div class="field-group"><label>Zip</label><input type="text" id="new-zip"></div>
       </div>
       <div class="btn-actions">
-        <button class="btn btn-gold" onclick="saveNewClient()">Save Client</button>
-        <button class="btn btn-outline" onclick="showAddClient()">Cancel</button>
+        <button class="gs-ofp-btn-primary" onclick="saveNewClient()">Save Client</button>
+        <button class="gs-ofp-btn-secondary" onclick="showAddClient()">Cancel</button>
       </div>
       <p id="new-client-error" style="font-size:12px;color:var(--red);margin-top:8px"></p>
     </div>
@@ -1045,7 +1045,7 @@
 
     <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
       <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
-      <div style="text-align:right"><button class="btn-outline" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
+      <div style="text-align:right"><button class="gs-ofp-btn-secondary" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
     </div>
     <div id="svc-area" style="display:none;margin-bottom:16px">
       <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
@@ -1073,8 +1073,8 @@
     <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
 
     <div style="margin-top:16px">
-      <button class="btn-gold" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
-      <button class="btn-outline" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
+      <button class="gs-ofp-btn-primary" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
+      <button class="gs-ofp-btn-secondary" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
       <p class="dialog-error" id="rc-error"></p>
     </div>
   </div>
@@ -1127,7 +1127,7 @@
           never edited by hand here.
         </p>
         <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
-        <button class="btn btn-outline" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
         <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div id="catalog-preview"></div>
       </div>
@@ -1158,7 +1158,7 @@
       </div>
       <div class="appr-body" style="display:none">
         <div style="display:flex;justify-content:flex-end;margin:16px 0">
-          <button type="button" class="btn btn-gold" onclick="startNewOfficeTemplate()">+ New Office Template</button>
+          <button type="button" class="gs-ofp-btn-primary" onclick="startNewOfficeTemplate()">+ New Office Template</button>
         </div>
         <div id="tpl-admin-table-wrap"><p class="empty-note">Loading templates…</p></div>
       </div>
@@ -1177,8 +1177,8 @@
         <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px"></div>
         <div id="tpl-admin-picker"></div>
         <div style="margin-top:20px;display:flex;gap:10px">
-          <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
-          <button type="button" class="btn btn-outline" onclick="closeOfficeTemplateEditor()">Cancel</button>
+          <button type="button" class="gs-ofp-btn-primary" onclick="saveOfficeTemplate()">Save Template</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="closeOfficeTemplateEditor()">Cancel</button>
         </div>
       </div>
     </div>
@@ -1193,8 +1193,8 @@
       </div>
       <div class="appr-body" style="display:none">
         <div style="display:flex;justify-content:flex-end;gap:10px;margin:16px 0">
-          <button type="button" class="btn btn-outline" onclick="seedStandardHolidays()">Load standard US holidays</button>
-          <button type="button" class="btn btn-gold" onclick="startNewHoliday()">+ Add Holiday</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="seedStandardHolidays()">Load standard US holidays</button>
+          <button type="button" class="gs-ofp-btn-primary" onclick="startNewHoliday()">+ Add Holiday</button>
         </div>
         <div id="holidays-table-wrap"><p class="empty-note">Loading holidays…</p></div>
       </div>
@@ -1248,8 +1248,8 @@
         </div>
 
         <div style="margin-top:20px;display:flex;gap:10px">
-          <button type="button" class="btn btn-gold" onclick="saveHolidayFromEditor()">Save Holiday</button>
-          <button type="button" class="btn btn-outline" onclick="closeHolidayEditor()">Cancel</button>
+          <button type="button" class="gs-ofp-btn-primary" onclick="saveHolidayFromEditor()">Save Holiday</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="closeHolidayEditor()">Cancel</button>
         </div>
       </div>
     </div>
@@ -1266,7 +1266,7 @@
         <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
         <table class="staff-table" id="staff-table"><tbody></tbody></table>
         <div class="btn-actions">
-          <button class="btn btn-gold" onclick="openStaffModal(null)">+ Add Staff</button>
+          <button class="gs-ofp-btn-primary" onclick="openStaffModal(null)">+ Add Staff</button>
         </div>
       </div>
     </div>
@@ -1302,7 +1302,7 @@
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:16px 0;padding:14px;background:var(--bg);border-radius:4px">
           <div class="field-small" style="max-width:200px;margin-bottom:0"><label>Extra min. if needs office access</label>
             <input type="number" id="tr-office-extra" min="0"></div>
-          <button type="button" class="btn btn-outline btn-sm" onclick="saveTimesRoutesSettings()">Save</button>
+          <button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="saveTimesRoutesSettings()">Save</button>
           <span id="tr-settings-saved" style="font-size:11px;color:#1F7A3F;display:none">Saved.</span>
         </div>
 
@@ -1310,7 +1310,7 @@
           <select id="tr-tech-filter" onchange="renderTimesRoutes()" style="padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
             <option value="">All employees</option>
           </select>
-          <button type="button" class="btn btn-outline btn-sm" onclick="loadTimesRoutes()">Refresh</button>
+          <button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="loadTimesRoutes()">Refresh</button>
         </div>
 
         <div id="times-routes-wrap"><p class="empty-note">Loading…</p></div>
@@ -1329,7 +1329,7 @@
         <p class="section-sub" style="margin-top:16px">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
           <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
-          <button class="btn btn-outline" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+          <button class="gs-ofp-btn-secondary" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
         </div>
         <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
         <table class="staff-table" id="service-times-table">
@@ -1355,7 +1355,7 @@
             <input type="text" id="new-director-password" placeholder="Leave blank to keep current">
           </div>
           <div class="field-group" style="display:flex;align-items:flex-end">
-            <button class="btn btn-gold" style="width:100%" onclick="saveDirectorPassword()">Save</button>
+            <button class="gs-ofp-btn-primary" style="width:100%" onclick="saveDirectorPassword()">Save</button>
           </div>
         </div>
       </div>
@@ -1372,10 +1372,10 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Name + Email + Phone + Division + Payroll Number + Status. Creates/updates the field employee catalog (FieldEmployees), and automatically creates a tech.gsocd.com login for anyone in the field (Janitorial/Renovations/Exteriors) who doesn't have one yet — nobody has to register by hand. Office staff are recorded but never get a tech portal account.</p>
         <input type="file" id="employee-report-file" accept=".csv" style="display:none" onchange="onEmployeeFileChosen()">
-        <button class="btn btn-outline" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('employee-report-file').click()">Choose file…</button>
         <span id="employee-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div style="margin-top:12px">
-          <button class="btn btn-gold" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
+          <button class="gs-ofp-btn-primary" id="employee-upload-btn" onclick="uploadEmployeeReport()" disabled>Upload</button>
         </div>
         <div id="employee-result" class="result-box" style="display:none"></div>
         <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
@@ -1392,10 +1392,10 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Raw clock in/out per employee. We calculate weekly hours ourselves from the punches (summed Sunday–Saturday) — never averaged, never assumed. EMP## is used directly as the Payroll Number, no name matching needed.</p>
         <input type="file" id="hours-report-file" accept=".xlsx" style="display:none" onchange="onHoursFileChosen()">
-        <button class="btn btn-outline" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('hours-report-file').click()">Choose file…</button>
         <span id="hours-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div style="margin-top:12px">
-          <button class="btn btn-gold" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
+          <button class="gs-ofp-btn-primary" id="hours-upload-btn" onclick="uploadHoursReport()" disabled>Upload</button>
         </div>
         <div id="hours-result" class="result-box" style="display:none"></div>
         <p style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin:20px 0 8px">Upload history</p>
@@ -1427,7 +1427,7 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Upload a spreadsheet exported from QuickBooks (or similar) — Name, Company name, Street Address, City, State, Zip, Phone, Email. Matches columns automatically, shows a preview, and only creates clients that don't already exist by business name.</p>
         <input type="file" id="bulk-clients-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onBulkClientsFileChosen()">
-        <button class="btn" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('bulk-clients-file').click()">Choose file…</button>
         <span id="bulk-clients-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div id="bulk-clients-preview" style="margin-top:16px"></div>
       </div>
@@ -1456,7 +1456,7 @@
           <div class="field-small" style="max-width:150px"><label>Opens at</label><div id="bh-open-field"></div></div>
           <div class="field-small" style="max-width:150px"><label>Closes at</label><div id="bh-close-field"></div></div>
         </div>
-        <button class="btn btn-gold" onclick="startBulkHours()">Apply to All Clients</button>
+        <button class="gs-ofp-btn-primary" onclick="startBulkHours()">Apply to All Clients</button>
         <div id="bulk-hours-result" style="margin-top:16px;font-size:13px"></div>
       </div>
     </div>
@@ -1472,7 +1472,7 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">One-time backfill: resolves Latitude/Longitude (via Nominatim/OpenStreetMap, free) for any saved building that doesn't have them yet. New buildings created from now on geocode themselves automatically — this is only for the ones that already existed before that.</p>
         <div class="btn-actions">
-          <button class="btn btn-gold" id="geocode-btn" onclick="runGeocodeBackfill()">Run Backfill</button>
+          <button class="gs-ofp-btn-primary" id="geocode-btn" onclick="runGeocodeBackfill()">Run Backfill</button>
         </div>
         <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
       </div>
@@ -1488,8 +1488,8 @@
       </div>
       <div class="appr-body" style="display:none;background:#FFF5F5">
         <p class="section-sub" style="margin-top:16px">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
-        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeTestData()">Wipe All Test Data</button>
-        <button class="btn" style="background:#B33A3A;color:#fff;border:none" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
+        <button class="gs-ofp-btn-danger" onclick="debugWipeTestData()">Wipe All Test Data</button>
+        <button class="gs-ofp-btn-danger" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
         <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
       </div>
     </div>
@@ -1516,9 +1516,9 @@
       </select>
     </div>
     <div class="btn-actions">
-      <button class="btn btn-gold" onclick="saveStaff()">Save</button>
-      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
-      <button class="btn btn-danger" id="staff-delete-btn" style="display:none;margin-left:auto" onclick="deleteStaffFromModal()">Delete</button>
+      <button class="gs-ofp-btn-primary" onclick="saveStaff()">Save</button>
+      <button class="gs-ofp-btn-secondary" onclick="closeStaffModal()">Cancel</button>
+      <button class="gs-ofp-btn-danger" id="staff-delete-btn" style="display:none;margin-left:auto" onclick="deleteStaffFromModal()">Delete</button>
     </div>
   </div>
 </div>
@@ -1530,7 +1530,7 @@
     <div id="device-qr-canvas" style="display:flex;justify-content:center;margin-bottom:16px"></div>
     <p style="font-size:11px;color:var(--gray);margin-bottom:16px">This code only works once. Generating a new one for the same person turns off their old phone automatically.</p>
     <div class="btn-actions" style="justify-content:center">
-      <button class="btn btn-outline" onclick="closeDeviceQRModal()">Done</button>
+      <button class="gs-ofp-btn-secondary" onclick="closeDeviceQRModal()">Done</button>
     </div>
   </div>
 </div>
@@ -1567,9 +1567,9 @@
       <div class="pill" data-division="exteriors">Exteriors</div>
     </div>
     <div class="week-nav">
-      <button class="btn-outline" onclick="moveCalendarWeek(-1)">◀ Previous week</button>
+      <button class="gs-ofp-btn-secondary" onclick="moveCalendarWeek(-1)">◀ Previous week</button>
       <b id="calendar-week-label"></b>
-      <button class="btn-outline" onclick="moveCalendarWeek(1)">Next week ▶</button>
+      <button class="gs-ofp-btn-secondary" onclick="moveCalendarWeek(1)">Next week ▶</button>
     </div>
     <div id="calendar-grid"><p class="empty-note">Loading…</p></div>
   </div>
@@ -1620,7 +1620,7 @@
           </div>
           <div class="routing-panel-body open" id="routing-selected-list"></div>
           <div class="routing-preview-wrap">
-            <button class="btn btn-outline" id="clear-route-btn" style="width:100%" onclick="clearRoutingSelected()" disabled>Clear</button>
+            <button class="gs-ofp-btn-secondary" id="clear-route-btn" style="width:100%" onclick="clearRoutingSelected()" disabled>Clear</button>
           </div>
         </div>
 
@@ -1646,6 +1646,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
+GSOrderFormPremium.styleTag();
 /* ============================================================
    MSAL + Auth
 ============================================================ */
@@ -2038,7 +2039,7 @@ function renderHolidaysList(safe) {
   if (addEl) {
     if (!remaining.length) { addEl.innerHTML = ''; return; }
     addEl.innerHTML = '<div id="hol-add-picker-' + safe + '" style="display:none;margin-bottom:8px">' +
-        remaining.map(h => '<button type="button" class="btn-ghost" style="font-size:11px;margin:0 6px 6px 0;padding:6px 12px" ' +
+        remaining.map(h => '<button type="button" class="gs-ofp-btn-secondary" style="font-size:11px;margin:0 6px 6px 0;padding:6px 12px" ' +
           'onclick="addHolidayChoice(\'' + esc(safe) + '\',\'' + esc(h.name) + '\')">+ ' + esc(h.name) + '</button>').join('') +
       '</div>' +
       '<a onclick="toggleHolidayAddPicker(\'' + esc(safe) + '\')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer">+ Add a day</a>';
@@ -2560,7 +2561,7 @@ function newOrderApprovalCard(o) {
   const readOnlyBlock = `
     <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
       <span>This order has not been scheduled yet.</span>
-      <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Go to Scheduling</button>
+      <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Go to Scheduling</button>
     </div>
     <div id="${dom}-bypass-form" style="display:none;margin-top:16px">
       <div class="edit-grid">
@@ -2588,9 +2589,9 @@ function newOrderApprovalCard(o) {
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
         ${readOnlyBlock}
         <div class="appr-bar">
-          <button class="btn btn-green" id="${dom}-ok" disabled
+          <button class="gs-ofp-btn-primary" id="${dom}-ok" disabled
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
-          <button class="btn btn-outline" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
+          <button class="gs-ofp-btn-secondary" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
         </div>
         <p class="appr-hint">Scheduling assigns who and when — once assigned, this order moves to Active on its own. Bypass is for urgent cases only and needs the Operations Director's password.</p>
       </div>
@@ -2796,8 +2797,8 @@ function decisionAreaHtml(o, history) {
 
   if (status === 'Cancelled') {
     return `<div class="appr-bar">
-      <button class="btn btn-outline" onclick="archiveOrder('${esc(o.OrderID)}')">Archive</button>
-      <button class="btn btn-gold" onclick="reactivateOrder('${esc(o.OrderID)}')">Mark as Active</button>
+      <button class="gs-ofp-btn-secondary" onclick="archiveOrder('${esc(o.OrderID)}')">Archive</button>
+      <button class="gs-ofp-btn-primary" onclick="reactivateOrder('${esc(o.OrderID)}')">Mark as Active</button>
     </div>
     <p class="appr-hint">This order was cancelled. Archive moves it to History; Mark as Active undoes the cancellation and returns it to Active.</p>`;
   }
@@ -2809,7 +2810,7 @@ function decisionAreaHtml(o, history) {
   if (isReactivationPending(history)) {
     const restoreTo = reactivationRestoreTo(history);
     return `<div class="appr-bar">
-      <button class="btn btn-gold" onclick="decideReactivation('${esc(o.OrderID)}')">Approve Reactivation</button>
+      <button class="gs-ofp-btn-primary" onclick="decideReactivation('${esc(o.OrderID)}')">Approve Reactivation</button>
     </div>
     <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to <b>${esc(restoreTo)}</b> immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
   }
@@ -2826,9 +2827,9 @@ function decisionAreaHtml(o, history) {
       <input type="text" id="${notesId2}" placeholder="Reason…">
     </div>
     <div class="appr-bar">
-      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','approve',false)">Approve</button>
-      <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',false)">Reject</button>
-      <button class="btn btn-gold" onclick="sendSupervisorUpdateToCustomer('${esc(o.OrderID)}')">Send to Customer</button>
+      <button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','approve',false)">Approve</button>
+      <button class="gs-ofp-btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',false)">Reject</button>
+      <button class="gs-ofp-btn-primary" onclick="sendSupervisorUpdateToCustomer('${esc(o.OrderID)}')">Send to Customer</button>
     </div>
     <p class="appr-hint">Approve applies the change internally without notifying the client. Send to Customer forwards it to them for confirmation — nothing reaches the client until you do this. Reject undoes it and restores the original services.</p>`;
   }
@@ -2848,8 +2849,8 @@ function decisionAreaHtml(o, history) {
         <input type="text" id="${notesId}" placeholder="Reason…">
       </div>
       <div class="appr-bar">
-        <button class="btn btn-danger" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Cancel</button>
-        <button class="btn btn-outline" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
+        <button class="gs-ofp-btn-danger" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Cancel</button>
+        <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
       </div>
       <p class="appr-hint">Cancel ends the order for good and needs the Operations Director's password. Reject keeps the order alive and returns it to how it was before this was requested.</p>`;
   }
@@ -2870,9 +2871,9 @@ function decisionAreaHtml(o, history) {
                     de que nadie decidiera nada. */
   return `
     <div class="appr-bar">
-      <button class="btn btn-green" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Reassign</button>
-      <button class="btn btn-outline" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
-      <button class="btn btn-outline" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel Change Request</button>
+      <button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Reassign</button>
+      <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
+      <button class="gs-ofp-btn-secondary" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel Change Request</button>
     </div>
     <p class="appr-hint">Reassign keeps the same tech, day, and time as before. Reschedule sends it back to Scheduling to be assigned fresh. Cancel Change Request discards the request entirely, as if it never happened.</p>`;
 }
@@ -3117,7 +3118,7 @@ function approvalDetailHtml(card, o, services, history) {
     window['apprLevel_' + card.OrderID] = levelSeed;
     window['apprDiv_' + card.OrderID] = o.Division || '';
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
-    rows.push('<button type="button" class="btn btn-outline" style="margin-top:10px;padding:4px 12px;font-size:12px" '
+    rows.push('<button type="button" class="gs-ofp-btn-secondary" style="margin-top:10px;padding:4px 12px;font-size:12px" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
@@ -3419,8 +3420,8 @@ function renderRecurringChangeReview() {
               <input type="text" id="${notesId}" placeholder="Reason…">
             </div>
             <div class="appr-bar">
-              <button class="btn btn-green" onclick="decideRecurringReview('${p.id}','approve')">Approve</button>
-              <button class="btn btn-danger" onclick="decideRecurringReview('${p.id}','reject')">Reject</button>
+              <button class="gs-ofp-btn-primary" onclick="decideRecurringReview('${p.id}','approve')">Approve</button>
+              <button class="gs-ofp-btn-danger" onclick="decideRecurringReview('${p.id}','reject')">Reject</button>
             </div>
           </div>
         </div>`;
@@ -3475,7 +3476,7 @@ function renderMaterialsReadyReview() {
             <div class="order-id">#${esc(o.OrderID)}</div>
             <div class="order-meta">${esc(o.BusinessName || o.ClientID)}${o.EntryTime ? ' · Ready — ' + esc(o.EntryTime) : ' · Ready'}</div>
           </div>
-          <button class="btn btn-gold" style="border-radius:20px" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
+          <button class="gs-ofp-btn-primary" style="border-radius:20px" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
         </div>
       </div>`).join('')
     : '<p class="empty-note">Nothing pending.</p>';
@@ -3637,7 +3638,7 @@ function groupByBatch(orders) {
    automaticamente, solo pide Building/Unit#/Bed/Bath/fechas. */
 function addUnitButtonHtml(clientId, batchId) {
   const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
-  return `<button class="btn btn-outline" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">+ Add a Unit</button>`;
+  return `<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">+ Add a Unit</button>`;
 }
 
 function addUnitFormHtml(clientId, batchId) {
@@ -4202,15 +4203,15 @@ function renderGalleryPanel() {
     } else if (scheduledToday && todayStatus !== 'completed') {
       const isFieldConfirmed = todayStatus === 'field-confirmed';
       completeBtnHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        '<button class="btn ' + (isFieldConfirmed ? 'btn-blue' : 'btn-green') + '" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
+        '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
           'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>' +
-        (isFieldConfirmed ? '<button class="btn btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
+        (isFieldConfirmed ? '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
       '</div>' +
       (isFieldConfirmed ? '<div id="sendback-box-' + id + '" style="display:none;margin-top:10px">' +
         '<div class="field-group"><label>Reason (required)</label><input type="text" id="sendback-reason-' + id + '" placeholder="What still needs to be fixed?"></div>' +
         '<div style="display:flex;gap:8px;margin-top:8px">' +
-          '<button class="btn btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
-          '<button class="btn-outline" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
+          '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
+          '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
         '</div>' +
       '</div>' : '');
     }
@@ -4242,9 +4243,9 @@ function renderGalleryPanel() {
           '</div>' +
           '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
             completeBtnHtml +
-            '<button class="btn btn-outline" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
-            '<button class="btn btn-outline" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
-            (loggingFor === id ? '' : '<button class="btn btn-outline" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+            (loggingFor === id ? '' : '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
           '</div>' +
           (loggingFor === id ? renderLogVisitPanel(s) : '') +
         '</div>' +
@@ -4334,8 +4335,8 @@ function renderGalleryPanel() {
       '<div id="lv-diff-slot"></div>' +
       '<div class="field-group" style="margin-top:14px"><label>General note (optional)</label><textarea id="lv-note"></textarea></div>' +
       '<div class="logvisit-actions">' +
-        '<button class="btn-gold" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
-        '<button class="btn-outline" onclick="closeLogVisit()">Cancel</button>' +
+        '<button class="gs-ofp-btn-primary" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
+        '<button class="gs-ofp-btn-secondary" onclick="closeLogVisit()">Cancel</button>' +
       '</div>' +
     '</div>';
   }
@@ -4798,9 +4799,9 @@ function renderGalleryPanel() {
         '<td style="white-space:nowrap">' +
           (canEditCatalog
             ? (t.isOffice
-                ? '<button type="button" class="btn btn-outline btn-sm" onclick="editOfficeTemplate(\'' + t.id + '\')">Edit</button>'
-                : '<button type="button" class="btn btn-outline btn-sm" onclick="copyTemplateToOffice(\'' + t.id + '\')">Copy to office</button>')
-              + ' <button type="button" class="btn btn-danger btn-sm" onclick="deleteTemplateAdmin(\'' + t.id + '\')">Delete</button>'
+                ? '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="editOfficeTemplate(\'' + t.id + '\')">Edit</button>'
+                : '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="copyTemplateToOffice(\'' + t.id + '\')">Copy to office</button>')
+              + ' <button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="deleteTemplateAdmin(\'' + t.id + '\')">Delete</button>'
             : '') +
         '</td>' +
         '</tr>').join('') +
@@ -4894,8 +4895,8 @@ function renderGalleryPanel() {
         '<td>' + esc(holidayRuleText(h)) + '</td>' +
         '<td>' + esc(holFmtDate(h.date)) + '</td>' +
         '<td style="white-space:nowrap">' +
-          '<button type="button" class="btn btn-outline btn-sm" onclick="editHoliday(\'' + h.id + '\')">Edit</button> ' +
-          '<button type="button" class="btn btn-danger btn-sm" onclick="deleteHoliday(\'' + h.id + '\')">Delete</button>' +
+          '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="editHoliday(\'' + h.id + '\')">Edit</button> ' +
+          '<button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="deleteHoliday(\'' + h.id + '\')">Delete</button>' +
         '</td>' +
         '</tr>').join('') +
       '</tbody></table>';
@@ -5014,8 +5015,8 @@ function renderGalleryPanel() {
         msg += ' None of them have hours set yet.';
       }
       resultEl.innerHTML = '<p style="margin-bottom:10px">' + esc(msg) + '</p>' +
-        '<button class="btn btn-gold btn-sm" onclick="applyBulkHoursConfirmed()">Yes, apply to all</button> ' +
-        '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'bulk-hours-result\').innerHTML=\'\'">Cancel</button>';
+        '<button class="gs-ofp-btn-primary" style="padding:4px 12px;font-size:12px" onclick="applyBulkHoursConfirmed()">Yes, apply to all</button> ' +
+        '<button class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="document.getElementById(\'bulk-hours-result\').innerHTML=\'\'">Cancel</button>';
     } catch (e) {
       resultEl.innerHTML = '<p class="empty-note">Could not check clients: ' + esc(e.message) + '</p>';
     }
@@ -5217,7 +5218,7 @@ function renderGalleryPanel() {
     if (nothing) {
       html += '<p class="empty-note">No changes -- this report matches the catalog already on file.</p>';
     } else {
-      html += '<div class="btn-actions"><button class="btn btn-gold" onclick="confirmCatalogImport()">Confirm Import</button></div>';
+      html += '<div class="btn-actions"><button class="gs-ofp-btn-primary" onclick="confirmCatalogImport()">Confirm Import</button></div>';
     }
     html += '<div id="catalog-import-result" style="margin-top:14px;font-size:13px"></div>';
     box.innerHTML = html;
@@ -5435,8 +5436,8 @@ function renderGalleryPanel() {
         </td>
         <td>
           ${t.hasActiveDevice
-            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="btn btn-outline btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="btn btn-danger btn-sm" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
-            : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="btn btn-gold btn-sm" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
+            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
+            : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="gs-ofp-btn-primary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
         </td>
       </tr>`).join('');
   }
@@ -5535,7 +5536,7 @@ function renderGalleryPanel() {
       <tr>
         <td>${esc(s.Email)}</td>
         <td class="role-cell">${esc(s.Role)}</td>
-        <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
+        <td style="text-align:right"><button class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
       </tr>`).join('');
   }
 
@@ -5644,14 +5645,14 @@ function renderGalleryPanel() {
         '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
         clientHoursRowCellsHtml(c, td) +
         '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c.showEstimatedTime ? 'checked' : '') + ' onchange="toggleClientShowEstimatedTime(\'' + c.id + '\',this.checked)"></td>' +
-        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
+        '<td ' + td + '><button type="button" class="gs-ofp-btn-secondary" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
       html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
       return html;
     }).join('');
 
     box.innerHTML =
       '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">' +
-      '<button type="button" class="btn btn-outline" style="padding:4px 12px;font-size:12px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
+      '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
       '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
       '<tr style="background:var(--bg);position:sticky;top:0"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
@@ -5971,7 +5972,7 @@ function renderGalleryPanel() {
         '<td ' + td + '>' + bulkCellInput(i, 'phone', c.phone) + '</td>' +
         '<td ' + td + '>' + bulkCellInput(i, 'email', c.email) + '</td>' +
         '<td ' + td + '>' + (issue ? '<span style="color:#B33A3A;font-weight:600;font-size:11px">⚠ ' + esc(issue) + '</span>' : '') + '</td>' +
-        '<td ' + td + '><button type="button" class="btn btn-outline" style="padding:3px 8px;font-size:11px;white-space:nowrap" onclick="addBulkClientAddress(' + i + ')">+ Address</button></td>' +
+        '<td ' + td + '><button type="button" class="gs-ofp-btn-secondary" style="padding:3px 8px;font-size:11px;white-space:nowrap" onclick="addBulkClientAddress(' + i + ')">+ Address</button></td>' +
         '</tr>';
       html += extras.map((a, ai) =>
         '<tr style="background:var(--bg)">' +
@@ -6000,7 +6001,7 @@ function renderGalleryPanel() {
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml +
       '</table></div>' +
-      '<button class="btn btn-gold" style="margin-top:14px" onclick="confirmBulkImport()"' + (cleanCount ? '' : ' disabled') + '>Import ' + cleanCount + ' Client' + (cleanCount === 1 ? '' : 's') + '</button>' +
+      '<button class="gs-ofp-btn-primary" style="margin-top:14px" onclick="confirmBulkImport()"' + (cleanCount ? '' : ' disabled') + '>Import ' + cleanCount + ' Client' + (cleanCount === 1 ? '' : 's') + '</button>' +
       '<div id="bulk-clients-result" style="margin-top:12px;font-size:13px"></div>';
   }
 
@@ -6807,8 +6808,8 @@ function unseenActiveCardHtml(o, services, history) {
     <p class="detail-label" style="margin-bottom:6px">Services Requested</p>
     ${svcHtml}
     <div class="btn-actions" style="margin-top:20px">
-      <button class="btn btn-green" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
-      <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
+      <button class="gs-ofp-btn-primary" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
+      <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
     </div>
     <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>
     <p class="appr-h" style="margin-top:20px">History</p>
@@ -6909,7 +6910,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         themselves (from their own portal) -- whichever happens first.
       </p>
       <div class="btn-actions">
-        <button class="btn btn-gold" onclick="requestReactivate('${esc(o.OrderID)}')">Reactivate</button>
+        <button class="gs-ofp-btn-primary" onclick="requestReactivate('${esc(o.OrderID)}')">Reactivate</button>
       </div>
     </div>` : '';
 
@@ -6921,10 +6922,10 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
       <div class="eo-status-actions">
         ${displayStatus(o) === 'Working'
-          ? `<button class="btn ${o.TechMarkedComplete ? 'btn-blue' : 'btn-green'}" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
+          ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
           : ''}
-        <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
-        <button class="btn btn-outline" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
+        <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
+        <button class="gs-ofp-btn-secondary" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
     </div>
       <div id="${editSectionId}" style="display:none">
@@ -6938,7 +6939,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
             <span>Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b></span>
             <span>Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b></span>
           </div>
-          <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
+          <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
         </div>
 
         <div class="eo-card">
@@ -6981,9 +6982,9 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         </div>
 
         <div class="btn-actions">
-          <button id="save-btn-${esc(o.OrderID)}" class="btn btn-gold" style="display:none"
+          <button id="save-btn-${esc(o.OrderID)}" class="gs-ofp-btn-primary" style="display:none"
             onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
-          <button id="confirm-btn-${esc(o.OrderID)}" class="btn btn-gold-outline" style="display:none"
+          <button id="confirm-btn-${esc(o.OrderID)}" class="gs-ofp-btn-secondary" style="display:none"
             onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
         </div>
       </div>` : '';
@@ -7000,7 +7001,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
      Active/History) -- reusa goToOrderInAnyTab, ya existente. */
   const assignedViewOnly = contextCan(context, 'goToOrder') ? `
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
-      <button class="btn btn-outline" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">Go to this order →</button>
+      <button class="gs-ofp-btn-secondary" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">Go to this order →</button>
     </div>` : '';
 
   /* "Services Requested": caja colapsable (fondo tenue + cursor que
@@ -7064,7 +7065,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     </div>
     <div class="btn-actions" style="margin-top:16px">
       <span class="print-wrap">
-        <button class="btn btn-outline" ${storedDoc ? '' : 'disabled'}
+        <button class="gs-ofp-btn-secondary" ${storedDoc ? '' : 'disabled'}
           title="${storedDoc ? 'Open ' + esc(storedDoc.name) : 'Available once the order is approved'}"
           onclick="openOrderDocument('${esc(o.OrderID)}')">Print Order</button>
         ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
@@ -7811,8 +7812,8 @@ function renderClientDetail(clientId) {
     }
 
     html += `<div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
-        <button class="btn btn-outline" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
-        <button class="btn btn-outline" style="flex:1" onclick="openClientNotifications('${clientId}')">Notifications</button>
+        <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
+        <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientNotifications('${clientId}')">Notifications</button>
       </div>`;
     detail.innerHTML = html;
   } else {
@@ -7830,11 +7831,11 @@ function renderClientDetail(clientId) {
       <div style="margin-top:18px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)">Contact for this building</div>
       <div style="font-size:13px;margin-top:6px">${contactLine}</div>
       <div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
-        <button class="btn btn-outline" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
-        <button class="btn btn-outline" style="flex:1" onclick="openBuildingNotifications('${clientId}')">Notifications</button>
+        <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
+        <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openBuildingNotifications('${clientId}')">Notifications</button>
       </div>
       <div style="margin-top:8px;max-width:260px">
-        <button class="btn btn-outline" style="width:100%" onclick="${b.archived?'unarchiveBuilding':'archiveBuilding'}('${clientId}','${esc(b.id)}')">${b.archived?'Unarchive':'Archive'}</button>
+        <button class="gs-ofp-btn-secondary" style="width:100%" onclick="${b.archived?'unarchiveBuilding':'archiveBuilding'}('${clientId}','${esc(b.id)}')">${b.archived?'Unarchive':'Archive'}</button>
       </div>`;
   }
 }
@@ -7970,7 +7971,7 @@ function openClientNotifications(clientId) {
     <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
     ${archivedContacts.length ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openClientNotifications('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedContacts.length})</a>` : ''}
 
-    <button class="btn btn-gold" style="width:100%" onclick="saveNotifications('${clientId}')">Save</button>
+    <button class="gs-ofp-btn-primary" style="width:100%" onclick="saveNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
   document.getElementById(cid + '-ctl-notif-master').addEventListener('change', () => toggleNotifSubgroup(cid + '-ctl'));
 }
@@ -8047,7 +8048,7 @@ function openBuildingNotifications(clientId) {
     <a onclick="addContactRow('${clientId}', true)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
     ${archivedContacts.length ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openBuildingNotifications('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedContacts.length})</a>` : ''}
 
-    <button class="btn btn-gold" style="width:100%" onclick="saveBuildingNotifications('${clientId}')">Save</button>
+    <button class="gs-ofp-btn-primary" style="width:100%" onclick="saveBuildingNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
 
@@ -8372,7 +8373,7 @@ function createClientRecentOrdersHtml(clientId) {
         <span>Window: ${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</span>
         ${o.Supervisor ? '<span>Supervisor: ' + esc(o.Supervisor) + '</span>' : ''}
       </div>
-      <button type="button" class="btn btn-outline" style="margin-top:8px;padding:4px 12px;font-size:11px" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">View order</button>
+      <button type="button" class="gs-ofp-btn-secondary" style="margin-top:8px;padding:4px 12px;font-size:11px" onclick="goToOrderInAnyTab('${esc(o.OrderID)}')">View order</button>
     </div>`;
   }).join('');
 
@@ -8422,7 +8423,7 @@ function createClientCard(c) {
       <div class="client-body" id="${cid}-body">
         <div id="${cid}-content" style="padding:20px 0">
           ${createClientRecentOrdersHtml(c.clientId)}
-          <button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
+          <button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
         </div>
       </div>
     </div>`;
@@ -8954,7 +8955,7 @@ function cancelCreate() {
     const content = document.getElementById(cid + '-content');
     if (content) {
       content.innerHTML = createClientRecentOrdersHtml(clientId) +
-        `<button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
+        `<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
     }
   }
 }
@@ -9067,7 +9068,7 @@ let pendingDirectLinkOrderId = null;
         '<div class="hours-hist-services">' + e.assignedOrdersLastWeek + ' service' + (e.assignedOrdersLastWeek === 1 ? '' : 's') + '</div></div></div>';
 
       const routingHtml =
-        '<button class="btn-gold" style="display:block;width:100%;text-align:center;padding:14px 8px" onclick="showSubTab(\'routing\')">Suggested<br>Routes</button>';
+        '<button class="gs-ofp-btn-primary" style="display:block;width:100%;text-align:center;padding:14px 8px" onclick="showSubTab(\'routing\')">Suggested<br>Routes</button>';
 
       return '<div class="hours-card"><div class="hours-name">' + esc(e.name) + '<span class="hours-div">' + esc(divs) + '</span></div>' +
         '<div class="hours-split">' +
@@ -9218,7 +9219,7 @@ let pendingDirectLinkOrderId = null;
             <div class="order-id">#${esc(o.OrderID)}</div>
             <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}</div>
           </div>
-          <button class="btn-outline" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
+          <button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
         </div>
       </div>`;
   }
@@ -9301,7 +9302,7 @@ let pendingDirectLinkOrderId = null;
         </div>
         <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml('assign-inspection-' + escAttr(o.OrderID), null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
       </div>
-      <button class="btn-gold" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
+      <button class="gs-ofp-btn-primary" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
   }
 
@@ -9500,7 +9501,7 @@ let pendingDirectLinkOrderId = null;
                 <div class="order-id">#${esc(r.orderId)}</div>
                 <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · assigned to <b>${esc(r.employeeName)}</b> (now inactive) · ${fmtDateShort(r.assignedDate)}</div>
               </div>
-              <button class="btn-outline" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
+              <button class="gs-ofp-btn-secondary" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
             </div>
           </div>`;
       }).join('');
@@ -10090,7 +10091,7 @@ async function previewManualRoute() {
     '<div class="order-card-header"><div class="order-id">Route preview</div><div class="order-meta">' + metaText + '</div></div>' +
     (route && route.legs && route.legs.length ? legBreakdownHtml(stops, route.legs) : '') +
     testingNote +
-    '<button class="btn btn-gold" style="margin:0 18px 16px;width:calc(100% - 36px)" ' + (realOrderIds.length ? '' : 'disabled title="Only test clients selected \u2014 nothing real to assign yet."') + ' onclick=\'assignRoutingBlock(' + escAttr(JSON.stringify(realOrderIds)) + ')\'>Assign This Block</button>' +
+    '<button class="gs-ofp-btn-primary" style="margin:0 18px 16px;width:calc(100% - 36px)" ' + (realOrderIds.length ? '' : 'disabled title="Only test clients selected \u2014 nothing real to assign yet."') + ' onclick=\'assignRoutingBlock(' + escAttr(JSON.stringify(realOrderIds)) + ')\'>Assign This Block</button>' +
     (realOrderIds.length ? '' : '<p class="order-meta" style="margin:0 18px 16px;color:#B06A2A">Only test clients selected \u2014 nothing real to assign yet.</p>') +
     '</div>');
 }
@@ -10206,7 +10207,7 @@ function renderAssignedList() {
       const clientName = client ? client.businessName : r.clientId;
       return '<div class="commit-row"><span class="commit-tag tag-recurring">Recurring</span>' +
         '<span style="flex:1">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + ' — ' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</span>' +
-        '<a href="javascript:void(0)" onclick="showTab(\'recurring\')" class="btn btn-outline" style="padding:3px 10px;text-decoration:none">View</a></div>';
+        '<a href="javascript:void(0)" onclick="showTab(\'recurring\')" class="gs-ofp-btn-secondary" style="padding:3px 10px;text-decoration:none">View</a></div>';
     }).join('');
 
     /* Cada compromiso de tipo Orden ahora usa la MISMA tarjeta dorada
