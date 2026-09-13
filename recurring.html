@@ -188,6 +188,14 @@
 
   /* --- Log Visit: personas, mismo patron assign-row ya usado arriba --- */
   .logvisit-actions { display:flex; gap:8px; margin-top:16px; }
+  /* Fila de subtabs (All / By Employee / Recurring) -- mismo criterio
+     visual que las de Active/History/Clients en admin.html, para que
+     al llegar aqui via el subtab "Recurring" no se sienta como que
+     "desaparecieron" los otros 2 -- siguen ahi, solo que llevan de
+     vuelta a admin.html con el subtab correcto ya seleccionado. */
+  .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
+  .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
 </style>
 </head>
 <body>
@@ -215,6 +223,11 @@
 <div id="gsNav"></div>
 
 <div class="wrap">
+  <div class="subtabs">
+    <a class="subtab" href="admin.html?tab=active">All</a>
+    <a class="subtab" href="admin.html?tab=assigned">By Employee</a>
+    <a class="subtab active" href="recurring.html">Recurring</a>
+  </div>
   <h1 class="page-title">Recurring Services</h1>
   <p class="page-sub">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. These never go through Approvals and never create a regular Order.</p>
 
