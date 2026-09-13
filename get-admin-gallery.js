@@ -18,11 +18,64 @@
 ============================================================ */
 
 const {
-  ORDERS_LIST, listChildren, graphFetch, siteListPath, jsonResponse
+  ORDERS_LIST, ORDER_SERVICES_LIST, listChildren, graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 
 const PHOTOS_FOLDER = process.env.GRAPH_PHOTOS_FOLDER || 'TechPhotos';
 const ACTIVE_STATUSES = ['Assigned', 'Updated'];
+
+/* Las fotos de un servicio especifico (ver admin.html, boton de
+   camara en Edit Order) llevan el nombre del servicio codificado en
+   el archivo mismo -- "svc-<ServiceNameSafe>-<timestamp>.jpg" -- sin
+   ninguna columna nueva en SharePoint. La nota que va en la
+   descripcion NUNCA se guarda aparte: siempre se lee de
+   NotCompletedReason en OrderServices, el mismo campo que ya llena
+   "Save Changes". Por eso esa nota "no cambia nunca" una vez tomada
+   la foto -- es el registro de ESE momento, no algo editable despues. */
+const SVC_PHOTO_PREFIX = /^svc-(.+?)-\d{4}-\d{2}-\d{2}_\d{6}\.[a-z0-9]+$/i;
+function safeName(s) { return String(s || '').replace(/[^a-z0-9]/gi, '_'); }
+
+async function fetchByOrderId(listName, orderId) {
+  const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
+  let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out;
+}
+
+/* Arma la descripcion de cada foto svc-* de una orden, cruzando el
+   nombre de servicio codificado en el archivo contra los servicios
+   reales de esa orden. Solo se llama si la orden de verdad tiene al
+   menos una foto de este tipo -- evita pedir OrderServices de mas. */
+async function buildServiceCaptions(orderId, photoNames) {
+  const svcNamesInPhotos = photoNames
+    .map(n => (n.match(SVC_PHOTO_PREFIX) || [])[1])
+    .filter(Boolean);
+  if (!svcNamesInPhotos.length) return {};
+
+  const rows = await fetchByOrderId(ORDER_SERVICES_LIST, orderId);
+  const bySafeName = {};
+  rows.forEach(it => {
+    const f = it.fields || {};
+    const name = f.ServiceName || '';
+    if (!name) return;
+    bySafeName[safeName(name)] = { name, reason: f.NotCompletedReason || '' };
+  });
+
+  const captions = {};
+  photoNames.forEach(fileName => {
+    const m = fileName.match(SVC_PHOTO_PREFIX);
+    if (!m) return;
+    const svc = bySafeName[m[1]];
+    if (!svc) return;
+    captions[fileName] = svc.name + (svc.reason ? ' — ' + svc.reason : '');
+  });
+  return captions;
+}
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=500';
@@ -64,13 +117,14 @@ exports.handler = async (event) => {
       const kids = await listChildren(folderPath);
       const photos = kids.filter(k => k.isFile).sort((a, b) => a.name.localeCompare(b.name));
       if (!photos.length) return null;
+      const captions = await buildServiceCaptions(orderId, photos.map(p => p.name));
       return {
         orderId,
         clientLabel: f.BusinessName || f.ClientID || '',
         division: f.Division || '',
         status: f.Status || '',
         date: f.EntryDate || f.DispatchDate || f.createdDateTime || '',
-        photos: photos.map(p => ({ name: p.name, downloadUrl: p.downloadUrl }))
+        photos: photos.map(p => ({ name: p.name, downloadUrl: p.downloadUrl, caption: captions[p.name] || undefined }))
       };
     }));
 

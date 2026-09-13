@@ -22,7 +22,8 @@ const handlers = {
   'get-services':        require('../get-services').handler,
   'register-client':     require('../register-client').handler,
   'site-image':          require('../site-image').handler,
-  'submit-order':        require('../submit-order').handler
+  'submit-order':        require('../submit-order').handler,
+  'upload-service-photo': require('../upload-service-photo').handler
 };
 
 module.exports = async (req, res) => {

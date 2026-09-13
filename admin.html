@@ -28,17 +28,27 @@
     .svc-toggle-track::before { content: ""; position: absolute; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .svc-toggle input:checked + .svc-toggle-track { background: var(--gold); }
     .svc-toggle input:checked + .svc-toggle-track::before { transform: translateX(18px); }
-    .svc-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .svc-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .svc-row:last-child { border-bottom: none; }
-    .svc-row-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-    .svc-row-name { font-size: 14px; }
-    .svc-row-controls { display: flex; align-items: center; gap: 8px; }
-    .svc-row-controls select { font-size: 13px; padding: 5px 8px; }
-    .svc-row-nc { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-    .svc-row-nc label { font-size: 13px; color: var(--gray); cursor: pointer; text-transform: none; letter-spacing: 0; }
-    .svc-row-reason { display: none; margin-top: 6px; }
-    .svc-row-reason.show { display: block; }
-    .svc-row-reason input { width: 100%; font-size: 13px; padding: 6px 8px; }
+    .svc-row-name { flex: 0 0 auto; max-width: 240px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .svc-row-notewrap { flex: 1; min-width: 0; }
+    .svc-row-note { width: 100%; border: 1.5px solid var(--border); border-radius: 5px; padding: 7px 10px;
+      font-size: 12.5px; font-family: inherit; color: var(--black); background: var(--bg); outline: none;
+      transition: border-color .15s, background .15s; }
+    .svc-row-note:focus { border-color: var(--gold); background: var(--white); }
+    .svc-row-note::placeholder { color: #A9A49A; }
+    .svc-row-cam { flex-shrink: 0; width: 32px; height: 32px; border-radius: 6px; border: 1.5px solid var(--border);
+      background: var(--white); color: var(--gray); cursor: pointer; display: flex; align-items: center;
+      justify-content: center; transition: border-color .15s, color .15s; position: relative; }
+    .svc-row-cam:hover { border-color: var(--gold); color: var(--gold-dk); }
+    .svc-row-cam svg { width: 14px; height: 14px; }
+    .svc-row-cam .svc-cam-dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gold); border: 1.5px solid var(--white); display: none; }
+    .svc-row-cam.has-photo .svc-cam-dot { display: block; }
+    @media (max-width: 640px) {
+      .svc-row { flex-wrap: wrap; }
+      .svc-row-name { max-width: none; flex-basis: 100%; white-space: normal; }
+    }
     /* Tiempo estimado de la orden -- suma de sus servicios (Developer
        > Service Times). Informativo nomas, nunca editable. Mismo peso
        visual que la nota de "Keys/office need" que ya existe
@@ -792,6 +802,28 @@
   .step-divider::after { content:''; position:absolute; top:0; left:-35%; width:35%; height:100%;
     background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.85) 50%, transparent 100%);
     animation: gs-ofp-shimmer 7s ease-in-out infinite; }
+
+  /* ===== Edit Order (Active) rediseñado -- antes: 3 botones sueltos
+     sobre un parrafo, y todos los campos flotando sin agrupar. Ahora:
+     una franja de estado (punto + texto + acciones) y cada seccion
+     dentro de su propia tarjeta blanca, mismo dorado/negro/crema de
+     siempre. Probado primero como mini, aprobado por el usuario. */
+  .eo-status-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 20px; margin-top: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+  .eo-status-info { display: flex; align-items: center; gap: 12px; }
+  .eo-status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); flex-shrink: 0;
+    box-shadow: 0 0 0 4px rgba(201,168,76,.18); }
+  .eo-status-text { font-size: 13px; color: var(--gray); }
+  .eo-status-text b { color: var(--black); font-weight: 600; }
+  .eo-status-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .eo-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin-bottom: 16px; }
+  .eo-card-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; margin-bottom: 14px; }
+  .eo-card-delay { background: linear-gradient(180deg, #FDF3E0 0%, var(--white) 90px); }
+  .eo-card-delay .eo-card-title { color: var(--gold-dk); }
+  .eo-info-row { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 14px; font-size: 13px; color: var(--gray); }
+  .eo-info-row b { color: var(--black); font-weight: 600; }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -800,8 +832,10 @@
 </head>
 <body>
 
+<input type="file" id="svc-photo-input" accept="image/*" capture="environment" style="display:none">
+
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.9/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
@@ -6889,67 +6923,79 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
     </div>` : '';
 
   const editForm = contextCan(context, 'edit') ? `
-    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
-      <p class="detail-label" style="margin-bottom:4px">Order Status</p>
-      <p class="meta-line" style="margin-bottom:16px">
-        Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' (service date has arrived)' : ''}.
-        Use the buttons below to mark it done, cancel it, or edit its details.
-      </p>
-      <div class="btn-actions" style="margin-bottom:20px">
+    <div class="eo-status-bar">
+      <div class="eo-status-info">
+        <span class="eo-status-dot"></span>
+        <span class="eo-status-text">Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' — the service date has arrived' : ''}.</span>
+      </div>
+      <div class="eo-status-actions">
         ${displayStatus(o) === 'Working'
           ? `<button class="btn ${o.TechMarkedComplete ? 'btn-blue' : 'btn-green'}" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
           : ''}
         <button class="btn btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
         <button class="btn btn-outline" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
+    </div>
       <div id="${editSectionId}" style="display:none">
         <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
-        <div class="edit-grid">
-          <div class="field-group" style="grid-column:1/-1">
-            <label>Who / When</label>
-            <div style="padding:10px 0;font-size:13px;line-height:1.7">
-              Supervisor: <b>${o.Supervisor ? esc(o.Supervisor) : '—'}</b> ·
-              Window: <b>${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</b> ·
-              Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b> ·
-              Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b>
+
+        <div class="eo-card">
+          <div class="eo-card-title">Who &amp; when</div>
+          <div class="eo-info-row">
+            <span>Supervisor: <b>${o.Supervisor ? esc(o.Supervisor) : '—'}</b></span>
+            <span>Window: <b>${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</b></span>
+            <span>Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b></span>
+            <span>Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b></span>
+          </div>
+          <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
+        </div>
+
+        <div class="eo-card">
+          <div class="eo-card-title">Client-facing details</div>
+          <div class="edit-grid">
+            <div class="field-group">
+              <label>Notes for client</label>
+              <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
             </div>
-            <button class="btn btn-outline" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
-          </div>
-          <div class="field-group">
-            <label>Notes for client</label>
-            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-          <div class="field-group">
-            <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
-            <div style="padding:10px 0;font-size:13px">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
-          </div>
-          <div class="field-group">
-            <label>Due Date</label>
-            ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
-          </div>
-          <div class="field-group">
-            <label>Delay Reason</label>
-            <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
-          </div>
-          <div class="field-group">
-            <label>Delay Notes</label>
-            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
+            <div class="field-group">
+              <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
+              <div style="padding:10px 0;font-size:13px">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
+            </div>
+            <div class="field-group">
+              <label>Due Date</label>
+              ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
+            </div>
           </div>
         </div>
-        <div style="margin-top:20px">
-          <p class="detail-label" style="margin-bottom:10px">Services</p>
+
+        <div class="eo-card eo-card-delay">
+          <div class="eo-card-title">Delay</div>
+          <div class="edit-grid" style="grid-template-columns:1fr 1fr">
+            <div class="field-group">
+              <label>Delay Reason</label>
+              <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
+            </div>
+            <div class="field-group">
+              <label>Delay Notes</label>
+              <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
+            </div>
+          </div>
+        </div>
+
+        <div class="eo-card">
+          <div class="eo-card-title">Services</div>
           <div id="edit-svc-${esc(o.OrderID)}">
             ${buildServiceRows(o.OrderID, o.Division)}
           </div>
         </div>
+
         <div class="btn-actions">
           <button id="save-btn-${esc(o.OrderID)}" class="btn btn-gold" style="display:none"
             onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
           <button id="confirm-btn-${esc(o.OrderID)}" class="btn btn-gold-outline" style="display:none"
             onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
         </div>
-      </div>
-    </div>` : '';
+      </div>` : '';
 
   /* "By Employee" (context 'assigned') es SOLO para ver que tiene
      cada quien en su plato esta semana -- nunca para editar desde
@@ -7227,19 +7273,18 @@ function buildAdminSelectedListHtml(orderId) {
     const lvl = levelState[ncKey(r.cat, r.svcName)];
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
-    const rid = 'nc-reason-' + safe + '-' + catSafe + '-' + svcSafe;
+    const rid = 'nc-note-' + safe + '-' + catSafe + '-' + svcSafe;
     const mins = svcMinutesLabel(r.sub, lvl);
     return `<div class="svc-row">
-      <b style="font-size:13px">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}</b>
-      <div class="svc-row-nc">
-        <input type="checkbox" id="nc-chk-${safe}-${catSafe}-${svcSafe}" ${st.nc ? 'checked' : ''}
-          onchange="toggleNotCompleted('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this,'${rid}')">
-        <label for="nc-chk-${safe}-${catSafe}-${svcSafe}">Not completed</label>
+      <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}</b>
+      <div class="svc-row-notewrap">
+        <input type="text" id="${rid}" class="svc-row-note" placeholder="Note if not completed — leave blank if it's done" value="${esc(st.reason)}"
+          oninput="setNotCompletedNote('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value)">
       </div>
-      <div class="svc-row-reason${st.nc ? ' show' : ''}" id="${rid}-wrap">
-        <input type="text" id="${rid}" placeholder="Why was it not completed?" value="${esc(st.reason)}"
-          oninput="setNotCompletedReason('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value)">
-      </div>
+      <button type="button" class="svc-row-cam" id="svc-cam-${safe}-${catSafe}-${svcSafe}" title="Add a photo for this service" onclick="startServicePhoto('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span class="svc-cam-dot"></span>
+      </button>
     </div>`;
   }).join('');
 }
@@ -7278,10 +7323,21 @@ function refreshConfirmBtn(orderId) {
 }
 
 /* "Save Changes" solo aparece cuando de verdad hay algo pendiente de
-   guardar: cualquier campo del formulario, los servicios elegidos, o el
-   estado de "Not completed" -- comparado contra como estaba todo al
-   abrir el editor. Antes el boton se veia siempre, sin importar si se
-   habia tocado algo. */
+   guardar: cualquier campo del formulario, los servicios elegidos, el
+   estado de "Not completed", o una foto de servicio pendiente de subir
+   -- comparado contra como estaba todo al abrir el editor. Antes el
+   boton se veia siempre, sin importar si se habia tocado algo. */
+function ncChanged(orderId) {
+  const ncNow  = window['adminNC_' + orderId] || {};
+  const ncOrig = window['adminNCOriginal_' + orderId] || {};
+  return JSON.stringify(ncNow) !== JSON.stringify(ncOrig);
+}
+
+function hasPendingServicePhotos(orderId) {
+  const pending = svcPhotoPending[orderId];
+  return !!(pending && Object.keys(pending).length);
+}
+
 document.addEventListener('gs-date-picked', (e) => {
   if (e.detail.fieldId.indexOf('edit-due-') === 0) {
     refreshSaveBtn(e.detail.fieldId.slice('edit-due-'.length));
@@ -7300,11 +7356,7 @@ function refreshSaveBtn(orderId) {
     val('edit-delaytype')  !== (orig.delaytype || '') ||
     val('edit-delaynotes') !== (orig.delaynotes || '');
 
-  const ncNow  = window['adminNC_' + orderId] || {};
-  const ncOrig = window['adminNCOriginal_' + orderId] || {};
-  const ncChanged = JSON.stringify(ncNow) !== JSON.stringify(ncOrig);
-
-  btn.style.display = (fieldsChanged || svcSelectionChanged(orderId) || ncChanged) ? '' : 'none';
+  btn.style.display = (fieldsChanged || svcSelectionChanged(orderId) || ncChanged(orderId) || hasPendingServicePhotos(orderId)) ? '' : 'none';
 }
 
 /* ============================================================
@@ -7325,28 +7377,55 @@ function rebuildServicesFromSelection(orderId) {
   return out;
 }
 
-function toggleNotCompleted(orderId, cat, svc, chk, reasonId) {
+/* Antes esto era un checkbox (activa/desactiva "not completed") mas
+   una caja de texto que se revelaba solo si estaba marcado. Ahora es
+   una sola caja de texto: escribir algo ES lo que marca el servicio
+   como no completado -- dejarla vacia lo regresa a completado. Sin
+   checkbox que sincronizar aparte. */
+function setNotCompletedNote(orderId, cat, svc, value) {
   const state = window['adminNC_' + orderId] || (window['adminNC_' + orderId] = {});
   const k = ncKey(cat, svc);
-  if (!state[k]) state[k] = { nc: false, reason: '' };
-  state[k].nc = !!chk.checked;
-  const wrap = document.getElementById(reasonId + '-wrap');
-  const box = document.getElementById(reasonId);
-  if (wrap) wrap.classList.toggle('show', chk.checked);
-  if (box) {
-    if (!chk.checked) { box.value = ''; state[k].reason = ''; }
-    else box.focus();
-  }
+  state[k] = { nc: !!value.trim(), reason: value };
   refreshSaveBtn(orderId);
 }
 
-function setNotCompletedReason(orderId, cat, svc, value) {
-  const state = window['adminNC_' + orderId] || (window['adminNC_' + orderId] = {});
-  const k = ncKey(cat, svc);
-  if (!state[k]) state[k] = { nc: true, reason: '' };
-  state[k].reason = value;
-  refreshSaveBtn(orderId);
+/* ===== Foto por servicio (Not Completed) =====
+   Mismo mecanismo que las fotos del cliente (tracking.html): un solo
+   <input type="file"> oculto y compartido, reusado para cualquier
+   servicio -- se sabe para cual es por svcPhotoTarget. La foto se
+   queda en memoria (base64) hasta que se le de "Save Changes" (asi
+   se confirmo con el usuario): saveOrderUpdate() es quien de verdad
+   la sube, llamando a /upload-service-photo. */
+let svcPhotoTarget = null;
+const svcPhotoPending = {}; // { [orderId]: { [ncKey]: { imageBase64, serviceName } } }
+
+function startServicePhoto(orderId, cat, svc) {
+  svcPhotoTarget = { orderId, cat, svc };
+  document.getElementById('svc-photo-input').click();
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+  const input = document.getElementById('svc-photo-input');
+  if (!input) return;
+  input.addEventListener('change', function () {
+    const file = this.files[0];
+    const target = svcPhotoTarget;
+    this.value = '';
+    svcPhotoTarget = null;
+    if (!file || !target) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const store = svcPhotoPending[target.orderId] || (svcPhotoPending[target.orderId] = {});
+      store[ncKey(target.cat, target.svc)] = { imageBase64: reader.result, serviceName: target.svc };
+      const safe = String(target.orderId).replace(/[^a-z0-9]/gi, '_');
+      const btn = document.getElementById('svc-cam-' + safe + '-' + target.cat.replace(/[^a-z0-9]/gi, '_') + '-' + target.svc.replace(/[^a-z0-9]/gi, '_'));
+      if (btn) btn.classList.add('has-photo');
+      refreshSaveBtn(target.orderId);
+    };
+    reader.readAsDataURL(file);
+  });
+});
 
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
@@ -7414,7 +7493,12 @@ async function saveOrderUpdate(orderId, sendToClient) {
   if (dueDateVal          !== (orig.due         || '')) body.dueDate          = dueDateVal;
   if (delayReasonTypeVal  !== (orig.delaytype   || '')) body.delayReasonType  = delayReasonTypeVal;
   if (delayReasonNotesVal !== (orig.delaynotes  || '')) body.delayReasonNotes = delayReasonNotesVal;
-  if (svcSelectionChanged(orderId)) {
+  /* BUG FIX: antes esto solo miraba si CAMBIO la seleccion de
+     servicios (svcSelectionChanged) -- si el admin solo escribia una
+     nota de "not completed" sin tocar que servicios estan elegidos,
+     el boton Save Changes aparecia (refreshSaveBtn si lo detectaba)
+     pero services NUNCA se mandaba, perdiendo la nota en silencio. */
+  if (svcSelectionChanged(orderId) || ncChanged(orderId)) {
     body.services = buildServicesPayload(orderId) || [];
   }
 
@@ -7430,6 +7514,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
   try {
     showLoadingOverlay('Saving order ' + orderId + '…');
     const res = await api('/admin-update-order', { body });
+    await uploadPendingServicePhotos(orderId);
     showToast(sendToClient
       ? 'Change sent to the client for confirmation.'
       : 'Change sent to Review — waiting for approval before it takes effect.');
@@ -7437,6 +7522,31 @@ async function saveOrderUpdate(orderId, sendToClient) {
   } catch(e) {
     showToast('Error: ' + e.message);
   }
+}
+
+/* Sube todas las fotos de servicio que quedaron pendientes en esta
+   sesion (confirmado con el usuario: esperan a Save Changes, igual
+   que el resto del formulario). Se llama DESPUES de que
+   admin-update-order ya guardo bien los servicios/NotCompletedReason
+   -- get-admin-gallery.js cruza el nombre de archivo contra esa
+   misma nota al armar la descripcion en Gallery, asi que el orden
+   importa: primero el texto, despues la foto. Si una foto en
+   particular falla, las demas se siguen subiendo -- un aviso, sin
+   tronar todo el guardado que ya se aplico. */
+async function uploadPendingServicePhotos(orderId) {
+  const pending = svcPhotoPending[orderId];
+  if (!pending || !Object.keys(pending).length) return;
+  const entries = Object.entries(pending);
+  delete svcPhotoPending[orderId];
+  const failures = [];
+  for (const [key, p] of entries) {
+    try {
+      await api('/upload-service-photo', { body: { orderId, serviceName: p.serviceName, imageBase64: p.imageBase64 } });
+    } catch (e) {
+      failures.push(p.serviceName);
+    }
+  }
+  if (failures.length) showToast('Saved, but could not upload photo for: ' + failures.join(', '));
 }
 
 /* Revela/oculta el formulario de edicion de Active detras del boton
