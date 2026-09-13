@@ -293,22 +293,11 @@ const stored = sessionStorage.getItem('admin_account');
     initPage();
   }
 
-  async function initPage() {
-    let counts = { approvals: 0, review: 0, active: 0 };
-    try {
-      const res = await fetch('/api/admin-get-orders', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-      });
-      const data = await res.json();
-      counts = GSAdminCounts.compute(data.orders || []);
-    } catch (e) {
-      /* si falla, arranca en 0 -- no bloquea el resto de la pagina */
-    }
-
+  function initPage() {
     GSNavPremium.init('gsNav', [
-      { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(counts.approvals, 'appr-count') },
-      { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(counts.review, 'review-count') },
-      { label: 'Active', href: 'admin.html?tab=active', active: true, badgeHtml: GSAdminCounts.badgeHtml(counts.active, 'active-count') },
+      { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
+      { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
+      { label: 'Active', href: 'admin.html?tab=active', active: true, badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
       { label: 'History', href: 'admin.html?tab=history' },
       { label: 'Clients', href: 'admin.html?tab=clients' },
       { label: 'Gallery', href: 'gallery.html' },
@@ -316,6 +305,24 @@ const stored = sessionStorage.getItem('admin_account');
       { label: 'Schedule', href: 'admin.html?tab=schedule' },
       { label: 'Developer', href: 'developer.html' }
     ]);
+    loadNavCounts();
+  }
+
+  async function loadNavCounts() {
+    try {
+      const res = await fetch('/api/admin-get-orders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      const counts = GSAdminCounts.compute(data.orders || []);
+      ['appr-count', 'review-count', 'active-count'].forEach((id, i) => {
+        const val = [counts.approvals, counts.review, counts.active][i];
+        const el = document.getElementById(id);
+        if (el) { el.textContent = val; el.classList.toggle('zero', val === 0); }
+      });
+    } catch (e) {
+      /* si falla, se quedan en 0 -- no bloquea el resto de la pagina */
+    }
   }
 
   function signOut() {
