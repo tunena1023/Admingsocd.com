@@ -4243,12 +4243,16 @@ function renderGalleryPanel() {
 
         // Fusion, NUNCA reemplazo -- un edificio que ya esta en la matriz
         // (por nombre) se deja tal cual esta, con lo que ya se guardo/edito
-        // ahi. Solo se agregan los que de verdad son nuevos.
+        // ahi. Solo se agregan los que de verdad son nuevos, y esos se
+        // guardan solos en la matriz de una vez (autosave, igual que
+        // cualquier otra edicion).
         let added = 0;
         parsedRows.forEach(p => {
           const already = importRecurringRows.find(r => r.edificio.trim().toLowerCase() === p.edificio.trim().toLowerCase());
           if (already) return;
-          importRecurringRows.push(Object.assign({ id: nextImportRowId++ }, p));
+          const newId = nextImportRowId++;
+          importRecurringRows.push(Object.assign({ id: newId }, p));
+          saveRecurringImportMatrixRow(newId);
           added++;
         });
 
@@ -4319,15 +4323,9 @@ function renderGalleryPanel() {
         '<td style="padding:8px;font-weight:600">' + totalHoras + 'h</td>' +
         '<td style="padding:8px;min-width:180px">' +
           assignRowsHtml +
-          '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
-        '</td>' +
-        '<td style="padding:8px">' +
-          '<button class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" onclick="saveRecurringImportMatrixRow(' + r.id + ')">Save</button>' +
-          (r.draftSaved ? '<div style="font-size:10px;color:var(--green);margin-top:4px">✓ saved</div>' : (r.matrixId ? '<div style="font-size:10px;color:var(--gray);margin-top:4px">saved earlier</div>' : '')) +
-        '</td>' +
-        '<td style="padding:8px">' +
-          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.alreadyExisted ? 'Save Contract' : 'Create Contract') + '</button>' +
-          (r.justSaved ? '<div style="font-size:10px;color:var(--green);margin-top:4px">✓ saved</div>' : '') +
+          '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
+          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">Save</button>' +
+          (r.justSaved ? '<span style="font-size:10px;color:var(--green);margin-left:8px">✓ saved</span>' : '') +
         '</td>' +
       '</tr>';
     }).join('');
@@ -4335,12 +4333,12 @@ function renderGalleryPanel() {
     box.innerHTML =
       '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
         (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
-        '. Fields in red need fixing before Contract unlocks. Save keeps this row in the matrix even after refreshing.</p>' +
+        '. Every change here saves automatically to the matrix. Fields in red need fixing before Save unlocks.</p>' +
       '<div style="overflow-x:auto"><table class="grid-table" style="width:100%;white-space:nowrap">' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th>' +
         DAY_LIST.map(d => '<th>' + d + '</th>').join('') +
-        '<th>Visit</th><th>Hours</th><th>Tech</th><th>Draft</th><th>Contract</th>' +
+        '<th>Visit</th><th>Hours</th><th>Tech</th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
@@ -4348,24 +4346,28 @@ function renderGalleryPanel() {
     const r = importRecurringRows.find(x => x.id === id);
     r[field] = value;
     renderImportRecurringPreview();
+    saveRecurringImportMatrixRow(id);
   }
 
   function updateImportRecurringAssignment(id, idx, field, value) {
     const r = importRecurringRows.find(x => x.id === id);
     r.assignments[idx][field] = value;
     renderImportRecurringPreview();
+    saveRecurringImportMatrixRow(id);
   }
 
   function addImportRecurringAssignment(id) {
     const r = importRecurringRows.find(x => x.id === id);
     r.assignments.push({ payrollNumber: '', hoursAllocated: 8 }); // mismo default que addAssignRow() del formulario normal
     renderImportRecurringPreview();
+    saveRecurringImportMatrixRow(id);
   }
 
   function removeImportRecurringAssignment(id, idx) {
     const r = importRecurringRows.find(x => x.id === id);
     r.assignments.splice(idx, 1);
     renderImportRecurringPreview();
+    saveRecurringImportMatrixRow(id);
   }
 
   function toggleImportRecurringDay(id, day, checked) {
@@ -4373,6 +4375,7 @@ function renderGalleryPanel() {
     r.dias = r.dias.filter(d => d !== day);
     if (checked) r.dias.push(day);
     renderImportRecurringPreview();
+    saveRecurringImportMatrixRow(id);
   }
 
   async function saveImportRecurringRow(id) {
@@ -4430,6 +4433,10 @@ function renderGalleryPanel() {
      permanente, distinto de crear/actualizar el contrato real de
      arriba. Esto es lo que hace que la matriz sobreviva un refresh de
      la pagina sin tener que volver a subir el Excel. */
+  /* Autosave -- se llama solo despues de cualquier cambio (elegir
+     cliente, marcar un dia, tocar horas, agregar/quitar tecnico). Sin
+     toast de exito para no saturar con un aviso por cada tecla -- solo
+     avisa si algo sale mal. */
   async function saveRecurringImportMatrixRow(id) {
     const r = importRecurringRows.find(x => x.id === id);
     if (!r.edificio) return;
@@ -4444,11 +4451,8 @@ function renderGalleryPanel() {
         }
       });
       r.matrixId = res.matrixId;
-      r.draftSaved = true;
-      showToast('Draft saved — stays here even after refreshing the page.');
-      renderImportRecurringPreview();
     } catch (e) {
-      showToast('Could not save draft: ' + e.message);
+      showToast('Could not save: ' + e.message);
     }
   }
 
