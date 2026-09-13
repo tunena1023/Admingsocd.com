@@ -781,6 +781,17 @@
     #panel-developer .wrap { padding: 24px 16px; }
     #panel-developer .field-row { grid-template-columns: 1fr; }
   }
+
+  /* Separador entre secciones de Create Order -- mismo estilo exacto
+     que .step-divider en Orders/New Order (linea dorada con destello).
+     Reusa la animacion gs-ofp-shimmer que ya inyecta gsocd-shared via
+     GSOrderFormPremium.styleTag(), no se inventa ninguna nueva. Aqui
+     no hay "Step 1/2/3" (Admin no numera los pasos), solo la linea. */
+  .step-divider { position: relative; height: 2px; margin: 32px 0; overflow: hidden;
+    background: linear-gradient(90deg,transparent 0%,#8C6F2A 15%,#E8CE85 50%,#8C6F2A 85%,transparent 100%); }
+  .step-divider::after { content:''; position:absolute; top:0; left:-35%; width:35%; height:100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.85) 50%, transparent 100%);
+    animation: gs-ofp-shimmer 7s ease-in-out infinite; }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -8415,6 +8426,8 @@ function createOrderFormHtml() {
         <div id="create-unit-cards"></div>
       </div>
 
+      <div class="step-divider"></div>
+
       <div class="field-group" style="margin-top:20px">
         <p class="section-sub" style="margin-bottom:10px">Select a division to see its available services.</p>
         <div class="gs-ofp-card gs-ofp-card-3" id="create-div-card">
@@ -8434,6 +8447,8 @@ function createOrderFormHtml() {
         <div id="create-services-list"></div>
         <div id="create-est-time"></div>
       </div>
+
+      <div class="step-divider"></div>
 
       <div id="create-panel-mount"></div>
     </div>`;
