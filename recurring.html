@@ -589,6 +589,32 @@ const stored = sessionStorage.getItem('admin_account');
     return new Date().toISOString().slice(0, 10);
   }
 
+  /* Unica funcion real que decide "hoy le toca visita a este contrato"
+     -- antes solo miraba DaysOfWeek (equivalia a asumir que todo es
+     semanal). Ahora respeta Frequency + AnchorDate:
+     - Weekly (default): igual que siempre, cualquier dia marcado.
+     - Biweekly: mismo dia marcado, Y que hayan pasado un numero PAR de
+       semanas completas desde AnchorDate.
+     - Monthly: mismo dia marcado, Y que hayan pasado un multiplo de 4
+       semanas desde AnchorDate (mismo criterio -- confirmado con el
+       dueño: no es "el mismo dia del mes", es "cada 4 semanas" como
+       Biweekly pero con intervalo mas largo, misma formula para las 3).
+     Sin AnchorDate (contratos viejos, de antes de este campo) se trata
+     como semanal -- mejor de mas que perder una visita real. */
+  function isServiceDueToday(s) {
+    const dayMatch = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
+    if (!dayMatch) return false;
+    const freq = s.frequency || 'Weekly';
+    if (freq === 'Weekly') return true;
+    if (!s.anchorDate) return true;
+    const anchor = new Date(s.anchorDate + 'T00:00:00');
+    const today = new Date(todayISO() + 'T00:00:00');
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const weeksSince = Math.floor((today - anchor) / msPerWeek);
+    const interval = freq === 'Monthly' ? 4 : 2; // Biweekly = 2, Monthly = 4
+    return weeksSince >= 0 && weeksSince % interval === 0;
+  }
+
   async function loadRecurringList() {
     const box = document.getElementById('rc-list');
     try {
@@ -694,7 +720,7 @@ const stored = sessionStorage.getItem('admin_account');
        ya marco Field Confirmed (azul). No tiene caso ofrecerlo si
        nadie ha marcado nada (verde) -- no hay nada que devolver. */
     let completeBtnHtml = '';
-    const scheduledToday = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
+    const scheduledToday = isServiceDueToday(s);
     if (scheduledToday && todayStatus === 'pending-review') {
       completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
     } else if (scheduledToday && todayStatus === 'sent-back') {

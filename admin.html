@@ -1388,19 +1388,20 @@
     #import-recurring-preview .sched-select.warn { border-bottom-color: var(--red); }
     #import-recurring-preview .tech-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     #import-recurring-preview .chip {
-      display: inline-flex; align-items: center; height: 30px; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 15px; padding: 0 6px 0 12px; gap: 4px;
+      display: inline-flex; align-items: center; flex: 0 0 auto; width: 190px; height: 30px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 15px; padding: 0 6px 0 12px; gap: 4px;
     }
     #import-recurring-preview .chip.warn { border-color: var(--red); }
     #import-recurring-preview .chip select {
-      border: none; background: none; outline: none; font-size: 13px; font-family: 'Inter', sans-serif;
-      color: var(--black); max-width: 130px; height: 26px; padding: 0;
+      flex: 1 1 auto; width: 0; min-width: 0; border: none; background: none; outline: none; font-size: 13px;
+      font-family: 'Inter', sans-serif; color: var(--black); height: 26px; padding: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     #import-recurring-preview .chip input {
-      width: 36px; border: none; border-left: 1px solid var(--border); background: none; outline: none;
+      width: 36px; flex: 0 0 36px; border: none; border-left: 1px solid var(--border); background: none; outline: none;
       font-size: 13px; text-align: center; font-family: 'Inter', sans-serif; color: var(--black); height: 26px; padding: 0 0 0 5px;
     }
-    #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 13px; padding: 0 3px 0 0; line-height: 1; }
+    #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 13px; padding: 0 3px 0 0; line-height: 1; flex: 0 0 auto; }
     #import-recurring-preview .chip .x:hover { color: var(--red); }
     #import-recurring-preview .add-btn {
       width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
@@ -4203,10 +4204,12 @@ function renderGalleryPanel() {
           matrixId: m.id,
           edificio: m.edificio,
           frecuencia: m.frecuencia || 'Semanal',
-          dias: (m.daysOfWeek || '').split(',').filter(Boolean),
+          dias: existingService ? (existingService.daysOfWeek || '').split(',').filter(Boolean) : (m.daysOfWeek || '').split(',').filter(Boolean),
+          frequency: existingService ? (existingService.frequency || 'Weekly') : (m.frequency || 'Weekly'),
+          anchorDate: existingService ? (existingService.anchorDate || m.anchorDate || todayISO()) : (m.anchorDate || todayISO()),
           target: m.horasPorVisita,
           clientId: m.clientId,
-          assignments: m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }],
+          assignments: existingService && existingService.assignments.length ? existingService.assignments : (m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }]),
           alreadyExisted: !!existingService,
           existingService: existingService || null
         });
@@ -4254,6 +4257,9 @@ function renderGalleryPanel() {
           .filter(r => r && r.length && (colEdificio < 0 || r[colEdificio]))
           .map((r) => {
             const frecuencia = String((colFreq >= 0 ? r[colFreq] : '') || '').trim();
+            // Mapeo real -- Frequency ya se respeta de verdad en recurring.html
+            // (isServiceDueToday), no es solo una etiqueta.
+            const FREQ_MAP = { 'Semanal': 'Weekly', 'Quincenal': 'Biweekly', 'Mensual': 'Monthly' };
             const dias = DAY_COLS.filter(([col]) => col >= 0 && String(r[col] || '').trim().toLowerCase() === 'si').map(([, abbr]) => abbr);
             const clienteReporte = String((colCliente >= 0 ? r[colCliente] : '') || '').trim();
             const tecnicoReporte = String((colTecnico >= 0 ? r[colTecnico] : '') || '').split(',')[0].trim();
@@ -4277,12 +4283,19 @@ function renderGalleryPanel() {
             const realAssignments = alreadyExists && existingService.assignments.length
               ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: a.hoursAllocated }))
               : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: target }];
+            const realFrequency = alreadyExists ? (existingService.frequency || 'Weekly') : (FREQ_MAP[frecuencia] || 'Weekly');
+            // Sin fecha ancla no hay forma de contar "cada cuantas semanas" --
+            // se propone hoy como default (el dueño la puede corregir a la
+            // fecha real de la primera visita si la sabe).
+            const realAnchorDate = alreadyExists ? (existingService.anchorDate || todayISO()) : todayISO();
 
             return {
               matrixId: null,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
               dias: realDias,
+              frequency: realFrequency,
+              anchorDate: realAnchorDate,
               target,
               clientId,
               assignments: realAssignments,
@@ -4334,7 +4347,7 @@ function renderGalleryPanel() {
     const rowsHtml = importRecurringRows.map(r => {
       const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0);
       const validAssignments = r.assignments.filter(a => a.payrollNumber);
-      const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0;
+      const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0 && (r.frequency === 'Weekly' || !!r.anchorDate);
       // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
       // de dia (gs-ofp-day-pill) -- se reusa suelto porque aqui no aplican los
       // 2 campos de "Opens at/Closes at" que trae ese componente completo.
@@ -4346,8 +4359,6 @@ function renderGalleryPanel() {
           '</label>' +
         '</td>'
       ).join('');
-      const freqNote = r.frecuencia !== 'Semanal' && !r.alreadyExisted
-        ? '<div class="warn-tag">was ' + esc(r.frecuencia) + ' — created as weekly on checked days</div>' : '';
       const existsNote = r.alreadyExisted
         ? '<div class="building-tag">✓ already exists</div>' : '';
       // El aviso de "el reporte pedia Xh" solo sirve la primera vez -- una vez
@@ -4366,13 +4377,24 @@ function renderGalleryPanel() {
           (r.assignments.length > 1 ? '<button type="button" class="x" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" title="Remove">✕</button>' : '') +
         '</span>';
       }).join('');
+      // Frequency: Weekly (default) no necesita fecha ancla -- Biweekly/Monthly
+      // si, porque isServiceDueToday (recurring.html) cuenta semanas desde ahi.
+      const freqOptsHtml = ['Weekly', 'Biweekly', 'Monthly'].map(f =>
+        '<option value="' + f + '" ' + (f === r.frequency ? 'selected' : '') + '>' + f + '</option>'
+      ).join('');
+      const freqCellHtml =
+        '<select class="sched-select" style="min-width:100px" onchange="updateImportRecurring(' + r.id + ',\'frequency\',this.value)">' + freqOptsHtml + '</select>' +
+        (r.frequency !== 'Weekly'
+          ? '<input type="date" class="sched-select" style="margin-top:4px;min-width:130px;font-size:12px" value="' + escAttr(r.anchorDate) + '" onchange="updateImportRecurring(' + r.id + ',\'anchorDate\',this.value)" title="First real visit date -- counts weeks from here">'
+          : '');
       return '<tr>' +
-        '<td><div class="building-name">' + esc(r.edificio) + '</div>' + freqNote + existsNote + '</td>' +
+        '<td><div class="building-name">' + esc(r.edificio) + '</div>' + existsNote + '</td>' +
         '<td>' +
           '<select class="sched-select ' + (r.clientId ? '' : 'warn') + '" onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)">' +
             '<option value="">— select client —</option>' + clientOpts.replace('value="' + escAttr(r.clientId) + '"', 'value="' + escAttr(r.clientId) + '" selected') +
           '</select>' +
         '</td>' +
+        '<td>' + freqCellHtml + '</td>' +
         dayCells +
         '<td style="font-weight:600">' + totalHoras + 'h' + targetNote + '</td>' +
         '<td><div class="tech-cell">' + chipsHtml +
@@ -4390,7 +4412,7 @@ function renderGalleryPanel() {
         '. Every change here saves automatically to the matrix. Fields in red need fixing before Save unlocks.</p>' +
       '<div style="overflow-x:auto"><table class="sched-table">' +
       '<thead><tr>' +
-        '<th>Edificio</th><th>Client</th>' +
+        '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
         '<th>Hours</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
@@ -4436,6 +4458,7 @@ function renderGalleryPanel() {
     const r = importRecurringRows.find(x => x.id === id);
     const validAssignments = r.assignments.filter(a => a.payrollNumber);
     if (!r.clientId || !validAssignments.length || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
+    if (r.frequency !== 'Weekly' && !r.anchorDate) { showToast('Set the anchor date for Biweekly/Monthly first.'); return; }
     const totalHoras = validAssignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0); // suma real de horas de todos los tecnicos
     // Al editar un contrato que ya existe, buildingNumber/servicesJson/
     // expirationDate se mandan TAL CUAL estaban -- esta pantalla no los toca
@@ -4453,13 +4476,15 @@ function renderGalleryPanel() {
           servicesJson: existing ? existing.servicesJson : '', // Pendiente de asignar en contratos nuevos -- se completa aparte
           daysOfWeek: r.dias.join(','), time: existing ? (existing.time || '08:00') : '08:00', totalHours: totalHoras,
           expirationDate: existing ? existing.expirationDate : '',
+          frequency: r.frequency || 'Weekly',
+          anchorDate: r.frequency && r.frequency !== 'Weekly' ? r.anchorDate : '',
           assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: Number(a.hoursAllocated) || 0 }))
         }
       });
       if (!existing) {
         // Se acaba de crear -- desde ahora se edita como los que ya existian.
         r.alreadyExisted = true;
-        r.existingService = { id: res.recurringServiceId, clientId: r.clientId, buildingNumber: '', division: 'Janitorial', servicesJson: '', expirationDate: '', time: '08:00' };
+        r.existingService = { id: res.recurringServiceId, clientId: r.clientId, buildingNumber: '', division: 'Janitorial', servicesJson: '', expirationDate: '', time: '08:00', frequency: r.frequency || 'Weekly', anchorDate: r.anchorDate || '' };
       }
       // Escribir de vuelta el link en la matriz permanente, si este renglon
       // ya vive ahi -- asi queda guardado sin tener que adivinarlo por
@@ -4470,7 +4495,8 @@ function renderGalleryPanel() {
             action: 'save-recurring-import-matrix-row', email: adminUser.email,
             matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
             daysOfWeek: r.dias.join(','), horasPorVisita: r.target,
-            assignments: validAssignments, linkedRecurringServiceId: res.recurringServiceId
+            assignments: validAssignments, linkedRecurringServiceId: res.recurringServiceId,
+            frequency: r.frequency || 'Weekly', anchorDate: r.anchorDate || ''
           }
         }).catch(e => console.error('Could not link matrix row:', e.message));
       }
@@ -4502,7 +4528,8 @@ function renderGalleryPanel() {
           matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
           daysOfWeek: r.dias.join(','), horasPorVisita: r.target,
           assignments: r.assignments.filter(a => a.payrollNumber),
-          linkedRecurringServiceId: r.existingService ? r.existingService.id : ''
+          linkedRecurringServiceId: r.existingService ? r.existingService.id : '',
+          frequency: r.frequency || 'Weekly', anchorDate: r.anchorDate || ''
         }
       });
       r.matrixId = res.matrixId;

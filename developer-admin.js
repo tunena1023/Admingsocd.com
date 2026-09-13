@@ -1455,7 +1455,7 @@ exports.handler = async (event) => {
     ============================================================ */
 
     if (action === 'save-recurring-service') {
-      const { recurringServiceId, clientId, buildingNumber, division, servicesJson, daysOfWeek, time, totalHours, expirationDate, assignments } = body;
+      const { recurringServiceId, clientId, buildingNumber, division, servicesJson, daysOfWeek, time, totalHours, expirationDate, assignments, frequency, anchorDate } = body;
       if (!clientId) return jsonResponse(400, { error: 'clientId is required' });
       if (!daysOfWeek) return jsonResponse(400, { error: 'daysOfWeek is required' });
       if (!time) return jsonResponse(400, { error: 'time is required' });
@@ -1470,8 +1470,13 @@ exports.handler = async (event) => {
         DaysOfWeek: daysOfWeek,
         Time: time,
         TotalHours: Number(totalHours) || 0,
+        Frequency: frequency || 'Weekly',
         Active: true
       };
+      /* Igual que ExpirationDate -- solo se toca si de verdad se mando,
+         para no borrar la fecha ancla ya guardada con un "Save Change"
+         que no la trae (ej. solo reasignar un empleado). */
+      if (anchorDate !== undefined) fields.AnchorDate = anchorDate || null;
       /* Solo se toca si de verdad se mando -- si no, un simple "Save
          Change" de reasignar empleado (que reusa este mismo endpoint,
          mandando expirationDate en blanco) no debe borrar la fecha
@@ -1549,6 +1554,8 @@ exports.handler = async (event) => {
           time: f.Time || '',
           totalHours: Number(f.TotalHours) || 0,
           expirationDate: f.ExpirationDate || '',
+          frequency: f.Frequency || 'Weekly',
+          anchorDate: f.AnchorDate || '',
           active: truthy(f.Active),
           assignments: myAssignments,
           pendingConfirmCount: pendingByService[String(it.id)] || 0
@@ -1589,7 +1596,9 @@ exports.handler = async (event) => {
           daysOfWeek: f.DaysOfWeek || '',
           horasPorVisita: Number(f.HorasPorVisita) || 0,
           assignments,
-          linkedRecurringServiceId: f.LinkedRecurringServiceID || ''
+          linkedRecurringServiceId: f.LinkedRecurringServiceID || '',
+          frequency: f.Frequency || 'Weekly',
+          anchorDate: f.AnchorDate || ''
         };
       });
       return jsonResponse(200, { rows: list });
@@ -1597,7 +1606,7 @@ exports.handler = async (event) => {
 
     if (action === 'save-recurring-import-matrix-row') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the recurring import matrix.' });
-      const { matrixId, edificio, clientId, frecuencia, daysOfWeek, horasPorVisita, assignments, linkedRecurringServiceId } = body;
+      const { matrixId, edificio, clientId, frecuencia, daysOfWeek, horasPorVisita, assignments, linkedRecurringServiceId, frequency, anchorDate } = body;
       if (!edificio) return jsonResponse(400, { error: 'edificio is required' });
 
       const fields = {
@@ -1607,12 +1616,14 @@ exports.handler = async (event) => {
         Frecuencia: frecuencia || '',
         DaysOfWeek: daysOfWeek || '',
         HorasPorVisita: Number(horasPorVisita) || 0,
-        AssignmentsJSON: JSON.stringify(assignments || [])
+        AssignmentsJSON: JSON.stringify(assignments || []),
+        Frequency: frequency || 'Weekly'
       };
       /* Igual que ExpirationDate en save-recurring-service -- solo se
          toca si de verdad se mando, para no borrar el link a un
          contrato ya creado por un guardado posterior que no lo trae. */
       if (linkedRecurringServiceId !== undefined) fields.LinkedRecurringServiceID = linkedRecurringServiceId || '';
+      if (anchorDate !== undefined) fields.AnchorDate = anchorDate || null;
 
       let id = matrixId;
       if (id) {
