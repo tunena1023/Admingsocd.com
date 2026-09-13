@@ -1361,50 +1361,56 @@
   <style>
     /* Recurring Services Scheduler -- scoped a #import-recurring-preview
        para no chocar con ninguna otra clase del archivo (es enorme). */
-    #import-recurring-preview table.sched-table { width: 100%; border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
+    /* SIN width:100% en la tabla -- esa era la causa real del espacio
+       muerto: al forzar 100% con columnas de ancho fijo (dias, edificio),
+       TODO el sobrante se lo comia la celda de Tech sin que los chips
+       lo usaran, empujando Save lejos con un hueco enorme en medio.
+       Sin width fijo, la tabla mide lo que su contenido de verdad
+       necesita -- y ese contenido ahora es mas grande/legible. */
+    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; white-space: nowrap; }
     #import-recurring-preview .sched-table thead th {
-      text-align: left; padding: 7px 8px; font-size: 9px; font-weight: 700; letter-spacing: .06em;
+      text-align: left; padding: 10px 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
       text-transform: uppercase; color: var(--gray); border-bottom: 1.5px solid var(--border); background: var(--bg);
     }
-    #import-recurring-preview .sched-table thead th.day-th { text-align: center; padding: 7px 0; width: 22px; }
+    #import-recurring-preview .sched-table thead th.day-th { text-align: center; padding: 10px 2px; width: 30px; }
     #import-recurring-preview .sched-table tbody tr { border-bottom: 1px solid var(--border); }
     #import-recurring-preview .sched-table tbody tr:hover { background: #FCFBF8; }
-    #import-recurring-preview .sched-table td { padding: 8px; vertical-align: middle; }
-    #import-recurring-preview .day-pill-cell { text-align: center; padding: 8px 0; width: 22px; }
-    #import-recurring-preview .building-name { font-size: 12.5px; font-weight: 600; }
-    #import-recurring-preview .building-tag { font-size: 9px; font-weight: 600; color: var(--green); }
-    #import-recurring-preview .warn-tag { font-size: 9px; color: var(--red); }
+    #import-recurring-preview .sched-table td { padding: 13px 12px; vertical-align: middle; }
+    #import-recurring-preview .day-pill-cell { text-align: center; padding: 13px 2px; width: 30px; }
+    #import-recurring-preview .building-name { font-size: 14.5px; font-weight: 600; }
+    #import-recurring-preview .building-tag { font-size: 10.5px; font-weight: 600; color: var(--green); }
+    #import-recurring-preview .warn-tag { font-size: 10.5px; color: var(--red); }
     #import-recurring-preview .sched-select {
-      width: 100%; border: none; border-bottom: 1px solid var(--border); padding: 3px 1px;
-      font-size: 11.5px; font-family: 'Inter', sans-serif; color: var(--black); background: transparent; outline: none;
+      width: 100%; min-width: 170px; border: none; border-bottom: 1.5px solid var(--border); padding: 5px 2px;
+      font-size: 14px; font-family: 'Inter', sans-serif; color: var(--black); background: transparent; outline: none;
     }
     #import-recurring-preview .sched-select:focus { border-bottom-color: var(--gold); }
     #import-recurring-preview .sched-select.warn { border-bottom-color: var(--red); }
-    #import-recurring-preview .tech-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 240px; }
+    #import-recurring-preview .tech-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     #import-recurring-preview .chip {
-      display: inline-flex; align-items: center; height: 20px; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 10px; padding: 0 3px 0 7px; gap: 2px;
+      display: inline-flex; align-items: center; height: 30px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 15px; padding: 0 6px 0 12px; gap: 4px;
     }
     #import-recurring-preview .chip.warn { border-color: var(--red); }
     #import-recurring-preview .chip select {
-      border: none; background: none; outline: none; font-size: 10.5px; font-family: 'Inter', sans-serif;
-      color: var(--black); max-width: 72px; height: 18px; padding: 0;
+      border: none; background: none; outline: none; font-size: 13px; font-family: 'Inter', sans-serif;
+      color: var(--black); max-width: 130px; height: 26px; padding: 0;
     }
     #import-recurring-preview .chip input {
-      width: 22px; border: none; border-left: 1px solid var(--border); background: none; outline: none;
-      font-size: 10.5px; text-align: center; font-family: 'Inter', sans-serif; color: var(--black); height: 18px; padding: 0 0 0 3px;
+      width: 36px; border: none; border-left: 1px solid var(--border); background: none; outline: none;
+      font-size: 13px; text-align: center; font-family: 'Inter', sans-serif; color: var(--black); height: 26px; padding: 0 0 0 5px;
     }
-    #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 10px; padding: 0 2px 0 0; line-height: 1; }
+    #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 13px; padding: 0 3px 0 0; line-height: 1; }
     #import-recurring-preview .chip .x:hover { color: var(--red); }
     #import-recurring-preview .add-btn {
-      width: 18px; height: 18px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
-      color: var(--gold-dk); font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer;
+      width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
+      color: var(--gold-dk); font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;
     }
     #import-recurring-preview .add-btn:hover { border-color: var(--gold); border-style: solid; }
     #import-recurring-preview .save-btn {
-      padding: 3px 12px !important; font-size: 9px !important; border-radius: 12px !important;
-      width: auto !important; height: 20px; line-height: 1; flex-shrink: 0; white-space: nowrap;
+      padding: 7px 20px !important; font-size: 11.5px !important; border-radius: 16px !important;
+      width: auto !important; height: 30px; line-height: 1; flex-shrink: 0; white-space: nowrap;
     }
     #import-recurring-preview .save-btn.saved { background: var(--green) !important; }
   </style>
@@ -4334,7 +4340,7 @@ function renderGalleryPanel() {
       // 2 campos de "Opens at/Closes at" que trae ese componente completo.
       const dayCells = DAY_LIST.map(d =>
         '<td class="day-pill-cell">' +
-          '<label class="gs-ofp-day-pill" style="display:inline-block;width:18px;height:18px;font-size:8.5px">' +
+          '<label class="gs-ofp-day-pill" style="display:inline-block;width:24px;height:24px;font-size:10.5px">' +
             '<input type="checkbox" ' + (r.dias.includes(d) ? 'checked' : '') + ' onchange="toggleImportRecurringDay(' + r.id + ',\'' + d + '\',this.checked)">' +
             '<span>' + d[0] + '</span>' +
           '</label>' +
