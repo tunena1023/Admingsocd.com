@@ -3628,12 +3628,7 @@ function addUnitFormHtml(clientId, batchId) {
         </div>
       </div>
 
-      ${GSOrderFormPremium.officeAccessHtml(dom, { compact: true })}
-
-      <div class="addunit-dates-grid">
-        <div class="field-group"><label>Entry Date</label>${GSDateTimePicker.dateHtml(dom + '-entry', null)}</div>
-        <div class="field-group"><label>Due Date</label>${GSDateTimePicker.dateHtml(dom + '-due', null)}</div>
-      </div>
+      ${addUnitPanelHtml(dom)}
 
       <div class="appr-bar" style="margin-top:18px">
         <button class="btn btn-green" onclick="event.stopPropagation(); submitAddBatchUnitAdmin('${esc(clientId)}','${esc(batchId)}','${dom}')">Add Unit</button>
@@ -3641,6 +3636,20 @@ function addUnitFormHtml(clientId, batchId) {
       </div>
       <p class="dialog-error" id="${dom}-error"></p>
     </div>`;
+}
+
+/* Admin genera el HTML de Add Unit de un jalon (a diferencia de
+   Orders, que monta el panel solo hasta que se abre el dialogo) --
+   unitDetailPanelHtml() deja mounts vacios para las fechas
+   (dom-entry-mount/dom-due-mount), asi que aqui se insertan los date
+   pickers reales directo en el string antes de devolverlo, en vez de
+   dejarlos para "despues" (aqui no hay un "despues": toggleAddUnitForm
+   solo cambia display, nunca vuelve a tocar el contenido). */
+function addUnitPanelHtml(dom) {
+  let html = GSOrderFormPremium.unitDetailPanelHtml(dom, { showTime: false, showButtons: false, compact: true });
+  html = html.replace('id="' + dom + '-entry-mount"></div>', 'id="' + dom + '-entry-mount">' + GSDateTimePicker.dateHtml(dom + '-entry', null) + '</div>');
+  html = html.replace('id="' + dom + '-due-mount"></div>', 'id="' + dom + '-due-mount">' + GSDateTimePicker.dateHtml(dom + '-due', null) + '</div>');
+  return html;
 }
 
 /* El toggle "Do we need anything from you?" de este formulario ahora
