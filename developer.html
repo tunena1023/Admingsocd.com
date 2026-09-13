@@ -216,7 +216,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.2/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/admin-tab-counts/admin-tab-counts.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/order-form-premium/order-form-premium.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -321,11 +322,7 @@
           <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Template name</label>
           <input type="text" id="tpl-admin-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
         </div>
-        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
-          <button type="button" class="active" data-div="Janitorial" onclick="tplAdminSelectDiv('Janitorial', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Janitorial</button>
-          <button type="button" data-div="Renovations" onclick="tplAdminSelectDiv('Renovations', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Renovations</button>
-          <button type="button" data-div="Exteriors" onclick="tplAdminSelectDiv('Exteriors', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Exteriors</button>
-        </div>
+        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px"></div>
         <div id="tpl-admin-picker"></div>
         <div style="margin-top:20px;display:flex;gap:10px">
           <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
@@ -776,6 +773,8 @@
     }
     document.getElementById('content-wrap').style.display = 'block';
     document.getElementById('role-note').textContent = 'Signed in as ' + (adminUser.name || adminUser.email) + ' · Role: ' + myRole;
+    GSOrderFormPremium.styleTag();
+    document.getElementById('tpl-admin-div-toggle').innerHTML = GSOrderFormPremium.divButtonsHtml('tplAdminSelectDiv');
 
     const canEdit = myRole === 'Director' || myRole === 'Developer';
     canEditCatalog = canEdit;
@@ -1217,12 +1216,7 @@
     document.getElementById('tpl-admin-name').value = '';
     tplAdminCurrentDiv = 'Janitorial';
     tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b.dataset.div === tplAdminCurrentDiv;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', tplAdminCurrentDiv);
     document.getElementById('tpl-admin-editor-card').style.display = 'block';
     tplAdminRenderPicker();
     document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1244,12 +1238,7 @@
     });
     const firstCat = Object.keys(tplAdminSelected)[0];
     if (firstCat) tplAdminPropertyType = firstCat;
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b.dataset.div === tplAdminCurrentDiv;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', tplAdminCurrentDiv);
     document.getElementById('tpl-admin-editor-card').style.display = 'block';
     tplAdminRenderPicker();
     document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1262,12 +1251,7 @@
 
   function tplAdminSelectDiv(div, el) {
     tplAdminCurrentDiv = div;
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b === el;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', el);
     tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
     tplAdminRenderPicker();
   }
@@ -1276,10 +1260,12 @@
     const container = document.getElementById('tpl-admin-picker');
     const catalog = tplAdminActiveCatalog();
     if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
+    const isMixed = tplAdminCurrentDiv === 'Mixed';
     GSServicePicker.mount('tpl-admin', container, {
       catalog: catalog,
       division: tplAdminCurrentDiv,
-      mode: tplAdminCurrentDiv === 'Janitorial' ? 'levels' : 'toggle',
+      crossDivision: isMixed,
+      mode: (tplAdminCurrentDiv === 'Janitorial' || isMixed) ? 'levels' : 'toggle',
       filterMode: 'selected-plus-search',
       groupByCategory: true,
       propertyType: tplAdminPropertyType,
@@ -1301,7 +1287,7 @@
           Category:    propType,
           ServiceName: svcName,
           SubOption:   sku,
-          Division:    tplAdminCurrentDiv,
+          Division:    GSOrderFormPremium.realDivisionForSku(allCatalogRows, sku, tplAdminCurrentDiv),
           Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || ''
         });
       });

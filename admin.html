@@ -793,8 +793,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.21.1/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.1/order-form-premium/order-form-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.14.0/order-history/order-history.js"></script>
@@ -1126,11 +1126,7 @@
           <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-bottom:6px">Template name</label>
           <input type="text" id="tpl-admin-name" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);font-size:14px;font-family:inherit">
         </div>
-        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px">
-          <button type="button" class="active" data-div="Janitorial" onclick="tplAdminSelectDiv('Janitorial', this)" style="flex:1;padding:12px;border:none;background:var(--gold);color:var(--black);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit">Janitorial</button>
-          <button type="button" data-div="Renovations" onclick="tplAdminSelectDiv('Renovations', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Renovations</button>
-          <button type="button" data-div="Exteriors" onclick="tplAdminSelectDiv('Exteriors', this)" style="flex:1;padding:12px;border:none;background:var(--white);color:var(--gray);cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;border-left:1.5px solid var(--border)">Exteriors</button>
-        </div>
+        <div class="mode-toggle" id="tpl-admin-div-toggle" style="display:flex;border:1.5px solid var(--border);margin-bottom:20px;max-width:420px"></div>
         <div id="tpl-admin-picker"></div>
         <div style="margin-top:20px;display:flex;gap:10px">
           <button type="button" class="btn btn-gold" onclick="saveOfficeTemplate()">Save Template</button>
@@ -1640,6 +1636,8 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
+  GSOrderFormPremium.styleTag();
+  document.getElementById('tpl-admin-div-toggle').innerHTML = GSOrderFormPremium.divButtonsHtml('tplAdminSelectDiv');
     checkDeveloperAccess();
     loadAll();
     applyUrlTabParam();
@@ -1667,6 +1665,8 @@ async function initAuth() {
     { label: 'Developer', id: 'developer-tab-btn', dataView: 'developer', onclick: "showTab('developer')", active: initialAdminTab === 'developer' }
   ]);
   document.getElementById('developer-tab-btn').style.display = 'none';
+  GSOrderFormPremium.styleTag();
+  document.getElementById('tpl-admin-div-toggle').innerHTML = GSOrderFormPremium.divButtonsHtml('tplAdminSelectDiv');
   checkDeveloperAccess();
   loadAll();
   applyUrlTabParam();
@@ -5000,12 +5000,7 @@ function renderGalleryPanel() {
     document.getElementById('tpl-admin-name').value = '';
     tplAdminCurrentDiv = 'Janitorial';
     tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b.dataset.div === tplAdminCurrentDiv;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', tplAdminCurrentDiv);
     document.getElementById('tpl-admin-editor-card').style.display = 'block';
     tplAdminRenderPicker();
     document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5027,12 +5022,7 @@ function renderGalleryPanel() {
     });
     const firstCat = Object.keys(tplAdminSelected)[0];
     if (firstCat) tplAdminPropertyType = firstCat;
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b.dataset.div === tplAdminCurrentDiv;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', tplAdminCurrentDiv);
     document.getElementById('tpl-admin-editor-card').style.display = 'block';
     tplAdminRenderPicker();
     document.getElementById('tpl-admin-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5045,12 +5035,7 @@ function renderGalleryPanel() {
 
   function tplAdminSelectDiv(div, el) {
     tplAdminCurrentDiv = div;
-    document.querySelectorAll('#tpl-admin-div-toggle button').forEach(b => {
-      const active = b === el;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--gold)' : 'var(--white)';
-      b.style.color = active ? 'var(--black)' : 'var(--gray)';
-    });
+    GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', el);
     tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
     tplAdminRenderPicker();
   }
@@ -5059,10 +5044,12 @@ function renderGalleryPanel() {
     const container = document.getElementById('tpl-admin-picker');
     const catalog = tplAdminActiveCatalog();
     if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
+    const isMixed = tplAdminCurrentDiv === 'Mixed';
     GSServicePicker.mount('tpl-admin', container, {
       catalog: catalog,
       division: tplAdminCurrentDiv,
-      mode: tplAdminCurrentDiv === 'Janitorial' ? 'levels' : 'toggle',
+      crossDivision: isMixed,
+      mode: (tplAdminCurrentDiv === 'Janitorial' || isMixed) ? 'levels' : 'toggle',
       filterMode: 'selected-plus-search',
       groupByCategory: true,
       propertyType: tplAdminPropertyType,
@@ -5084,7 +5071,7 @@ function renderGalleryPanel() {
           Category:    propType,
           ServiceName: svcName,
           SubOption:   sku,
-          Division:    tplAdminCurrentDiv,
+          Division:    GSOrderFormPremium.realDivisionForSku(allCatalogRows, sku, tplAdminCurrentDiv),
           Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || ''
         });
       });
@@ -8425,11 +8412,7 @@ function createOrderFormHtml() {
           <svg class="gs-ofp-tri" style="top:calc(50% - 199px);right:-60px;width:450px;height:426px;opacity:.55" viewBox="0 0 900 851">
             <path d="M141.77,6.05 L209.78,829.96 L892.14,356.10 Z" fill="none" stroke="#FFF3D6" stroke-width="6"/>
           </svg>
-          <div class="gs-ofp-tabsrow" id="create-div-tabs">
-            <div class="gs-ofp-tab active" data-div="Janitorial" onclick="setCreateDivision('Janitorial', this)">Janitorial</div>
-            <div class="gs-ofp-tab" data-div="Renovations" onclick="setCreateDivision('Renovations', this)">Renovations</div>
-            <div class="gs-ofp-tab" data-div="Exteriors" onclick="setCreateDivision('Exteriors', this)">Exteriors</div>
-          </div>
+          <div class="gs-ofp-tabsrow" id="create-div-tabs"></div>
           <div class="gs-ofp-uline-track">
             <div class="gs-ofp-uline-active" id="create-div-underline" style="left:0;width:76px"></div>
           </div>
@@ -8480,7 +8463,8 @@ function startCreateOrderFor(clientId) {
   if (!content) return;
   content.innerHTML = createClientRecentOrdersHtml(clientId) + createOrderFormHtml();
   GSOrderFormPremium.styleTag();
-  GSOrderFormPremium.setOfficeNeed('create', false);
+  document.getElementById('create-div-tabs').innerHTML = GSOrderFormPremium.divTabsHtml('setCreateDivision');
+  GSOrderFormPremium.setOfficeNeedText('create', '');
   GSOrderFormPremium.renderDivDecos('Janitorial', 'create-div-card');
   setCreateOrderMode('single');
 }
@@ -8598,12 +8582,14 @@ async function loadCreateServices() {
   createSelected = new Map();
   createPropertyType = 'Commercial';
   const isJan = div.toLowerCase() === 'janitorial';
+  const isMixed = div === 'Mixed';
   wrap.style.display = 'block';
   document.getElementById('create-est-time').innerHTML = '';
   GSServicePicker.mount('create-order', 'create-services-list', {
     catalog: createCatalogCache,
     division: div,
-    mode: isJan ? 'levels' : 'toggle',
+    crossDivision: isMixed,
+    mode: (isJan || isMixed) ? 'levels' : 'toggle',
     showSelectAll: isJan,
     groupByCategory: true,
     propertyType: createPropertyType,
@@ -8639,7 +8625,7 @@ async function submitCreateOrder() {
      (Residential/Commercial) y SubOption lleva el SKU. */
   const services = [];
   createSelected.forEach((svc, sku) => {
-    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: division, Level: svc.level || '' });
+    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: svc.division || division, Level: svc.level || '' });
   });
   if (!services.length) { showToast('Select at least one service.'); return; }
 
