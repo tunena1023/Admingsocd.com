@@ -8577,7 +8577,7 @@ function addCreateUnitCard() {
   if (isFirst) wrap.dataset.unitLocked = '1';
 
   const div = document.createElement('div');
-  div.className = 'gs-ofp-unitline';
+  div.className = 'gs-ofp-unitrow gs-ofp-unitline';
   div.dataset.unit = idx;
   div.innerHTML = createUnitCardHtml(idx, isFirst);
   wrap.appendChild(div);
