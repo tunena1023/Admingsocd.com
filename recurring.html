@@ -193,6 +193,8 @@
      al llegar aqui via el subtab "Recurring" no se sienta como que
      "desaparecieron" los otros 2 -- siguen ahi, solo que llevan de
      vuelta a admin.html con el subtab correcto ya seleccionado. */
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 28px; }
   .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
   .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
   .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
@@ -223,12 +225,14 @@
 <div id="gsNav"></div>
 
 <div class="wrap">
+  <p class="section-title">Active Orders</p>
+  <p class="section-sub">Approved orders in progress. Click an order to move it forward, or to edit supervisor, notes or services.</p>
   <div class="subtabs">
     <a class="subtab" href="admin.html?tab=active">All</a>
     <a class="subtab" href="admin.html?tab=assigned">By Employee</a>
     <a class="subtab active" href="recurring.html">Recurring</a>
   </div>
-  <p style="font-size:13px;color:var(--gray);margin:0 0 24px">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. These never go through Approvals and never create a regular Order.</p>
+  <p style="font-size:13px;color:var(--gray);margin:20px 0 24px">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. These never go through Approvals and never create a regular Order.</p>
 
   <div class="card">
     <div class="field-row">
