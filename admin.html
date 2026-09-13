@@ -4147,16 +4147,24 @@ function renderGalleryPanel() {
             const clientMatch = clientsCache.find(c => c.businessName.trim().toLowerCase() === clienteReporte.toLowerCase());
             const empMatch = employeesCache.find(e => e.name.trim().toLowerCase() === tecnicoReporte.toLowerCase());
             const horasPorVisita = Number((colHoras >= 0 ? r[colHoras] : '') || 0);
+            const clientId = clientMatch ? clientMatch.clientId : '';
+            // Misma logica de deduplicado que Bulk Import Clients: la fuente de
+            // verdad es lo que YA existe en el sistema real (rcServicesCache, se
+            // recarga fresco cada vez que se abre la pagina), no algo que se
+            // recuerde en el navegador -- asi, si sales y vuelves a subir el
+            // mismo reporte, lo que ya se creo no se vuelve a ofrecer crear.
+            const alreadyExists = clientId && rcServicesCache.some(s => s.clientId === clientId);
             return {
               id: i,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
               dias,
               horasPorVisita,
-              clientId: clientMatch ? clientMatch.clientId : '',
+              clientId,
               assignments: [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: horasPorVisita * dias.length }],
               time: '08:00', // el reporte nunca trajo hora -- default fijo, se puede cambiar despues desde el formulario normal de Recurring
-              created: false
+              created: alreadyExists,
+              alreadyExisted: alreadyExists
             };
           })
           .filter(r => r.edificio && r.frecuencia !== 'TBD');
@@ -4228,14 +4236,16 @@ function renderGalleryPanel() {
           '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
         '</td>' +
         '<td style="padding:8px">' + (r.created
-          ? '<span style="color:var(--green);font-size:12px;font-weight:600">✓ Created</span>'
+          ? '<span style="color:var(--green);font-size:12px;font-weight:600">✓ ' + (r.alreadyExisted ? 'Already exists' : 'Created') + '</span>'
           : '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canCreate ? '' : 'disabled') + ' onclick="createImportRecurringRow(' + r.id + ')">Create</button>') +
         '</td>' +
       '</tr>';
     }).join('');
 
     box.innerHTML =
-      '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found. Fields in red need fixing before Create unlocks.</p>' +
+      '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
+        (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- skipped automatically)' : '') +
+        '. Fields in red need fixing before Create unlocks.</p>' +
       '<div style="overflow-x:auto"><table class="grid-table" style="width:100%;white-space:nowrap">' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th>' +
