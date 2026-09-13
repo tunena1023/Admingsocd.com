@@ -1366,7 +1366,7 @@
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
-        <div id="import-recurring-preview" style="margin-top:16px"><p class="section-sub">Upload a report in Import Recurring Contracts above to populate this table.</p></div>
+        <div id="import-recurring-preview" style="margin-top:16px"><p class="section-sub">Loading saved draft rows…</p></div>
       </div>
     </div>
   </section>
@@ -4105,16 +4105,60 @@ function renderGalleryPanel() {
      Léeme) -- esta pantalla NO hace matching de nombres ni geocodifica
      nada; eso ya se hizo en el Excel. Aqui solo se confirma
      Cliente/Tecnico contra las listas REALES (clientsCache/
-     employeesCache, las mismas que ya carga loadInitialData) y se
-     manda cada renglon a save-recurring-service UNO A LA VEZ -- mismo
-     endpoint, mismo contrato de datos que el formulario normal de
-     arriba, nada nuevo del lado del servidor.
+     employeesCache, las mismas que ya carga loadInitialData).
+
+     La matriz vive PERMANENTE en su propia lista de SharePoint
+     (RecurringImportMatrix) -- se carga sola al abrir la pagina
+     (loadRecurringImportMatrix, ver mas abajo), no depende de volver a
+     subir el Excel. Subir el reporte solo AGREGA edificios que todavia
+     no esten en la matriz -- nunca pisa un renglon que ya se guardo o
+     edito ahi (se compara por nombre de edificio).
+
+     2 botones por renglon, cosas DISTINTAS:
+     - "Save" (este panel) -- guarda el renglon TAL CUAL en
+       RecurringImportMatrix (save-recurring-import-matrix-row, nuevo).
+       Es el borrador editable, sobrevive un refresh de la pagina.
+     - "Create Contract"/"Save Contract" -- manda el renglon a
+       save-recurring-service (ya existente, sin tocar) para crear/
+       actualizar el contrato REAL que ya usa Active Recurring
+       Contracts. Cuando esto tiene exito, se escribe de vuelta el
+       LinkedRecurringServiceID en la matriz, para dejar el link
+       guardado sin tener que adivinarlo por ClientID cada vez.
 
      Fuera de alcance a proposito (pedido explicito del dueño):
      Materiales/Notas del reporte no se leen ni se guardan en ningun
      lado -- son inventario/contexto de la sesion de limpieza del
      Excel, no datos que el sistema de ordenes necesite. */
   let importRecurringRows = [];
+  let nextImportRowId = 1;
+
+  /* Se carga sola cuando el rol ya se resolvio (ver init() mas abajo)
+     -- asi la tabla ya trae lo guardado la primera vez que se ve la
+     pagina, sin que el usuario tenga que subir nada. */
+  async function loadRecurringImportMatrix() {
+    try {
+      await loadRecurringList(); // asegura rcServicesCache fresco antes de cruzar por ClientID
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-import-matrix', email: adminUser.email } });
+      (res.rows || []).forEach(m => {
+        const existingService = m.clientId ? rcServicesCache.find(s => s.clientId === m.clientId) : null;
+        importRecurringRows.push({
+          id: nextImportRowId++,
+          matrixId: m.id,
+          edificio: m.edificio,
+          frecuencia: m.frecuencia || 'Semanal',
+          dias: (m.daysOfWeek || '').split(',').filter(Boolean),
+          horasPorVisita: m.horasPorVisita,
+          clientId: m.clientId,
+          assignments: m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }],
+          alreadyExisted: !!existingService,
+          existingService: existingService || null
+        });
+      });
+      renderImportRecurringPreview();
+    } catch (e) {
+      console.error('Could not load recurring import matrix:', e.message);
+    }
+  }
 
   function onImportRecurringFileChosen() {
     const input = document.getElementById('import-recurring-file');
@@ -4149,9 +4193,9 @@ function renderGalleryPanel() {
         // El orden real del Excel es Lunes..Domingo -> se traduce a Mon..Sun aqui
         const DAY_COLS = [[colLun,'Mon'],[colMar,'Tue'],[colMie,'Wed'],[colJue,'Thu'],[colVie,'Fri'],[colSab,'Sat'],[colDom,'Sun']];
 
-        importRecurringRows = rows.slice(1)
+        const parsedRows = rows.slice(1)
           .filter(r => r && r.length && (colEdificio < 0 || r[colEdificio]))
-          .map((r, i) => {
+          .map((r) => {
             const frecuencia = String((colFreq >= 0 ? r[colFreq] : '') || '').trim();
             const dias = DAY_COLS.filter(([col]) => col >= 0 && String(r[col] || '').trim().toLowerCase() === 'si').map(([, abbr]) => abbr);
             const clienteReporte = String((colCliente >= 0 ? r[colCliente] : '') || '').trim();
@@ -4181,15 +4225,13 @@ function renderGalleryPanel() {
               : horasPorVisita;
 
             return {
-              id: i,
+              matrixId: null,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
               dias: realDias,
               horasPorVisita: realHorasPorVisita,
               clientId,
               assignments: realAssignments,
-              time: alreadyExists ? (existingService.time || '08:00') : '08:00',
-              created: alreadyExists,
               alreadyExisted: alreadyExists,
               // Se guarda el registro completo (no solo el id) para poder mandar
               // de regreso buildingNumber/servicesJson/expirationDate TAL CUAL en
@@ -4199,6 +4241,18 @@ function renderGalleryPanel() {
           })
           .filter(r => r.edificio && r.frecuencia !== 'TBD');
 
+        // Fusion, NUNCA reemplazo -- un edificio que ya esta en la matriz
+        // (por nombre) se deja tal cual esta, con lo que ya se guardo/edito
+        // ahi. Solo se agregan los que de verdad son nuevos.
+        let added = 0;
+        parsedRows.forEach(p => {
+          const already = importRecurringRows.find(r => r.edificio.trim().toLowerCase() === p.edificio.trim().toLowerCase());
+          if (already) return;
+          importRecurringRows.push(Object.assign({ id: nextImportRowId++ }, p));
+          added++;
+        });
+
+        showToast(added + ' new building' + (added === 1 ? '' : 's') + ' added' + (parsedRows.length - added > 0 ? ' (' + (parsedRows.length - added) + ' already in the matrix, left untouched)' : '') + '.');
         renderImportRecurringPreview();
       } catch (e) {
         document.getElementById('import-recurring-preview').innerHTML =
@@ -4212,7 +4266,7 @@ function renderGalleryPanel() {
   function renderImportRecurringPreview() {
     const box = document.getElementById('import-recurring-preview');
     if (!importRecurringRows.length) {
-      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">No usable rows found — check the file has "Edificio" and "Frecuencia" columns.</p>';
+      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">Nothing here yet — upload a report in Import Recurring Contracts above (or check it has "Edificio" and "Frecuencia" columns).</p>';
       return;
     }
     GSOrderFormPremium.styleTag(); // mismo componente que ya usa el resto de Admin -- trae el CSS real de .gs-ofp-day-pill
@@ -4268,7 +4322,11 @@ function renderGalleryPanel() {
           '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
         '</td>' +
         '<td style="padding:8px">' +
-          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.alreadyExisted ? 'Save' : 'Create') + '</button>' +
+          '<button class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" onclick="saveRecurringImportMatrixRow(' + r.id + ')">Save</button>' +
+          (r.draftSaved ? '<div style="font-size:10px;color:var(--green);margin-top:4px">✓ saved</div>' : (r.matrixId ? '<div style="font-size:10px;color:var(--gray);margin-top:4px">saved earlier</div>' : '')) +
+        '</td>' +
+        '<td style="padding:8px">' +
+          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.alreadyExisted ? 'Save Contract' : 'Create Contract') + '</button>' +
           (r.justSaved ? '<div style="font-size:10px;color:var(--green);margin-top:4px">✓ saved</div>' : '') +
         '</td>' +
       '</tr>';
@@ -4277,12 +4335,12 @@ function renderGalleryPanel() {
     box.innerHTML =
       '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
         (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
-        '. Fields in red need fixing before Create unlocks.</p>' +
+        '. Fields in red need fixing before Contract unlocks. Save keeps this row in the matrix even after refreshing.</p>' +
       '<div style="overflow-x:auto"><table class="grid-table" style="width:100%;white-space:nowrap">' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th>' +
         DAY_LIST.map(d => '<th>' + d + '</th>').join('') +
-        '<th>Visit</th><th>Hours</th><th>Tech</th><th></th>' +
+        '<th>Visit</th><th>Hours</th><th>Tech</th><th>Draft</th><th>Contract</th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
@@ -4336,7 +4394,7 @@ function renderGalleryPanel() {
           buildingNumber: existing ? existing.buildingNumber : '',
           division: existing ? existing.division : 'Janitorial',
           servicesJson: existing ? existing.servicesJson : '', // Pendiente de asignar en contratos nuevos -- se completa aparte
-          daysOfWeek: r.dias.join(','), time: r.time, totalHours: totalHoras,
+          daysOfWeek: r.dias.join(','), time: existing ? (existing.time || '08:00') : '08:00', totalHours: totalHoras,
           expirationDate: existing ? existing.expirationDate : '',
           assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: Number(a.hoursAllocated) || 0 }))
         }
@@ -4344,7 +4402,20 @@ function renderGalleryPanel() {
       if (!existing) {
         // Se acaba de crear -- desde ahora se edita como los que ya existian.
         r.alreadyExisted = true;
-        r.existingService = { id: res.recurringServiceId, clientId: r.clientId, buildingNumber: '', division: 'Janitorial', servicesJson: '', expirationDate: '' };
+        r.existingService = { id: res.recurringServiceId, clientId: r.clientId, buildingNumber: '', division: 'Janitorial', servicesJson: '', expirationDate: '', time: '08:00' };
+      }
+      // Escribir de vuelta el link en la matriz permanente, si este renglon
+      // ya vive ahi -- asi queda guardado sin tener que adivinarlo por
+      // ClientID la proxima vez que se cargue la pagina.
+      if (r.matrixId) {
+        api('/developer-admin', {
+          body: {
+            action: 'save-recurring-import-matrix-row', email: adminUser.email,
+            matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
+            daysOfWeek: r.dias.join(','), horasPorVisita: r.horasPorVisita,
+            assignments: validAssignments, linkedRecurringServiceId: res.recurringServiceId
+          }
+        }).catch(e => console.error('Could not link matrix row:', e.message));
       }
       r.justSaved = true;
       showToast(existing ? 'Saved — updated in Active Recurring Contracts.' : 'Created — now in Active Recurring Contracts.');
@@ -4352,6 +4423,32 @@ function renderGalleryPanel() {
       loadRecurringList();
     } catch (e) {
       showToast('Could not save: ' + e.message);
+    }
+  }
+
+  /* Guarda el renglon TAL CUAL en RecurringImportMatrix -- el borrador
+     permanente, distinto de crear/actualizar el contrato real de
+     arriba. Esto es lo que hace que la matriz sobreviva un refresh de
+     la pagina sin tener que volver a subir el Excel. */
+  async function saveRecurringImportMatrixRow(id) {
+    const r = importRecurringRows.find(x => x.id === id);
+    if (!r.edificio) return;
+    try {
+      const res = await api('/developer-admin', {
+        body: {
+          action: 'save-recurring-import-matrix-row', email: adminUser.email,
+          matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
+          daysOfWeek: r.dias.join(','), horasPorVisita: r.horasPorVisita,
+          assignments: r.assignments.filter(a => a.payrollNumber),
+          linkedRecurringServiceId: r.existingService ? r.existingService.id : ''
+        }
+      });
+      r.matrixId = res.matrixId;
+      r.draftSaved = true;
+      showToast('Draft saved — stays here even after refreshing the page.');
+      renderImportRecurringPreview();
+    } catch (e) {
+      showToast('Could not save draft: ' + e.message);
     }
   }
 
@@ -4903,6 +5000,7 @@ function renderGalleryPanel() {
       document.getElementById('holidays-section').classList.add('role-eligible');
       document.getElementById('import-recurring-section').classList.add('role-eligible');
       document.getElementById('recurring-scheduler-section').classList.add('role-eligible');
+      loadRecurringImportMatrix();
     }
 
     if (myRole === 'Developer') {
