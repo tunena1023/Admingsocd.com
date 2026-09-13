@@ -1993,11 +1993,13 @@ function officeHoursFieldsHtml(cid, b) {
   const parsed = parseOfficeHoursRange(b.officeHours);
   const open = parsed.open || { h: 9, m: 0 };
   const close = parsed.close || { h: 17, m: 0 };
-  return `<div style="display:flex;gap:10px;justify-content:space-between;margin-bottom:14px;max-width:320px">${dayCells}</div>
-    <div style="display:flex;gap:14px;margin-bottom:14px">
+  return `<div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:24px;margin-bottom:14px">
+    <div style="display:flex;gap:10px;max-width:320px">${dayCells}</div>
+    <div style="display:flex;gap:14px">
       ${officeClockFieldHtml(cid + '-ctl-officeOpen', 'Opens at', open.h, open.m)}
       ${officeClockFieldHtml(cid + '-ctl-officeClose', 'Closes at', close.h, close.m)}
-    </div>`;
+    </div>
+  </div>`;
 }
 
 /* ===== Holidays -- confirmado con el usuario, "ahi deberian estar" --
