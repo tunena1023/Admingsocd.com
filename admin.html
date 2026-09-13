@@ -8426,23 +8426,12 @@ function createOrderFormHtml() {
         <div id="create-est-time"></div>
       </div>
 
-      ${GSOrderFormPremium.officeAccessHtml('create')}
-
-      <div id="create-single-dates" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
-        <div class="field-group"><label>Entry Date</label>${GSDateTimePicker.dateHtml('create-entry-date', null)}</div>
-        <div class="field-group"><label>Entry Time</label>${GSDateTimePicker.timeHtml('create-entry-time', '08:00')}</div>
-        <div class="field-group"><label>Due Date</label>${GSDateTimePicker.dateHtml('create-due-date', null)}</div>
-      </div>
+      <div id="create-panel-mount"></div>
 
       <div id="create-multi-dates-wrap" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
         <div class="field-group"><label>Entry Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-entry-date', null)}</div>
         <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
         <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
-      </div>
-
-      <div class="btn-actions">
-        <button class="btn btn-gold" onclick="submitCreateOrder()">Submit Order</button>
-        <button class="btn btn-outline" onclick="cancelCreate()">Cancel</button>
       </div>
     </div>`;
 }
@@ -8464,6 +8453,26 @@ function startCreateOrderFor(clientId) {
   content.innerHTML = createClientRecentOrdersHtml(clientId) + createOrderFormHtml();
   GSOrderFormPremium.styleTag();
   document.getElementById('create-div-tabs').innerHTML = GSOrderFormPremium.divTabsHtml('setCreateDivision');
+  /* Panel unificado (Office Access + fechas/hora + Submit/Cancel) --
+     mismo patron ya probado en Orders. Envuelto en try/catch por la
+     misma razon: si el CDN todavia no tiene el tag nuevo indexado en
+     el momento exacto en que esto corre, un fallo aqui no debe
+     tumbar el resto del formulario. */
+  try {
+    document.getElementById('create-panel-mount').innerHTML = GSOrderFormPremium.unitDetailPanelHtml('create', {
+      showTime: true,
+      showButtons: true,
+      submitLabel: 'Submit Order',
+      submitOnclick: 'submitCreateOrder()',
+      cancelLabel: 'Cancel',
+      cancelOnclick: 'cancelCreate()'
+    });
+    document.getElementById('create-entry-mount').innerHTML = GSDateTimePicker.dateHtml('create-entry-date', null);
+    document.getElementById('create-entry-time-mount').innerHTML = GSDateTimePicker.timeHtml('create-entry-time', '08:00');
+    document.getElementById('create-due-mount').innerHTML = GSDateTimePicker.dateHtml('create-due-date', null);
+  } catch (e) {
+    console.error('No se pudo montar el panel de Access & scheduling:', e);
+  }
   GSOrderFormPremium.setOfficeNeedText('create', '');
   GSOrderFormPremium.renderDivDecos('Janitorial', 'create-div-card');
   setCreateOrderMode('single');
@@ -8478,7 +8487,7 @@ function setCreateOrderMode(mode) {
 
   document.getElementById('create-single-fields').style.display = createMultiOn ? 'none' : 'flex';
   document.getElementById('create-multi-units-wrap').style.display = createMultiOn ? 'block' : 'none';
-  document.getElementById('create-single-dates').style.display = createMultiOn ? 'none' : 'grid';
+  document.getElementById('create-panel-mount').style.display = createMultiOn ? 'none' : '';
   document.getElementById('create-multi-dates-wrap').style.display = createMultiOn ? 'grid' : 'none';
 
   if (createMultiOn && !document.getElementById('create-unit-cards').children.length) {
@@ -8488,28 +8497,12 @@ function setCreateOrderMode(mode) {
   }
 }
 
-function createBuildingOptionsHtml() {
-  const buildings = (createSelectedClient && createSelectedClient.buildings) ? createSelectedClient.buildings.filter(b => !b.archived) : [];
-  const hasClientAddress = createSelectedClient && createSelectedClient.address;
-  let html = '';
-  if (!buildings.length && !hasClientAddress) {
-    return '<option value="">No saved buildings or address for this client</option>';
-  }
-  if (hasClientAddress) {
-    html += '<option value="CLIENT_ADDRESS">Use client address — ' + esc(createSelectedClient.address) + '</option>';
-  }
-  html += buildings.map(b =>
-    '<option value="' + esc(b.id) + '">' + esc(b.label || 'Building') + (b.buildingNumber ? ' #' + esc(b.buildingNumber) : '') + '</option>'
-  ).join('');
-  return html;
-}
-
-function createUnitCardHtml(idx) {
+function createUnitCardHtml(idx, isFirst) {
   return '' +
     '<div class="gs-ofp-unitline-num">' + idx + '</div>' +
     '<div class="gs-ofp-unitfield">' +
-      '<div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M12 21V9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12"/><path d="M8 8h1M8 12h1M8 16h1M16 12h1M16 16h1"/></svg>Building</div>' +
-      '<select id="create-unit-' + idx + '-building" class="gs-ofp-unitselect">' + createBuildingOptionsHtml() + '</select>' +
+      '<div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M12 21V9a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12"/><path d="M8 8h1M8 12h1M8 16h1M16 12h1M16 16h1"/></svg>Building # (optional)</div>' +
+      '<input type="text" id="create-unit-' + idx + '-building-number" placeholder="e.g. 1215">' +
     '</div>' +
     '<div class="gs-ofp-unitfield">' +
       '<div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M4 10h16"/></svg>Unit #</div>' +
@@ -8523,27 +8516,103 @@ function createUnitCardHtml(idx) {
       '<div class="gs-ofp-unitfield-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M4 12a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2M4 12V7a2 2 0 0 1 2-2h1"/><circle cx="7" cy="8" r="1"/><path d="M6 18l-1 3M18 18l1 3"/></svg>Bathrooms</div>' +
       '<input type="number" id="create-unit-' + idx + '-bathrooms" min="1" max="3">' +
     '</div>' +
-    '<button type="button" class="gs-ofp-unit-remove" onclick="removeCreateUnitCard(' + idx + ')" title="Remove unit">×</button>';
+    (isFirst
+      ? '<div class="gs-ofp-unit-customize-inline" title="This unit always uses the entry/due dates and office access notes from the panel above -- it can\'t be customized or removed, so those details always apply to at least one unit.">' +
+          '<span class="gs-ofp-unit-customize-inline-label gs-ofp-unit-locked-label">Uses panel above</span>' +
+        '</div>'
+      : '<div class="gs-ofp-unit-customize-inline" title="Off by default: this unit uses the entry/due dates and office access notes from the panel above. Turn this on to give this unit its own instead.">' +
+          '<span class="gs-ofp-unit-customize-inline-label">Customize</span>' +
+          '<div class="toggle-b small" id="create-unit-' + idx + '-customize-toggle" onclick="toggleCreateUnitCustomize(' + idx + ')">' +
+            '<div class="toggle-b-thumb" id="create-unit-' + idx + '-customize-thumb"></div>' +
+          '</div>' +
+        '</div>'
+    ) +
+    (isFirst
+      ? ''
+      : '<button type="button" class="gs-ofp-unit-remove" onclick="removeCreateUnitCard(' + idx + ')" title="Remove unit">×</button>'
+    );
+}
+
+const createUnitCustomizeState = {};
+
+/* Prende/apaga "Customize" para UNA unidad de Multiple Units en
+   Create Order -- mismo mecanismo exacto ya usado en Orders. */
+function toggleCreateUnitCustomize(idx) {
+  const isOn = !!createUnitCustomizeState[idx];
+  const next = !isOn;
+  createUnitCustomizeState[idx] = next;
+  document.getElementById('create-unit-' + idx + '-customize-toggle').classList.toggle('on', next);
+  const reveal = document.getElementById('create-unit-' + idx + '-customize-reveal');
+  reveal.style.display = next ? 'block' : 'none';
+
+  if (next && !reveal.dataset.mounted) {
+    const dom = 'create-unit-' + idx;
+    try {
+      reveal.innerHTML = GSOrderFormPremium.unitDetailPanelHtml(dom, { showTime: true, showButtons: false });
+      document.getElementById(dom + '-entry-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-entry', '');
+      document.getElementById(dom + '-entry-time-mount').innerHTML = GSDateTimePicker.timeHtml(dom + '-entry-time', '08:00');
+      document.getElementById(dom + '-due-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-due', '');
+      reveal.dataset.mounted = '1';
+    } catch (e) {
+      console.error('No se pudo montar el panel de Customize para la unidad ' + idx + ':', e);
+    }
+  }
 }
 
 function addCreateUnitCard() {
   const idx = ++createUnitCardCounter;
+  const isFirst = document.getElementById('create-unit-cards').children.length === 0;
+  const wrap = document.createElement('div');
+  wrap.className = 'gs-ofp-unit-wrap';
+  wrap.dataset.unitWrap = idx;
+  if (isFirst) wrap.dataset.unitLocked = '1';
+
   const div = document.createElement('div');
   div.className = 'gs-ofp-unitline';
   div.dataset.unit = idx;
-  div.innerHTML = createUnitCardHtml(idx);
-  document.getElementById('create-unit-cards').appendChild(div);
+  div.innerHTML = createUnitCardHtml(idx, isFirst);
+  wrap.appendChild(div);
+
+  if (!isFirst) {
+    const reveal = document.createElement('div');
+    reveal.id = 'create-unit-' + idx + '-customize-reveal';
+    reveal.style.display = 'none';
+    wrap.appendChild(reveal);
+  }
+
+  document.getElementById('create-unit-cards').appendChild(wrap);
   renumberCreateUnitCards();
 }
 
 function removeCreateUnitCard(idx) {
+  /* Defensivo -- la primera unidad no tiene boton de quitar, pero
+     por si acaso algo mas la llegara a llamar con su idx. */
+  const targetWrap = document.querySelector('#create-unit-cards .gs-ofp-unit-wrap[data-unit-wrap="' + idx + '"]');
+  if (targetWrap && targetWrap.dataset.unitLocked === '1') return;
+
   const cards = document.querySelectorAll('#create-unit-cards .gs-ofp-unitline');
   if (cards.length <= 2) {
-    showToast('A multi-unit order needs at least 2 units. Switch to "Single Unit" if you only need one.');
+    /* Multi siempre debe tener minimo 2 -- si al quitar esta se
+       quedaria en 1, se regresa a Single solo, cargando ahi los
+       datos de la unica unidad que queda -- mismo mecanismo exacto
+       ya usado en Orders. */
+    const remaining = [...cards].find(c => c.dataset.unit !== String(idx));
+    if (remaining) {
+      const rIdx = remaining.dataset.unit;
+      document.getElementById('create-building').value = document.getElementById('create-unit-' + rIdx + '-building-number')?.value || '';
+      document.getElementById('create-unit').value     = document.getElementById('create-unit-' + rIdx + '-unit-number')?.value || '';
+      document.getElementById('create-bedrooms').value = document.getElementById('create-unit-' + rIdx + '-bedrooms')?.value || '';
+      document.getElementById('create-bathrooms').value = document.getElementById('create-unit-' + rIdx + '-bathrooms')?.value || '';
+    }
+    document.getElementById('create-unit-cards').innerHTML = '';
+    createUnitCardCounter = 0;
+    Object.keys(createUnitCustomizeState).forEach(k => delete createUnitCustomizeState[k]);
+    setCreateOrderMode('single');
     return;
   }
-  const el = document.querySelector('#create-unit-cards .gs-ofp-unitline[data-unit="' + idx + '"]');
-  if (el) el.remove();
+  const wrap = document.querySelector('#create-unit-cards .gs-ofp-unit-wrap[data-unit-wrap="' + idx + '"]');
+  if (wrap) wrap.remove();
+  delete createUnitCustomizeState[idx];
   renumberCreateUnitCards();
 }
 
@@ -8651,14 +8720,15 @@ async function submitCreateOrder() {
   };
 
   if (createMultiOn) {
-    if (!createSelectedClient.buildings || !createSelectedClient.buildings.filter(b => !b.archived).length) {
-      if (!createSelectedClient.address) {
-        showToast('This client has no saved buildings and no address on file — add one in the Clients tab first.');
-        return;
-      }
-      /* Sin buildings guardados pero SI hay direccion del cliente --
-         se deja seguir, createBuildingOptionsHtml ya ofrece la opcion
-         "Use client address" para cada unidad. */
+    /* Building # ya es texto libre en cada unidad (igual que en
+       Orders) -- todas las unidades del batch siempre usan la
+       direccion del cliente (el backend ya la geocodifica), asi que
+       lo unico que hace falta de verdad es que el cliente TENGA una
+       direccion en archivo. Ya no importa si tiene buildings
+       guardados o no. */
+    if (!createSelectedClient.address) {
+      showToast('This client has no address on file — add one in the Clients tab first.');
+      return;
     }
     const entryDate = document.getElementById('create-multi-entry-date').value;
     const entryTime = document.getElementById('create-multi-entry-time').value || '08:00';
@@ -8670,15 +8740,28 @@ async function submitCreateOrder() {
     const cards = document.querySelectorAll('#create-unit-cards .gs-ofp-unitline');
     for (const card of cards) {
       const idx = card.dataset.unit;
-      const buildingId = document.getElementById('create-unit-' + idx + '-building').value;
+      const buildingNumber = document.getElementById('create-unit-' + idx + '-building-number').value.trim();
       const unitNumber = document.getElementById('create-unit-' + idx + '-unit-number').value.trim();
       const bedrooms = document.getElementById('create-unit-' + idx + '-bedrooms').value.trim();
       const bathrooms = document.getElementById('create-unit-' + idx + '-bathrooms').value.trim();
-      if (!buildingId) { showToast('Choose a building for every unit.'); return; }
       if (!unitNumber) { showToast('Enter the Unit Number for every unit.'); return; }
       if (!bedrooms || parseInt(bedrooms) < 1) { showToast('Enter valid Bedrooms for every unit.'); return; }
       if (!bathrooms || parseInt(bathrooms) < 1) { showToast('Enter valid Bathrooms for every unit.'); return; }
-      units.push({ buildingId, unitNumber, bedrooms, bathrooms });
+      const unit = { buildingNumber, unitNumber, bedrooms, bathrooms };
+      /* "Customize" (mismo mecanismo exacto que Orders): si esta
+         prendido para esta unidad, manda sus propias fechas/hora/
+         office access en vez de heredar las del batch -- si esta
+         apagado (o es la primera, que nunca lo tiene), no se manda
+         nada de esto y el backend usa las del batch como siempre. */
+      if (createUnitCustomizeState[idx]) {
+        const dom = 'create-unit-' + idx;
+        unit.entryDate = document.getElementById(dom + '-entry')?.value || '';
+        unit.entryTime = document.getElementById(dom + '-entry-time')?.value || '';
+        unit.dueDate = document.getElementById(dom + '-due')?.value || '';
+        unit.needsOfficeAccess = GSOrderFormPremium.getOfficeNeedValue(dom);
+        unit.officeNeedNotes = GSOrderFormPremium.getOfficeNeedNotes(dom);
+      }
+      units.push(unit);
     }
     body.Units = units;
     body.EntryDate = new Date(entryDate + 'T' + entryTime).toISOString();
