@@ -294,6 +294,7 @@ const stored = sessionStorage.getItem('admin_account');
   }
 
   function initPage() {
+    GSNavPremium.applyChrome();
     GSNavPremium.init('gsNav', [
       { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
       { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
