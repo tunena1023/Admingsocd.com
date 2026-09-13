@@ -4146,14 +4146,15 @@ function renderGalleryPanel() {
             const tecnicoReporte = String((colTecnico >= 0 ? r[colTecnico] : '') || '').split(',')[0].trim();
             const clientMatch = clientsCache.find(c => c.businessName.trim().toLowerCase() === clienteReporte.toLowerCase());
             const empMatch = employeesCache.find(e => e.name.trim().toLowerCase() === tecnicoReporte.toLowerCase());
+            const horasPorVisita = Number((colHoras >= 0 ? r[colHoras] : '') || 0);
             return {
               id: i,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
               dias,
-              horasPorVisita: Number((colHoras >= 0 ? r[colHoras] : '') || 0),
+              horasPorVisita,
               clientId: clientMatch ? clientMatch.clientId : '',
-              payrollNumber: empMatch ? empMatch.payrollNumber : '',
+              assignments: [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: horasPorVisita * dias.length }],
               time: '08:00', // el reporte nunca trajo hora -- default fijo, se puede cambiar despues desde el formulario normal de Recurring
               created: false
             };
@@ -4181,8 +4182,9 @@ function renderGalleryPanel() {
     const empOpts = employeesCache.filter(e => e.janitorial).map(e => '<option value="' + escAttr(e.payrollNumber) + '">' + esc(e.name) + '</option>').join('');
 
     const rowsHtml = importRecurringRows.map(r => {
-      const canCreate = r.clientId && r.payrollNumber && r.dias.length > 0 && !r.created;
       const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // Visit x dias marcados -- esto es lo que de verdad se manda como TotalHours
+      const validAssignments = r.assignments.filter(a => a.payrollNumber);
+      const canCreate = r.clientId && validAssignments.length > 0 && r.dias.length > 0 && !r.created;
       // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
       // de dia (gs-ofp-day-pill) -- se reusa suelto porque aqui no aplican los
       // 2 campos de "Opens at/Closes at" que trae ese componente completo.
@@ -4196,6 +4198,19 @@ function renderGalleryPanel() {
       ).join('');
       const freqNote = r.frecuencia !== 'Semanal'
         ? '<div style="font-size:10px;color:var(--red)">era ' + esc(r.frecuencia) + ' -- se crea como semanal en los dias marcados</div>' : '';
+      // Mismo patron que assign-rows del formulario normal de Recurring (Employee +
+      // Hours + boton de quitar), solo que aqui vive por renglon del import en vez
+      // de una sola vez por pagina -- por eso cada control lleva el id del renglon.
+      const assignRowsHtml = r.assignments.map((a, ai) => {
+        const opts = empOpts.replace('value="' + escAttr(a.payrollNumber) + '"', 'value="' + escAttr(a.payrollNumber) + '" selected');
+        return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">' +
+          '<select onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'payrollNumber\',this.value)" style="flex:1;font:inherit;font-size:12px;' + (a.payrollNumber ? '' : 'border-color:var(--red)') + '">' +
+            '<option value="">— select tech —</option>' + opts +
+          '</select>' +
+          '<input type="number" min="0" step="0.5" value="' + escAttr(a.hoursAllocated) + '" onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'hoursAllocated\',this.value)" style="width:48px" title="Hours allocated to this person">' +
+          (r.assignments.length > 1 ? '<button type="button" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:14px;padding:0 2px" title="Remove">✕</button>' : '') +
+        '</div>';
+      }).join('');
       return '<tr' + (r.created ? ' style="opacity:.5"' : '') + '>' +
         '<td style="padding:8px">' + esc(r.edificio) + freqNote + '</td>' +
         '<td style="padding:8px">' +
@@ -4208,10 +4223,9 @@ function renderGalleryPanel() {
           '<input type="number" min="0" step="0.5" value="' + escAttr(r.horasPorVisita) + '" onchange="updateImportRecurring(' + r.id + ',\'horasPorVisita\',this.value)" style="width:60px">' +
         '</td>' +
         '<td style="padding:8px;font-weight:600">' + totalHoras + 'h</td>' +
-        '<td style="padding:8px">' +
-          '<select onchange="updateImportRecurring(' + r.id + ',\'payrollNumber\',this.value)" style="width:100%;font:inherit;font-size:12px;' + (r.payrollNumber ? '' : 'border-color:var(--red)') + '">' +
-            '<option value="">— select tech —</option>' + empOpts.replace('value="' + escAttr(r.payrollNumber) + '"', 'value="' + escAttr(r.payrollNumber) + '" selected') +
-          '</select>' +
+        '<td style="padding:8px;min-width:180px">' +
+          assignRowsHtml +
+          '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
         '</td>' +
         '<td style="padding:8px">' + (r.created
           ? '<span style="color:var(--green);font-size:12px;font-weight:600">✓ Created</span>'
@@ -4236,6 +4250,24 @@ function renderGalleryPanel() {
     renderImportRecurringPreview();
   }
 
+  function updateImportRecurringAssignment(id, idx, field, value) {
+    const r = importRecurringRows.find(x => x.id === id);
+    r.assignments[idx][field] = value;
+    renderImportRecurringPreview();
+  }
+
+  function addImportRecurringAssignment(id) {
+    const r = importRecurringRows.find(x => x.id === id);
+    r.assignments.push({ payrollNumber: '', hoursAllocated: 8 }); // mismo default que addAssignRow() del formulario normal
+    renderImportRecurringPreview();
+  }
+
+  function removeImportRecurringAssignment(id, idx) {
+    const r = importRecurringRows.find(x => x.id === id);
+    r.assignments.splice(idx, 1);
+    renderImportRecurringPreview();
+  }
+
   function toggleImportRecurringDay(id, day, checked) {
     const r = importRecurringRows.find(x => x.id === id);
     r.dias = r.dias.filter(d => d !== day);
@@ -4245,7 +4277,8 @@ function renderGalleryPanel() {
 
   async function createImportRecurringRow(id) {
     const r = importRecurringRows.find(x => x.id === id);
-    if (!r.clientId || !r.payrollNumber || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
+    const validAssignments = r.assignments.filter(a => a.payrollNumber);
+    if (!r.clientId || !validAssignments.length || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
     const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // mismo calculo que en el preview -- Visit x dias marcados
     try {
       await api('/developer-admin', {
@@ -4255,7 +4288,7 @@ function renderGalleryPanel() {
           servicesJson: '', // Pendiente de asignar -- se completa aparte, una vez por edificio
           daysOfWeek: r.dias.join(','), time: r.time, totalHours: totalHoras,
           expirationDate: '',
-          assignments: [{ payrollNumber: r.payrollNumber, hoursAllocated: totalHoras }]
+          assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: Number(a.hoursAllocated) || 0 }))
         }
       });
       r.created = true;
