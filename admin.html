@@ -7154,6 +7154,13 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
     </div>` : '';
 
+  const printOrderHtml = `<span class="print-wrap">
+        <button class="gs-ofp-btn-secondary" ${storedDoc ? '' : 'disabled'}
+          title="${storedDoc ? 'Open ' + esc(storedDoc.name) : 'Available once the order is approved'}"
+          onclick="openOrderDocument('${esc(o.OrderID)}')">Print Order</button>
+        ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
+      </span>`;
+
   const editForm = contextCan(context, 'edit') ? `
     <div class="eo-status-bar">
       <div class="eo-status-info">
@@ -7161,6 +7168,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <span class="eo-status-text">Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' — the service date has arrived' : ''}.</span>
       </div>
       <div class="eo-status-actions">
+        ${printOrderHtml}
         ${displayStatus(o) === 'Working'
           ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
           : ''}
@@ -7303,14 +7311,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         ${histHtml}
       </div>
     </div>
-    <div class="btn-actions" style="margin-top:16px">
-      <span class="print-wrap">
-        <button class="gs-ofp-btn-secondary" ${storedDoc ? '' : 'disabled'}
-          title="${storedDoc ? 'Open ' + esc(storedDoc.name) : 'Available once the order is approved'}"
-          onclick="openOrderDocument('${esc(o.OrderID)}')">Print Order</button>
-        ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
-      </span>
-    </div>
+    ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}</div>`}
     ${editForm}${assignedViewOnly}${historyReactivate}`;
 }
 
