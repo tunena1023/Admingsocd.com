@@ -4217,7 +4217,17 @@ function renderGalleryPanel() {
           anchorDate: existingService ? (existingService.anchorDate || m.anchorDate || todayISO()) : (m.anchorDate || todayISO()),
           target: m.horasPorVisita,
           clientId: m.clientId,
-          assignments: existingService && existingService.assignments.length ? existingService.assignments : (m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }]),
+          // HoursAllocated en RecurringServices es semanal (asi lo usa el resto
+          // del sistema, ej. recurringHoursThisWeek) -- aqui en el Scheduler el
+          // numero junto al nombre es POR DIA, asi que al traer un contrato real
+          // se divide entre los dias marcados para mostrar el valor por dia.
+          assignments: (() => {
+            const dias = existingService ? (existingService.daysOfWeek || '').split(',').filter(Boolean) : (m.daysOfWeek || '').split(',').filter(Boolean);
+            if (existingService && existingService.assignments.length) {
+              return existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: dias.length ? (Number(a.hoursAllocated) || 0) / dias.length : (Number(a.hoursAllocated) || 0) }));
+            }
+            return m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }];
+          })(),
           alreadyExisted: !!existingService,
           existingService: existingService || null
         });
@@ -4288,8 +4298,10 @@ function renderGalleryPanel() {
             // solo sirvio para encontrarlo, no para pisar lo que ya se confirmo
             // o se cambio despues a mano.
             const realDias = alreadyExists ? (existingService.daysOfWeek || '').split(',').filter(Boolean) : dias;
+            // HoursAllocated real es semanal -- aqui se muestra por dia, se
+            // divide entre los dias marcados (mismo criterio que loadRecurringImportMatrix).
             const realAssignments = alreadyExists && existingService.assignments.length
-              ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: a.hoursAllocated }))
+              ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: realDias.length ? (Number(a.hoursAllocated) || 0) / realDias.length : (Number(a.hoursAllocated) || 0) }))
               : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: target }];
             const realFrequency = alreadyExists ? (existingService.frequency || 'Weekly') : (FREQ_MAP[frecuencia] || 'Weekly');
             // Sin fecha ancla no hay forma de contar "cada cuantas semanas" --
@@ -4353,7 +4365,9 @@ function renderGalleryPanel() {
     const empOpts = employeesCache.filter(e => e.janitorial);
 
     const rowsHtml = importRecurringRows.map(r => {
-      const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0);
+      // El numero junto al nombre es POR DIA -- el total real de la fila
+      // multiplica cada persona por los dias marcados en esta fila.
+      const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0) * r.dias.length, 0);
       const validAssignments = r.assignments.filter(a => a.payrollNumber);
       const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0 && (r.frequency === 'Weekly' || !!r.anchorDate);
       // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
@@ -4386,7 +4400,7 @@ function renderGalleryPanel() {
         const opts = '<option value="">—</option>' + empOpts.map(e => '<option value="' + escAttr(e.payrollNumber) + '" ' + (e.payrollNumber === a.payrollNumber ? 'selected' : '') + '>' + esc(e.name) + '</option>').join('');
         return '<span class="chip ' + (a.payrollNumber ? '' : 'warn') + '">' +
           '<select onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'payrollNumber\',this.value)">' + opts + '</select>' +
-          '<input type="number" min="0" step="0.5" value="' + escAttr(a.hoursAllocated) + '" onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'hoursAllocated\',this.value)" title="Hours allocated to this person">' +
+          '<input type="number" min="0" step="0.5" value="' + escAttr(a.hoursAllocated) + '" onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'hoursAllocated\',this.value)" title="Hours PER DAY for this person -- multiplied by the days checked">' +
           (r.assignments.length > 1 ? '<button type="button" class="x" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" title="Remove">✕</button>' : '') +
         '</span>';
       }).join('');
@@ -4477,7 +4491,10 @@ function renderGalleryPanel() {
     const validAssignments = r.assignments.filter(a => a.payrollNumber);
     if (!r.clientId || !validAssignments.length || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
     if (r.frequency !== 'Weekly' && !r.anchorDate) { showToast('Set the anchor date for Biweekly/Monthly first.'); return; }
-    const totalHoras = validAssignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0); // suma real de horas de todos los tecnicos
+    // El numero junto al nombre es POR DIA -- lo que se manda a
+    // save-recurring-service (TotalHours y HoursAllocated) es semanal,
+    // asi que aqui se multiplica por los dias marcados antes de mandar.
+    const totalHoras = validAssignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0) * r.dias.length, 0);
     // Al editar un contrato que ya existe, buildingNumber/servicesJson/
     // expirationDate se mandan TAL CUAL estaban -- esta pantalla no los toca
     // (el tema de Servicios se resuelve aparte), asi que no hay que pisarlos
@@ -4496,7 +4513,7 @@ function renderGalleryPanel() {
           expirationDate: existing ? existing.expirationDate : '',
           frequency: r.frequency || 'Weekly',
           anchorDate: r.frequency && r.frequency !== 'Weekly' ? r.anchorDate : '',
-          assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: Number(a.hoursAllocated) || 0 }))
+          assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: (Number(a.hoursAllocated) || 0) * r.dias.length }))
         }
       });
       if (!existing) {
