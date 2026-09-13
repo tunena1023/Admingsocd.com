@@ -4153,18 +4153,36 @@ function renderGalleryPanel() {
             // recarga fresco cada vez que se abre la pagina), no algo que se
             // recuerde en el navegador -- asi, si sales y vuelves a subir el
             // mismo reporte, lo que ya se creo no se vuelve a ofrecer crear.
-            const alreadyExists = clientId && rcServicesCache.some(s => s.clientId === clientId);
+            const existingService = clientId ? rcServicesCache.find(s => s.clientId === clientId) : null;
+            const alreadyExists = !!existingService;
+
+            // Si ya existe, se edita sobre los datos REALES del contrato (lo que
+            // esta guardado hoy), no sobre lo que decia el reporte -- el reporte
+            // solo sirvio para encontrarlo, no para pisar lo que ya se confirmo
+            // o se cambio despues a mano.
+            const realDias = alreadyExists ? (existingService.daysOfWeek || '').split(',').filter(Boolean) : dias;
+            const realAssignments = alreadyExists && existingService.assignments.length
+              ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: a.hoursAllocated }))
+              : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: horasPorVisita * dias.length }];
+            const realHorasPorVisita = alreadyExists && realDias.length
+              ? Number(existingService.totalHours || 0) / realDias.length
+              : horasPorVisita;
+
             return {
               id: i,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
-              dias,
-              horasPorVisita,
+              dias: realDias,
+              horasPorVisita: realHorasPorVisita,
               clientId,
-              assignments: [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: horasPorVisita * dias.length }],
-              time: '08:00', // el reporte nunca trajo hora -- default fijo, se puede cambiar despues desde el formulario normal de Recurring
+              assignments: realAssignments,
+              time: alreadyExists ? (existingService.time || '08:00') : '08:00',
               created: alreadyExists,
-              alreadyExisted: alreadyExists
+              alreadyExisted: alreadyExists,
+              // Se guarda el registro completo (no solo el id) para poder mandar
+              // de regreso buildingNumber/servicesJson/expirationDate TAL CUAL en
+              // el update -- si no, save-recurring-service los pisaria en blanco.
+              existingService: existingService || null
             };
           })
           .filter(r => r.edificio && r.frecuencia !== 'TBD');
@@ -4192,7 +4210,7 @@ function renderGalleryPanel() {
     const rowsHtml = importRecurringRows.map(r => {
       const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // Visit x dias marcados -- esto es lo que de verdad se manda como TotalHours
       const validAssignments = r.assignments.filter(a => a.payrollNumber);
-      const canCreate = r.clientId && validAssignments.length > 0 && r.dias.length > 0 && !r.created;
+      const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0;
       // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
       // de dia (gs-ofp-day-pill) -- se reusa suelto porque aqui no aplican los
       // 2 campos de "Opens at/Closes at" que trae ese componente completo.
@@ -4204,8 +4222,10 @@ function renderGalleryPanel() {
           '</label>' +
         '</td>'
       ).join('');
-      const freqNote = r.frecuencia !== 'Semanal'
+      const freqNote = r.frecuencia !== 'Semanal' && !r.alreadyExisted
         ? '<div style="font-size:10px;color:var(--red)">era ' + esc(r.frecuencia) + ' -- se crea como semanal en los dias marcados</div>' : '';
+      const existsNote = r.alreadyExisted
+        ? '<div style="font-size:10px;color:var(--green);font-weight:600">✓ ya existe -- editando el contrato real</div>' : '';
       // Mismo patron que assign-rows del formulario normal de Recurring (Employee +
       // Hours + boton de quitar), solo que aqui vive por renglon del import en vez
       // de una sola vez por pagina -- por eso cada control lleva el id del renglon.
@@ -4219,8 +4239,8 @@ function renderGalleryPanel() {
           (r.assignments.length > 1 ? '<button type="button" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:14px;padding:0 2px" title="Remove">✕</button>' : '') +
         '</div>';
       }).join('');
-      return '<tr' + (r.created ? ' style="opacity:.5"' : '') + '>' +
-        '<td style="padding:8px">' + esc(r.edificio) + freqNote + '</td>' +
+      return '<tr>' +
+        '<td style="padding:8px">' + esc(r.edificio) + freqNote + existsNote + '</td>' +
         '<td style="padding:8px">' +
           '<select onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)" style="width:100%;font:inherit;font-size:12px;' + (r.clientId ? '' : 'border-color:var(--red)') + '">' +
             '<option value="">— select client —</option>' + clientOpts.replace('value="' + escAttr(r.clientId) + '"', 'value="' + escAttr(r.clientId) + '" selected') +
@@ -4235,16 +4255,16 @@ function renderGalleryPanel() {
           assignRowsHtml +
           '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
         '</td>' +
-        '<td style="padding:8px">' + (r.created
-          ? '<span style="color:var(--green);font-size:12px;font-weight:600">✓ ' + (r.alreadyExisted ? 'Already exists' : 'Created') + '</span>'
-          : '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canCreate ? '' : 'disabled') + ' onclick="createImportRecurringRow(' + r.id + ')">Create</button>') +
+        '<td style="padding:8px">' +
+          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.alreadyExisted ? 'Save' : 'Create') + '</button>' +
+          (r.justSaved ? '<div style="font-size:10px;color:var(--green);margin-top:4px">✓ saved</div>' : '') +
         '</td>' +
       '</tr>';
     }).join('');
 
     box.innerHTML =
       '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
-        (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- skipped automatically)' : '') +
+        (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
         '. Fields in red need fixing before Create unlocks.</p>' +
       '<div style="overflow-x:auto"><table class="grid-table" style="width:100%;white-space:nowrap">' +
       '<thead><tr>' +
@@ -4285,28 +4305,41 @@ function renderGalleryPanel() {
     renderImportRecurringPreview();
   }
 
-  async function createImportRecurringRow(id) {
+  async function saveImportRecurringRow(id) {
     const r = importRecurringRows.find(x => x.id === id);
     const validAssignments = r.assignments.filter(a => a.payrollNumber);
     if (!r.clientId || !validAssignments.length || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
     const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // mismo calculo que en el preview -- Visit x dias marcados
+    // Al editar un contrato que ya existe, buildingNumber/servicesJson/
+    // expirationDate se mandan TAL CUAL estaban -- esta pantalla no los toca
+    // (el tema de Servicios se resuelve aparte), asi que no hay que pisarlos
+    // con blanco sin querer.
+    const existing = r.existingService;
     try {
-      await api('/developer-admin', {
+      const res = await api('/developer-admin', {
         body: {
           action: 'save-recurring-service', email: adminUser.email,
-          clientId: r.clientId, buildingNumber: '', division: 'Janitorial',
-          servicesJson: '', // Pendiente de asignar -- se completa aparte, una vez por edificio
+          recurringServiceId: existing ? existing.id : undefined,
+          clientId: r.clientId,
+          buildingNumber: existing ? existing.buildingNumber : '',
+          division: existing ? existing.division : 'Janitorial',
+          servicesJson: existing ? existing.servicesJson : '', // Pendiente de asignar en contratos nuevos -- se completa aparte
           daysOfWeek: r.dias.join(','), time: r.time, totalHours: totalHoras,
-          expirationDate: '',
+          expirationDate: existing ? existing.expirationDate : '',
           assignments: validAssignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: Number(a.hoursAllocated) || 0 }))
         }
       });
-      r.created = true;
-      showToast('Created — now in Active Recurring Contracts.');
+      if (!existing) {
+        // Se acaba de crear -- desde ahora se edita como los que ya existian.
+        r.alreadyExisted = true;
+        r.existingService = { id: res.recurringServiceId, clientId: r.clientId, buildingNumber: '', division: 'Janitorial', servicesJson: '', expirationDate: '' };
+      }
+      r.justSaved = true;
+      showToast(existing ? 'Saved — updated in Active Recurring Contracts.' : 'Created — now in Active Recurring Contracts.');
       renderImportRecurringPreview();
       loadRecurringList();
     } catch (e) {
-      showToast('Could not create: ' + e.message);
+      showToast('Could not save: ' + e.message);
     }
   }
 
