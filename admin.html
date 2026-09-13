@@ -8436,22 +8436,6 @@ function createOrderFormHtml() {
       </div>
 
       <div id="create-panel-mount"></div>
-
-      <div id="create-multi-dates-wrap" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
-        <div class="field-group"><label>Entry Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-entry-date', null)}</div>
-        <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
-        <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
-      </div>
-
-      <!-- El panel unificado (create-panel-mount) trae su PROPIO Submit/
-           Cancel, pero ese panel entero se oculta en modo Multi -- sin
-           esto, Multi se quedaba sin ninguna forma de mandar la orden.
-           Mismas clases (gs-ofp-btn-primary/secondary) que usa el panel,
-           para que se vean identicos. -->
-      <div id="create-multi-buttons-wrap" style="display:none;gap:14px;margin-top:20px;max-width:420px">
-        <button type="button" class="gs-ofp-btn-primary" onclick="submitCreateOrder()">Submit Order</button>
-        <button type="button" class="gs-ofp-btn-secondary" onclick="cancelCreate()">Cancel</button>
-      </div>
     </div>`;
 }
 
@@ -8506,9 +8490,17 @@ function setCreateOrderMode(mode) {
 
   document.getElementById('create-single-fields').style.display = createMultiOn ? 'none' : 'flex';
   document.getElementById('create-multi-units-wrap').style.display = createMultiOn ? 'block' : 'none';
-  document.getElementById('create-panel-mount').style.display = createMultiOn ? 'none' : '';
-  document.getElementById('create-multi-dates-wrap').style.display = createMultiOn ? 'grid' : 'none';
-  document.getElementById('create-multi-buttons-wrap').style.display = createMultiOn ? 'flex' : 'none';
+
+  /* El panel de Access & Scheduling (create-panel-mount) es EL MISMO
+     para los 2 modos -- nunca se oculta. Solo cambian las etiquetas de
+     fecha, para dejar claro que en Multi aplican a todas las unidades
+     que no tengan su propio Customize (igual que Orders). */
+  const entryLbl = document.getElementById('create-entry-label');
+  const entryTimeLbl = document.getElementById('create-entry-time-label');
+  const dueLbl = document.getElementById('create-due-label');
+  if (entryLbl) entryLbl.textContent = createMultiOn ? 'Entry Date (all units)' : 'Entry Date';
+  if (entryTimeLbl) entryTimeLbl.textContent = createMultiOn ? 'Entry Time (all units)' : 'Entry Time';
+  if (dueLbl) dueLbl.textContent = createMultiOn ? 'Due Date (all units)' : 'Due Date';
 
   if (createMultiOn && !document.getElementById('create-unit-cards').children.length) {
     addCreateUnitCard();
@@ -8750,9 +8742,9 @@ async function submitCreateOrder() {
       showToast('This client has no address on file — add one in the Clients tab first.');
       return;
     }
-    const entryDate = document.getElementById('create-multi-entry-date').value;
-    const entryTime = document.getElementById('create-multi-entry-time').value || '08:00';
-    const dueDate = document.getElementById('create-multi-due-date').value;
+    const entryDate = document.getElementById('create-entry-date').value;
+    const entryTime = document.getElementById('create-entry-time').value || '08:00';
+    const dueDate = document.getElementById('create-due-date').value;
     if (!entryDate) { showToast('Enter the entry date.'); return; }
     if (!dueDate) { showToast('Enter the due date.'); return; }
 
