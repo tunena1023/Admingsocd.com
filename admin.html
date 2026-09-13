@@ -1374,7 +1374,7 @@
        vacio -- de ahi el hueco enorme antes de Save que se seguia
        viendo. Con ancho fijo, el hueco queda acotado al espacio real
        de la columna, no al peor caso de toda la tabla. */
-    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; table-layout: fixed; width: 100%; }
     #import-recurring-preview .building-name, #import-recurring-preview .sched-select { white-space: normal; word-break: break-word; }
     #import-recurring-preview .sched-table thead th {
       text-align: left; padding: 10px 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
@@ -1412,7 +1412,7 @@
     #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 13px; padding: 0 3px 0 0; line-height: 1; flex: 0 0 auto; }
     #import-recurring-preview .chip .x:hover { color: var(--red); }
     #import-recurring-preview .add-btn {
-      width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
+      width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
       color: var(--gold-dk); font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;
     }
@@ -4407,10 +4407,8 @@ function renderGalleryPanel() {
         '<td style="font-weight:600">' + totalHoras + 'h' + targetNote + '</td>' +
         '<td><div class="tech-cell">' + chipsHtml +
           '<button type="button" class="add-btn" title="Add person" onclick="addImportRecurringAssignment(' + r.id + ')">+</button>' +
-        '</div></td>' +
-        '<td style="text-align:center">' +
           '<button class="gs-ofp-btn-primary save-btn ' + (r.justSaved ? 'saved' : '') + '" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.justSaved ? '✓' : 'Save') + '</button>' +
-        '</td>' +
+        '</div></td>' +
       '</tr>';
     }).join('');
 
@@ -4422,12 +4420,12 @@ function renderGalleryPanel() {
       '<colgroup>' +
         '<col style="width:190px"><col style="width:190px"><col style="width:130px">' +
         DAY_LIST.map(() => '<col style="width:30px">').join('') +
-        '<col style="width:70px"><col style="width:480px"><col style="width:90px">' +
+        '<col style="width:70px"><col>' +
       '</colgroup>' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
-        '<th>Hours</th><th>Tech</th><th></th>' +
+        '<th>Hours</th><th>Tech</th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
