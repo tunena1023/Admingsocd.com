@@ -4405,7 +4405,8 @@ function renderGalleryPanel() {
         '<td>' + freqCellHtml + '</td>' +
         dayCells +
         '<td style="font-weight:600">' + totalHoras + 'h' + targetNote + '</td>' +
-        '<td><div class="tech-cell">' + chipsHtml +
+        '<td><div class="tech-cell">' + chipsHtml + '</div></td>' +
+        '<td><div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
           '<button type="button" class="add-btn" title="Add person" onclick="addImportRecurringAssignment(' + r.id + ')">+</button>' +
           '<button class="gs-ofp-btn-primary save-btn ' + (r.justSaved ? 'saved' : '') + '" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.justSaved ? '✓' : 'Save') + '</button>' +
         '</div></td>' +
@@ -4420,12 +4421,12 @@ function renderGalleryPanel() {
       '<colgroup>' +
         '<col style="width:190px"><col style="width:190px"><col style="width:130px">' +
         DAY_LIST.map(() => '<col style="width:30px">').join('') +
-        '<col style="width:70px"><col>' +
+        '<col style="width:70px"><col><col style="width:150px">' +
       '</colgroup>' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
-        '<th>Hours</th><th>Tech</th>' +
+        '<th>Hours</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
