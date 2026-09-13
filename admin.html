@@ -7957,17 +7957,11 @@ function openClientNotifications(clientId) {
 
   control.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Notifications</div>
-    <label style="display:flex;align-items:center;gap:10px;font-weight:600;margin-bottom:10px">
-      <label class="svc-toggle">
-        <input type="checkbox" id="${cid}-ctl-notif-master" ${c.notificationsEnabled!==false?'checked':''} onchange="toggleNotifSubgroup('${cid}-ctl')">
-        <span class="svc-toggle-track"></span>
-      </label>
-      Notifications enabled
-    </label>
-    <div id="${cid}-ctl-notif-sub" style="display:flex;flex-direction:column;gap:8px;padding-left:20px;${c.notificationsEnabled!==false?'':'opacity:.4;pointer-events:none'}">
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="${cid}-ctl-notif-confirm" ${c.notifyConfirmations!==false?'checked':''}> Confirmations</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="${cid}-ctl-notif-changes" ${c.notifyChanges!==false?'checked':''}> Changes</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="${cid}-ctl-notif-updates" ${c.notifyUpdates!==false?'checked':''}> Updates</label>
+    ${GSOrderFormPremium.notifCardHtml(cid + '-ctl-notif-master', c.notificationsEnabled !== false, '🔔', 'Notifications enabled', 'Turn off to stop all notifications for this client.', { mode: 'boolean' })}
+    <div id="${cid}-ctl-notif-sub" style="margin-bottom:6px;${c.notificationsEnabled!==false?'':'opacity:.4;pointer-events:none'}">
+      ${GSOrderFormPremium.notifCardHtml(cid + '-ctl-notif-confirm', c.notifyConfirmations !== false, '✓', 'Confirmations', 'When we need the client to confirm something.', { mode: 'boolean' })}
+      ${GSOrderFormPremium.notifCardHtml(cid + '-ctl-notif-changes', c.notifyChanges !== false, '✎', 'Changes', 'Date, window, or service changes.', { mode: 'boolean' })}
+      ${GSOrderFormPremium.notifCardHtml(cid + '-ctl-notif-updates', c.notifyUpdates !== false, '↻', 'Updates', 'Status changes as an order moves along.', { mode: 'boolean' })}
     </div>
 
     <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Who receives notifications</div>
@@ -7978,6 +7972,7 @@ function openClientNotifications(clientId) {
 
     <button class="btn btn-gold" style="width:100%" onclick="saveNotifications('${clientId}')">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
+  document.getElementById(cid + '-ctl-notif-master').addEventListener('change', () => toggleNotifSubgroup(cid + '-ctl'));
 }
 
 let newContactRowCounters = {};
@@ -8159,10 +8154,10 @@ async function saveNotifications(clientId) {
   const $f = f => document.getElementById(cid + '-ctl-' + f);
   const body = {
     clientId,
-    notificationsEnabled: $f('notif-master')?.checked ?? true,
-    notifyConfirmations:  $f('notif-confirm')?.checked ?? true,
-    notifyChanges:        $f('notif-changes')?.checked ?? true,
-    notifyUpdates:        $f('notif-updates')?.checked ?? true
+    notificationsEnabled: $f('notif-master')?.value === 'on',
+    notifyConfirmations:  $f('notif-confirm')?.value === 'on',
+    notifyChanges:        $f('notif-changes')?.value === 'on',
+    notifyUpdates:        $f('notif-updates')?.value === 'on'
   };
 
   /* Radio de "quien recibe notificaciones": 'primary' (email principal,
@@ -8293,7 +8288,7 @@ async function reloadAndReopen(clientId) {
 }
 
 function toggleNotifSubgroup(cid) {
-  const master = document.getElementById(cid+'-notif-master')?.checked;
+  const master = document.getElementById(cid+'-notif-master')?.value === 'on';
   const sub = document.getElementById(cid+'-notif-sub');
   if (!sub) return;
   sub.style.opacity = master ? '1' : '.4';
