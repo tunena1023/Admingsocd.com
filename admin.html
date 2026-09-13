@@ -3628,12 +3628,8 @@ function addUnitFormHtml(clientId, batchId) {
         </div>
       </div>
 
-      ${addUnitPanelHtml(dom)}
+      ${addUnitPanelHtml(clientId, batchId, dom)}
 
-      <div class="appr-bar" style="margin-top:18px">
-        <button class="btn btn-green" onclick="event.stopPropagation(); submitAddBatchUnitAdmin('${esc(clientId)}','${esc(batchId)}','${dom}')">Add Unit</button>
-        <button class="btn btn-outline" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">Cancel</button>
-      </div>
       <p class="dialog-error" id="${dom}-error"></p>
     </div>`;
 }
@@ -3645,8 +3641,12 @@ function addUnitFormHtml(clientId, batchId) {
    pickers reales directo en el string antes de devolverlo, en vez de
    dejarlos para "despues" (aqui no hay un "despues": toggleAddUnitForm
    solo cambia display, nunca vuelve a tocar el contenido). */
-function addUnitPanelHtml(dom) {
-  let html = GSOrderFormPremium.unitDetailPanelHtml(dom, { showTime: false, showButtons: false, compact: true });
+function addUnitPanelHtml(clientId, batchId, dom) {
+  let html = GSOrderFormPremium.unitDetailPanelHtml(dom, {
+    showTime: false, showButtons: true, compact: true,
+    submitLabel: 'Add Unit', submitOnclick: "event.stopPropagation(); submitAddBatchUnitAdmin('" + esc(clientId) + "','" + esc(batchId) + "','" + dom + "')",
+    cancelLabel: 'Cancel', cancelOnclick: "event.stopPropagation(); toggleAddUnitForm('" + dom + "')"
+  });
   html = html.replace('id="' + dom + '-entry-mount"></div>', 'id="' + dom + '-entry-mount">' + GSDateTimePicker.dateHtml(dom + '-entry', null) + '</div>');
   html = html.replace('id="' + dom + '-due-mount"></div>', 'id="' + dom + '-due-mount">' + GSDateTimePicker.dateHtml(dom + '-due', null) + '</div>');
   return html;
