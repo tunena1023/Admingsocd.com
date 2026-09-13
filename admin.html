@@ -1367,7 +1367,15 @@
        lo usaran, empujando Save lejos con un hueco enorme en medio.
        Sin width fijo, la tabla mide lo que su contenido de verdad
        necesita -- y ese contenido ahora es mas grande/legible. */
-    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; white-space: nowrap; }
+    /* table-layout:fixed + anchos explicitos (colgroup, en el JS) --
+       sin esto, la columna Tech media segun la fila MAS cargada de
+       chips (ej. una con 4 tecnicos) y esa misma medida se le
+       imponia a TODAS las demas filas, aunque solo tuvieran 1 chip
+       vacio -- de ahi el hueco enorme antes de Save que se seguia
+       viendo. Con ancho fijo, el hueco queda acotado al espacio real
+       de la columna, no al peor caso de toda la tabla. */
+    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+    #import-recurring-preview .building-name, #import-recurring-preview .sched-select { white-space: normal; word-break: break-word; }
     #import-recurring-preview .sched-table thead th {
       text-align: left; padding: 10px 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
       text-transform: uppercase; color: var(--gray); border-bottom: 1.5px solid var(--border); background: var(--bg);
@@ -4411,6 +4419,11 @@ function renderGalleryPanel() {
         (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
         '. Every change here saves automatically to the matrix. Fields in red need fixing before Save unlocks.</p>' +
       '<div style="overflow-x:auto"><table class="sched-table">' +
+      '<colgroup>' +
+        '<col style="width:190px"><col style="width:190px"><col style="width:130px">' +
+        DAY_LIST.map(() => '<col style="width:30px">').join('') +
+        '<col style="width:70px"><col style="width:480px"><col style="width:90px">' +
+      '</colgroup>' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
