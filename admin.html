@@ -8442,6 +8442,16 @@ function createOrderFormHtml() {
         <div class="field-group"><label>Entry Time (all units)</label>${GSDateTimePicker.timeHtml('create-multi-entry-time', '08:00')}</div>
         <div class="field-group"><label>Due Date (all units)</label>${GSDateTimePicker.dateHtml('create-multi-due-date', null)}</div>
       </div>
+
+      <!-- El panel unificado (create-panel-mount) trae su PROPIO Submit/
+           Cancel, pero ese panel entero se oculta en modo Multi -- sin
+           esto, Multi se quedaba sin ninguna forma de mandar la orden.
+           Mismas clases (gs-ofp-btn-primary/secondary) que usa el panel,
+           para que se vean identicos. -->
+      <div id="create-multi-buttons-wrap" style="display:none;gap:14px;margin-top:20px;max-width:420px">
+        <button type="button" class="gs-ofp-btn-primary" onclick="submitCreateOrder()">Submit Order</button>
+        <button type="button" class="gs-ofp-btn-secondary" onclick="cancelCreate()">Cancel</button>
+      </div>
     </div>`;
 }
 
@@ -8498,6 +8508,7 @@ function setCreateOrderMode(mode) {
   document.getElementById('create-multi-units-wrap').style.display = createMultiOn ? 'block' : 'none';
   document.getElementById('create-panel-mount').style.display = createMultiOn ? 'none' : '';
   document.getElementById('create-multi-dates-wrap').style.display = createMultiOn ? 'grid' : 'none';
+  document.getElementById('create-multi-buttons-wrap').style.display = createMultiOn ? 'flex' : 'none';
 
   if (createMultiOn && !document.getElementById('create-unit-cards').children.length) {
     addCreateUnitCard();
