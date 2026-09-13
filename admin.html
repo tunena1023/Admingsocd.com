@@ -117,9 +117,21 @@
        orden ya abierta. Si la orden no tiene fotos, la funcion que
        genera esto regresa vacio y no ocupa espacio. */
     .order-photo-strip { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .order-photo-thumb { width: 34px; height: 34px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; transition: transform .15s, box-shadow .15s; position: relative; z-index: 1; }
-    .order-photo-thumb:hover { transform: scale(2.4); box-shadow: 0 4px 16px rgba(0,0,0,.35); z-index: 5; }
+    .order-photo-thumb { width: 34px; height: 34px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; }
+    .order-photo-thumb:hover { border-color: var(--gold); }
     .order-photo-more { font-size: 11px; color: #8C6F2A; font-weight: 700; cursor: pointer; text-decoration: underline; }
+    /* Preview de foto al pasar el mouse -- crece al tamano maximo posible
+       en pantalla (como lightbox.js), pero sin necesidad de clic. Requiere
+       quedarse quieto 1 segundo sobre la miniatura; se cierra en cuanto el
+       mouse SALE de ella (no por micro-movimientos mientras sigue encima,
+       eso se sentiria roto -- aprobado con mini el 13/09/2026). */
+    .gs-hover-preview-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0); z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; opacity: 0; transition: opacity .15s ease, background .15s ease;
+    }
+    .gs-hover-preview-overlay.show { opacity: 1; background: rgba(0,0,0,.82); }
+    .gs-hover-preview-overlay img { max-width: 94vw; max-height: 94vh; object-fit: contain; border-radius: 6px; }
     /* Badge de unidad ocupada -- mismo diseno aprobado en Admin/Cliente/Tech */
     /* El CSS de los badges ahora lo trae GSOrderBadges (gsocd-shared) --
        solo el margen queda aqui, porque es especifico de esta posicion
@@ -1745,6 +1757,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
 GSOrderFormPremium.styleTag();
+setupOrderPhotoHoverPreview();
 /* ============================================================
    MSAL + Auth
 ============================================================ */
@@ -6916,6 +6929,48 @@ function openGalleryForOrder(orderId) {
   history.replaceState(null, '', 'admin.html?tab=gallery&order=' + encodeURIComponent(orderId));
   showTab('gallery');
   renderGalleryPanel();
+}
+
+/* Preview de foto al pasar el mouse sobre una .order-photo-thumb --
+   crece al tamano maximo posible en pantalla (mismo espiritu que
+   lightbox.js) sin necesidad de clic. Se conecta UNA sola vez con
+   delegacion de eventos (mouseover/mouseout en document, revisando
+   el target) porque las miniaturas se insertan y se vuelven a
+   insertar constantemente via innerHTML cada vez que se refresca
+   Approvals/Review/Active/History -- addEventListener directo sobre
+   cada img se perderia en el siguiente refresh. */
+let orderPhotoHoverTimer = null;
+function setupOrderPhotoHoverPreview() {
+  if (document.getElementById('gs-hover-preview-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'gs-hover-preview-overlay';
+  overlay.id = 'gs-hover-preview-overlay';
+  overlay.innerHTML = '<img id="gs-hover-preview-img" src="" alt="">';
+  document.body.appendChild(overlay);
+  const previewImg = document.getElementById('gs-hover-preview-img');
+
+  function hidePreview() {
+    clearTimeout(orderPhotoHoverTimer);
+    orderPhotoHoverTimer = null;
+    overlay.classList.remove('show');
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const thumb = e.target.closest('.order-photo-thumb');
+    if (!thumb) return;
+    clearTimeout(orderPhotoHoverTimer);
+    orderPhotoHoverTimer = setTimeout(() => {
+      previewImg.src = thumb.src;
+      overlay.classList.add('show');
+    }, 1000);
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const thumb = e.target.closest('.order-photo-thumb');
+    if (!thumb) return;
+    if (thumb.contains(e.relatedTarget)) return;
+    hidePreview();
+  });
 }
 
 function orderCard(o, context) {
