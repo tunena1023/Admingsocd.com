@@ -361,6 +361,9 @@
       .subtab { flex-shrink: 0; padding: 12px 14px; }
       .panel { padding: 24px 16px; }
       .order-card-header { padding: 12px 16px; }
+      .client-body { padding: 0 12px 16px; }
+      .client-detail { padding: 12px; }
+      .client-control { padding: 12px; }
       .appr-body { padding: 0 16px 16px; }
       .detail-grid { grid-template-columns: 1fr; }
       .edit-grid { grid-template-columns: 1fr; }
@@ -839,7 +842,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.12/order-form-premium/order-form-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.13/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.14.0/order-history/order-history.js"></script>
@@ -8416,7 +8419,7 @@ function createClientCard(c) {
         </div>
       </div>
       <div class="client-body" id="${cid}-body">
-        <div id="${cid}-content" style="padding:20px">
+        <div id="${cid}-content" style="padding:20px 0">
           ${createClientRecentOrdersHtml(c.clientId)}
           <button class="btn btn-gold" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
         </div>
