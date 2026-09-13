@@ -202,11 +202,11 @@
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.2/nav-premium/nav-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.22.0/admin-tab-counts/admin-tab-counts.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.18.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.1.10/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.6.0/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/admin-tab-counts/admin-tab-counts.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/date-time-picker/date-time-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 
 <nav>
@@ -378,6 +378,21 @@ const stored = sessionStorage.getItem('admin_account');
     wrap.appendChild(row);
   }
 
+  /* addAssignRow() ya corre ANTES de que employeesCache tenga datos
+     reales (se movio para no depender de esa llamada -- ver
+     loadInitialData) -- el primer renglon nace con el select de
+     Employee vacio. Cuando esa llamada si responde, esta funcion
+     rellena las opciones de los selects YA EXISTENTES en pantalla,
+     sin agregar renglones nuevos ni perder lo que el usuario ya haya
+     escrito en Hours. */
+  function refreshAssignRowOptions() {
+    document.querySelectorAll('#assign-rows .assign-emp').forEach(sel => {
+      const current = sel.value;
+      sel.innerHTML = employeesCache.filter(e => e.janitorial)
+        .map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === current ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
+    });
+  }
+
   /* ===== Services -- ahora usa el picker COMPARTIDO real
      (GSServicePicker, mismo estandar que los otros 6 lugares donde
      se pone/edita una orden), en vez de la implementacion propia de
@@ -453,26 +468,57 @@ const stored = sessionStorage.getItem('admin_account');
   }
 
   /* ===== Cargar datos iniciales ===== */
-  async function loadInitialData() {
-    try {
-      const [clientsRes, catalogRes, employeesRes] = await Promise.all([
-        api('/admin-get-clients', { body: {} }),
-        api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }),
-        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
-      ]);
-      clientsCache = clientsRes.clients || [];
-      servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
-      employeesCache = employeesRes.employees || [];
+  function loadInitialData() {
+    /* Antes las 4 cosas de aqui abajo (reloj/calendario, clientes,
+       servicios, empleados+lista de contratos) estaban encadenadas
+       en un solo try/Promise.all -- si UNA fallaba o se colgaba (una
+       sola llamada de red lenta o rota), NINGUNA de las 4 aparecia,
+       ni siquiera el reloj y el calendario, que ni falta les hace
+       ningun dato del servidor. El primer intento de separarlas (3
+       try/catch seguidos DENTRO de la misma funcion async) seguia
+       sin arreglarlo -- un await sigue bloqueando al siguiente aunque
+       tengan try/catch separados, solo cambiaba el mensaje de error,
+       no el bloqueo real. Ahora cada una es su propia funcion async,
+       llamada sin esperarla (sin await aqui) -- las 4 corren de
+       verdad al mismo tiempo, y una colgada o rota ya no le quita
+       nada a las demas. */
+    mountRcDateTimeFields();
+    addAssignRow();
+    loadClientOptions();
+    loadServicesPicker();
+    loadEmployeeOptions();
+    loadRecurringList();
+  }
 
+  async function loadClientOptions() {
+    try {
+      const clientsRes = await api('/admin-get-clients', { body: {} });
+      clientsCache = clientsRes.clients || [];
       document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
-
-      mountRcPicker();
-      mountRcDateTimeFields();
-      addAssignRow();
-      loadRecurringList();
     } catch (e) {
-      alert('Could not load initial data: ' + e.message);
+      document.getElementById('rc-client').innerHTML = '<option value="">Could not load clients</option>';
+    }
+  }
+
+  async function loadServicesPicker() {
+    try {
+      const catalogRes = await api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } });
+      servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
+      mountRcPicker();
+    } catch (e) {
+      document.getElementById('rc-svc-picker-mount').innerHTML = '<p class="empty-note">Could not load services: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function loadEmployeeOptions() {
+    try {
+      const employeesRes = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
+      employeesCache = employeesRes.employees || [];
+      refreshAssignRowOptions();
+    } catch (e) {
+      /* si falla, addAssignRow() ya monto el renglon con el select
+         vacio -- se puede seguir usando el resto del formulario */
     }
   }
 
