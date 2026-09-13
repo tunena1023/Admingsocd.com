@@ -300,6 +300,25 @@ let recurringCache = [];   // { clientId, clientName, division, days:[0..6], tim
 let ordersCache = [];      // { label, division, dispatchDate:Date, hours }
 let clientsCache = [];
 
+/* Copiado exacto de admin.html (activeOf) -- el estatus real guardado
+   es 'Assigned' o 'Updated', 'Working' nunca se escribe (es solo lo
+   que se MUESTRA cuando ya llego/paso la fecha de despacho). Una
+   'Received' cuenta tambien si ya se agendo por completo. */
+const ACTIVE_STATUSES = ['Assigned', 'Updated'];
+const NEW_ORDER_STATUSES = ['Received'];
+
+/* Copiado exacto de admin.html -- 'Working' NUNCA se guarda, es solo lo
+   que se MUESTRA cuando la fecha de despacho ya llego o paso. */
+function displayStatus(o) {
+  if (ACTIVE_STATUSES.indexOf(o.Status) === -1) return o.Status;
+  if (!o.DispatchDate) return o.Status;
+  const dispatch = new Date(o.DispatchDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dispatch.setHours(0, 0, 0, 0);
+  return dispatch <= today ? 'Working' : o.Status;
+}
+
 function isFullyScheduled(o) {
   return !!(o.Supervisor && String(o.Supervisor).trim()
     && o.ServiceWindow && String(o.ServiceWindow).trim()
@@ -329,7 +348,9 @@ async function loadCalendarData() {
       anchorDate: s.anchorDate || ''
     }));
 
-    const scheduled = (ordersRes.orders || []).filter(o => isFullyScheduled(o) && !o.Archived);
+    const scheduled = (ordersRes.orders || []).filter(o =>
+      (ACTIVE_STATUSES.includes(o.Status) || (NEW_ORDER_STATUSES.includes(o.Status) && isFullyScheduled(o)))
+      && !o.Archived && o.DispatchDate);
     // Tiempo real por orden (suma por servicio, mismo endpoint que Routing) --
     // se pide UNA vez para todas las visibles, se guarda en cache por id.
     let estimates = {};
@@ -346,7 +367,7 @@ async function loadCalendarData() {
         label: o.BusinessName || o.ClientID,
         division: (o.Division || 'janitorial').toLowerCase(),
         dispatchDate: o.DispatchDate,
-        status: o.Status,
+        status: displayStatus(o),
         hours: est ? Math.round((est.minutes / 60) * 10) / 10 : null,
         hoursMissing: est ? est.missing > 0 : false
       };
