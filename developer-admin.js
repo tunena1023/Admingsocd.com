@@ -23,7 +23,7 @@
 const {
   SERVICES_CATALOG_LIST, STAFF_LIST, SETTINGS_LIST,
   FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
-  RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
+  RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST, RECURRING_IMPORT_MATRIX_LIST,
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
@@ -1556,6 +1556,72 @@ exports.handler = async (event) => {
       });
 
       return jsonResponse(200, { services: list });
+    }
+
+    /* ============================================================
+       RECURRING IMPORT MATRIX -- Developer > Services > Recurring
+       Services Scheduler. Borrador PERMANENTE de la matriz que se
+       arma al subir el reporte de edificios recurrentes -- vive en su
+       PROPIA lista de SharePoint (RecurringImportMatrix), separada de
+       RecurringServices (los contratos YA confirmados). Aqui se puede
+       editar cliente/dias/horas/tecnicos sin tener que volver a subir
+       el Excel cada vez, y sin que un renglon a medio terminar se
+       confunda con un contrato real -- eso solo pasa cuando se le da
+       "Create Contract"/"Save Changes" (save-recurring-service, ya
+       existente, sin tocar).
+
+       LinkedRecurringServiceID se llena solo cuando ese renglon ya
+       tiene un contrato real creado, para poder mostrar el link entre
+       los dos sin adivinar por ClientID cada vez.
+    ============================================================ */
+    if (action === 'list-recurring-import-matrix') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot see the recurring import matrix.' });
+      const rows = await fetchAll(RECURRING_IMPORT_MATRIX_LIST);
+      const list = rows.filter(it => it.fields).map(it => {
+        const f = it.fields;
+        let assignments = [];
+        try { assignments = JSON.parse(f.AssignmentsJSON || '[]'); } catch (e) { assignments = []; }
+        return {
+          id: it.id,
+          edificio: f.Edificio || f.Title || '',
+          clientId: f.ClientID || '',
+          frecuencia: f.Frecuencia || '',
+          daysOfWeek: f.DaysOfWeek || '',
+          horasPorVisita: Number(f.HorasPorVisita) || 0,
+          assignments,
+          linkedRecurringServiceId: f.LinkedRecurringServiceID || ''
+        };
+      });
+      return jsonResponse(200, { rows: list });
+    }
+
+    if (action === 'save-recurring-import-matrix-row') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the recurring import matrix.' });
+      const { matrixId, edificio, clientId, frecuencia, daysOfWeek, horasPorVisita, assignments, linkedRecurringServiceId } = body;
+      if (!edificio) return jsonResponse(400, { error: 'edificio is required' });
+
+      const fields = {
+        Title: edificio,
+        Edificio: edificio,
+        ClientID: clientId || '',
+        Frecuencia: frecuencia || '',
+        DaysOfWeek: daysOfWeek || '',
+        HorasPorVisita: Number(horasPorVisita) || 0,
+        AssignmentsJSON: JSON.stringify(assignments || [])
+      };
+      /* Igual que ExpirationDate en save-recurring-service -- solo se
+         toca si de verdad se mando, para no borrar el link a un
+         contrato ya creado por un guardado posterior que no lo trae. */
+      if (linkedRecurringServiceId !== undefined) fields.LinkedRecurringServiceID = linkedRecurringServiceId || '';
+
+      let id = matrixId;
+      if (id) {
+        await updateListItemByItemId(RECURRING_IMPORT_MATRIX_LIST, id, fields);
+      } else {
+        const created = await createListItem(RECURRING_IMPORT_MATRIX_LIST, fields);
+        id = created.id;
+      }
+      return jsonResponse(200, { success: true, matrixId: id });
     }
 
     if (action === 'toggle-recurring-active') {
