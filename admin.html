@@ -1358,6 +1358,63 @@
     </div>
   </section>
 
+  <style>
+    /* Recurring Services Scheduler -- scoped a #import-recurring-preview
+       para no chocar con ninguna otra clase del archivo (es enorme). */
+    /* SIN width:100% en la tabla -- esa era la causa real del espacio
+       muerto: al forzar 100% con columnas de ancho fijo (dias, edificio),
+       TODO el sobrante se lo comia la celda de Tech sin que los chips
+       lo usaran, empujando Save lejos con un hueco enorme en medio.
+       Sin width fijo, la tabla mide lo que su contenido de verdad
+       necesita -- y ese contenido ahora es mas grande/legible. */
+    #import-recurring-preview table.sched-table { border-collapse: collapse; font-size: 14px; white-space: nowrap; }
+    #import-recurring-preview .sched-table thead th {
+      text-align: left; padding: 10px 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--gray); border-bottom: 1.5px solid var(--border); background: var(--bg);
+    }
+    #import-recurring-preview .sched-table thead th.day-th { text-align: center; padding: 10px 2px; width: 30px; }
+    #import-recurring-preview .sched-table tbody tr { border-bottom: 1px solid var(--border); }
+    #import-recurring-preview .sched-table tbody tr:hover { background: #FCFBF8; }
+    #import-recurring-preview .sched-table td { padding: 13px 12px; vertical-align: middle; }
+    #import-recurring-preview .day-pill-cell { text-align: center; padding: 13px 2px; width: 30px; }
+    #import-recurring-preview .building-name { font-size: 14.5px; font-weight: 600; }
+    #import-recurring-preview .building-tag { font-size: 10.5px; font-weight: 600; color: var(--green); }
+    #import-recurring-preview .warn-tag { font-size: 10.5px; color: var(--red); }
+    #import-recurring-preview .sched-select {
+      width: 100%; min-width: 170px; border: none; border-bottom: 1.5px solid var(--border); padding: 5px 2px;
+      font-size: 14px; font-family: 'Inter', sans-serif; color: var(--black); background: transparent; outline: none;
+    }
+    #import-recurring-preview .sched-select:focus { border-bottom-color: var(--gold); }
+    #import-recurring-preview .sched-select.warn { border-bottom-color: var(--red); }
+    #import-recurring-preview .tech-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    #import-recurring-preview .chip {
+      display: inline-flex; align-items: center; height: 30px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 15px; padding: 0 6px 0 12px; gap: 4px;
+    }
+    #import-recurring-preview .chip.warn { border-color: var(--red); }
+    #import-recurring-preview .chip select {
+      border: none; background: none; outline: none; font-size: 13px; font-family: 'Inter', sans-serif;
+      color: var(--black); max-width: 130px; height: 26px; padding: 0;
+    }
+    #import-recurring-preview .chip input {
+      width: 36px; border: none; border-left: 1px solid var(--border); background: none; outline: none;
+      font-size: 13px; text-align: center; font-family: 'Inter', sans-serif; color: var(--black); height: 26px; padding: 0 0 0 5px;
+    }
+    #import-recurring-preview .chip .x { border: none; background: none; color: var(--gray); cursor: pointer; font-size: 13px; padding: 0 3px 0 0; line-height: 1; }
+    #import-recurring-preview .chip .x:hover { color: var(--red); }
+    #import-recurring-preview .add-btn {
+      width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--border); background: none;
+      color: var(--gold-dk); font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;
+    }
+    #import-recurring-preview .add-btn:hover { border-color: var(--gold); border-style: solid; }
+    #import-recurring-preview .save-btn {
+      padding: 7px 20px !important; font-size: 11.5px !important; border-radius: 16px !important;
+      width: auto !important; height: 30px; line-height: 1; flex-shrink: 0; white-space: nowrap;
+    }
+    #import-recurring-preview .save-btn.saved { background: var(--green) !important; }
+  </style>
+
   <section id="recurring-scheduler-section" data-category="services" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -4147,7 +4204,7 @@ function renderGalleryPanel() {
           edificio: m.edificio,
           frecuencia: m.frecuencia || 'Semanal',
           dias: (m.daysOfWeek || '').split(',').filter(Boolean),
-          horasPorVisita: m.horasPorVisita,
+          target: m.horasPorVisita,
           clientId: m.clientId,
           assignments: m.assignments.length ? m.assignments : [{ payrollNumber: '', hoursAllocated: 0 }],
           alreadyExisted: !!existingService,
@@ -4202,7 +4259,7 @@ function renderGalleryPanel() {
             const tecnicoReporte = String((colTecnico >= 0 ? r[colTecnico] : '') || '').split(',')[0].trim();
             const clientMatch = clientsCache.find(c => c.businessName.trim().toLowerCase() === clienteReporte.toLowerCase());
             const empMatch = employeesCache.find(e => e.name.trim().toLowerCase() === tecnicoReporte.toLowerCase());
-            const horasPorVisita = Number((colHoras >= 0 ? r[colHoras] : '') || 0);
+            const target = Number((colHoras >= 0 ? r[colHoras] : '') || 0); // lo que pedia el reporte -- solo referencia, ya no se multiplica por dias
             const clientId = clientMatch ? clientMatch.clientId : '';
             // Misma logica de deduplicado que Bulk Import Clients: la fuente de
             // verdad es lo que YA existe en el sistema real (rcServicesCache, se
@@ -4219,17 +4276,14 @@ function renderGalleryPanel() {
             const realDias = alreadyExists ? (existingService.daysOfWeek || '').split(',').filter(Boolean) : dias;
             const realAssignments = alreadyExists && existingService.assignments.length
               ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: a.hoursAllocated }))
-              : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: horasPorVisita * dias.length }];
-            const realHorasPorVisita = alreadyExists && realDias.length
-              ? Number(existingService.totalHours || 0) / realDias.length
-              : horasPorVisita;
+              : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: target }];
 
             return {
               matrixId: null,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
               frecuencia: frecuencia || 'TBD',
               dias: realDias,
-              horasPorVisita: realHorasPorVisita,
+              target,
               clientId,
               assignments: realAssignments,
               alreadyExisted: alreadyExists,
@@ -4275,57 +4329,57 @@ function renderGalleryPanel() {
     }
     GSOrderFormPremium.styleTag(); // mismo componente que ya usa el resto de Admin -- trae el CSS real de .gs-ofp-day-pill
     const clientOpts = clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
-    const empOpts = employeesCache.filter(e => e.janitorial).map(e => '<option value="' + escAttr(e.payrollNumber) + '">' + esc(e.name) + '</option>').join('');
+    const empOpts = employeesCache.filter(e => e.janitorial);
 
     const rowsHtml = importRecurringRows.map(r => {
-      const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // Visit x dias marcados -- esto es lo que de verdad se manda como TotalHours
+      const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0);
       const validAssignments = r.assignments.filter(a => a.payrollNumber);
       const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0;
       // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
       // de dia (gs-ofp-day-pill) -- se reusa suelto porque aqui no aplican los
       // 2 campos de "Opens at/Closes at" que trae ese componente completo.
       const dayCells = DAY_LIST.map(d =>
-        '<td style="padding:6px;text-align:center">' +
-          '<label class="gs-ofp-day-pill" style="width:30px;height:30px;font-size:11px">' +
+        '<td class="day-pill-cell">' +
+          '<label class="gs-ofp-day-pill" style="display:inline-block;width:24px;height:24px;font-size:10.5px">' +
             '<input type="checkbox" ' + (r.dias.includes(d) ? 'checked' : '') + ' onchange="toggleImportRecurringDay(' + r.id + ',\'' + d + '\',this.checked)">' +
             '<span>' + d[0] + '</span>' +
           '</label>' +
         '</td>'
       ).join('');
       const freqNote = r.frecuencia !== 'Semanal' && !r.alreadyExisted
-        ? '<div style="font-size:10px;color:var(--red)">was ' + esc(r.frecuencia) + ' -- will be created as weekly on the checked days</div>' : '';
+        ? '<div class="warn-tag">was ' + esc(r.frecuencia) + ' — created as weekly on checked days</div>' : '';
       const existsNote = r.alreadyExisted
-        ? '<div style="font-size:10px;color:var(--green);font-weight:600">✓ already exists -- editing the real contract</div>' : '';
-      // Mismo patron que assign-rows del formulario normal de Recurring (Employee +
-      // Hours + boton de quitar), solo que aqui vive por renglon del import en vez
-      // de una sola vez por pagina -- por eso cada control lleva el id del renglon.
-      const assignRowsHtml = r.assignments.map((a, ai) => {
-        const opts = empOpts.replace('value="' + escAttr(a.payrollNumber) + '"', 'value="' + escAttr(a.payrollNumber) + '" selected');
-        return '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">' +
-          '<select onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'payrollNumber\',this.value)" style="flex:1;font:inherit;font-size:12px;' + (a.payrollNumber ? '' : 'border-color:var(--red)') + '">' +
-            '<option value="">— select tech —</option>' + opts +
-          '</select>' +
-          '<input type="number" min="0" step="0.5" value="' + escAttr(a.hoursAllocated) + '" onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'hoursAllocated\',this.value)" style="width:48px" title="Hours allocated to this person">' +
-          (r.assignments.length > 1 ? '<button type="button" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:14px;padding:0 2px" title="Remove">✕</button>' : '') +
-        '</div>';
+        ? '<div class="building-tag">✓ already exists</div>' : '';
+      // El aviso de "el reporte pedia Xh" solo sirve la primera vez -- una vez
+      // que el renglon ya tiene contrato real o ya se guardo una vez, dejar de
+      // mostrarlo (r.everSaved no se resetea al editar, a diferencia de
+      // r.justSaved que es solo la confirmacion visual del ultimo click).
+      const targetNote = (!r.alreadyExisted && !r.everSaved && totalHoras !== r.target)
+        ? '<div class="warn-tag">need ' + r.target + 'h</div>' : '';
+      // Chips compactos -- cada tecnico ocupa solo el ancho que necesita,
+      // varios caben en la misma linea, solo bajan a otra si de plano no caben.
+      const chipsHtml = r.assignments.map((a, ai) => {
+        const opts = '<option value="">—</option>' + empOpts.map(e => '<option value="' + escAttr(e.payrollNumber) + '" ' + (e.payrollNumber === a.payrollNumber ? 'selected' : '') + '>' + esc(e.name) + '</option>').join('');
+        return '<span class="chip ' + (a.payrollNumber ? '' : 'warn') + '">' +
+          '<select onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'payrollNumber\',this.value)">' + opts + '</select>' +
+          '<input type="number" min="0" step="0.5" value="' + escAttr(a.hoursAllocated) + '" onchange="updateImportRecurringAssignment(' + r.id + ',' + ai + ',\'hoursAllocated\',this.value)" title="Hours allocated to this person">' +
+          (r.assignments.length > 1 ? '<button type="button" class="x" onclick="removeImportRecurringAssignment(' + r.id + ',' + ai + ')" title="Remove">✕</button>' : '') +
+        '</span>';
       }).join('');
       return '<tr>' +
-        '<td style="padding:8px">' + esc(r.edificio) + freqNote + existsNote + '</td>' +
-        '<td style="padding:8px">' +
-          '<select onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)" style="width:100%;font:inherit;font-size:12px;' + (r.clientId ? '' : 'border-color:var(--red)') + '">' +
+        '<td><div class="building-name">' + esc(r.edificio) + '</div>' + freqNote + existsNote + '</td>' +
+        '<td>' +
+          '<select class="sched-select ' + (r.clientId ? '' : 'warn') + '" onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)">' +
             '<option value="">— select client —</option>' + clientOpts.replace('value="' + escAttr(r.clientId) + '"', 'value="' + escAttr(r.clientId) + '" selected') +
           '</select>' +
         '</td>' +
         dayCells +
-        '<td style="padding:8px">' +
-          '<input type="number" min="0" step="0.5" value="' + escAttr(r.horasPorVisita) + '" onchange="updateImportRecurring(' + r.id + ',\'horasPorVisita\',this.value)" style="width:60px">' +
-        '</td>' +
-        '<td style="padding:8px;font-weight:600">' + totalHoras + 'h</td>' +
-        '<td style="padding:8px;min-width:180px">' +
-          assignRowsHtml +
-          '<div style="font-size:11px;color:#8C6F2A;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px" onclick="addImportRecurringAssignment(' + r.id + ')">+ Add person</div>' +
-          '<button class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:10px;border-radius:4px" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">Save</button>' +
-          (r.justSaved ? '<span style="font-size:10px;color:var(--green);margin-left:8px">✓ saved</span>' : '') +
+        '<td style="font-weight:600">' + totalHoras + 'h' + targetNote + '</td>' +
+        '<td><div class="tech-cell">' + chipsHtml +
+          '<button type="button" class="add-btn" title="Add person" onclick="addImportRecurringAssignment(' + r.id + ')">+</button>' +
+        '</div></td>' +
+        '<td style="text-align:center">' +
+          '<button class="gs-ofp-btn-primary save-btn ' + (r.justSaved ? 'saved' : '') + '" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.justSaved ? '✓' : 'Save') + '</button>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -4334,11 +4388,11 @@ function renderGalleryPanel() {
       '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
         (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
         '. Every change here saves automatically to the matrix. Fields in red need fixing before Save unlocks.</p>' +
-      '<div style="overflow-x:auto"><table class="grid-table" style="width:100%;white-space:nowrap">' +
+      '<div style="overflow-x:auto"><table class="sched-table">' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th>' +
-        DAY_LIST.map(d => '<th>' + d + '</th>').join('') +
-        '<th>Visit</th><th>Hours</th><th>Tech</th>' +
+        DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
+        '<th>Hours</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
@@ -4382,7 +4436,7 @@ function renderGalleryPanel() {
     const r = importRecurringRows.find(x => x.id === id);
     const validAssignments = r.assignments.filter(a => a.payrollNumber);
     if (!r.clientId || !validAssignments.length || !r.dias.length) { showToast('Fill in the fields in red first.'); return; }
-    const totalHoras = Number(r.horasPorVisita || 0) * r.dias.length; // mismo calculo que en el preview -- Visit x dias marcados
+    const totalHoras = validAssignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0), 0); // suma real de horas de todos los tecnicos
     // Al editar un contrato que ya existe, buildingNumber/servicesJson/
     // expirationDate se mandan TAL CUAL estaban -- esta pantalla no los toca
     // (el tema de Servicios se resuelve aparte), asi que no hay que pisarlos
@@ -4415,12 +4469,13 @@ function renderGalleryPanel() {
           body: {
             action: 'save-recurring-import-matrix-row', email: adminUser.email,
             matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
-            daysOfWeek: r.dias.join(','), horasPorVisita: r.horasPorVisita,
+            daysOfWeek: r.dias.join(','), horasPorVisita: r.target,
             assignments: validAssignments, linkedRecurringServiceId: res.recurringServiceId
           }
         }).catch(e => console.error('Could not link matrix row:', e.message));
       }
       r.justSaved = true;
+      r.everSaved = true; // permanente -- a diferencia de justSaved, no se resetea al seguir editando
       showToast(existing ? 'Saved — updated in Active Recurring Contracts.' : 'Created — now in Active Recurring Contracts.');
       renderImportRecurringPreview();
       loadRecurringList();
@@ -4445,7 +4500,7 @@ function renderGalleryPanel() {
         body: {
           action: 'save-recurring-import-matrix-row', email: adminUser.email,
           matrixId: r.matrixId, edificio: r.edificio, clientId: r.clientId, frecuencia: r.frecuencia,
-          daysOfWeek: r.dias.join(','), horasPorVisita: r.horasPorVisita,
+          daysOfWeek: r.dias.join(','), horasPorVisita: r.target,
           assignments: r.assignments.filter(a => a.payrollNumber),
           linkedRecurringServiceId: r.existingService ? r.existingService.id : ''
         }
