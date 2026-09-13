@@ -4373,8 +4373,13 @@ function renderGalleryPanel() {
       // que el renglon ya tiene contrato real o ya se guardo una vez, dejar de
       // mostrarlo (r.everSaved no se resetea al editar, a diferencia de
       // r.justSaved que es solo la confirmacion visual del ultimo click).
-      const targetNote = (!r.alreadyExisted && !r.everSaved && totalHoras !== r.target)
-        ? '<div class="warn-tag">need ' + r.target + 'h</div>' : '';
+      // Target: columna permanente (ya no un aviso que desaparece al guardar) --
+      // siempre muestra lo que pedia el reporte, en verde si Hours ya coincide,
+      // en rojo con la diferencia si no.
+      const targetDiff = totalHoras - r.target;
+      const targetHtml = targetDiff === 0
+        ? '<span style="color:var(--green);font-weight:600">' + r.target + 'h</span>'
+        : '<span style="color:var(--red);font-weight:600">' + r.target + 'h (' + (targetDiff > 0 ? '+' : '') + targetDiff + ')</span>';
       // Chips compactos -- cada tecnico ocupa solo el ancho que necesita,
       // varios caben en la misma linea, solo bajan a otra si de plano no caben.
       const chipsHtml = r.assignments.map((a, ai) => {
@@ -4404,7 +4409,8 @@ function renderGalleryPanel() {
         '</td>' +
         '<td>' + freqCellHtml + '</td>' +
         dayCells +
-        '<td style="font-weight:600">' + totalHoras + 'h' + targetNote + '</td>' +
+        '<td style="font-weight:600">' + totalHoras + 'h</td>' +
+        '<td>' + targetHtml + '</td>' +
         '<td><div class="tech-cell">' + chipsHtml + '</div></td>' +
         '<td><div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
           '<button type="button" class="add-btn" title="Add person" onclick="addImportRecurringAssignment(' + r.id + ')">+</button>' +
@@ -4421,12 +4427,12 @@ function renderGalleryPanel() {
       '<colgroup>' +
         '<col style="width:190px"><col style="width:190px"><col style="width:130px">' +
         DAY_LIST.map(() => '<col style="width:30px">').join('') +
-        '<col style="width:70px"><col><col style="width:150px">' +
+        '<col style="width:70px"><col style="width:90px"><col><col style="width:150px">' +
       '</colgroup>' +
       '<thead><tr>' +
         '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
-        '<th>Hours</th><th>Tech</th><th></th>' +
+        '<th>Hours</th><th>Target</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
   }
 
