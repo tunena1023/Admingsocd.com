@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendar — GS Solutions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#111111; --gold:#C9A84C; --gold-dk:#8C6F2A; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#4E9A5D; --blue:#7FA8D9; --red:#C97B72; --orange:#D9922E; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: 'Inter', sans-serif; background:var(--bg); color:var(--black); }
+
+  nav {
+    background: var(--white);
+    background-image: url('/api/site-image?name=NavBackground.jpg');
+    background-size: cover; background-position: center;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 40px; min-height:72px; position:sticky; top:0; z-index:100;
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo img { height:80px; object-fit:contain; }
+  .nav-logo-text { font-family: 'Cormorant Garamond', serif; font-size:22px; color:var(--black); display:none; }
+  .nav-right { display:flex; align-items:center; gap:20px; }
+  .nav-user { font-size:13px; color:var(--gray); }
+  .nav-back, .btn-signout { font-size:12px; color:#8C6F2A; background:none; border:none; cursor:pointer; letter-spacing:.04em; text-decoration:none; }
+
+  .wrap { margin:0 auto; padding:32px 40px 60px; max-width: 1440px; }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; margin-bottom: 6px; }
+  .section-sub { font-size: 13px; color: var(--gray); margin-bottom: 28px; }
+
+  .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
+  .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
+
+  .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+  .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; background: rgba(201,168,76,0.12); }
+  .order-id { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 20px; }
+  .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
+
+  .cal-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+
+  /* Segmentado real de gsocd-shared (divButtonsHtml/activateDivButton) */
+  .cal-toggle { display: flex; border: 1.5px solid var(--border); }
+  .cal-toggle button { flex: 1; padding: 12px; border: none; background: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; color: var(--gray); }
+  .cal-toggle button:not(:first-child) { border-left: 1.5px solid var(--border); }
+  .cal-toggle button.active { background: var(--gold); color: var(--black); }
+
+  .cal-view-toggle { display: flex; border: 1.5px solid var(--border); }
+  .cal-view-toggle button { flex: 1; padding: 12px; border: none; background: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; color: var(--gray); }
+  .cal-view-toggle button:not(:first-child) { border-left: 1.5px solid var(--border); }
+  .cal-view-toggle button.active { background: var(--gold); color: var(--black); }
+
+  .cal-nav { display: flex; align-items: center; gap: 14px; }
+  .cal-nav button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; color: var(--black); font-size: 14px; }
+  .cal-nav button:hover { border-color: var(--gold); }
+  .cal-month { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; min-width: 160px; text-align: center; }
+  .cal-month-total { font-size: 11.5px; color: var(--gray); font-weight: 600; }
+  .cal-month-total b { color: var(--black); }
+
+  .cal-period-bar { display: none; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; }
+  .cal-period-bar.open { display: flex; }
+  .cal-period-bar label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
+  .cal-period-bar input[type=date] { border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+  .cal-period-list { display: none; }
+  .cal-period-list.open { display: block; }
+  .cal-period-day { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; margin-bottom: 8px; }
+  .cal-period-day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-period-day-date { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; }
+  .cal-period-day-hours { font-size: 11px; font-weight: 700; color: var(--gold-dk); }
+  .cal-period-day-empty { font-size: 12px; color: var(--gray); font-style: italic; }
+  .cal-period-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; }
+
+  .cal-legend { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--gray); }
+  .cal-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .cal-dot.janitorial { background: var(--green); }
+  .cal-dot.renovations { background: var(--blue); }
+  .cal-dot.exteriors { background: var(--red); }
+  .cal-dot.recurring-color { background: var(--orange); }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--border); gap: 2px; }
+  .cal-dayname { background: var(--bg); padding: 12px 0; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); }
+  .cal-cell { background: var(--white); min-height: 150px; padding: 10px; position: relative; }
+  .cal-cell.other-month { background: #FBFAF8; }
+  .cal-cell.other-month .cal-daynum { color: #C9C5BA; }
+  .cal-daynum { font-size: 13px; color: var(--gray); font-weight: 600; margin-bottom: 8px; }
+  .cal-daynum.today { color: var(--white); background: var(--gold); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+
+  .cal-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 4px 7px; border-radius: 4px; margin-bottom: 4px; color: var(--white); cursor: pointer; }
+  .cal-item.janitorial { background: var(--green); }
+  .cal-item.renovations { background: var(--blue); }
+  .cal-item.exteriors { background: var(--red); }
+  .cal-item.recurring-color { background: var(--orange); }
+  .cal-item.more { background: none; color: var(--gray); font-weight: 600; cursor: pointer; }
+  .cal-item-icon { flex-shrink: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--gold-dk); color: var(--gold-dk); font-size: 8px; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .cal-item-label { display: block; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-hours-badge { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 700; color: var(--gold-dk); background: rgba(201,168,76,.14); padding: 2px 7px; border-radius: 10px; }
+
+  .cal-daypanel { margin-top: 20px; border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 18px 20px; display: none; }
+  .cal-daypanel.open { display: block; }
+  .cal-daypanel h3 { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .cal-daypanel-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .cal-daypanel-row:first-of-type { border-top: none; }
+  .cal-daypanel-row .cal-dot { width: 8px; height: 8px; }
+  .cal-daypanel-meta { color: var(--gray); font-size: 11.5px; margin-left: auto; }
+
+  .cal-agenda { border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 8px 20px; }
+  .agenda-day { display: flex; gap: 18px; align-items: flex-start; }
+  .agenda-date { flex-shrink: 0; width: 56px; text-align: center; padding-top: 12px; }
+  .agenda-date .num { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; line-height: 1; }
+  .agenda-date .dow { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray); font-weight: 700; }
+  .agenda-date.today .num { color: var(--gold-dk); }
+  .agenda-items { flex: 1; padding: 12px 0 16px; border-bottom: 1px solid var(--border); }
+  .agenda-day:last-child .agenda-items { border-bottom: none; }
+  .agenda-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+  .agenda-item .hrs { margin-left: auto; font-size: 11px; color: var(--gray); font-weight: 600; }
+  .agenda-empty { font-size: 12.5px; color: var(--gray); font-style: italic; padding: 12px 0; }
+  .agenda-total { font-size: 11px; font-weight: 700; color: var(--gold-dk); margin-top: 4px; }
+
+  .strip { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
+  .strip-day { flex-shrink: 0; width: 74px; border-radius: 8px; border: 1.5px solid var(--border); padding: 12px 8px; text-align: center; cursor: pointer; background: var(--white); transition: all .15s; }
+  .strip-day:hover { border-color: var(--gold); }
+  .strip-day.selected { border-color: var(--gold-dk); background: rgba(201,168,76,.1); }
+  .strip-day .dow { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700; }
+  .strip-day .num { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; margin: 3px 0; }
+  .strip-dots { display: flex; justify-content: center; gap: 3px; }
+  .strip-hrs { font-size: 10px; color: var(--gold-dk); font-weight: 700; margin-top: 3px; }
+  .cal-strip-detail-card { border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 18px 22px; }
+  .cal-strip-detail-title { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; margin-bottom: 12px; }
+  .strip-detail-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .strip-detail-item:last-child { border-bottom: none; }
+  .strip-detail-item .hrs { margin-left: auto; font-size: 12px; color: var(--gray); font-weight: 600; }
+
+  .empty-note { font-size: 13px; color: var(--gray); }
+</style>
+</head>
+<body>
+
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/nav-premium/nav-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/admin-tab-counts/admin-tab-counts.js"></script>
+
+<nav>
+  <div class="nav-logo">
+    <img id="nav-logo" src="/api/site-image?name=Logo.jpg" alt="GS Solutions"
+         onerror="this.style.display='none';document.getElementById('nav-logo-text').style.display='block'">
+    <span id="nav-logo-text" class="nav-logo-text" style="display:none">GS Solutions</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-back" href="admin.html">&larr; Back to Admin</a>
+    <span class="nav-user" id="nav-user"></span>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<div id="gsNav"></div>
+
+<div class="wrap">
+  <p class="section-title">Active Orders</p>
+  <p class="section-sub">Approved orders in progress. Click an order to move it forward, or to edit supervisor, notes or services.</p>
+  <div class="subtabs">
+    <a class="subtab" href="admin.html?tab=active">All</a>
+    <a class="subtab" href="admin.html?tab=assigned">By Employee</a>
+    <a class="subtab" href="recurring.html">Recurring</a>
+    <a class="subtab active" href="calendar.html">Calendar</a>
+  </div>
+
+  <div class="cal-toolbar">
+    <div class="cal-toggle">
+      <button id="toggle-recurring" onclick="setMode('recurring')">Recurring</button>
+      <button id="toggle-orders" onclick="setMode('orders')">Orders</button>
+      <button id="toggle-both" class="active" onclick="setMode('both')">Both</button>
+    </div>
+    <div class="cal-view-toggle">
+      <button id="view-month" class="active" onclick="setView('month')">Month</button>
+      <button id="view-week" onclick="setView('week')">Week</button>
+      <button id="view-agenda" onclick="setView('agenda')">Agenda</button>
+      <button id="view-strip" onclick="setView('strip')">Strip</button>
+      <button id="view-period" onclick="setView('period')">Period</button>
+    </div>
+    <div class="cal-nav" id="cal-nav-arrows">
+      <button onclick="changeStep(-1)">&#8249;</button>
+      <div class="cal-month" id="cal-month-label"></div>
+      <button onclick="changeStep(1)">&#8250;</button>
+    </div>
+    <div class="cal-month-total" id="cal-month-total"></div>
+  </div>
+
+  <div class="cal-period-bar" id="cal-period-bar">
+    <label>From</label><input type="date" id="period-from">
+    <label>To</label><input type="date" id="period-to">
+    <button style="padding:8px 18px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;background:linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%);color:#171310;font-family:'Inter',sans-serif" onclick="applyPeriod()">Apply</button>
+  </div>
+
+  <div class="cal-legend">
+    <div class="cal-legend-item"><span class="cal-dot recurring-color"></span> Recurring</div>
+    <div class="cal-legend-item"><span class="cal-dot janitorial"></span> Janitorial (order)</div>
+    <div class="cal-legend-item"><span class="cal-dot renovations"></span> Renovations (order)</div>
+    <div class="cal-legend-item"><span class="cal-dot exteriors"></span> Exteriors (order)</div>
+    <div class="cal-legend-item" id="cal-legend-glow"><span class="cal-item-icon">&#8635;</span> Recurring (icon)</div>
+  </div>
+
+  <div id="cal-loading" class="empty-note">Loading calendar…</div>
+
+  <div id="cal-content" style="display:none">
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-agenda" id="cal-agenda" style="display:none"></div>
+    <div id="cal-strip-wrap" style="display:none">
+      <div class="strip" id="cal-strip"></div>
+      <div id="cal-strip-detail"></div>
+    </div>
+    <div class="cal-period-list" id="cal-period-list"></div>
+
+    <div class="cal-daypanel" id="cal-daypanel">
+      <h3 id="cal-daypanel-title"></h3>
+      <div id="cal-daypanel-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const stored = sessionStorage.getItem('admin_account');
+let adminUser = null;
+if (!stored) {
+  window.location.href = 'index.html';
+} else {
+  adminUser = JSON.parse(stored);
+  document.getElementById('nav-user').textContent = adminUser.name || adminUser.email;
+  initPage();
+}
+
+function initPage() {
+  GSNavPremium.applyChrome();
+  GSNavPremium.init('gsNav', [
+    { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
+    { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
+    { label: 'Active', href: 'admin.html?tab=active', active: true, badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
+    { label: 'History', href: 'admin.html?tab=history' },
+    { label: 'Clients', href: 'admin.html?tab=clients' },
+    { label: 'Gallery', href: 'gallery.html' },
+    { label: 'QuickBooks', href: 'quickbooks.html' },
+    { label: 'Schedule', href: 'admin.html?tab=schedule' },
+    { label: 'Developer', href: 'developer.html' }
+  ]);
+  loadNavCounts();
+  loadCalendarData();
+}
+
+async function loadNavCounts() {
+  try {
+    const res = await fetch('/api/admin-get-orders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+    });
+    const data = await res.json();
+    const counts = GSAdminCounts.compute(data.orders || []);
+    ['appr-count', 'review-count', 'active-count'].forEach((id, i) => {
+      const val = [counts.approvals, counts.review, counts.active][i];
+      const el = document.getElementById(id);
+      if (el) { el.textContent = val; el.classList.toggle('zero', val === 0); }
+    });
+  } catch (e) { /* si falla, se quedan en 0 -- no bloquea el resto de la pagina */ }
+}
+
+function signOut() {
+  sessionStorage.removeItem('admin_account');
+  sessionStorage.removeItem('admin_token');
+  window.location.href = 'index.html';
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    method: opts.method || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+  return data;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+/* ============================================================
+   DATOS REALES -- Recurring viene de list-recurring-services
+   (mismo endpoint que recurring.html), Orders de admin-get-orders,
+   filtradas a isFullyScheduled (Supervisor + ServiceWindow +
+   DispatchDate, MISMO criterio real que ya usa admin.html para decidir
+   si una orden ya se agendo de verdad) y no archivadas.
+
+   Horas:
+   - Recurring: TotalHours del contrato es SEMANAL (igual que en todo
+     el resto del sistema) -- se reparte entre sus dias marcados para
+     mostrar la porcion de esa visita (TotalHours / dias.length).
+   - Orders: get-order-time-estimates (el mismo que usa Routing
+     internamente) -- suma el tiempo real por servicio segun
+     ServiceTimes. Si algun servicio no tiene tiempo asignado todavia,
+     esa orden no suma horas (missing>0) en vez de fingir un numero.
+============================================================ */
+let recurringCache = [];   // { clientId, clientName, division, days:[0..6], time, hoursPerVisit, frequency, anchorDate }
+let ordersCache = [];      // { label, division, dispatchDate:Date, hours }
+let clientsCache = [];
+
+function isFullyScheduled(o) {
+  return !!(o.Supervisor && String(o.Supervisor).trim()
+    && o.ServiceWindow && String(o.ServiceWindow).trim()
+    && o.DispatchDate && String(o.DispatchDate).trim());
+}
+
+async function loadCalendarData() {
+  try {
+    const [clientsRes, recurringRes, ordersRes] = await Promise.all([
+      api('/admin-get-clients', { body: {} }),
+      api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } }),
+      api('/admin-get-orders', { body: {} })
+    ]);
+    clientsCache = clientsRes.clients || [];
+    const clientNameById = {};
+    clientsCache.forEach(c => { clientNameById[c.clientId] = c.businessName; });
+
+    recurringCache = (recurringRes.services || []).filter(s => s.active).map(s => ({
+      clientName: clientNameById[s.clientId] || s.clientId,
+      division: (s.division || 'janitorial').toLowerCase(),
+      days: (s.daysOfWeek || '').split(',').map(d => d.trim()).filter(Boolean),
+      time: s.time || '',
+      hoursPerVisit: (s.daysOfWeek || '').split(',').filter(Boolean).length
+        ? (Number(s.totalHours) || 0) / (s.daysOfWeek || '').split(',').filter(Boolean).length
+        : (Number(s.totalHours) || 0),
+      frequency: s.frequency || 'Weekly',
+      anchorDate: s.anchorDate || ''
+    }));
+
+    const scheduled = (ordersRes.orders || []).filter(o => isFullyScheduled(o) && !o.Archived);
+    // Tiempo real por orden (suma por servicio, mismo endpoint que Routing) --
+    // se pide UNA vez para todas las visibles, se guarda en cache por id.
+    let estimates = {};
+    if (scheduled.length) {
+      try {
+        const estRes = await api('/developer-admin', { body: { action: 'get-order-time-estimates', email: adminUser.email, orderIds: scheduled.map(o => o.id) } });
+        estimates = estRes.estimates || {};
+      } catch (e) { /* si falla, las ordenes se muestran sin horas -- mejor que trabar el calendario */ }
+    }
+
+    ordersCache = scheduled.map(o => {
+      const est = estimates[o.id];
+      return {
+        label: o.BusinessName || o.ClientID,
+        division: (o.Division || 'janitorial').toLowerCase(),
+        dispatchDate: o.DispatchDate,
+        status: o.Status,
+        hours: est ? Math.round((est.minutes / 60) * 10) / 10 : null,
+        hoursMissing: est ? est.missing > 0 : false
+      };
+    });
+
+    document.getElementById('cal-loading').style.display = 'none';
+    document.getElementById('cal-content').style.display = 'block';
+    setView('month');
+  } catch (e) {
+    document.getElementById('cal-loading').innerHTML = '<p style="color:var(--red)">Could not load the calendar: ' + esc(e.message) + '</p>';
+  }
+}
+
+const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+/* Generaliza isServiceDueToday (recurring.html) a CUALQUIER fecha, no
+   solo hoy -- necesario para pintar dias futuros/pasados en el
+   calendario. Misma formula real: Weekly = cualquier dia marcado;
+   Biweekly/Monthly = mismo dia marcado + numero de semanas desde
+   AnchorDate multiplo de 2 o 4. Sin AnchorDate, se trata como semanal. */
+function isServiceDueOnDate(s, dateObj) {
+  const dayMatch = s.days.includes(DAY_ABBR[dateObj.getDay()]);
+  if (!dayMatch) return false;
+  const freq = s.frequency || 'Weekly';
+  if (freq === 'Weekly') return true;
+  if (!s.anchorDate) return true;
+  const anchor = new Date(s.anchorDate + 'T00:00:00');
+  const d = new Date(dateObj); d.setHours(0,0,0,0);
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const weeksSince = Math.floor((d - anchor) / msPerWeek);
+  const interval = freq === 'Monthly' ? 4 : 2;
+  return weeksSince >= 0 && weeksSince % interval === 0;
+}
+
+function itemsForDate(dateObj, restrictToMonth) {
+  if (restrictToMonth !== undefined && dateObj.getMonth() !== restrictToMonth) return [];
+  const dom = dateObj.getDate(), mo = dateObj.getMonth(), yr = dateObj.getFullYear();
+  const rec = recurringCache.filter(s => isServiceDueOnDate(s, dateObj)).map(s => ({
+    label: s.clientName, division: s.division, isOrder: false,
+    hours: Math.round(s.hoursPerVisit * 10) / 10,
+    meta: (s.time || '') + (s.time ? ' \u00b7 ' : '') + Math.round(s.hoursPerVisit * 10) / 10 + 'h'
+  }));
+  const ord = ordersCache.filter(o => {
+    const d = new Date(o.dispatchDate + 'T00:00:00');
+    return d.getDate() === dom && d.getMonth() === mo && d.getFullYear() === yr;
+  }).map(o => ({
+    label: o.label, division: o.division, isOrder: true,
+    hours: o.hours || 0,
+    meta: o.status + (o.hours != null ? ' \u00b7 ' + o.hours + 'h' : (o.hoursMissing ? ' \u00b7 est. pending' : ''))
+  }));
+  if (mode === 'recurring') return rec;
+  if (mode === 'orders') return ord;
+  return rec.concat(ord);
+}
+
+function colorClass(it) { return it.isOrder ? it.division : 'recurring-color'; }
+
+let mode = 'both';
+let calView = 'month';
+let viewYear, viewMonth;
+let weekStart;
+(() => {
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+  weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0,0,0,0);
+})();
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('toggle-recurring').classList.toggle('active', m === 'recurring');
+  document.getElementById('toggle-orders').classList.toggle('active', m === 'orders');
+  document.getElementById('toggle-both').classList.toggle('active', m === 'both');
+  document.getElementById('cal-legend-glow').style.display = m === 'both' ? 'flex' : 'none';
+  document.getElementById('cal-daypanel').classList.remove('open');
+  if (calView === 'period') applyPeriod();
+  else if (calView === 'agenda') renderAgenda();
+  else if (calView === 'strip') renderStrip();
+  else render();
+}
+
+function setView(v) {
+  calView = v;
+  document.getElementById('view-month').classList.toggle('active', v === 'month');
+  document.getElementById('view-week').classList.toggle('active', v === 'week');
+  document.getElementById('view-agenda').classList.toggle('active', v === 'agenda');
+  document.getElementById('view-strip').classList.toggle('active', v === 'strip');
+  document.getElementById('view-period').classList.toggle('active', v === 'period');
+  document.getElementById('cal-nav-arrows').style.display = v === 'period' ? 'none' : 'flex';
+  document.getElementById('cal-period-bar').classList.toggle('open', v === 'period');
+  document.getElementById('cal-grid').style.display = (v === 'month' || v === 'week') ? 'grid' : 'none';
+  document.getElementById('cal-agenda').style.display = v === 'agenda' ? 'block' : 'none';
+  document.getElementById('cal-strip-wrap').style.display = v === 'strip' ? 'block' : 'none';
+  document.getElementById('cal-daypanel').classList.remove('open');
+  document.getElementById('cal-legend-glow').style.display = mode === 'both' ? 'flex' : 'none';
+  if (v === 'period') {
+    const from = document.getElementById('period-from');
+    const to = document.getElementById('period-to');
+    if (!from.value) from.value = isoDate(weekStart);
+    if (!to.value) { const end = new Date(weekStart); end.setDate(end.getDate() + 6); to.value = isoDate(end); }
+    applyPeriod();
+  } else if (v === 'agenda') {
+    renderAgenda();
+  } else if (v === 'strip') {
+    renderStrip();
+  } else {
+    render();
+  }
+}
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+function changeStep(delta) {
+  if (calView === 'month') {
+    viewMonth += delta;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  } else {
+    weekStart.setDate(weekStart.getDate() + delta * 7);
+  }
+  document.getElementById('cal-daypanel').classList.remove('open');
+  if (calView === 'agenda') renderAgenda();
+  else if (calView === 'strip') renderStrip();
+  else render();
+}
+
+function render() {
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const today = new Date();
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let gridStart, cellCount, isOtherFn, totalLabel;
+  if (calView === 'week') {
+    gridStart = new Date(weekStart);
+    cellCount = 7;
+    isOtherFn = () => false;
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+    document.getElementById('cal-month-label').textContent =
+      MONTH_NAMES[weekStart.getMonth()].slice(0,3) + ' ' + weekStart.getDate() + ' \u2013 ' +
+      MONTH_NAMES[weekEnd.getMonth()].slice(0,3) + ' ' + weekEnd.getDate();
+    totalLabel = 'this week';
+  } else {
+    document.getElementById('cal-month-label').textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+    const first = new Date(viewYear, viewMonth, 1);
+    gridStart = new Date(viewYear, viewMonth, 1 - first.getDay());
+    cellCount = 42;
+    isOtherFn = (d) => d.getMonth() !== viewMonth;
+    totalLabel = 'this month';
+  }
+
+  let html = dayNames.map(d => '<div class="cal-dayname">' + d + '</div>').join('');
+  let periodTotalHours = 0;
+
+  for (let i = 0; i < cellCount; i++) {
+    const d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+    const isOther = isOtherFn(d);
+    const isToday = d.toDateString() === today.toDateString();
+    const items = calView === 'week' ? itemsForDate(d) : itemsForDate(d, viewMonth);
+    const shown = items.slice(0, 3);
+    const extra = items.length - shown.length;
+    const dayHours = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    if (!isOther) periodTotalHours += dayHours;
+
+    html += '<div class="cal-cell' + (isOther ? ' other-month' : '') + '" onclick="' + (isOther ? '' : 'showDay(' + d.getFullYear() + ',' + d.getMonth() + ',' + d.getDate() + ')') + '">' +
+      (!isOther && dayHours > 0 ? '<div class="cal-hours-badge">' + (Math.round(dayHours*10)/10) + 'h</div>' : '') +
+      '<div class="cal-daynum' + (isToday ? ' today' : '') + '">' + d.getDate() + '</div>' +
+      shown.map(it => '<div class="cal-item ' + colorClass(it) + '" title="' + esc(it.label) + ' \u2014 ' + esc(it.meta) + '">' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + '<span class="cal-item-label">' + esc(it.label) + '</span></div>').join('') +
+      (extra > 0 ? '<div class="cal-item more">+' + extra + ' more</div>' : '') +
+      '</div>';
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+  document.getElementById('cal-month-total').innerHTML = '<b>' + (Math.round(periodTotalHours*10)/10) + 'h</b> total ' + totalLabel;
+}
+
+function showDay(y, m, d) {
+  const dateObj = new Date(y, m, d);
+  const items = itemsForDate(dateObj);
+  const panel = document.getElementById('cal-daypanel');
+  if (!items.length) { panel.classList.remove('open'); return; }
+  const dayTotal = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+  const modeLabel = mode === 'recurring' ? 'Recurring visits' : mode === 'orders' ? 'Orders due' : 'Recurring + Orders';
+  document.getElementById('cal-daypanel-title').textContent =
+    dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) +
+    ' \u2014 ' + modeLabel + ' \u2014 ' + (Math.round(dayTotal*10)/10) + 'h total';
+  document.getElementById('cal-daypanel-body').innerHTML = items.map(it =>
+    '<div class="cal-daypanel-row"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) +
+    '<span class="cal-daypanel-meta">' + esc(it.meta) + '</span></div>'
+  ).join('');
+  panel.classList.add('open');
+}
+
+function renderAgenda() {
+  const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const today = new Date();
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    const isToday = d.toDateString() === today.toDateString();
+    const items = itemsForDate(d);
+    const total = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    html += '<div class="agenda-day">' +
+      '<div class="agenda-date' + (isToday ? ' today' : '') + '"><div class="num">' + d.getDate() + '</div><div class="dow">' + DOW[d.getDay()] + '</div></div>' +
+      '<div class="agenda-items">' +
+        (items.length ? items.map(it => '<div class="agenda-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
+          (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) +
+          '<span class="hrs">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+          : '<div class="agenda-empty">Nothing scheduled.</div>') +
+        (total > 0 ? '<div class="agenda-total">' + (Math.round(total*10)/10) + 'h total</div>' : '') +
+      '</div></div>';
+  }
+  document.getElementById('cal-agenda').innerHTML = html;
+  document.getElementById('cal-month-label').textContent = 'Week of ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+let selectedStripDate = null;
+function renderStrip() {
+  const DOW = ['S','M','T','W','T','F','S'];
+  if (!selectedStripDate) selectedStripDate = new Date(weekStart);
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    const items = itemsForDate(d);
+    const hrs = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    const isSelected = d.toDateString() === selectedStripDate.toDateString();
+    html += '<div class="strip-day' + (isSelected ? ' selected' : '') + '" onclick="selectStripDay(' + i + ')">' +
+      '<div class="dow">' + DOW[d.getDay()] + '</div><div class="num">' + d.getDate() + '</div>' +
+      '<div class="strip-dots">' + items.slice(0, 4).map(it => '<span class="cal-dot ' + colorClass(it) + '"></span>').join('') + '</div>' +
+      (hrs > 0 ? '<div class="strip-hrs">' + (Math.round(hrs*10)/10) + 'h</div>' : '') +
+    '</div>';
+  }
+  document.getElementById('cal-strip').innerHTML = html;
+  document.getElementById('cal-month-label').textContent = 'Week of ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  renderStripDetail();
+}
+function selectStripDay(i) {
+  selectedStripDate = new Date(weekStart);
+  selectedStripDate.setDate(selectedStripDate.getDate() + i);
+  renderStrip();
+}
+function renderStripDetail() {
+  const items = itemsForDate(selectedStripDate);
+  document.getElementById('cal-strip-detail').innerHTML =
+    '<div class="cal-strip-detail-card"><div class="cal-strip-detail-title">' +
+    selectedStripDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + '</div>' +
+    (items.length ? items.map(it => '<div class="strip-detail-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
+      (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) +
+      '<span style="font-size:11px;color:var(--gray)">' + esc(it.meta) + '</span><span class="hrs">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+      : '<p style="color:var(--gray);font-size:13px;font-style:italic">Nothing scheduled.</p>') +
+    '</div>';
+}
+
+function applyPeriod() {
+  const from = new Date(document.getElementById('period-from').value + 'T00:00:00');
+  const to = new Date(document.getElementById('period-to').value + 'T00:00:00');
+  if (isNaN(from) || isNaN(to) || to < from) { document.getElementById('cal-period-list').innerHTML = '<p style="color:var(--red);font-size:13px">Pick a valid range (To must be on or after From).</p>'; return; }
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAY_NAMES_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let html = '';
+  let periodTotal = 0;
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    const items = itemsForDate(cursor);
+    const dayTotal = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    periodTotal += dayTotal;
+    html += '<div class="cal-period-day"><div class="cal-period-day-head">' +
+      '<div class="cal-period-day-date">' + DAY_NAMES_LONG[cursor.getDay()] + ', ' + MONTH_NAMES[cursor.getMonth()] + ' ' + cursor.getDate() + '</div>' +
+      (dayTotal > 0 ? '<div class="cal-period-day-hours">' + (Math.round(dayTotal*10)/10) + 'h</div>' : '') +
+      '</div>' +
+      (items.length
+        ? items.map(it => '<div class="cal-period-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
+            (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') +
+            esc(it.label) + '<span class="cal-daypanel-meta">' + esc(it.meta) + '</span></div>').join('')
+        : '<div class="cal-period-day-empty">Nothing scheduled.</div>') +
+      '</div>';
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  document.getElementById('cal-period-list').innerHTML =
+    '<p style="font-size:13px;margin-bottom:12px"><b>' + (Math.round(periodTotal*10)/10) + 'h</b> total in this period.</p>' + html;
+}
+</script>
+
+</body>
+</html>
