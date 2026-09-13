@@ -842,7 +842,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.16/order-form-premium/order-form-premium.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.17/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.14.0/order-history/order-history.js"></script>
@@ -1958,14 +1958,6 @@ function parseOfficeHoursRange(s) {
 }
 
 /* Un reloj individual, componente compartido gsocd-shared/date-time-picker. */
-function officeClockFieldHtml(fieldId, label, h24, mm) {
-  const hhmm = String(h24).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-  return `<div class="field-group" style="max-width:170px">
-    <label>${label}</label>
-    ${GSDateTimePicker.timeHtml(fieldId, hhmm)}
-  </div>`;
-}
-
 /* Junta lo que hayan quedado los 2 relojes (inputs ocultos, formato
    24h) de vuelta a un solo texto "9:00 AM - 5:00 PM" -- OfficeHours
    se queda como una sola columna de texto en SharePoint, no hizo
@@ -1988,21 +1980,15 @@ function buildOfficeHoursString(fieldPrefix) {
    un solo edificio. cid: prefijo unico de este cliente, para que los
    ids de los checkboxes/relojes no choquen si hay 2 paneles abiertos. */
 function officeHoursFieldsHtml(cid, b) {
-  const dayCells = DAY_FIELDS.map(f =>
-    `<label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--gray)">${DAY_LABELS[f]}
-      <input type="checkbox" id="${cid}-ctl-${f}" ${b[f] ? 'checked' : ''}>
-    </label>`
-  ).join('');
+  const dayFields = DAY_FIELDS.map(f => ({ id: cid + '-ctl-' + f, letter: DAY_LABELS[f][0], checked: !!b[f] }));
   const parsed = parseOfficeHoursRange(b.officeHours);
   const open = parsed.open || { h: 9, m: 0 };
   const close = parsed.close || { h: 17, m: 0 };
-  return `<div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:24px;margin-bottom:14px">
-    <div style="display:flex;gap:10px;max-width:320px">${dayCells}</div>
-    <div style="display:flex;gap:14px">
-      ${officeClockFieldHtml(cid + '-ctl-officeOpen', 'Opens at', open.h, open.m)}
-      ${officeClockFieldHtml(cid + '-ctl-officeClose', 'Closes at', close.h, close.m)}
-    </div>
-  </div>`;
+  const openHHMM = String(open.h).padStart(2, '0') + ':' + String(open.m).padStart(2, '0');
+  const closeHHMM = String(close.h).padStart(2, '0') + ':' + String(close.m).padStart(2, '0');
+  return GSOrderFormPremium.officeHoursHtml(dayFields,
+    GSDateTimePicker.timeHtml(cid + '-ctl-officeOpen', openHHMM),
+    GSDateTimePicker.timeHtml(cid + '-ctl-officeClose', closeHHMM));
 }
 
 /* ===== Holidays -- confirmado con el usuario, "ahi deberian estar" --
