@@ -138,10 +138,13 @@ habían quedado en una versión vieja del componente sin el acordeón.
   una categoría del acordeón esté abierta a la vez (hoy se pueden abrir
   varias al mismo tiempo). Vive en el sandbox de la sesión del 10/09/2026,
   no en GitHub — si no aparece en el repo y no se sabe por qué, es por esto.
-- Bug sin resolver: banner "File downloaded... sharepoint.com" en Tech
-  (portal de empleados, celular) — el fondo o logo se descarga como archivo
-  en vez de solo mostrarse. No tocar hasta que el dueño lo pida
-  explícitamente.
+- **RESUELTO (confirmado por el dueño, 13/09/2026):** banner "File
+  downloaded... sharepoint.com" en Tech (portal de empleados, celular) —
+  el fondo o logo se descargaba como archivo en vez de solo mostrarse.
+  `site-image.js` de Tech ya sirve el buffer con `Content-Type` correcto
+  por extensión y sin `Content-Disposition: attachment`. No quedó
+  registrado en un commit con ese nombre específico — probablemente se
+  arregló junto con otro cambio a `site-image.js`/`lib/graph.js`.
 - 404 de `Logo.jpg` / `NavBackground.jpg` en Orders (`/api/site-image`) —
   pendiente de que el dueño confirme el nombre real de esos archivos en la
   raíz del drive de SharePoint (Onlineorders).
@@ -210,7 +213,7 @@ cambios en local sin subir que cambian por completo cual es la forma
 correcta de resolver algo.
 
 
-## En local, sin subir (12/09/2026): rediseño de "+ Add a Unit" en Admin
+## SUBIDO Y DESPLEGADO (confirmado 13/09/2026): rediseño de "+ Add a Unit" en Admin
 
 Cambios en `admin.html` (función `addUnitFormHtml`, `submitAddBatchUnitAdmin`,
 nuevas `addUnitOfficeNeedState`/`setAddUnitOfficeNeed`, más CSS
@@ -226,12 +229,16 @@ la tarjeta "Need anything from the office?" — versión MÁS DELGADA que la de
 Create Order (padding/fuente/íconos más chicos, aprobado así en el mini),
 con el toggle conectado de verdad.
 
-Vive en el sandbox de esta sesión, no en GitHub — si no aparece en el repo
-y no se sabe por qué, es por esto.
+Confirmado en el repo real (13/09/2026): `admin.html` en `main` ya tiene
+`addUnitFormHtml`/`submitAddBatchUnitAdmin` con el look `gs-ofp-*`.
 
-**Pendiente, mismo tema, sin resolver:** el modal equivalente en Orders
-(`ordersgsocd.com/customer.html`, `addunit-dialog`) NO se ha tocado — se
-analizó pero nunca se confirmó si el mismo rediseño aplica ahí también.
+**RESUELTO (confirmado 13/09/2026):** el mismo rediseño SÍ se portó a
+Orders — `ordersgsocd.com/customer.html` en `main` ya usa
+`addUnitFormHtml`/`toggleAddUnitForm`/`submitAddBatchUnit` con look
+`gs-ofp-*` (vía `GSOrderFormPremium.unitDetailPanelHtml`), sin rastro del
+modal viejo `addunit-dialog`. Ver el NOTES.md de `ordersgsocd.com` para el
+detalle completo (ahí el flujo de carga de buildings terminó siendo
+distinto: Building # es texto libre, no un select).
 
 ## Pendiente de CONFIRMAR (no urgente, revisar al cerrar el proyecto)
 
