@@ -33,69 +33,84 @@
   .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
   .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
 
-  .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
-  .order-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; background: rgba(201,168,76,0.12); }
-  .order-id { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 20px; }
+  /* order-card real (igual que Approvals) -- todo el calendario vive adentro */
+  .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .order-card-header { padding: 18px 24px; background: rgba(201,168,76,0.12); }
+  .order-id { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 18px; }
   .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
+  .cal-card-body { padding: 20px 24px 24px; }
 
-  .cal-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+  /* Toolbar en 2 filas -- fecha+vistas arriba, tipo+total+leyenda abajo,
+     separadas por una linea, en vez de todo amontonado en una sola fila */
+  .cal-toolbar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .cal-nav { display: flex; align-items: center; gap: 16px; }
+  .cal-nav button { background: none; border: none; cursor: pointer; color: var(--gray); font-size: 18px; padding: 4px; }
+  .cal-nav button:hover { color: var(--gold-dk); }
+  .cal-month { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; min-width: 160px; }
 
-  /* Segmentado real de gsocd-shared (divButtonsHtml/activateDivButton) */
-  .cal-toggle { display: flex; border: 1.5px solid var(--border); }
-  .cal-toggle button { flex: 1; padding: 12px; border: none; background: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; color: var(--gray); }
-  .cal-toggle button:not(:first-child) { border-left: 1.5px solid var(--border); }
-  .cal-toggle button.active { background: var(--gold); color: var(--black); }
+  .cal-view-toggle { display: inline-flex; gap: 2px; flex-wrap: wrap; }
+  .cal-view-toggle button {
+    padding: 8px 16px; border: none; background: none; font-family: 'Inter', sans-serif;
+    font-size: 11.5px; font-weight: 600; letter-spacing: .04em; cursor: pointer; color: var(--gray);
+    border-bottom: 2px solid transparent;
+  }
+  .cal-view-toggle button.active { color: var(--black); border-bottom-color: var(--gold); font-weight: 700; }
 
-  .cal-view-toggle { display: flex; border: 1.5px solid var(--border); }
-  .cal-view-toggle button { flex: 1; padding: 12px; border: none; background: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; color: var(--gray); }
-  .cal-view-toggle button:not(:first-child) { border-left: 1.5px solid var(--border); }
-  .cal-view-toggle button.active { background: var(--gold); color: var(--black); }
+  .cal-toolbar-bottom { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
 
-  .cal-nav { display: flex; align-items: center; gap: 14px; }
-  .cal-nav button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; color: var(--black); font-size: 14px; }
-  .cal-nav button:hover { border-color: var(--gold); }
-  .cal-month { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; min-width: 160px; text-align: center; }
-  .cal-month-total { font-size: 11.5px; color: var(--gray); font-weight: 600; }
-  .cal-month-total b { color: var(--black); }
+  .cal-toggle { display: inline-flex; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 3px; }
+  .cal-toggle button { padding: 6px 14px; border: none; background: none; border-radius: 16px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .03em; cursor: pointer; color: var(--gray); }
+  .cal-toggle button.active { background: var(--white); color: var(--black); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
-  .cal-period-bar { display: none; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; }
-  .cal-period-bar.open { display: flex; }
-  .cal-period-bar label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
-  .cal-period-bar input[type=date] { border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
-  .cal-period-list { display: none; }
-  .cal-period-list.open { display: block; }
-  .cal-period-day { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; margin-bottom: 8px; }
-  .cal-period-day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .cal-period-day-date { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; }
-  .cal-period-day-hours { font-size: 11px; font-weight: 700; color: var(--gold-dk); }
-  .cal-period-day-empty { font-size: 12px; color: var(--gray); font-style: italic; }
-  .cal-period-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; }
-
-  .cal-legend { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
-  .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--gray); }
-  .cal-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .cal-legend { display: flex; gap: 14px; font-size: 10.5px; color: var(--gray); flex-wrap: wrap; }
+  .cal-legend-item { display: flex; align-items: center; gap: 5px; }
+  .cal-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; opacity: .85; }
   .cal-dot.janitorial { background: var(--green); }
   .cal-dot.renovations { background: var(--blue); }
   .cal-dot.exteriors { background: var(--red); }
   .cal-dot.recurring-color { background: var(--orange); }
 
+  .cal-month-total { font-size: 12px; color: var(--gray); }
+
+  /* Horas llamativas -- mismo tratamiento en TODAS las vistas */
+  .hrs-pill-lg {
+    display: inline-block; font-size: 13px; font-weight: 800; color: var(--white);
+    background: linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%); padding: 4px 12px; border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(140,111,42,.3);
+  }
+  .hrs-pill-sm {
+    display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 800; color: var(--gold-dk);
+    background: rgba(201,168,76,.15); padding: 2px 8px; border-radius: 9px; margin-left: auto; flex-shrink: 0;
+  }
+
+  /* ===== Month/Week grid ===== */
+  .cal-grid-scroll, .week-scroll { overflow-x: visible; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--border); gap: 2px; }
-  .cal-dayname { background: var(--bg); padding: 12px 0; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); }
-  .cal-cell { background: var(--white); min-height: 150px; padding: 10px; position: relative; }
+  .cal-dayname { background: var(--bg); padding: 12px 0; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); }
+  .cal-cell { background: var(--white); min-height: 130px; padding: 10px; position: relative; cursor: pointer; }
   .cal-cell.other-month { background: #FBFAF8; }
   .cal-cell.other-month .cal-daynum { color: #C9C5BA; }
-  .cal-daynum { font-size: 13px; color: var(--gray); font-weight: 600; margin-bottom: 8px; }
-  .cal-daynum.today { color: var(--white); background: var(--gold); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  .cal-daynum { font-size: 12px; color: var(--gray); font-weight: 600; margin-bottom: 8px; }
+  .cal-daynum.today { color: var(--white); background: var(--gold); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 
-  .cal-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 4px 7px; border-radius: 4px; margin-bottom: 4px; color: var(--white); cursor: pointer; }
+  .cal-item { position: relative; display: flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 6px; border-radius: 3px; margin-bottom: 3px; color: var(--white); cursor: pointer; }
   .cal-item.janitorial { background: var(--green); }
   .cal-item.renovations { background: var(--blue); }
   .cal-item.exteriors { background: var(--red); }
   .cal-item.recurring-color { background: var(--orange); }
   .cal-item.more { background: none; color: var(--gray); font-weight: 600; cursor: pointer; }
-  .cal-item-icon { flex-shrink: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--gold-dk); color: var(--gold-dk); font-size: 8px; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .cal-item-icon {
+    flex-shrink: 0; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--white); border: 1.5px solid var(--gold-dk); color: var(--gold-dk);
+    font-size: 8px; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
   .cal-item-label { display: block; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cal-hours-badge { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 700; color: var(--gold-dk); background: rgba(201,168,76,.14); padding: 2px 7px; border-radius: 10px; }
+  .cal-hours-badge {
+    position: absolute; bottom: 8px; right: 8px; font-size: 13px; font-weight: 800; color: var(--white);
+    background: linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%); padding: 3px 9px; border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(140,111,42,.35);
+  }
 
   .cal-daypanel { margin-top: 20px; border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 18px 20px; display: none; }
   .cal-daypanel.open { display: block; }
@@ -105,40 +120,115 @@
   .cal-daypanel-row .cal-dot { width: 8px; height: 8px; }
   .cal-daypanel-meta { color: var(--gray); font-size: 11.5px; margin-left: auto; }
 
-  .cal-agenda { border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 8px 20px; }
-  .agenda-day { display: flex; gap: 18px; align-items: flex-start; }
-  .agenda-date { flex-shrink: 0; width: 56px; text-align: center; padding-top: 12px; }
-  .agenda-date .num { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; line-height: 1; }
-  .agenda-date .dow { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray); font-weight: 700; }
-  .agenda-date.today .num { color: var(--gold-dk); }
-  .agenda-items { flex: 1; padding: 12px 0 16px; border-bottom: 1px solid var(--border); }
-  .agenda-day:last-child .agenda-items { border-bottom: none; }
-  .agenda-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
-  .agenda-item .hrs { margin-left: auto; font-size: 11px; color: var(--gray); font-weight: 600; }
-  .agenda-empty { font-size: 12.5px; color: var(--gray); font-style: italic; padding: 12px 0; }
-  .agenda-total { font-size: 11px; font-weight: 700; color: var(--gold-dk); margin-top: 4px; }
+  /* ===== Week -- columnas, una por dia (no renglones apilados) ===== */
+  .week-columns { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .week-col { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .week-col-head { background: var(--bg); padding: 10px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+  .week-col.today .week-col-head { background: rgba(201,168,76,.15); }
+  .week-col-head .dow { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700; }
+  .week-col-head .num { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .week-col-body { padding: 10px 8px; min-height: 160px; cursor: pointer; }
+  .week-item { font-size: 10.5px; padding: 4px 6px; border-radius: 3px; margin-bottom: 5px; color: var(--white); display: flex; align-items: center; gap: 4px; }
+  .week-item.janitorial { background: var(--green); } .week-item.renovations { background: var(--blue); }
+  .week-item.exteriors { background: var(--red); } .week-item.recurring-color { background: var(--orange); }
+  .week-col-empty { font-size: 10.5px; color: #C9C5BA; font-style: italic; text-align: center; padding-top: 8px; }
 
-  .strip { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
-  .strip-day { flex-shrink: 0; width: 74px; border-radius: 8px; border: 1.5px solid var(--border); padding: 12px 8px; text-align: center; cursor: pointer; background: var(--white); transition: all .15s; }
+  /* ===== Agenda -- mini-calendario a la izquierda + detalle dia por dia a la derecha ===== */
+  .agenda-layout { display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start; }
+  .mini-cal { border: 1px solid var(--border); border-radius: 6px; padding: 18px; background: var(--white); }
+  .mini-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .mini-cal-head button { background: none; border: none; cursor: pointer; color: var(--gray); font-size: 14px; }
+  .mini-cal-head .m { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; }
+  .mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .mini-cal-dow { text-align: center; font-size: 9px; color: var(--gray); font-weight: 700; padding-bottom: 6px; }
+  .mini-cal-day { text-align: center; font-size: 11.5px; padding: 6px 0; border-radius: 4px; cursor: pointer; position: relative; color: var(--black); }
+  .mini-cal-day.other { color: #D8D4C8; }
+  .mini-cal-day.selected { background: var(--gold); color: var(--black); font-weight: 700; }
+  .mini-cal-day.today:not(.selected) { border: 1px solid var(--gold-dk); }
+  .mini-cal-day .has-dot { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 3px; height: 3px; border-radius: 50%; background: var(--orange); }
+
+  .agenda-right-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .agenda-right-sub { font-size: 12px; color: var(--gray); margin-bottom: 20px; }
+  .agenda-day-block { display: flex; gap: 20px; padding: 16px 0; }
+  .agenda-date { flex-shrink: 0; width: 60px; text-align: center; }
+  .agenda-date .dow { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700; }
+  .agenda-date .num { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; line-height: 1.1; }
+  .agenda-day-block.today .agenda-date .num { color: var(--gold-dk); }
+  .agenda-items { flex: 1; }
+  .agenda-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13.5px; }
+  .agenda-empty { font-size: 12.5px; color: #C9C5BA; font-style: italic; padding: 6px 0; }
+
+  /* ===== Strip ===== */
+  .strip-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+  .strip-daterange { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .strip-date-field { width: 140px; }
+  .strip-daterange label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
+  .compare-btn { padding: 7px 16px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); cursor: pointer; color: var(--gray); }
+  .compare-btn.active { background: var(--gold); color: var(--black); border-color: var(--gold-dk); }
+  .strip-carousel-row { display: flex; align-items: center; gap: 10px; }
+  .strip-carousel-row button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; color: var(--black); font-size: 14px; flex-shrink: 0; }
+  .strip { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; flex: 1; }
+  .strip-day { flex-shrink: 0; width: 78px; border-radius: 8px; border: 1.5px solid var(--border); padding: 12px 8px; text-align: center; cursor: pointer; background: var(--bg); transition: all .15s; position: relative; }
   .strip-day:hover { border-color: var(--gold); }
-  .strip-day.selected { border-color: var(--gold-dk); background: rgba(201,168,76,.1); }
+  .strip-day.selected { border-color: var(--gold-dk); background: rgba(201,168,76,.12); }
   .strip-day .dow { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700; }
   .strip-day .num { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; margin: 3px 0; }
   .strip-dots { display: flex; justify-content: center; gap: 3px; }
-  .strip-hrs { font-size: 10px; color: var(--gold-dk); font-weight: 700; margin-top: 3px; }
-  .cal-strip-detail-card { border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 18px 22px; }
-  .cal-strip-detail-title { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; margin-bottom: 12px; }
-  .strip-detail-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-  .strip-detail-item:last-child { border-bottom: none; }
-  .strip-detail-item .hrs { margin-left: auto; font-size: 12px; color: var(--gray); font-weight: 600; }
+  .compare-badge { position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-dk); color: var(--white); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .day-card { border: 1px solid var(--border); border-radius: 4px; background: var(--white); padding: 18px 22px; }
+  .day-card-title { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; margin-bottom: 8px; }
+
+  /* ===== Period ===== */
+  .period-bar { display: none; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .period-bar.open { display: flex; }
+  .period-bar label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
+  .period-apply-btn { padding: 8px 18px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; background: linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%); color: #171310; font-family: 'Inter', sans-serif; flex-shrink: 0; }
+  .period-day { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; }
+  .period-day:last-child { border-bottom: none; }
+  .period-date { flex-shrink: 0; width: 140px; font-size: 12.5px; font-weight: 600; color: var(--black); }
+  .period-items { flex: 1; }
+  .period-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; }
+  .period-empty { font-size: 12.5px; color: #C9C5BA; font-style: italic; }
 
   .empty-note { font-size: 13px; color: var(--gray); }
+
+  /* ===== MOBILE (768px) -- mismo patron real que ya usa toda la app:
+     layouts partidos se apilan, grids de muchas columnas se dejan con
+     scroll horizontal (igual que la tabla del Scheduler en Recurring),
+     barras de botones se envuelven en vez de recortarse. ===== */
+  @media (max-width: 768px) {
+    body { overflow-x: hidden; }
+    .wrap { padding: 24px 16px; }
+    .subtabs { overflow-x: auto; flex-wrap: nowrap; }
+    .subtab { flex-shrink: 0; padding: 12px 14px; }
+
+    .cal-toolbar-top, .cal-toolbar-bottom { flex-wrap: wrap; gap: 12px; }
+    .cal-view-toggle, .cal-toggle { overflow-x: auto; max-width: 100%; }
+    .cal-nav { width: 100%; justify-content: space-between; }
+    .cal-legend { width: 100%; order: 3; }
+
+    .cal-grid-scroll, .week-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px 4px; }
+    .cal-grid { min-width: 640px; }
+    .week-columns { min-width: 640px; }
+
+    .agenda-layout { grid-template-columns: 1fr; gap: 20px; }
+    .mini-cal { max-width: 100%; }
+
+    .period-bar { flex-wrap: wrap; }
+    .period-bar > div { max-width: 45%; }
+
+    .strip-daterange { width: 100%; }
+    .strip-date-field { flex: 1; min-width: 110px; width: auto; }
+
+    #strip-detail > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+  }
 </style>
 </head>
 <body>
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/admin-tab-counts/admin-tab-counts.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/date-time-picker/date-time-picker.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -165,55 +255,101 @@
     <a class="subtab active" href="calendar.html">Calendar</a>
   </div>
 
-  <div class="cal-toolbar">
-    <div class="cal-toggle">
-      <button id="toggle-recurring" onclick="setMode('recurring')">Recurring</button>
-      <button id="toggle-orders" onclick="setMode('orders')">Orders</button>
-      <button id="toggle-both" class="active" onclick="setMode('both')">Both</button>
+  <div class="order-card">
+    <div class="order-card-header">
+      <div class="order-id">Recurring Services &amp; Orders Calendar</div>
+      <div class="order-meta">Click a day to see everything scheduled -- Recurring visits and confirmed Orders together.</div>
     </div>
-    <div class="cal-view-toggle">
-      <button id="view-month" class="active" onclick="setView('month')">Month</button>
-      <button id="view-week" onclick="setView('week')">Week</button>
-      <button id="view-agenda" onclick="setView('agenda')">Agenda</button>
-      <button id="view-strip" onclick="setView('strip')">Strip</button>
-      <button id="view-period" onclick="setView('period')">Period</button>
-    </div>
-    <div class="cal-nav" id="cal-nav-arrows">
-      <button onclick="changeStep(-1)">&#8249;</button>
-      <div class="cal-month" id="cal-month-label"></div>
-      <button onclick="changeStep(1)">&#8250;</button>
-    </div>
-    <div class="cal-month-total" id="cal-month-total"></div>
-  </div>
+    <div class="cal-card-body">
 
-  <div class="cal-period-bar" id="cal-period-bar">
-    <label>From</label><input type="date" id="period-from">
-    <label>To</label><input type="date" id="period-to">
-    <button style="padding:8px 18px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;background:linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%);color:#171310;font-family:'Inter',sans-serif" onclick="applyPeriod()">Apply</button>
-  </div>
+      <div class="cal-toolbar-top">
+        <div class="cal-nav" id="cal-nav-arrows">
+          <button onclick="changeStep(-1)">&#8249;</button>
+          <div class="cal-month" id="cal-month-label"></div>
+          <button onclick="changeStep(1)">&#8250;</button>
+        </div>
+        <div class="cal-view-toggle">
+          <button id="view-month" class="active" onclick="setView('month')">Month</button>
+          <button id="view-week" onclick="setView('week')">Week</button>
+          <button id="view-agenda" onclick="setView('agenda')">Agenda</button>
+          <button id="view-strip" onclick="setView('strip')">Strip</button>
+          <button id="view-period" onclick="setView('period')">Period</button>
+        </div>
+      </div>
 
-  <div class="cal-legend">
-    <div class="cal-legend-item"><span class="cal-dot recurring-color"></span> Recurring</div>
-    <div class="cal-legend-item"><span class="cal-dot janitorial"></span> Janitorial (order)</div>
-    <div class="cal-legend-item"><span class="cal-dot renovations"></span> Renovations (order)</div>
-    <div class="cal-legend-item"><span class="cal-dot exteriors"></span> Exteriors (order)</div>
-    <div class="cal-legend-item" id="cal-legend-glow"><span class="cal-item-icon">&#8635;</span> Recurring (icon)</div>
-  </div>
+      <div class="cal-toolbar-bottom">
+        <div class="cal-toggle">
+          <button id="toggle-recurring" onclick="setMode('recurring')">Recurring</button>
+          <button id="toggle-orders" onclick="setMode('orders')">Orders</button>
+          <button id="toggle-both" class="active" onclick="setMode('both')">Both</button>
+        </div>
+        <div class="cal-month-total" id="cal-month-total"></div>
+        <div class="cal-legend">
+          <div class="cal-legend-item"><span class="cal-dot recurring-color"></span>Recurring</div>
+          <div class="cal-legend-item"><span class="cal-dot janitorial"></span>Janitorial</div>
+          <div class="cal-legend-item"><span class="cal-dot renovations"></span>Renovations</div>
+          <div class="cal-legend-item"><span class="cal-dot exteriors"></span>Exteriors</div>
+          <div class="cal-legend-item" id="cal-legend-glow"><span class="cal-item-icon">&#8635;</span>Recurring (icon)</div>
+        </div>
+      </div>
 
-  <div id="cal-loading" class="empty-note">Loading calendar…</div>
+      <div id="cal-loading" class="empty-note">Loading calendar…</div>
 
-  <div id="cal-content" style="display:none">
-    <div class="cal-grid" id="cal-grid"></div>
-    <div class="cal-agenda" id="cal-agenda" style="display:none"></div>
-    <div id="cal-strip-wrap" style="display:none">
-      <div class="strip" id="cal-strip"></div>
-      <div id="cal-strip-detail"></div>
-    </div>
-    <div class="cal-period-list" id="cal-period-list"></div>
+      <div id="cal-content" style="display:none">
 
-    <div class="cal-daypanel" id="cal-daypanel">
-      <h3 id="cal-daypanel-title"></h3>
-      <div id="cal-daypanel-body"></div>
+        <div id="month-view">
+          <div class="cal-grid-scroll"><div class="cal-grid" id="cal-grid"></div></div>
+        </div>
+
+        <div id="week-view" style="display:none">
+          <div class="week-scroll"><div id="week-list"></div></div>
+        </div>
+
+        <div id="agenda-view" style="display:none">
+          <div class="agenda-layout">
+            <div class="mini-cal">
+              <div class="mini-cal-head"><button onclick="miniMonth(-1)">&#8249;</button><span class="m" id="mini-cal-label"></span><button onclick="miniMonth(1)">&#8250;</button></div>
+              <div class="mini-cal-grid" id="mini-cal-grid"></div>
+            </div>
+            <div>
+              <div class="agenda-right-title" id="agenda-right-title"></div>
+              <div class="agenda-right-sub">Recurring + Orders for this day</div>
+              <div id="agenda-day-detail"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="strip-view" style="display:none">
+          <div class="strip-toolbar">
+            <div class="strip-daterange">
+              <label>From</label><div id="strip-from-wrap" class="strip-date-field"></div>
+              <label>To</label><div id="strip-to-wrap" class="strip-date-field"></div>
+            </div>
+            <button id="compare-btn" class="compare-btn" onclick="toggleCompareMode()">Compare days</button>
+          </div>
+          <div class="strip-carousel-row">
+            <button id="strip-prev" onclick="shiftStripWindow(-1)">&#8249;</button>
+            <div class="strip" id="strip-days"></div>
+            <button id="strip-next" onclick="shiftStripWindow(1)">&#8250;</button>
+          </div>
+          <div id="strip-detail"></div>
+        </div>
+
+        <div id="period-view" style="display:none">
+          <div class="period-bar open">
+            <label>From</label><div id="period-from-wrap" style="width:150px"></div>
+            <label>To</label><div id="period-to-wrap" style="width:150px"></div>
+            <button class="period-apply-btn" onclick="applyPeriod()">Apply</button>
+          </div>
+          <div id="period-list"></div>
+        </div>
+
+        <div class="cal-daypanel" id="cal-daypanel">
+          <h3 id="cal-daypanel-title"></h3>
+          <div id="cal-daypanel-body"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -279,13 +415,14 @@ async function api(path, opts = {}) {
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+function isoDate(d) { return d.toISOString().slice(0, 10); }
 
 /* ============================================================
    DATOS REALES -- Recurring viene de list-recurring-services
    (mismo endpoint que recurring.html), Orders de admin-get-orders,
-   filtradas a isFullyScheduled (Supervisor + ServiceWindow +
-   DispatchDate, MISMO criterio real que ya usa admin.html para decidir
-   si una orden ya se agendo de verdad) y no archivadas.
+   filtradas al MISMO criterio real que usa admin.html (activeOf) para
+   decidir que es Active: Status en ['Assigned','Updated'], o una
+   'Received' que ya cumple isFullyScheduled -- y no archivadas.
 
    Horas:
    - Recurring: TotalHours del contrato es SEMANAL (igual que en todo
@@ -296,8 +433,8 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s == 
      ServiceTimes. Si algun servicio no tiene tiempo asignado todavia,
      esa orden no suma horas (missing>0) en vez de fingir un numero.
 ============================================================ */
-let recurringCache = [];   // { clientId, clientName, division, days:[0..6], time, hoursPerVisit, frequency, anchorDate }
-let ordersCache = [];      // { label, division, dispatchDate:Date, hours }
+let recurringCache = [];
+let ordersCache = [];
 let clientsCache = [];
 
 /* Copiado exacto de admin.html (activeOf) -- el estatus real guardado
@@ -326,6 +463,7 @@ function isFullyScheduled(o) {
 }
 
 async function loadCalendarData() {
+  document.querySelector('.subtab.active')?.scrollIntoView({ inline: 'end', block: 'nearest' });
   try {
     const [clientsRes, recurringRes, ordersRes] = await Promise.all([
       api('/admin-get-clients', { body: {} }),
@@ -351,8 +489,7 @@ async function loadCalendarData() {
     const scheduled = (ordersRes.orders || []).filter(o =>
       (ACTIVE_STATUSES.includes(o.Status) || (NEW_ORDER_STATUSES.includes(o.Status) && isFullyScheduled(o)))
       && !o.Archived && o.DispatchDate);
-    // Tiempo real por orden (suma por servicio, mismo endpoint que Routing) --
-    // se pide UNA vez para todas las visibles, se guarda en cache por id.
+
     let estimates = {};
     if (scheduled.length) {
       try {
@@ -383,11 +520,10 @@ async function loadCalendarData() {
 
 const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-/* Generaliza isServiceDueToday (recurring.html) a CUALQUIER fecha, no
-   solo hoy -- necesario para pintar dias futuros/pasados en el
-   calendario. Misma formula real: Weekly = cualquier dia marcado;
-   Biweekly/Monthly = mismo dia marcado + numero de semanas desde
-   AnchorDate multiplo de 2 o 4. Sin AnchorDate, se trata como semanal. */
+/* Unica funcion real que decide "hoy le toca visita" -- generalizada a
+   CUALQUIER fecha (no solo hoy), la misma formula de isServiceDueToday
+   en recurring.html: Weekly = cualquier dia marcado; Biweekly/Monthly =
+   mismo dia + numero de semanas desde AnchorDate multiplo de 2 o 4. */
 function isServiceDueOnDate(s, dateObj) {
   const dayMatch = s.days.includes(DAY_ABBR[dateObj.getDay()]);
   if (!dayMatch) return false;
@@ -446,41 +582,70 @@ function setMode(m) {
   document.getElementById('cal-legend-glow').style.display = m === 'both' ? 'flex' : 'none';
   document.getElementById('cal-daypanel').classList.remove('open');
   if (calView === 'period') applyPeriod();
-  else if (calView === 'agenda') renderAgenda();
+  else if (calView === 'agenda') renderAgendaDetail();
   else if (calView === 'strip') renderStrip();
+  else if (calView === 'week') renderWeek();
   else render();
 }
 
+let periodPickersBuilt = false;
+let weekJumpBuilt = false;
+let stripJumpBuilt = false;
+
 function setView(v) {
   calView = v;
-  document.getElementById('view-month').classList.toggle('active', v === 'month');
-  document.getElementById('view-week').classList.toggle('active', v === 'week');
-  document.getElementById('view-agenda').classList.toggle('active', v === 'agenda');
-  document.getElementById('view-strip').classList.toggle('active', v === 'strip');
-  document.getElementById('view-period').classList.toggle('active', v === 'period');
-  document.getElementById('cal-nav-arrows').style.display = v === 'period' ? 'none' : 'flex';
-  document.getElementById('cal-period-bar').classList.toggle('open', v === 'period');
-  document.getElementById('cal-grid').style.display = (v === 'month' || v === 'week') ? 'grid' : 'none';
-  document.getElementById('cal-agenda').style.display = v === 'agenda' ? 'block' : 'none';
-  document.getElementById('cal-strip-wrap').style.display = v === 'strip' ? 'block' : 'none';
+  ['month','week','agenda','strip','period'].forEach(x => document.getElementById('view-' + x).classList.toggle('active', x === v));
+  document.getElementById('cal-nav-arrows').style.display = (v === 'month' || v === 'week') ? 'flex' : 'none';
+  const weekJumpEl = document.getElementById('week-jump-wrap');
+  if (weekJumpEl) weekJumpEl.style.display = v === 'week' ? 'block' : 'none';
+  document.getElementById('month-view').style.display = v === 'month' ? 'block' : 'none';
+  document.getElementById('week-view').style.display = v === 'week' ? 'block' : 'none';
+  document.getElementById('agenda-view').style.display = v === 'agenda' ? 'block' : 'none';
+  document.getElementById('strip-view').style.display = v === 'strip' ? 'block' : 'none';
+  document.getElementById('period-view').style.display = v === 'period' ? 'block' : 'none';
   document.getElementById('cal-daypanel').classList.remove('open');
   document.getElementById('cal-legend-glow').style.display = mode === 'both' ? 'flex' : 'none';
-  if (v === 'period') {
-    const from = document.getElementById('period-from');
-    const to = document.getElementById('period-to');
-    if (!from.value) from.value = isoDate(weekStart);
-    if (!to.value) { const end = new Date(weekStart); end.setDate(end.getDate() + 6); to.value = isoDate(end); }
-    applyPeriod();
-  } else if (v === 'agenda') {
-    renderAgenda();
-  } else if (v === 'strip') {
-    renderStrip();
-  } else {
-    render();
-  }
-}
 
-function isoDate(d) { return d.toISOString().slice(0, 10); }
+  if (v === 'week') {
+    if (!weekJumpBuilt) {
+      try {
+        document.getElementById('cal-nav-arrows').insertAdjacentHTML('beforeend', '<div id="week-jump-wrap" style="width:150px;margin-left:10px"></div>');
+        document.getElementById('week-jump-wrap').innerHTML = GSDateTimePicker.dateHtml('week-jump', null, 'Jump to date\u2026');
+        document.addEventListener('gs-date-picked', (e) => {
+          if (e.detail.fieldId !== 'week-jump') return;
+          const picked = new Date(e.detail.value + 'T00:00:00');
+          weekStart = new Date(picked); weekStart.setDate(picked.getDate() - picked.getDay());
+          renderWeek();
+        });
+        weekJumpBuilt = true;
+      } catch (e) { console.error('Could not build the week jump-to-date picker:', e.message); }
+    }
+    renderWeek();
+  }
+  else if (v === 'agenda') { renderMiniCal(); renderAgendaDetail(); }
+  else if (v === 'strip') {
+    try {
+      if (!stripJumpBuilt) buildStripJumpPicker();
+      buildStripRange();
+    } catch (e) { console.error('Could not build the strip date range picker:', e.message); }
+    renderStrip();
+  }
+  else if (v === 'period') {
+    try {
+      if (!periodPickersBuilt) {
+        document.getElementById('period-from-wrap').innerHTML = GSDateTimePicker.dateHtml('period-from', isoDate(weekStart), 'From date');
+        const endW = new Date(weekStart); endW.setDate(endW.getDate() + 6);
+        document.getElementById('period-to-wrap').innerHTML = GSDateTimePicker.dateHtml('period-to', isoDate(endW), 'To date');
+        periodPickersBuilt = true;
+      }
+      applyPeriod();
+    } catch (e) {
+      console.error('Could not build the period date pickers:', e.message);
+      document.getElementById('period-list').innerHTML = '<p style="color:var(--red);font-size:13px">Could not load the date pickers -- try refreshing the page.</p>';
+    }
+  }
+  else render();
+}
 
 function changeStep(delta) {
   if (calView === 'month') {
@@ -491,47 +656,31 @@ function changeStep(delta) {
     weekStart.setDate(weekStart.getDate() + delta * 7);
   }
   document.getElementById('cal-daypanel').classList.remove('open');
-  if (calView === 'agenda') renderAgenda();
-  else if (calView === 'strip') renderStrip();
+  if (calView === 'week') renderWeek();
   else render();
 }
 
+/* ===== Month ===== */
 function render() {
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const today = new Date();
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-  let gridStart, cellCount, isOtherFn, totalLabel;
-  if (calView === 'week') {
-    gridStart = new Date(weekStart);
-    cellCount = 7;
-    isOtherFn = () => false;
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
-    document.getElementById('cal-month-label').textContent =
-      MONTH_NAMES[weekStart.getMonth()].slice(0,3) + ' ' + weekStart.getDate() + ' \u2013 ' +
-      MONTH_NAMES[weekEnd.getMonth()].slice(0,3) + ' ' + weekEnd.getDate();
-    totalLabel = 'this week';
-  } else {
-    document.getElementById('cal-month-label').textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
-    const first = new Date(viewYear, viewMonth, 1);
-    gridStart = new Date(viewYear, viewMonth, 1 - first.getDay());
-    cellCount = 42;
-    isOtherFn = (d) => d.getMonth() !== viewMonth;
-    totalLabel = 'this month';
-  }
+  document.getElementById('cal-month-label').textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+  const first = new Date(viewYear, viewMonth, 1);
+  const gridStart = new Date(viewYear, viewMonth, 1 - first.getDay());
 
   let html = dayNames.map(d => '<div class="cal-dayname">' + d + '</div>').join('');
-  let periodTotalHours = 0;
+  let monthTotal = 0;
 
-  for (let i = 0; i < cellCount; i++) {
+  for (let i = 0; i < 42; i++) {
     const d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
-    const isOther = isOtherFn(d);
+    const isOther = d.getMonth() !== viewMonth;
     const isToday = d.toDateString() === today.toDateString();
-    const items = calView === 'week' ? itemsForDate(d) : itemsForDate(d, viewMonth);
+    const items = itemsForDate(d, viewMonth);
     const shown = items.slice(0, 3);
     const extra = items.length - shown.length;
     const dayHours = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
-    if (!isOther) periodTotalHours += dayHours;
+    if (!isOther) monthTotal += dayHours;
 
     html += '<div class="cal-cell' + (isOther ? ' other-month' : '') + '" onclick="' + (isOther ? '' : 'showDay(' + d.getFullYear() + ',' + d.getMonth() + ',' + d.getDate() + ')') + '">' +
       (!isOther && dayHours > 0 ? '<div class="cal-hours-badge">' + (Math.round(dayHours*10)/10) + 'h</div>' : '') +
@@ -541,7 +690,7 @@ function render() {
       '</div>';
   }
   document.getElementById('cal-grid').innerHTML = html;
-  document.getElementById('cal-month-total').innerHTML = '<b>' + (Math.round(periodTotalHours*10)/10) + 'h</b> total ' + totalLabel;
+  document.getElementById('cal-month-total').innerHTML = '<span class="hrs-pill-lg" style="font-size:12px;padding:4px 12px">' + (Math.round(monthTotal*10)/10) + 'h</span> <span style="color:var(--gray);font-size:11.5px">this month</span>';
 }
 
 function showDay(y, m, d) {
@@ -561,93 +710,218 @@ function showDay(y, m, d) {
   panel.classList.add('open');
 }
 
-function renderAgenda() {
-  const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+/* ===== Week -- columnas ===== */
+function renderWeek() {
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const today = new Date();
-  let html = '';
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  document.getElementById('cal-month-label').textContent =
+    MN[weekStart.getMonth()] + ' ' + weekStart.getDate() + ' \u2013 ' + MN[weekEnd.getMonth()] + ' ' + weekEnd.getDate();
+  const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  let html = '<div class="week-columns">';
+  let weekTotal = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart); d.setDate(d.getDate() + i);
     const isToday = d.toDateString() === today.toDateString();
     const items = itemsForDate(d);
     const total = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
-    html += '<div class="agenda-day">' +
-      '<div class="agenda-date' + (isToday ? ' today' : '') + '"><div class="num">' + d.getDate() + '</div><div class="dow">' + DOW[d.getDay()] + '</div></div>' +
-      '<div class="agenda-items">' +
-        (items.length ? items.map(it => '<div class="agenda-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
-          (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) +
-          '<span class="hrs">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
-          : '<div class="agenda-empty">Nothing scheduled.</div>') +
-        (total > 0 ? '<div class="agenda-total">' + (Math.round(total*10)/10) + 'h total</div>' : '') +
+    weekTotal += total;
+    html += '<div class="week-col' + (isToday?' today':'') + '" onclick="showDay(' + d.getFullYear() + ',' + d.getMonth() + ',' + d.getDate() + ')">' +
+      '<div class="week-col-head"><div class="dow">' + DOW[i] + '</div><div class="num">' + d.getDate() + '</div></div>' +
+      '<div class="week-col-body">' +
+      (items.length ? items.map(it => '<div class="week-item ' + colorClass(it) + '">' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + '<span class="cal-item-label">' + esc(it.label) + '</span><span class="hrs-pill-sm" style="background:rgba(255,255,255,.25);color:var(--white)">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+        : '<div class="week-col-empty">\u2014</div>') +
+      (total > 0 ? '<div style="text-align:center;margin-top:6px"><span class="hrs-pill-lg" style="font-size:11px;padding:3px 9px">' + (Math.round(total*10)/10) + 'h</span></div>' : '') +
       '</div></div>';
   }
-  document.getElementById('cal-agenda').innerHTML = html;
-  document.getElementById('cal-month-label').textContent = 'Week of ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  html += '</div>';
+  document.getElementById('week-list').innerHTML = html;
+  document.getElementById('cal-month-total').innerHTML = '<span class="hrs-pill-lg" style="font-size:12px;padding:4px 12px">' + (Math.round(weekTotal*10)/10) + 'h</span> <span style="color:var(--gray);font-size:11.5px">this week</span>';
 }
 
-let selectedStripDate = null;
-function renderStrip() {
-  const DOW = ['S','M','T','W','T','F','S'];
-  if (!selectedStripDate) selectedStripDate = new Date(weekStart);
-  let html = '';
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart); d.setDate(d.getDate() + i);
-    const items = itemsForDate(d);
-    const hrs = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
-    const isSelected = d.toDateString() === selectedStripDate.toDateString();
-    html += '<div class="strip-day' + (isSelected ? ' selected' : '') + '" onclick="selectStripDay(' + i + ')">' +
-      '<div class="dow">' + DOW[d.getDay()] + '</div><div class="num">' + d.getDate() + '</div>' +
-      '<div class="strip-dots">' + items.slice(0, 4).map(it => '<span class="cal-dot ' + colorClass(it) + '"></span>').join('') + '</div>' +
-      (hrs > 0 ? '<div class="strip-hrs">' + (Math.round(hrs*10)/10) + 'h</div>' : '') +
-    '</div>';
-  }
-  document.getElementById('cal-strip').innerHTML = html;
-  document.getElementById('cal-month-label').textContent = 'Week of ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  renderStripDetail();
+/* ===== Agenda -- mini-calendario + detalle dia por dia ===== */
+let miniViewYear, miniViewMonth, selectedAgendaDay;
+(() => { const n = new Date(); miniViewYear = n.getFullYear(); miniViewMonth = n.getMonth(); selectedAgendaDay = n.getDate(); })();
+
+function miniMonth(delta) {
+  miniViewMonth += delta;
+  if (miniViewMonth < 0) { miniViewMonth = 11; miniViewYear--; }
+  if (miniViewMonth > 11) { miniViewMonth = 0; miniViewYear++; }
+  selectedAgendaDay = 1; // el detalle de la derecha ya no se queda mostrando un dia de otro mes
+  renderMiniCal();
+  renderAgendaDetail();
 }
-function selectStripDay(i) {
-  selectedStripDate = new Date(weekStart);
-  selectedStripDate.setDate(selectedStripDate.getDate() + i);
+
+function renderMiniCal() {
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const today = new Date();
+  document.getElementById('mini-cal-label').textContent = MN[miniViewMonth] + ' ' + miniViewYear;
+  const first = new Date(miniViewYear, miniViewMonth, 1);
+  const gridStart = new Date(miniViewYear, miniViewMonth, 1 - first.getDay());
+  const DOW = ['S','M','T','W','T','F','S'];
+  let html = DOW.map(d => '<div class="mini-cal-dow">' + d + '</div>').join('');
+  for (let i = 0; i < 35; i++) {
+    const d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+    const isOther = d.getMonth() !== miniViewMonth;
+    const isToday = d.toDateString() === today.toDateString();
+    const isSel = !isOther && d.getDate() === selectedAgendaDay;
+    const hasItems = !isOther && itemsForDate(d).length > 0;
+    html += '<div class="mini-cal-day' + (isOther?' other':'') + (isToday?' today':'') + (isSel?' selected':'') + '" onclick="' + (isOther?'':'selectAgendaDay(' + d.getDate() + ')') + '">' +
+      d.getDate() + (hasItems && !isSel ? '<span class="has-dot"></span>' : '') + '</div>';
+  }
+  document.getElementById('mini-cal-grid').innerHTML = html;
+}
+function selectAgendaDay(d) { selectedAgendaDay = d; renderMiniCal(); renderAgendaDetail(); }
+
+function renderAgendaDetail() {
+  const d = new Date(miniViewYear, miniViewMonth, selectedAgendaDay);
+  const isToday = d.toDateString() === new Date().toDateString();
+  document.getElementById('agenda-right-title').textContent =
+    d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const items = itemsForDate(d);
+  const total = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+  document.getElementById('agenda-day-detail').innerHTML =
+    (total > 0 ? '<span class="hrs-pill-lg" style="margin-bottom:14px;display:inline-block">' + (Math.round(total*10)/10) + 'h total</span>' : '') +
+    '<div class="agenda-day-block' + (isToday?' today':'') + '">' +
+    '<div class="agenda-date"><div class="dow">' + d.toLocaleDateString('en-US',{weekday:'short'}) + '</div><div class="num">' + d.getDate() + '</div></div>' +
+    '<div class="agenda-items">' +
+    (items.length ? items.map(it => '<div class="agenda-item"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) + '<span class="hrs-pill-sm">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+      : '<div class="agenda-empty">Nothing scheduled.</div>') +
+    '</div></div>';
+}
+
+/* ===== Strip -- carrusel + rango de fechas real + comparar ===== */
+let stripDays = [];
+let stripWindowStart = 0;
+let selectedStripDate = null;
+let compareMode = false;
+let compareDays = [];
+
+function buildStripJumpPicker() {
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  document.getElementById('strip-from-wrap').innerHTML = GSDateTimePicker.dateHtml('strip-from', isoDate(weekStart), 'From date');
+  document.getElementById('strip-to-wrap').innerHTML = GSDateTimePicker.dateHtml('strip-to', isoDate(weekEnd), 'To date');
+  stripJumpBuilt = true;
+  document.addEventListener('gs-date-picked', (e) => {
+    if (e.detail.fieldId !== 'strip-from' && e.detail.fieldId !== 'strip-to') return;
+    buildStripRange();
+    stripWindowStart = 0;
+    renderStrip();
+  });
+}
+
+function buildStripRange() {
+  const fromVal = GSDateTimePicker.getDate('strip-from');
+  const toVal = GSDateTimePicker.getDate('strip-to');
+  const from = fromVal ? new Date(fromVal + 'T00:00:00') : new Date(weekStart);
+  const to = toVal ? new Date(toVal + 'T00:00:00') : (() => { const e = new Date(weekStart); e.setDate(e.getDate()+6); return e; })();
+  stripDays = [];
+  const cursor = new Date(from);
+  while (cursor <= to && stripDays.length < 90) {
+    stripDays.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (!stripDays.length) stripDays = [new Date(weekStart)];
+}
+
+function shiftStripWindow(dir) {
+  const next = stripWindowStart + dir * 7;
+  if (next < 0 || next >= stripDays.length) return;
+  stripWindowStart = next;
   renderStrip();
 }
-function renderStripDetail() {
-  const items = itemsForDate(selectedStripDate);
-  document.getElementById('cal-strip-detail').innerHTML =
-    '<div class="cal-strip-detail-card"><div class="cal-strip-detail-title">' +
-    selectedStripDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + '</div>' +
-    (items.length ? items.map(it => '<div class="strip-detail-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
-      (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) +
-      '<span style="font-size:11px;color:var(--gray)">' + esc(it.meta) + '</span><span class="hrs">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
-      : '<p style="color:var(--gray);font-size:13px;font-style:italic">Nothing scheduled.</p>') +
-    '</div>';
+
+function toggleCompareMode() {
+  compareMode = !compareMode;
+  compareDays = [];
+  const btn = document.getElementById('compare-btn');
+  btn.textContent = compareMode ? 'Exit compare' : 'Compare days';
+  btn.classList.toggle('active', compareMode);
+  renderStrip();
 }
 
-function applyPeriod() {
-  const from = new Date(document.getElementById('period-from').value + 'T00:00:00');
-  const to = new Date(document.getElementById('period-to').value + 'T00:00:00');
-  if (isNaN(from) || isNaN(to) || to < from) { document.getElementById('cal-period-list').innerHTML = '<p style="color:var(--red);font-size:13px">Pick a valid range (To must be on or after From).</p>'; return; }
-  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DAY_NAMES_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function renderStrip() {
+  if (!stripDays.length) buildStripRange();
+  const windowDays = stripDays.slice(stripWindowStart, stripWindowStart + 7);
+  if (!selectedStripDate) selectedStripDate = windowDays[0];
+  const DOWN = ['S','M','T','W','T','F','S'];
   let html = '';
-  let periodTotal = 0;
+  windowDays.forEach((d) => {
+    const items = itemsForDate(d);
+    const hrs = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    const compareIdx = compareMode ? compareDays.findIndex(cd => cd.toDateString() === d.toDateString()) : -1;
+    const isSel = !compareMode && d.toDateString() === selectedStripDate.toDateString();
+    const iso = isoDate(d);
+    html += '<div class="strip-day' + (isSel || compareIdx > -1 ? ' selected' : '') + '" onclick="' + (compareMode ? "pickCompareDay('" + iso + "')" : "selectStripDay('" + iso + "')") + '">' +
+      (compareIdx > -1 ? '<div class="compare-badge">' + (compareIdx + 1) + '</div>' : '') +
+      '<div class="dow">' + DOWN[d.getDay()] + '</div><div class="num">' + d.getDate() + '</div>' +
+      '<div class="strip-dots">' + items.slice(0,4).map(it => '<span class="cal-dot ' + colorClass(it) + '"></span>').join('') + '</div>' +
+      (hrs > 0 ? '<div style="margin-top:4px"><span class="hrs-pill-lg" style="font-size:10px;padding:2px 8px">' + (Math.round(hrs*10)/10) + 'h</span></div>' : '') +
+    '</div>';
+  });
+  document.getElementById('strip-days').innerHTML = html;
+  document.getElementById('strip-prev').style.visibility = stripWindowStart > 0 ? 'visible' : 'hidden';
+  document.getElementById('strip-next').style.visibility = (stripWindowStart + 7) < stripDays.length ? 'visible' : 'hidden';
+  if (compareMode) renderCompareDetail(); else renderStripDetail();
+}
+function selectStripDay(iso) { selectedStripDate = new Date(iso + 'T00:00:00'); renderStrip(); }
+function pickCompareDay(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  const existingIdx = compareDays.findIndex(cd => cd.toDateString() === d.toDateString());
+  if (existingIdx > -1) compareDays.splice(existingIdx, 1);
+  else { compareDays.push(d); if (compareDays.length > 2) compareDays.shift(); }
+  renderStrip();
+}
+
+function dayCardHtml(d) {
+  const items = itemsForDate(d);
+  const total = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+  return '<div class="day-card">' +
+    '<div class="day-card-title">' + d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}) + '</div>' +
+    (total > 0 ? '<span class="hrs-pill-lg" style="margin-bottom:14px;display:inline-block">' + (Math.round(total*10)/10) + 'h total</span><br>' : '') +
+    (items.length ? items.map(it => '<div class="agenda-item" style="margin-top:10px"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) + '<span class="hrs-pill-sm">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+      : '<div class="agenda-empty">Nothing scheduled.</div>') +
+    '</div>';
+}
+function renderStripDetail() { document.getElementById('strip-detail').innerHTML = dayCardHtml(selectedStripDate); }
+function renderCompareDetail() {
+  if (compareDays.length === 0) {
+    document.getElementById('strip-detail').innerHTML = '<p style="color:var(--gray);font-size:13px;text-align:center;padding:30px 0">Pick 2 days above to compare them side by side.</p>';
+    return;
+  }
+  if (compareDays.length === 1) {
+    document.getElementById('strip-detail').innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' + dayCardHtml(compareDays[0]) +
+      '<div style="display:flex;align-items:center;justify-content:center;color:#C9C5BA;font-size:13px;font-style:italic;border:1.5px dashed var(--border);border-radius:4px">Pick a second day\u2026</div></div>';
+    return;
+  }
+  document.getElementById('strip-detail').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' + dayCardHtml(compareDays[0]) + dayCardHtml(compareDays[1]) + '</div>';
+}
+
+/* ===== Period -- date-picker real de shared ===== */
+function applyPeriod() {
+  const from = new Date(GSDateTimePicker.getDate('period-from') + 'T00:00:00');
+  const to = new Date(GSDateTimePicker.getDate('period-to') + 'T00:00:00');
+  if (isNaN(from) || isNaN(to) || to < from) { document.getElementById('period-list').innerHTML = '<p style="color:var(--red);font-size:13px">Pick a valid range (To must be on or after From).</p>'; return; }
+  const MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let html = '', periodTotal = 0;
   const cursor = new Date(from);
   while (cursor <= to) {
     const items = itemsForDate(cursor);
     const dayTotal = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
     periodTotal += dayTotal;
-    html += '<div class="cal-period-day"><div class="cal-period-day-head">' +
-      '<div class="cal-period-day-date">' + DAY_NAMES_LONG[cursor.getDay()] + ', ' + MONTH_NAMES[cursor.getMonth()] + ' ' + cursor.getDate() + '</div>' +
-      (dayTotal > 0 ? '<div class="cal-period-day-hours">' + (Math.round(dayTotal*10)/10) + 'h</div>' : '') +
-      '</div>' +
-      (items.length
-        ? items.map(it => '<div class="cal-period-item"><span class="cal-dot ' + colorClass(it) + '"></span>' +
-            (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') +
-            esc(it.label) + '<span class="cal-daypanel-meta">' + esc(it.meta) + '</span></div>').join('')
-        : '<div class="cal-period-day-empty">Nothing scheduled.</div>') +
-      '</div>';
+    html += '<div class="period-day"><div class="period-date">' + DAYN[cursor.getDay()] + ', ' + MN[cursor.getMonth()] + ' ' + cursor.getDate() +
+      (dayTotal > 0 ? '<br><span class="hrs-pill-sm" style="margin-top:4px">' + (Math.round(dayTotal*10)/10) + 'h</span>' : '') + '</div>' +
+      '<div class="period-items">' +
+      (items.length ? items.map(it => '<div class="period-item"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) + '<span class="hrs-pill-sm">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+        : '<div class="period-empty">Nothing scheduled.</div>') +
+      '</div></div>';
     cursor.setDate(cursor.getDate() + 1);
   }
-  document.getElementById('cal-period-list').innerHTML =
-    '<p style="font-size:13px;margin-bottom:12px"><b>' + (Math.round(periodTotal*10)/10) + 'h</b> total in this period.</p>' + html;
+  document.getElementById('period-list').innerHTML =
+    '<span class="hrs-pill-lg" style="margin-bottom:16px;display:inline-block">' + (Math.round(periodTotal*10)/10) + 'h total in this period</span>' + html;
 }
 </script>
 
