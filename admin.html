@@ -874,6 +874,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.27.2/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
@@ -3249,6 +3250,8 @@ function approvalDetailHtml(card, o, services, history) {
     window['apprSvc_' + card.OrderID] = sel;
     window['apprLevel_' + card.OrderID] = levelSeed;
     window['apprDiv_' + card.OrderID] = o.Division || '';
+    /* Snapshot de como venian los servicios, para el diff del editor */
+    window['apprSvcOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(sel));
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
     rows.push('<button type="button" class="gs-ofp-btn-secondary" style="margin-top:10px;padding:4px 12px;font-size:12px" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
@@ -3482,12 +3485,22 @@ function apprLegacyNote(orderId) {
     '. They stay on the order exactly as they are — re-select the matching service below to move them to the new catalog.</p>';
 }
 
+/* Mismo diff informativo que en Active, contra apprSvcOriginal_ */
+function apprSvcDiffHtml(orderId) {
+  if (!window.GSServiceChangePanel) return '';
+  return GSServiceChangePanel.diffHtml(
+    GSServiceChangePanel.namesOf(window['apprSvcOriginal_' + orderId] || {}),
+    GSServiceChangePanel.namesOf(window['apprSvc_' + orderId] || {}),
+    { emptyText: 'No changes to services yet.' });
+}
+
 function apprServiceEditorHtml(orderId, division) {
   if (window['apprPropType_' + orderId] === undefined) {
     window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
   return apprLegacyNote(orderId) +
     `<div id="appr-svc-picker-${orderId}"></div>
+    <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
     <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}))}</div>`;
 }
 
@@ -3506,6 +3519,8 @@ function mountApprServicePicker(orderId, division) {
       window['apprSvc_' + orderId] = sel;
       window['apprLevel_' + orderId] = lvl;
       window['apprPropType_' + orderId] = propType;
+      const diffBox = document.getElementById('appr-svc-diff-' + orderId);
+      if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
       const estBox = document.getElementById('appr-est-time-' + orderId);
       if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl));
     }
@@ -7792,6 +7807,7 @@ function buildServiceRows(orderId, division) {
   }
   return buildAdminLegacyNote(orderId) +
     `<div id="admin-svc-picker-${orderId}"></div>
+    <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
     <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
     <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
     <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
@@ -7818,12 +7834,26 @@ function mountAdminServicePicker(orderId, division) {
       window['adminPropType_' + orderId] = propType;
       const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
       if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+      const diffBox = document.getElementById('admin-svc-diff-' + orderId);
+      if (diffBox) diffBox.innerHTML = adminSvcDiffHtml(orderId);
       const estBox = document.getElementById('admin-est-time-' + orderId);
       if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
       refreshConfirmBtn(orderId);
       refreshSaveBtn(orderId);
     }
   });
+}
+
+/* Diff verde/rojo contra los servicios que la orden tenia al abrir el
+   editor (adminSvcOriginal_) -- mismo look que el Request a Change del
+   cliente (gsocd-shared/service-change-panel), pero solo informativo:
+   aqui la oficina aplica directo con Save, no manda a Review. */
+function adminSvcDiffHtml(orderId) {
+  if (!window.GSServiceChangePanel) return '';
+  return GSServiceChangePanel.diffHtml(
+    GSServiceChangePanel.namesOf(window['adminSvcOriginal_' + orderId] || {}),
+    GSServiceChangePanel.namesOf(window['adminSvc_' + orderId] || {}),
+    { emptyText: 'No changes to services yet.' });
 }
 
 function buildAdminSelectedListHtml(orderId) {
