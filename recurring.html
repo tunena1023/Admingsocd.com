@@ -9,6 +9,11 @@
 <style>
   /* Fundido nativo del navegador entre paginas -- ver nota en admin.html */
   @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  ::view-transition-old(root) { animation: gs-fade-out .25s ease-out both; }
+  ::view-transition-new(root) { animation: gs-fade-in .25s ease-out both; }
+  @keyframes gs-fade-in { from { opacity: 0; } }
+  @keyframes gs-fade-out { to { opacity: 0; } }
   :root { --black:#111111; --gold:#C9A84C; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#27ae60; --blue:#1A56C4; --red:#c0392b; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { margin:0; font-family: 'Inter', sans-serif; background:var(--bg); color:var(--black); }
