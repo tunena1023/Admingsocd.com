@@ -288,8 +288,13 @@ día: nuevo componente `photo-hover-preview` (tag `v1.26.0`, ver NOTES.md
 de `gsocd-shared` para el detalle completo). Este archivo (`admin.html`)
 ya usa `GSPhotoHoverPreview.setup()`/`GSPhotoHoverPreview.stripHtml()` en
 vez de su propia copia local — el CSS y `setupOrderPhotoHoverPreview()`
-completos se quitaron de aquí. **Sigue pendiente** conectarlo en
-`tech.gsocd.com`, que todavía no tiene ni el hover-preview ni Gallery.
+completos se quitaron de aquí. **YA se conectó también en
+`tech.gsocd.com`** (`employee.html`/`supervisor.html`, mismo día) —
+resulta que Tech YA tenía Gallery completo y funcionando
+(`get-my-gallery.js` + `GSGalleryGroups`), solo le faltaba el
+hover-preview mismo. Los 3 repos quedan conectados al mismo componente
+compartido, sin ninguna copia local en ningún lado — ver el NOTES.md de
+`ordersgsocd.com` para el detalle completo de los 3.
 
 
 
