@@ -152,7 +152,6 @@
     .status-cancel     { background: #f8d7da; color: #721c24; }
     .status-updated    { background: #efe3c4; color: #6b5518; }
     .status-delayed    { background: #ffe0cc; color: #8a4b0f; }
-    .status-recurring  { background: #E8DFC5; color: #8C6F2A; }
 
     /* APPROVALS */
     .tab-count {
@@ -566,12 +565,9 @@
     .emp-layout { display: flex; gap: 16px; }
     .emp-sidebar { flex: 1 1 50%; max-height: 70vh; overflow-y: auto; }
     .emp-content { flex: 1 1 50%; min-width: 0; }
-    .emp-item { padding: 12px 16px; cursor: pointer; border-left: 3px solid transparent; border-radius: 0 3px 3px 0; }
-    .emp-item:hover { background: var(--bg); }
-    .emp-item.active { border-left-color: var(--gold); background: rgba(201,168,76,0.08); }
-    .emp-item-name { font-weight: 600; font-size: 14px; }
-    .emp-item-div { font-size: 10px; color: var(--gray); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
-    .emp-item-count { font-size: 11px; color: var(--gray); margin-top: 2px; }
+    .emp-item { cursor: pointer; }
+    .emp-item .order-card-header { cursor: pointer; }
+    .emp-item.active .order-card-header { background: rgba(201,168,76,0.22); }
     .emp-detail-name { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; margin-bottom: 4px; }
     .emp-detail-div { font-size: 12px; color: var(--gray); margin-bottom: 20px; }
     .emp-section-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 24px 0 10px; }
@@ -10746,10 +10742,11 @@ function renderAssignedList() {
   box.innerHTML = list.map(e => {
     const divs = [e.janitorial && 'Janitorial', e.renovations && 'Renovations', e.exteriors && 'Exteriors'].filter(Boolean).join(', ');
     const count = (e.recurring || []).length + (e.orders || []).length;
-    return '<div class="emp-item' + (selectedEmployeeName === e.name ? ' active' : '') + '" onclick="selectEmployee(\'' + esc(e.name).replace(/'/g,"\\'") + '\')">' +
-      '<div><span class="emp-item-name">' + esc(e.name) + '</span><span class="emp-item-div">' + esc(divs) + '</span></div>' +
-      '<div class="emp-item-count">' + count + ' assigned this week</div>' +
-    '</div>';
+    return '<div class="order-card emp-item' + (selectedEmployeeName === e.name ? ' active' : '') + '" onclick="selectEmployee(\'' + esc(e.name).replace(/'/g,"\\'") + '\')">' +
+      '<div class="order-card-header">' +
+        '<div><div class="order-id">' + esc(e.name) + '</div><div class="order-meta">' + esc(divs) + '</div></div>' +
+        '<span class="status-badge status-assigned">' + count + ' this week</span>' +
+      '</div></div>';
   }).join('');
 
   /* Si ya habia alguien seleccionado (ej. se cambio el filtro de
@@ -10783,18 +10780,13 @@ function renderEmployeeDetail(name) {
   const recurringRows = (e.recurring || []).map(r => {
     const client = allClients.find(c => c.clientId === r.clientId);
     const clientName = client ? client.businessName : r.clientId;
-    return '<div class="order-card">' +
-      '<div class="order-card-header" style="cursor:default">' +
-        '<div><div class="order-id">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + '</div>' +
-        '<div class="order-meta">' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</div></div>' +
-        '<span class="status-badge status-recurring">Recurring</span>' +
-      '</div></div>';
+    return '<div class="commit-row"><span class="commit-tag tag-recurring">Recurring</span>' +
+      '<span style="flex:1">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + ' — ' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</span></div>';
   }).join('');
 
   const scheduledOrders = (e.orders || []).map(o => {
     const ord = allOrders.find(x => x.OrderID === o.orderId);
-    if (!ord) return '<div class="order-card"><div class="order-card-header" style="cursor:default">' +
-      '<div><div class="order-id">#' + esc(o.orderId) + '</div><div class="order-meta">Order not found</div></div></div></div>';
+    if (!ord) return '<div class="commit-row"><span class="commit-tag tag-order">Order</span><span style="flex:1">#' + esc(o.orderId) + ' — order not found</span></div>';
     return orderCard(ord, 'assigned');
   }).join('');
 
