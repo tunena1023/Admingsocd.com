@@ -3392,12 +3392,51 @@ function apprReadOnlySvcHtml(orderId) {
    arriba, para no saturar la tarjeta. Mismo patron de Recurring/
    Create Order/Active: toggle Residential/Commercial + buscador +
    chips (o filas+niveles en Janitorial), solo el nombre visible. */
-function toggleApprSvcUpdate(orderId, division) {
+/* Arma el payload de servicios desde el estado de Approvals
+   (window['apprSvc_'+orderId]/apprLevel_/apprDiv_) -- mismo shape
+   exacto que buildServicesPayload(), sin NotCompleted (eso es cosa de
+   Active, aqui la orden todavia ni se ha aprobado). */
+function buildApprServicesPayload(orderId) {
+  const sel = window['apprSvc_' + orderId];
+  if (!sel) return null;
+  const division = window['apprDiv_' + orderId] || '';
+  const levelState = window['apprLevel_' + orderId] || {};
+  const services = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, subOption]) => {
+      services.push({
+        Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
+        Level: levelState[ncKey(cat, svcName)] || '',
+        NotCompleted: false, NotCompletedReason: ''
+      });
+    });
+  });
+  return services;
+}
+
+async function toggleApprSvcUpdate(orderId, division) {
   const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
   const readonlyBox = document.getElementById(apprDomId(orderId) + '-svcreadonly');
   if (!editorBox) return;
 
   if (editorBox.style.display === 'block') {
+    /* BUG REAL: cerrar el editor solo escondia el acordeon y re-pintaba
+       el resumen desde una variable de JS en el navegador -- nunca se
+       mandaba nada al servidor. Se veia "guardado" (el resumen si
+       cambiaba), pero si recargabas la pagina sin haber aprobado la
+       orden todavia, la seleccion se perdia -- nunca existio fuera de
+       esta pestana. Ahora si se guarda de verdad: modo Directo (sin
+       requestOnly), porque la orden sigue 'Received' -- eso no cambia
+       su Status, se queda en Approvals tal cual, solo con los
+       servicios ya actualizados de verdad. */
+    const services = buildApprServicesPayload(orderId);
+    try {
+      showLoadingOverlay('Saving services…');
+      await api('/admin-update-order', { body: { orderId, changedBy: getActorName(), services: services || [] } });
+      showToast('Services saved.');
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
     editorBox.style.display = 'none';
     if (readonlyBox) {
       readonlyBox.style.display = '';
@@ -7527,9 +7566,9 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
 
         <div class="btn-actions">
           <button id="save-btn-${esc(o.OrderID)}" class="gs-ofp-btn-primary" style="display:none"
-            onclick="saveOrderUpdate('${esc(o.OrderID)}')">Save Changes (send to Review)</button>
+            onclick="saveOrderUpdate('${esc(o.OrderID)}', false, '${context}')">Save Changes${context === 'active' ? ' (send to Review)' : ''}</button>
           <button id="confirm-btn-${esc(o.OrderID)}" class="gs-ofp-btn-secondary" style="display:none"
-            onclick="saveOrderUpdate('${esc(o.OrderID)}', true)">Request Confirmation (send to client)</button>
+            onclick="saveOrderUpdate('${esc(o.OrderID)}', true, '${context}')">Request Confirmation (send to client)</button>
         </div>
       </div>` : '';
 
@@ -7989,7 +8028,7 @@ function buildServicesPayload(orderId) {
   return services;
 }
 
-async function saveOrderUpdate(orderId, sendToClient) {
+async function saveOrderUpdate(orderId, sendToClient, context) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
 
   const notesVal            = val('edit-notes');
@@ -8004,6 +8043,22 @@ async function saveOrderUpdate(orderId, sendToClient) {
     return;
   }
 
+  /* BUG REAL: este boton pasaba requestOnly:true SIEMPRE, sin importar
+     desde donde se abriera el editor -- pero el backend (admin-update-
+     order.js) solo acepta ese modo si el Status actual esta en
+     LIVE_STATUSES ('Received','Assigned'). Desde Review (status
+     'Change Requested') tronaba con un 400 y no guardaba nada; desde
+     Approvals guardaba pero de paso mandaba la orden a Review sin que
+     nadie lo pidiera. Confirmado con el dueño: Approvals y Review se
+     quedan donde estan (modo Directo, el mismo que ya usa Approvals
+     para Supervisor/fechas antes de la primera aprobacion -- no
+     revisa ni toca el Status a menos que se le diga); solo Active
+     manda de verdad a Review (modo Solicitud), que es el unico caso
+     real de "editar algo que la oficina ya aprobo". "Request
+     Confirmation (send to client)" es aparte -- esa SIEMPRE es una
+     solicitud real sin importar el contexto, se queda igual. */
+  const requestOnly = sendToClient ? true : (context === 'active');
+
   /* BUG FIX: antes se mandaban SIEMPRE los 8 campos del formulario, con
      lo que estuviera cargado desde que se abrio el editor -- si alguien
      mas actualizaba uno de esos campos (p. ej. Service Window, al
@@ -8017,7 +8072,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
      para servicios, reusando la comparacion que ya usa el boton
      "Request Confirmation". */
   const orig = window['adminFieldsOriginal_' + orderId] || {};
-  const body = { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: !!sendToClient };
+  const body = { orderId, changedBy: getActorName(), requestOnly, sendToClient: !!sendToClient };
   if (notesVal            !== (orig.notes       || '')) body.notes            = notesVal;
   if (dueDateVal          !== (orig.due         || '')) body.dueDate          = dueDateVal;
   if (delayReasonTypeVal  !== (orig.delaytype   || '')) body.delayReasonType  = delayReasonTypeVal;
@@ -8033,10 +8088,12 @@ async function saveOrderUpdate(orderId, sendToClient) {
 
   /* Confirmacion antes de mandar a Review: una vez enviado, la orden
      queda en 'Change Requested' esperando al director (o se deshace
-     con el boton Cancel de Review). Solo aplica a este camino -- el
-     de "Request Confirmation (send to client)" no pasa por el
-     director, asi que no necesita esta alerta. */
-  if (!sendToClient && !confirm('Updates will need approval. Continue?')) {
+     con el boton Cancel de Review). Solo aplica cuando de verdad va a
+     pasar eso (requestOnly, o sea Active) -- desde Approvals/Review se
+     guarda directo, sin pasar por el director de nuevo, no hace falta
+     esta alerta. El de "Request Confirmation (send to client)" tampoco
+     pasa por el director, ya tenia su propio criterio aparte. */
+  if (requestOnly && !sendToClient && !confirm('Updates will need approval. Continue?')) {
     return;
   }
 
@@ -8046,7 +8103,7 @@ async function saveOrderUpdate(orderId, sendToClient) {
     await uploadPendingServicePhotos(orderId);
     showToast(sendToClient
       ? 'Change sent to the client for confirmation.'
-      : 'Change sent to Review — waiting for approval before it takes effect.');
+      : (requestOnly ? 'Change sent to Review — waiting for approval before it takes effect.' : 'Saved.'));
     await loadAll();
   } catch(e) {
     showToast('Error: ' + e.message);
