@@ -279,13 +279,17 @@ se excluyen del hover-preview (un video pausado agrandado no da el mismo
 vistazo rápido que una foto). El clic en Gallery sigue abriendo el
 lightbox normal con navegación prev/next, sin cambios ahí.
 
-**Pendiente (13/09/2026):** portado después a `ordersgsocd.com`
+**RESUELTO (13/09/2026):** portado después a `ordersgsocd.com`
 (Processing/History + Gallery nueva ahí — ver su NOTES.md para el detalle
 completo, incluyendo una lección real sobre por qué Gallery ahí tuvo que
 construirse como panel interno de `customer.html` y no como página
-separada). Falta portar a `tech.gsocd.com`. El plan hablado con el dueño
-es moverlo primero a `gsocd-shared` como componente propio (hoy vive
-duplicado a mano en Admin y en Orders), y de ahí conectarlo en Tech.
+separada). Y el plan de moverlo a `gsocd-shared` YA se hizo el mismo
+día: nuevo componente `photo-hover-preview` (tag `v1.26.0`, ver NOTES.md
+de `gsocd-shared` para el detalle completo). Este archivo (`admin.html`)
+ya usa `GSPhotoHoverPreview.setup()`/`GSPhotoHoverPreview.stripHtml()` en
+vez de su propia copia local — el CSS y `setupOrderPhotoHoverPreview()`
+completos se quitaron de aquí. **Sigue pendiente** conectarlo en
+`tech.gsocd.com`, que todavía no tiene ni el hover-preview ni Gallery.
 
 
 
