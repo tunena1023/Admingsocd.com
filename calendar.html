@@ -267,6 +267,7 @@
           <button onclick="changeStep(-1)">&#8249;</button>
           <div class="cal-month" id="cal-month-label"></div>
           <button onclick="changeStep(1)">&#8250;</button>
+          <div id="week-jump-wrap" style="width:150px;margin-left:10px;visibility:hidden"></div>
         </div>
         <div class="cal-view-toggle">
           <button id="view-month" class="active" onclick="setView('month')">Month</button>
@@ -579,7 +580,7 @@ function setMode(m) {
   document.getElementById('toggle-recurring').classList.toggle('active', m === 'recurring');
   document.getElementById('toggle-orders').classList.toggle('active', m === 'orders');
   document.getElementById('toggle-both').classList.toggle('active', m === 'both');
-  document.getElementById('cal-legend-glow').style.display = m === 'both' ? 'flex' : 'none';
+  document.getElementById('cal-legend-glow').style.visibility = m === 'both' ? 'visible' : 'hidden';
   document.getElementById('cal-daypanel').classList.remove('open');
   if (calView === 'period') applyPeriod();
   else if (calView === 'agenda') renderAgendaDetail();
@@ -595,21 +596,20 @@ let stripJumpBuilt = false;
 function setView(v) {
   calView = v;
   ['month','week','agenda','strip','period'].forEach(x => document.getElementById('view-' + x).classList.toggle('active', x === v));
-  document.getElementById('cal-nav-arrows').style.display = (v === 'month' || v === 'week') ? 'flex' : 'none';
+  document.getElementById('cal-nav-arrows').style.visibility = (v === 'month' || v === 'week') ? 'visible' : 'hidden';
   const weekJumpEl = document.getElementById('week-jump-wrap');
-  if (weekJumpEl) weekJumpEl.style.display = v === 'week' ? 'block' : 'none';
+  if (weekJumpEl) weekJumpEl.style.visibility = v === 'week' ? 'visible' : 'hidden';
   document.getElementById('month-view').style.display = v === 'month' ? 'block' : 'none';
   document.getElementById('week-view').style.display = v === 'week' ? 'block' : 'none';
   document.getElementById('agenda-view').style.display = v === 'agenda' ? 'block' : 'none';
   document.getElementById('strip-view').style.display = v === 'strip' ? 'block' : 'none';
   document.getElementById('period-view').style.display = v === 'period' ? 'block' : 'none';
   document.getElementById('cal-daypanel').classList.remove('open');
-  document.getElementById('cal-legend-glow').style.display = mode === 'both' ? 'flex' : 'none';
+  document.getElementById('cal-legend-glow').style.visibility = mode === 'both' ? 'visible' : 'hidden';
 
   if (v === 'week') {
     if (!weekJumpBuilt) {
       try {
-        document.getElementById('cal-nav-arrows').insertAdjacentHTML('beforeend', '<div id="week-jump-wrap" style="width:150px;margin-left:10px"></div>');
         document.getElementById('week-jump-wrap').innerHTML = GSDateTimePicker.dateHtml('week-jump', null, 'Jump to date\u2026');
         document.addEventListener('gs-date-picked', (e) => {
           if (e.detail.fieldId !== 'week-jump') return;
