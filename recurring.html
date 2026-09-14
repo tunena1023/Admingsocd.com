@@ -121,6 +121,9 @@
     .wrap { padding: 24px 16px 60px; }
     .field-row { grid-template-columns: 1fr; }
     .assign-row { grid-template-columns: 1fr 90px 32px; }
+    /* Mismo fix que ya tiene calendar.html -- sin esto el tab activo
+       (Recurring) se queda cortado a la mitad al cargar en mobile. */
+    .subtabs { overflow-x: auto; flex-wrap: nowrap; }
   }
 
   /* ============================================================
@@ -1026,6 +1029,7 @@ const stored = sessionStorage.getItem('admin_account');
   }
 
   if (adminUser) loadInitialData();
+  document.querySelector('.subtab.active')?.scrollIntoView({ inline: 'end', block: 'nearest' });
 </script>
 </body>
 </html>
