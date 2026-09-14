@@ -240,7 +240,54 @@ modal viejo `addunit-dialog`. Ver el NOTES.md de `ordersgsocd.com` para el
 detalle completo (ahí el flujo de carga de buildings terminó siendo
 distinto: Building # es texto libre, no un select).
 
-## Pendiente de CONFIRMAR (no urgente, revisar al cerrar el proyecto)
+## SUBIDO Y DESPLEGADO (13/09/2026): Preview de foto al pasar el mouse (1s, tamaño máximo, sin clic)
+
+Aprobado con mini antes de tocar código real. Reemplaza el viejo
+`.order-photo-thumb:hover { transform: scale(2.4) }` por un preview tipo
+lightbox: al quedarse 1 segundo con el mouse sobre una miniatura de foto,
+esta crece al tamaño máximo posible en pantalla — sin necesidad de clic.
+Se cierra en cuanto el mouse SALE de la miniatura (no por micro-
+movimientos naturales mientras sigue encima de la misma foto — decisión
+explícita confirmada con el mini, se sentiría roto exigir inmovilidad
+total).
+
+Implementado con **delegación de eventos** (`mouseover`/`mouseout` en
+`document`, revisando `closest('.order-photo-thumb')`) en vez de
+`addEventListener` directo sobre cada miniatura — necesario porque estas
+se insertan y reinsertan constantemente vía `innerHTML` cada vez que se
+refresca cualquier tab. `setupOrderPhotoHoverPreview()` se conecta una
+sola vez, en el punto que corre sin importar el camino de autenticación
+(stored session o MSAL fresco).
+
+**A petición explícita del dueño ("en todos los tabs... las fotos siempre
+deben ser visibles desde cualquier orden")**, se extendió a TODOS los
+lugares que muestran una orden real con `OrderID` y podrían tener fotos —
+se mapeó cada uno con `orderPhotoStripHtml()`:
+- Approvals (2 tipos de tarjeta), Active, History — ya lo tenían.
+- **Agregados en esta sesión:** Schedule (cola por agendar +
+  "Already scheduled, waiting for Approve") y Review (sección "Materials
+  Ready" + asignaciones huérfanas por técnico desactivado).
+- Dejado FUERA a propósito: la sección "Recurring Change" de Review — son
+  cambios a un contrato recurrente, no órdenes individuales con
+  `OrderID`/fotos propias.
+
+También se extendió el MISMO preview a Gallery (`.gs-gal-ph`, componente
+compartido `gallery-groups.js`) — a diferencia de `.order-photo-thumb`
+(un `<img>` directo), `.gs-gal-ph` es un `<div>` que envuelve un `<img>`
+adentro, y también se usa para videos (`.gs-gal-ph.video`) — los videos
+se excluyen del hover-preview (un video pausado agrandado no da el mismo
+vistazo rápido que una foto). El clic en Gallery sigue abriendo el
+lightbox normal con navegación prev/next, sin cambios ahí.
+
+**Pendiente (13/09/2026):** portado después a `ordersgsocd.com`
+(Processing/History + Gallery nueva ahí — ver su NOTES.md para el detalle
+completo, incluyendo una lección real sobre por qué Gallery ahí tuvo que
+construirse como panel interno de `customer.html` y no como página
+separada). Falta portar a `tech.gsocd.com`. El plan hablado con el dueño
+es moverlo primero a `gsocd-shared` como componente propio (hoy vive
+duplicado a mano en Admin y en Orders), y de ahí conectarlo en Tech.
+
+
 
 - **Fechas heredadas + resplandor en "+ Add a Unit"**: se había acordado
   (pensando que era Orders) que Entry/Due date de la unidad nueva
