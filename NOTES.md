@@ -240,6 +240,34 @@ modal viejo `addunit-dialog`. Ver el NOTES.md de `ordersgsocd.com` para el
 detalle completo (ahí el flujo de carga de buildings terminó siendo
 distinto: Building # es texto libre, no un select).
 
+## SUBIDO Y DESPLEGADO (14/09/2026): diff de servicios en Active > Edit y Approvals > Update
+
+A petición del dueño: mismo look que el "Request a Change" nuevo del
+cliente (lista + selector + diff, `gsocd-shared/service-change-panel`),
+pero aquí la oficina sigue aplicando DIRECTO con Save/Update — sin
+Pending Review y sin nota obligatoria por quitado (el diff es
+informativo). Se usa `GSServiceChangePanel.diffHtml()`/`namesOf()`
+sobre el picker que ya existía:
+- Active > Edit: caja de diff entre el picker y "Selected for this
+  order", contra `adminSvcOriginal_` (snapshot que ya existía para
+  Request Confirmation).
+- Approvals > Update: nuevo snapshot `apprSvcOriginal_` al pintar la
+  tarjeta, misma caja en el editor.
+La lista (nombre + nota "not completed" + cámara) y el tiempo estimado
+no cambian. Ojo al probar: el picker de Admin usa
+`filterMode:'selected-plus-search'` — un servicio nuevo se agrega
+BUSCÁNDOLO, no aparece su categoría sola.
+
+**Pendiente relacionado:** el cliente ahora puede pedir agregar/quitar
+servicios en una orden normal (Processing). Eso llega al historial como
+`Services Change Requested` / `Requested Services`
+(`NewValue = {services, removedNotes}`), igual que las fechas llegan como
+`Reschedule Requested`. Falta que Review lo muestre y que
+`admin-approve-order` lo aplique al aprobar (hoy solo se guarda).
+Las de Recurring (`Source: Client`) sí se ven ya en Review, badge
+"Recurring Change", con ➕/➖ — `renderRecurringChangeReview()` ya lo
+manejaba.
+
 ## SUBIDO Y DESPLEGADO (13/09/2026): Preview de foto al pasar el mouse (1s, tamaño máximo, sin clic)
 
 Aprobado con mini antes de tocar código real. Reemplaza el viejo
