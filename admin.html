@@ -111,27 +111,11 @@
     .order-id { font-weight: 600; font-size: 15px; }
     .order-pin { font-size: 12px; }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
-    /* Tira de miniaturas dentro de la tarjeta de orden (Approvals/
-       Review/Active/History) -- crecen un poco al pasar el mouse
-       (sin necesidad de clic), y el clic manda a Gallery con esa
-       orden ya abierta. Si la orden no tiene fotos, la funcion que
-       genera esto regresa vacio y no ocupa espacio. */
-    .order-photo-strip { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .order-photo-thumb { width: 34px; height: 34px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; }
-    .order-photo-thumb:hover { border-color: var(--gold); }
-    .order-photo-more { font-size: 11px; color: #8C6F2A; font-weight: 700; cursor: pointer; text-decoration: underline; }
-    /* Preview de foto al pasar el mouse -- crece al tamano maximo posible
-       en pantalla (como lightbox.js), pero sin necesidad de clic. Requiere
-       quedarse quieto 1 segundo sobre la miniatura; se cierra en cuanto el
-       mouse SALE de ella (no por micro-movimientos mientras sigue encima,
-       eso se sentiria roto -- aprobado con mini el 13/09/2026). */
-    .gs-hover-preview-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0); z-index: 99999;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: none; opacity: 0; transition: opacity .15s ease, background .15s ease;
-    }
-    .gs-hover-preview-overlay.show { opacity: 1; background: rgba(0,0,0,.82); }
-    .gs-hover-preview-overlay img { max-width: 94vw; max-height: 94vh; object-fit: contain; border-radius: 6px; }
+    /* El CSS de .order-photo-strip/.order-photo-thumb/.order-photo-more
+       y .gs-hover-preview-overlay ahora vive en gsocd-shared/
+       photo-hover-preview (GSPhotoHoverPreview.setup() lo inyecta) --
+       antes estaba copiado aqui a mano. */
+    .order-photo-more { cursor: pointer; text-decoration: underline; }
     /* Badge de unidad ocupada -- mismo diseno aprobado en Admin/Cliente/Tech */
     /* El CSS de los badges ahora lo trae GSOrderBadges (gsocd-shared) --
        solo el margen queda aqui, porque es especifico de esta posicion
@@ -851,6 +835,7 @@
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.9/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
@@ -1757,7 +1742,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
 GSOrderFormPremium.styleTag();
-setupOrderPhotoHoverPreview();
+GSPhotoHoverPreview.setup();
 /* ============================================================
    MSAL + Auth
 ============================================================ */
@@ -6914,15 +6899,8 @@ function renderGalleryPanel() {
 function orderPhotoStripHtml(orderId) {
   const photos = orderPhotosMap[orderId];
   if (!photos || !photos.length) return '';
-  const shown = photos.slice(0, 3);
-  const extra = photos.length - shown.length;
-  const thumbsHtml = shown.map(p =>
-    '<img class="order-photo-thumb" src="' + esc(p.downloadUrl) + '" loading="lazy">'
-  ).join('');
-  const moreHtml = extra > 0 ? '<span class="order-photo-more">+' + extra + '</span>' : '';
-  return '<div class="order-photo-strip">' +
-    '<a href="javascript:void(0)" onclick="openGalleryForOrder(\'' + esc(orderId).replace(/'/g, "\\'") + '\')" title="View in Gallery" style="display:flex;align-items:center;gap:6px">' + thumbsHtml + moreHtml + '</a>' +
-    '</div>';
+  const inner = GSPhotoHoverPreview.stripHtml(photos);
+  return '<a href="javascript:void(0)" onclick="openGalleryForOrder(\'' + esc(orderId).replace(/'/g, "\\'") + '\')" title="View in Gallery" style="display:flex;align-items:center;gap:6px">' + inner + '</a>';
 }
 
 function openGalleryForOrder(orderId) {
@@ -6930,68 +6908,6 @@ function openGalleryForOrder(orderId) {
   history.replaceState(null, '', 'admin.html?tab=gallery&order=' + encodeURIComponent(orderId));
   showTab('gallery');
   renderGalleryPanel();
-}
-
-/* Preview de foto al pasar el mouse sobre una .order-photo-thumb --
-   crece al tamano maximo posible en pantalla (mismo espiritu que
-   lightbox.js) sin necesidad de clic. Se conecta UNA sola vez con
-   delegacion de eventos (mouseover/mouseout en document, revisando
-   el target) porque las miniaturas se insertan y se vuelven a
-   insertar constantemente via innerHTML cada vez que se refresca
-   Approvals/Review/Active/History -- addEventListener directo sobre
-   cada img se perderia en el siguiente refresh. */
-let orderPhotoHoverTimer = null;
-function setupOrderPhotoHoverPreview() {
-  if (document.getElementById('gs-hover-preview-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'gs-hover-preview-overlay';
-  overlay.id = 'gs-hover-preview-overlay';
-  overlay.innerHTML = '<img id="gs-hover-preview-img" src="" alt="">';
-  document.body.appendChild(overlay);
-  const previewImg = document.getElementById('gs-hover-preview-img');
-
-  function hidePreview() {
-    clearTimeout(orderPhotoHoverTimer);
-    orderPhotoHoverTimer = null;
-    overlay.classList.remove('show');
-  }
-
-  /* Dos tipos de miniatura usan este mismo preview:
-     - .order-photo-thumb (Approvals/Review/Active/History/Schedule):
-       el <img> mismo.
-     - .gs-gal-ph (Gallery, componente compartido): un <div> que
-       envuelve un <img> adentro -- y tambien se usa para videos
-       (.gs-gal-ph.video), que se excluyen aqui (un video pausado
-       agrandado no aporta el mismo "vistazo rapido" que una foto). */
-  function findThumb(target) {
-    const direct = target.closest('.order-photo-thumb');
-    if (direct) return direct;
-    const galPh = target.closest('.gs-gal-ph');
-    if (galPh && !galPh.classList.contains('video')) return galPh;
-    return null;
-  }
-  function srcOf(thumb) {
-    return thumb.tagName === 'IMG' ? thumb.src : thumb.querySelector('img')?.src;
-  }
-
-  document.addEventListener('mouseover', (e) => {
-    const thumb = findThumb(e.target);
-    if (!thumb) return;
-    const src = srcOf(thumb);
-    if (!src) return;
-    clearTimeout(orderPhotoHoverTimer);
-    orderPhotoHoverTimer = setTimeout(() => {
-      previewImg.src = src;
-      overlay.classList.add('show');
-    }, 1000);
-  });
-
-  document.addEventListener('mouseout', (e) => {
-    const thumb = findThumb(e.target);
-    if (!thumb) return;
-    if (thumb.contains(e.relatedTarget)) return;
-    hidePreview();
-  });
 }
 
 function orderCard(o, context) {
