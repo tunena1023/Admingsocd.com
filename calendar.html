@@ -189,11 +189,26 @@
   .period-bar.open { display: flex; }
   .period-bar label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
   .period-apply-btn { padding: 8px 18px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; background: linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%); color: #171310; font-family: 'Inter', sans-serif; flex-shrink: 0; }
-  .period-day { padding: 16px 20px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; display: flex; gap: 20px; background: var(--white); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .period-day { border-radius: 6px; overflow: hidden; margin-bottom: 14px; border: 1px solid var(--border); background: var(--white); }
   .period-day:last-child { margin-bottom: 0; }
-  .period-date { flex-shrink: 0; width: 140px; font-size: 12.5px; font-weight: 600; color: var(--black); }
+  .period-day.empty-day { opacity: .55; }
+  .period-ribbon-top { height: 5px; background: var(--border); }
+  .period-day.has-items .period-ribbon-top { background: linear-gradient(90deg, var(--gold) 0%, var(--gold-dk) 100%); }
+  .period-body { padding: 14px 20px; }
+  .period-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .period-date { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; }
+  .period-total {
+    font-size: 13px; font-weight: 800; color: var(--white);
+    background: linear-gradient(155deg,#EAD9A0 0%,#C9A84C 45%,#8C6F2A 100%); padding: 4px 12px; border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(140,111,42,.3); flex-shrink: 0;
+  }
   .period-items { flex: 1; }
-  .period-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; }
+  .period-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+  .period-item + .period-item { border-top: 1px solid #F0EDE6; }
+  .period-item .hrs-big {
+    font-size: 12px; font-weight: 800; color: var(--gold-dk); background: rgba(201,168,76,.18);
+    padding: 3px 10px; border-radius: 10px; margin-left: auto; flex-shrink: 0;
+  }
   .period-empty { font-size: 12.5px; color: #C9C5BA; font-style: italic; }
 
   .empty-note { font-size: 13px; color: var(--gray); }
@@ -917,12 +932,17 @@ function applyPeriod() {
   while (cursor <= to) {
     const items = itemsForDate(cursor);
     const dayTotal = items.reduce((s, it) => s + (Number(it.hours) || 0), 0);
+    const hasItems = items.length > 0;
     periodTotal += dayTotal;
-    html += '<div class="period-day"><div class="period-date">' + DAYN[cursor.getDay()] + ', ' + MN[cursor.getMonth()] + ' ' + cursor.getDate() +
-      (dayTotal > 0 ? '<br><span class="hrs-pill-sm" style="margin-top:4px">' + (Math.round(dayTotal*10)/10) + 'h</span>' : '') + '</div>' +
-      '<div class="period-items">' +
-      (items.length ? items.map(it => '<div class="period-item"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) + '<span class="hrs-pill-sm">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
-        : '<div class="period-empty">Nothing scheduled.</div>') +
+    html += '<div class="period-day' + (hasItems ? ' has-items' : ' empty-day') + '">' +
+      '<div class="period-ribbon-top"></div>' +
+      '<div class="period-body">' +
+        '<div class="period-head"><div class="period-date">' + DAYN[cursor.getDay()] + ', ' + MN[cursor.getMonth()] + ' ' + cursor.getDate() + '</div>' +
+        (dayTotal > 0 ? '<span class="period-total">' + (Math.round(dayTotal*10)/10) + 'h total</span>' : '') + '</div>' +
+        '<div class="period-items">' +
+        (hasItems ? items.map(it => '<div class="period-item"><span class="cal-dot ' + colorClass(it) + '"></span>' + (!it.isOrder && mode === 'both' ? '<span class="cal-item-icon">&#8635;</span>' : '') + esc(it.label) + '<span class="hrs-big">' + (Math.round(it.hours*10)/10) + 'h</span></div>').join('')
+          : '<div class="period-empty">Nothing scheduled.</div>') +
+        '</div>' +
       '</div></div>';
     cursor.setDate(cursor.getDate() + 1);
   }
