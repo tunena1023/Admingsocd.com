@@ -3584,6 +3584,7 @@ function renderMaterialsReadyReview() {
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
             <div class="order-meta">${esc(o.BusinessName || o.ClientID)}${o.EntryTime ? ' · Ready — ' + esc(o.EntryTime) : ' · Ready'}</div>
+            ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <button class="gs-ofp-btn-primary" style="border-radius:20px" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
         </div>
@@ -6955,18 +6956,38 @@ function setupOrderPhotoHoverPreview() {
     overlay.classList.remove('show');
   }
 
+  /* Dos tipos de miniatura usan este mismo preview:
+     - .order-photo-thumb (Approvals/Review/Active/History/Schedule):
+       el <img> mismo.
+     - .gs-gal-ph (Gallery, componente compartido): un <div> que
+       envuelve un <img> adentro -- y tambien se usa para videos
+       (.gs-gal-ph.video), que se excluyen aqui (un video pausado
+       agrandado no aporta el mismo "vistazo rapido" que una foto). */
+  function findThumb(target) {
+    const direct = target.closest('.order-photo-thumb');
+    if (direct) return direct;
+    const galPh = target.closest('.gs-gal-ph');
+    if (galPh && !galPh.classList.contains('video')) return galPh;
+    return null;
+  }
+  function srcOf(thumb) {
+    return thumb.tagName === 'IMG' ? thumb.src : thumb.querySelector('img')?.src;
+  }
+
   document.addEventListener('mouseover', (e) => {
-    const thumb = e.target.closest('.order-photo-thumb');
+    const thumb = findThumb(e.target);
     if (!thumb) return;
+    const src = srcOf(thumb);
+    if (!src) return;
     clearTimeout(orderPhotoHoverTimer);
     orderPhotoHoverTimer = setTimeout(() => {
-      previewImg.src = thumb.src;
+      previewImg.src = src;
       overlay.classList.add('show');
     }, 1000);
   });
 
   document.addEventListener('mouseout', (e) => {
-    const thumb = e.target.closest('.order-photo-thumb');
+    const thumb = findThumb(e.target);
     if (!thumb) return;
     if (thumb.contains(e.relatedTarget)) return;
     hidePreview();
@@ -9766,6 +9787,7 @@ let pendingDirectLinkOrderId = null;
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
             <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}</div>
+            ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <span style="font-size:11px;color:var(--gray)">▾</span>
         </div>
@@ -9780,6 +9802,7 @@ let pendingDirectLinkOrderId = null;
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
             <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}</div>
+            ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
         </div>
@@ -10062,6 +10085,7 @@ let pendingDirectLinkOrderId = null;
               <div>
                 <div class="order-id">#${esc(r.orderId)}</div>
                 <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · assigned to <b>${esc(r.employeeName)}</b> (now inactive) · ${fmtDateShort(r.assignedDate)}</div>
+                ${orderPhotoStripHtml(r.orderId)}
               </div>
               <button class="gs-ofp-btn-secondary" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
             </div>
