@@ -152,6 +152,7 @@
     .status-cancel     { background: #f8d7da; color: #721c24; }
     .status-updated    { background: #efe3c4; color: #6b5518; }
     .status-delayed    { background: #ffe0cc; color: #8a4b0f; }
+    .status-recurring  { background: #E8DFC5; color: #8C6F2A; }
 
     /* APPROVALS */
     .tab-count {
@@ -10782,13 +10783,18 @@ function renderEmployeeDetail(name) {
   const recurringRows = (e.recurring || []).map(r => {
     const client = allClients.find(c => c.clientId === r.clientId);
     const clientName = client ? client.businessName : r.clientId;
-    return '<div class="commit-row"><span class="commit-tag tag-recurring">Recurring</span>' +
-      '<span style="flex:1">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + ' — ' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</span></div>';
+    return '<div class="order-card">' +
+      '<div class="order-card-header" style="cursor:default">' +
+        '<div><div class="order-id">' + esc(clientName) + (r.buildingNumber ? ' — Bldg ' + esc(r.buildingNumber) : '') + '</div>' +
+        '<div class="order-meta">' + esc(r.daysOfWeek) + ', ' + esc(r.time) + '</div></div>' +
+        '<span class="status-badge status-recurring">Recurring</span>' +
+      '</div></div>';
   }).join('');
 
   const scheduledOrders = (e.orders || []).map(o => {
     const ord = allOrders.find(x => x.OrderID === o.orderId);
-    if (!ord) return '<div class="commit-row"><span class="commit-tag tag-order">Order</span><span style="flex:1">#' + esc(o.orderId) + ' — order not found</span></div>';
+    if (!ord) return '<div class="order-card"><div class="order-card-header" style="cursor:default">' +
+      '<div><div class="order-id">#' + esc(o.orderId) + '</div><div class="order-meta">Order not found</div></div></div></div>';
     return orderCard(ord, 'assigned');
   }).join('');
 
