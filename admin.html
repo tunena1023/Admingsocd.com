@@ -7,6 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
+    /* Fundido nativo del navegador entre admin.html <-> recurring.html/
+       calendar.html (paginas de verdad, cambiar entre ellas siempre
+       recarga -- esto solo evita que se vea como flash/parpadeo, sin
+       tocar nada de JS ni la logica de ninguna). Si el navegador no
+       soporta esta API (fuera de Chrome/Edge recientes), simplemente
+       no pasa nada -- sigue siendo una recarga normal, sin errores. */
+    @view-transition { navigation: auto; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --black: #111111; --gold: #C9A84C; --gold-dk: #8C6F2A; --white: #FFFFFF;
