@@ -168,7 +168,7 @@
   .strip-carousel-row { display: flex; align-items: center; gap: 10px; }
   .strip-carousel-row button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; color: var(--black); font-size: 14px; flex-shrink: 0; }
   .strip { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; flex: 1; }
-  .strip-day { flex-shrink: 0; width: 78px; border-radius: 8px; border: 1.5px solid var(--border); padding: 12px 8px; text-align: center; cursor: pointer; background: var(--bg); transition: all .15s; position: relative; }
+  .strip-day { flex: 1 1 78px; min-width: 78px; border-radius: 8px; border: 1.5px solid var(--border); padding: 12px 8px; text-align: center; cursor: pointer; background: var(--bg); transition: all .15s; position: relative; }
   .strip-day:hover { border-color: var(--gold); }
   .strip-day.selected { border-color: var(--gold-dk); background: rgba(201,168,76,.12); }
   .strip-day .dow { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700; }
@@ -219,6 +219,7 @@
 
     .strip-daterange { width: 100%; }
     .strip-date-field { flex: 1; min-width: 110px; width: auto; }
+    .strip-day { flex: 0 0 78px; width: 78px; }
 
     #strip-detail > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
   }
