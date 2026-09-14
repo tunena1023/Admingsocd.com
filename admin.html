@@ -851,13 +851,28 @@
   .eo-status-text { font-size: 13px; color: var(--gray); }
   .eo-status-text b { color: var(--black); font-weight: 600; }
   .eo-status-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-  .eo-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px;
-    padding: 20px 22px; margin-bottom: 16px; }
-  .eo-card-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; margin-bottom: 14px; }
-  .eo-card-delay { background: linear-gradient(180deg, #FDF3E0 0%, var(--white) 90px); }
-  .eo-card-delay .eo-card-title { color: var(--gold-dk); }
-  .eo-info-row { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 14px; font-size: 13px; color: var(--gray); }
-  .eo-info-row b { color: var(--black); font-weight: 600; }
+
+  /* Rediseno real (aprobado en mini) -- mismo lenguaje visual que ya
+     usa "Edit primary address" en Clients: campos con linea inferior
+     (GSOrderFormPremium.gs-ofp-unitrow/unitfield), secciones separadas
+     por una linea fina con etiqueta chica arriba, nada de tarjetas
+     apiladas con su propio borde/sombra (eso era .eo-card, quitado). */
+  .eo-body { padding: 22px 24px; }
+  .eo-section-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 20px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .eo-section-label:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .eo-readonly-row { display: flex; gap: 28px; flex-wrap: wrap; font-size: 13px; margin-bottom: 4px; }
+  .eo-readonly-row .k { color: var(--gray); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 3px; }
+  .eo-readonly-row .v { font-weight: 600; }
+  .eo-link { font-size: 11px; color: var(--gold-dk); text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 10px; }
+  @media (max-width: 768px) {
+    .eo-body { padding: 18px 16px; }
+    .gs-ofp-unitrow { gap: 16px; }
+    .eo-readonly-row { gap: 16px; }
+    .eo-status-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .btn-actions { flex-direction: column; }
+    .btn-actions button { width: 100%; }
+  }
+
 
   /* FIX REAL: .gs-ofp-btn-primary/secondary vienen de gsocd-shared
      (order-form-premium) con width:100% de fabrica -- pensados para
@@ -7625,57 +7640,51 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <button class="gs-ofp-btn-secondary" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
     </div>
-      <div id="${editSectionId}" style="display:none">
+      <div id="${editSectionId}" class="eo-body" style="display:none">
         <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
 
-        <div class="eo-card">
-          <div class="eo-card-title">Who &amp; when</div>
-          <div class="eo-info-row">
-            <span>Supervisor: <b>${o.Supervisor ? esc(o.Supervisor) : '—'}</b></span>
-            <span>Window: <b>${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</b></span>
-            <span>Service Date: <b>${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</b></span>
-            <span>Inspection: <b>${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</b></span>
-          </div>
-          <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling</button>
+        <div class="eo-section-label">Who &amp; when</div>
+        <div class="eo-readonly-row">
+          <div><span class="k">Supervisor</span><span class="v">${o.Supervisor ? esc(o.Supervisor) : '—'}</span></div>
+          <div><span class="k">Window</span><span class="v">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</span></div>
+          <div><span class="k">Service Date</span><span class="v">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</span></div>
+          <div><span class="k">Inspection</span><span class="v">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</span></div>
         </div>
+        <a class="eo-link" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling →</a>
 
-        <div class="eo-card">
-          <div class="eo-card-title">Client-facing details</div>
-          <div class="edit-grid">
-            <div class="field-group">
-              <label>Notes for client</label>
-              <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
-            </div>
-            <div class="field-group">
-              <label>Entry Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(client's request)</span></label>
-              <div style="padding:10px 0;font-size:13px">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
-            </div>
-            <div class="field-group">
-              <label>Due Date</label>
-              ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
-            </div>
+        <div class="eo-section-label">Client-facing details</div>
+        <div class="gs-ofp-unitrow">
+          <div class="gs-ofp-unitfield">
+            <div class="gs-ofp-unitfield-label">Notes for client</div>
+            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
           </div>
         </div>
-
-        <div class="eo-card eo-card-delay">
-          <div class="eo-card-title">Delay</div>
-          <div class="edit-grid" style="grid-template-columns:1fr 1fr">
-            <div class="field-group">
-              <label>Delay Reason</label>
-              <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
-            </div>
-            <div class="field-group">
-              <label>Delay Notes</label>
-              <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
-            </div>
+        <div class="gs-ofp-unitrow">
+          <div class="gs-ofp-unitfield">
+            <div class="gs-ofp-unitfield-label">Entry Date <span style="text-transform:none;font-weight:400">(client's request)</span></div>
+            <div style="padding:6px 2px 8px;font-size:15px;color:var(--gray)">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
+          </div>
+          <div class="gs-ofp-unitfield">
+            <div class="gs-ofp-unitfield-label">Due Date</div>
+            ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
           </div>
         </div>
 
-        <div class="eo-card">
-          <div class="eo-card-title">Services</div>
-          <div id="edit-svc-${esc(o.OrderID)}">
-            ${buildServiceRows(o.OrderID, o.Division)}
+        <div class="eo-section-label">Delay <span style="text-transform:none;font-weight:400;color:#C9C5BA">— optional</span></div>
+        <div class="gs-ofp-unitrow">
+          <div class="gs-ofp-unitfield">
+            <div class="gs-ofp-unitfield-label">Delay Reason</div>
+            <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
           </div>
+          <div class="gs-ofp-unitfield">
+            <div class="gs-ofp-unitfield-label">Delay Notes</div>
+            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
+          </div>
+        </div>
+
+        <div class="eo-section-label">Services</div>
+        <div id="edit-svc-${esc(o.OrderID)}">
+          ${buildServiceRows(o.OrderID, o.Division)}
         </div>
 
         <div class="btn-actions">
