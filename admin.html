@@ -858,6 +858,30 @@
   .eo-card-delay .eo-card-title { color: var(--gold-dk); }
   .eo-info-row { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 14px; font-size: 13px; color: var(--gray); }
   .eo-info-row b { color: var(--black); font-weight: 600; }
+
+  /* FIX REAL: .gs-ofp-btn-primary/secondary vienen de gsocd-shared
+     (order-form-premium) con width:100% de fabrica -- pensados para
+     apilarse solos en un modal. Aqui se usan en filas (varios uno al
+     lado del otro), y ese 100% los deja peleando por el espacio: unos
+     gigantes, otros aplastados, envolviendo feo. Se resetean a su
+     tamano de contenido en las 2 filas reales que los usan. */
+  .btn-actions .gs-ofp-btn-primary, .btn-actions .gs-ofp-btn-secondary, .btn-actions .gs-ofp-btn-danger,
+  .eo-status-actions .gs-ofp-btn-primary, .eo-status-actions .gs-ofp-btn-secondary, .eo-status-actions .gs-ofp-btn-danger {
+    width: auto; flex: 0 0 auto;
+  }
+  /* .gs-ofp-btn-danger no tenia NINGUNA definicion en ningun lado --
+     el boton "Cancelled" se veia sin estilo (boton de navegador puro),
+     ni gold ni blanco como sus vecinos. Mismo tamano/forma que
+     gs-ofp-btn-secondary, con acento rojo (--red, el mismo tono que ya
+     usa el resto de la app para lo destructivo/cancelado). */
+  .gs-ofp-btn-danger {
+    background: var(--white); border: 1.5px solid var(--red); color: var(--red); border-radius: 7px;
+    padding: 15px 20px; font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    transition: background .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .gs-ofp-btn-danger:hover { background: var(--red); color: var(--white); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+  .gs-ofp-btn-danger:active { transform: translateY(0); }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
