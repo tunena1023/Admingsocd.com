@@ -3274,11 +3274,15 @@ function approvalDetailHtml(card, o, services, history) {
     window['apprSvc_' + card.OrderID] = sel;
     window['apprLevel_' + card.OrderID] = levelSeed;
     window['apprDiv_' + card.OrderID] = o.Division || '';
-    /* Snapshot de como venian los servicios, para el diff del editor */
+    /* Snapshot de como venian los servicios (y niveles), para el diff
+       del editor y para saber si el boton Save debe activarse */
     window['apprSvcOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(sel));
+    window['apprLevelOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(levelSeed));
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
-    rows.push('<button type="button" class="gs-ofp-btn-secondary" style="margin-top:10px;padding:4px 12px;font-size:12px" '
-      + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>');
+    rows.push('<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svcbtn" style="margin-top:10px;padding:4px 12px;font-size:12px" '
+      + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>'
+      + '<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svccancel" style="margin-top:10px;margin-left:8px;padding:4px 12px;font-size:12px;display:none" '
+      + 'onclick="cancelApprSvcUpdate(\'' + esc(card.OrderID) + '\')">Cancel</button>');
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
     rows.push(reviewSvcTableHtml(services));
@@ -3457,10 +3461,16 @@ async function toggleApprSvcUpdate(orderId, division) {
        su Status, se queda en Approvals tal cual, solo con los
        servicios ya actualizados de verdad. */
     const services = buildApprServicesPayload(orderId);
+    /* Lo que cambio, en palabras, para que quede en el historial de la
+       orden (Services Updated) y no solo el JSON crudo. */
+    const notes = apprSvcDiffNotes(orderId);
     try {
       showLoadingOverlay('Saving services…');
-      await api('/admin-update-order', { body: { orderId, changedBy: getActorName(), services: services || [] } });
+      await api('/admin-update-order', { body: { orderId, changedBy: getActorName(), services: services || [], notes: notes } });
       showToast('Services saved.');
+      /* Lo guardado es ahora la base para el proximo diff */
+      window['apprSvcOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprSvc_' + orderId] || {}));
+      window['apprLevelOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprLevel_' + orderId] || {}));
     } catch (e) {
       showToast('Could not save: ' + e.message);
     }
@@ -3469,6 +3479,11 @@ async function toggleApprSvcUpdate(orderId, division) {
       readonlyBox.style.display = '';
       readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId);
     }
+    apprSvcButtons(orderId, false);
+    /* Recargar como hacen los demas guardados, para que el renglon
+       'Services Updated' recien creado aparezca ya en el historial de
+       la tarjeta. */
+    await loadAll();
     return;
   }
 
@@ -3480,6 +3495,65 @@ async function toggleApprSvcUpdate(orderId, division) {
   editorBox.style.display = 'block';
   mountApprServicePicker(orderId, division);
   if (readonlyBox) readonlyBox.style.display = 'none';
+  apprSvcButtons(orderId, true);
+}
+
+/* Estado de los botones del editor de servicios en Approvals:
+   cerrado -> "Update"; abierto -> "Save" (gris hasta que haya un cambio
+   real contra apprSvcOriginal_) + "Cancel" visible. */
+function apprSvcButtons(orderId, open) {
+  const dom = apprDomId(orderId);
+  const btn = document.getElementById(dom + '-svcbtn');
+  const cancel = document.getElementById(dom + '-svccancel');
+  if (!btn) return;
+  if (!open) {
+    btn.textContent = 'Update';
+    btn.disabled = false;
+    btn.classList.remove('gs-ofp-btn-primary'); btn.classList.add('gs-ofp-btn-secondary');
+    if (cancel) cancel.style.display = 'none';
+    return;
+  }
+  const changed = apprSvcHasChanges(orderId);
+  btn.textContent = 'Save';
+  btn.disabled = !changed;
+  btn.style.opacity = changed ? '' : '.5';
+  btn.classList.toggle('gs-ofp-btn-primary', changed);
+  btn.classList.toggle('gs-ofp-btn-secondary', !changed);
+  if (cancel) cancel.style.display = '';
+}
+
+function apprSvcHasChanges(orderId) {
+  const a = JSON.stringify(window['apprSvcOriginal_' + orderId] || {});
+  const b = JSON.stringify(window['apprSvc_' + orderId] || {});
+  const la = JSON.stringify(window['apprLevelOriginal_' + orderId] || {});
+  const lb = JSON.stringify(window['apprLevel_' + orderId] || {});
+  return a !== b || la !== lb;
+}
+
+/* "Added: X, Y. Removed: Z." -- para Notes del renglon Services Updated */
+function apprSvcDiffNotes(orderId) {
+  if (!window.GSServiceChangePanel) return '';
+  const base = GSServiceChangePanel.namesOf(window['apprSvcOriginal_' + orderId] || {});
+  const now = GSServiceChangePanel.namesOf(window['apprSvc_' + orderId] || {});
+  const added = now.filter(n => base.indexOf(n) === -1);
+  const removed = base.filter(n => now.indexOf(n) === -1);
+  const parts = [];
+  if (added.length) parts.push('Added: ' + added.join(', '));
+  if (removed.length) parts.push('Removed: ' + removed.join(', '));
+  if (!parts.length && apprSvcHasChanges(orderId)) parts.push('Service levels updated');
+  return parts.join('. ') + (parts.length ? '.' : '');
+}
+
+/* Cancel: descarta lo que se toco y vuelve a lo guardado */
+function cancelApprSvcUpdate(orderId) {
+  const dom = apprDomId(orderId);
+  const editorBox = document.getElementById(dom + '-svceditor');
+  const readonlyBox = document.getElementById(dom + '-svcreadonly');
+  window['apprSvc_' + orderId] = JSON.parse(JSON.stringify(window['apprSvcOriginal_' + orderId] || {}));
+  window['apprLevel_' + orderId] = JSON.parse(JSON.stringify(window['apprLevelOriginal_' + orderId] || {}));
+  if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
+  if (readonlyBox) { readonlyBox.style.display = ''; readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId); }
+  apprSvcButtons(orderId, false);
 }
 
 function apprInferPropType(orderId, division) {
@@ -3547,6 +3621,7 @@ function mountApprServicePicker(orderId, division) {
       if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
       const estBox = document.getElementById('appr-est-time-' + orderId);
       if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl));
+      apprSvcButtons(orderId, true);
     }
   });
 }
