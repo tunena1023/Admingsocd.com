@@ -28,10 +28,16 @@ const {
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
   HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST,
+  ORDERS_FOLDER, findFolderByPrefix, listChildren, deleteDriveItemById,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
 } = require('./lib/graph');
+
+/* Mismo nombre de carpeta que get-admin-gallery.js / get-order-photos.js /
+   upload-service-photo.js -- ninguna columna nueva en SharePoint, solo
+   la convencion de carpetas ya usada en toda la app. */
+const PHOTOS_FOLDER = process.env.GRAPH_PHOTOS_FOLDER || 'TechPhotos';
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
@@ -2009,18 +2015,73 @@ exports.handler = async (event) => {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
 
+      /* Techs se saco de aqui a peticion del dueno (14/09/2026) -- son
+         cuentas reales de empleados, no datos de prueba; borrarlas de
+         golpe los dejaria sin poder entrar a tech.gsocd.com. Se agrego
+         TechPhotoLog (faltaba: es el registro de cuando/donde un
+         tecnico subio una foto, ligado a ordenes de prueba igual que
+         el resto). */
       const listsToWipe = [
         ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
         FIELD_EMPLOYEES_LIST, SCHEDULING_LIST, WEEKLY_HOURS_LIST, REPORT_UPLOADS_LIST,
         RECURRING_SERVICES_LIST, RECURRING_ASSIGNMENTS_LIST, RECURRING_LOG_LIST,
-        TECHS_LIST, ORDER_ASSIGNMENTS_LIST
-        /* Staff y Settings SIEMPRE excluidas a proposito -- ahi vive
-           quien tiene acceso a este mismo panel (Director/Developer)
-           y la contrasena del director. Borrarlas dejaria a todos
-           fuera del sistema, sin forma de volver a entrar. */
+        ORDER_ASSIGNMENTS_LIST, TECH_PHOTO_LOG_LIST
+        /* Staff, Settings y Techs SIEMPRE excluidas a proposito -- ahi
+           vive quien tiene acceso a este mismo panel (Director/
+           Developer), la contrasena del director, y las cuentas reales
+           de campo. Borrarlas dejaria a todos fuera del sistema, sin
+           forma de volver a entrar. */
       ];
 
-      const deleted = {};
+      /* Fotos (TechPhotos/<Cliente>/<OrderID>) y PDFs de aprobacion
+         (Orders/<Cliente>/<OrderID>-r*.pdf) son ARCHIVOS reales en
+         SharePoint, no filas de ninguna lista -- por eso nunca se
+         borraban antes, aunque la orden ya no existiera (quedaban
+         huerfanos, invisibles en Gallery pero ocupando espacio de
+         verdad). Se borran aqui, ANTES de tirar las filas de Orders,
+         mientras todavia se tiene ClientID/BusinessName/OrderID para
+         encontrar la carpeta exacta de cada uno. Mismo find-por-
+         prefijo que ya usa orderpdf.js, para tolerar variaciones
+         minimas en como quedo nombrada la carpeta. */
+      const orderRows = await fetchAll(ORDERS_LIST);
+      const folderCache = {}; // 'TechPhotos|GS-1001' -> {name,id} | null, para no repetir la busqueda por cada orden del mismo cliente
+      let photosDeleted = 0, pdfsDeleted = 0;
+
+      async function findClientFolder(rootFolder, clientId) {
+        const key = rootFolder + '|' + clientId;
+        if (key in folderCache) return folderCache[key];
+        const found = await findFolderByPrefix(rootFolder, clientId + ' - ');
+        folderCache[key] = found;
+        return found;
+      }
+
+      for (const it of orderRows) {
+        const f = it.fields || {};
+        const clientId = String(f.ClientID || '').trim();
+        const orderId = String(f.OrderID || f.Title || '').trim();
+        if (!clientId || !orderId) continue;
+
+        try {
+          const photoClientFolder = await findClientFolder(PHOTOS_FOLDER, clientId);
+          if (photoClientFolder) {
+            const orderPhotoFolder = await findFolderByPrefix(PHOTOS_FOLDER + '/' + photoClientFolder.name, orderId);
+            if (orderPhotoFolder) { await deleteDriveItemById(orderPhotoFolder.id); photosDeleted++; }
+          }
+        } catch (e) { /* mejor esfuerzo -- una carpeta rara no debe tronar todo el wipe */ }
+
+        try {
+          const pdfClientFolder = await findClientFolder(ORDERS_FOLDER, clientId);
+          if (pdfClientFolder) {
+            const kids = await listChildren(ORDERS_FOLDER + '/' + pdfClientFolder.name);
+            const re = new RegExp('^' + orderId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-r\\d+\\.pdf$', 'i');
+            const matches = kids.filter(k => k.isFile && re.test(k.name));
+            await Promise.all(matches.map(k => deleteDriveItemById(k.id)));
+            pdfsDeleted += matches.length;
+          }
+        } catch (e) { /* idem */ }
+      }
+
+      const deleted = { photoFolders: photosDeleted, orderPdfs: pdfsDeleted };
       for (const list of listsToWipe) {
         const rows = await fetchAll(list);
         await Promise.all(rows.map(it => deleteListItem(list, it.id)));

@@ -1685,7 +1685,7 @@
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none;background:#FFF5F5">
-        <p class="section-sub" style="margin-top:16px">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Techs and OrderAssignments. Clients, Services and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
+        <p class="section-sub" style="margin-top:16px">Testing only. Permanently deletes ALL Orders, OrderServices, OrderHistory, Drafts, Scheduling, WeeklyHours, ReportUploads, Recurring data, Tech Photo Log and OrderAssignments — including the actual photo files and approval PDFs saved for those orders in SharePoint, not just the list rows. Clients, Services, Techs and Staff/Settings are never touched. This cannot be undone. Remove this section once testing is done.</p>
         <button class="gs-ofp-btn-danger" onclick="debugWipeTestData()">Wipe All Test Data</button>
         <button class="gs-ofp-btn-danger" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
         <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
@@ -7120,7 +7120,7 @@ function renderGalleryPanel() {
      confirm() de "estas seguro" primero, y la password exacta
      despues -- ninguno de los dos solo es suficiente. */
   async function debugWipeTestData() {
-    const sure = confirm('This will PERMANENTLY delete ALL Orders, Scheduling and Recurring data. Clients and Services are NOT touched. This cannot be undone. Continue?');
+    const sure = confirm('This will PERMANENTLY delete ALL Orders, Scheduling and Recurring data — including the actual photo files and approval PDFs saved for those orders in SharePoint. Clients, Services and Techs are NOT touched. This cannot be undone. Continue?');
     if (!sure) return;
 
     const pass = window.prompt('Type the exact confirmation password:');
