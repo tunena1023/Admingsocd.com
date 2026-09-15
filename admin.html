@@ -7802,7 +7802,20 @@ function flattenSelected(sel, lvl) {
   return rows;
 }
 function flattenSelectedForEstimate(orderId) {
-  return flattenSelected(window['adminSvc_' + orderId] || {}, window['adminLevel_' + orderId] || {});
+  const sel = window['adminSvc_' + orderId] || {};
+  const ncState = window['adminNC_' + orderId] || {};
+  /* El tiempo estimado es de lo que de VERDAD se va a hacer -- un
+     servicio marcado como removido/no completado no debe seguir
+     sumando aqui, aunque siga "seleccionado" en la orden. */
+  const activeOnly = {};
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sku]) => {
+      if ((ncState[ncKey(cat, svcName)] || {}).nc) return;
+      if (!activeOnly[cat]) activeOnly[cat] = {};
+      activeOnly[cat][svcName] = sku;
+    });
+  });
+  return flattenSelected(activeOnly, window['adminLevel_' + orderId] || {});
 }
 
 /* Tiempo de UN solo servicio (para mostrarlo junto a cada renglon,
