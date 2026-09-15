@@ -7979,8 +7979,9 @@ function activeSvcButtons(orderId, open) {
 /* Al abrir: History se oculta y en su MISMO lugar aparece el editor de
    servicios (catalogo + "Selected for this order", ya con su Note/foto
    de siempre, sin cambios). Al cerrar (boton ya dice "Save"): se
-   guarda de verdad -- Active SIEMPRE manda a Review (requestOnly),
-   nunca se aplica directo, a diferencia de Approvals. */
+   guarda DIRECTO -- confirmado con el dueño, ya no manda a Review, se
+   queda en Active tal cual (mismo modo Directo que ya usa Approvals,
+   sin requestOnly). */
 /* Cuanto de lo NO-servicios cambio, comparado contra el snapshot que
    ya se toma en cada render (adminFieldsOriginal_) -- mismo criterio
    que ya usaba el Save Changes viejo. */
@@ -8185,7 +8186,7 @@ function toggleActiveSvcUpdate(orderId, division) {
         document.getElementById('edit-delaynotes-' + orderId)?.focus();
         return;
       }
-      const body = { orderId, changedBy: getActorName(), requestOnly: true };
+      const body = { orderId, changedBy: getActorName(), requestOnly: false };
       if (notesVal      !== (orig.notes || ''))      body.notes            = notesVal;
       if (dueVal        !== (orig.due || ''))        body.dueDate          = dueVal;
       if (windowVal     !== (orig.window || ''))     body.serviceWindow    = windowVal;
@@ -8197,7 +8198,7 @@ function toggleActiveSvcUpdate(orderId, division) {
           showLoadingOverlay('Saving order ' + orderId + '…');
           await api('/admin-update-order', { body });
           await uploadPendingServicePhotos(orderId);
-          showToast('Change sent to Review — waiting for approval before it takes effect.');
+          showToast('Saved.');
           await loadAll();
         } catch (e) {
           showToast('Could not save: ' + e.message);
