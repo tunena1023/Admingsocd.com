@@ -7608,8 +7608,6 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   });
   window['adminNC_' + o.OrderID] = ncState;
 
-  const editSectionId = 'actedit-' + String(context || '') + '-' + String(o.OrderID).replace(/[^a-z0-9]/gi, '_');
-
   /* En History, una orden Cancelled+Archived puede pedirse de vuelta.
      A diferencia del "Mark as Active" que ya existe en Review (justo
      despues de cancelar, instantaneo, sin password), esta orden ya
@@ -7637,7 +7635,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
       </span>`;
 
-  const editForm = contextCan(context, 'edit') ? `
+  const statusBar = contextCan(context, 'edit') ? `
     <div class="eo-status-bar">
       <div class="eo-status-info">
         <span class="eo-status-dot"></span>
@@ -7649,63 +7647,8 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
           : ''}
         <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
-        <button class="gs-ofp-btn-secondary" onclick="toggleActiveEdit('${editSectionId}')">Edit</button>
       </div>
-    </div>
-      <div id="${editSectionId}" class="eo-body" style="display:none">
-        <p class="detail-label" style="margin-bottom:16px">Edit Order <span style="font-size:11px;color:var(--gray);text-transform:none;font-weight:400">(saving sends it to Review for approval)</span></p>
-
-        <div class="eo-section-label">Who &amp; when</div>
-        <div class="eo-readonly-row">
-          <div><span class="k">Supervisor</span><span class="v">${o.Supervisor ? esc(o.Supervisor) : '—'}</span></div>
-          <div><span class="k">Window</span><span class="v">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</span></div>
-          <div><span class="k">Service Date</span><span class="v">${o.DispatchDate ? esc(fmtDate(o.DispatchDate)) : '—'}</span></div>
-          <div><span class="k">Inspection</span><span class="v">${o.InspectionDate ? esc(fmtDate(o.InspectionDate)) : '—'}</span></div>
-        </div>
-        <a class="eo-link" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reassign in Scheduling →</a>
-
-        <div class="eo-section-label">Client-facing details</div>
-        <div class="gs-ofp-unitrow">
-          <div class="gs-ofp-unitfield">
-            <div class="gs-ofp-unitfield-label">Notes for client</div>
-            <input type="text" id="edit-notes-${esc(o.OrderID)}" value="${esc(o.Notes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-        </div>
-        <div class="gs-ofp-unitrow">
-          <div class="gs-ofp-unitfield">
-            <div class="gs-ofp-unitfield-label">Entry Date <span style="text-transform:none;font-weight:400">(client's request)</span></div>
-            <div style="padding:6px 2px 8px;font-size:15px;color:var(--gray)">${o.EntryDate ? esc(fmtDate(o.EntryDate)) : '—'}</div>
-          </div>
-          <div class="gs-ofp-unitfield">
-            <div class="gs-ofp-unitfield-label">Due Date</div>
-            ${GSDateTimePicker.dateHtml('edit-due-' + esc(o.OrderID), dateInputValue(o.DueDate))}
-          </div>
-        </div>
-
-        <div class="eo-section-label">Delay <span style="text-transform:none;font-weight:400;color:#C9C5BA">— optional</span></div>
-        <div class="gs-ofp-unitrow">
-          <div class="gs-ofp-unitfield">
-            <div class="gs-ofp-unitfield-label">Delay Reason</div>
-            <select id="edit-delaytype-${esc(o.OrderID)}" onchange="refreshSaveBtn('${esc(o.OrderID)}')">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
-          </div>
-          <div class="gs-ofp-unitfield">
-            <div class="gs-ofp-unitfield-label">Delay Notes</div>
-            <input type="text" id="edit-delaynotes-${esc(o.OrderID)}" value="${esc(o.DelayReasonNotes||'')}" oninput="refreshSaveBtn('${esc(o.OrderID)}')">
-          </div>
-        </div>
-
-        <div class="eo-section-label">Services</div>
-        <div id="edit-svc-${esc(o.OrderID)}">
-          ${buildServiceRows(o.OrderID, o.Division)}
-        </div>
-
-        <div class="btn-actions">
-          <button id="save-btn-${esc(o.OrderID)}" class="gs-ofp-btn-primary" style="display:none"
-            onclick="saveOrderUpdate('${esc(o.OrderID)}', false, '${context}')">Save Changes${context === 'active' ? ' (send to Review)' : ''}</button>
-          <button id="confirm-btn-${esc(o.OrderID)}" class="gs-ofp-btn-secondary" style="display:none"
-            onclick="saveOrderUpdate('${esc(o.OrderID)}', true, '${context}')">Request Confirmation (send to client)</button>
-        </div>
-      </div>` : '';
+    </div>` : '';
 
   /* "By Employee" (context 'assigned') es SOLO para ver que tiene
      cada quien en su plato esta semana -- nunca para editar desde
@@ -7770,19 +7713,26 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
           <div class="hist-head" style="padding:10px 14px;background:var(--bg);cursor:pointer;margin:0" onclick="toggleHistDetail('${svcDetailId}')">
             <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
-            <span class="hist-toggle">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button type="button" class="gs-ofp-btn-secondary" id="active-svc-btn-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px" onclick="event.stopPropagation();toggleActiveSvcUpdate('${esc(o.OrderID)}','${esc(o.Division||'')}')">Update</button>
+              <button type="button" class="gs-ofp-btn-secondary" id="active-svc-cancel-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px;display:none" onclick="event.stopPropagation();cancelActiveSvcUpdate('${esc(o.OrderID)}')">Cancel</button>
+              <span class="hist-toggle">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
+            </div>
           </div>
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
         ${estimatedTimeHtml(services)}
       </div>
       <div>
-        <p class="detail-label">History</p>
-        ${histHtml}
+        <div id="history-box-${esc(o.OrderID)}">
+          <p class="detail-label">History</p>
+          ${histHtml}
+        </div>
+        <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none"></div>
       </div>
     </div>
     ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}</div>`}
-    ${editForm}${assignedViewOnly}${historyReactivate}`;
+    ${statusBar}${assignedViewOnly}${historyReactivate}`;
 }
 
 function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
@@ -7966,8 +7916,152 @@ function mountAdminServicePicker(orderId, division) {
       if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
       refreshConfirmBtn(orderId);
       refreshSaveBtn(orderId);
+      activeSvcButtons(orderId, true);
     }
   });
+}
+
+/* Botones del "Update" de servicios en Active -- MISMO patron real que
+   ya usa Approvals (apprSvcButtons/toggleApprSvcUpdate): cerrado ->
+   "Update"; abierto -> "Save" (gris hasta que haya un cambio real
+   contra adminSvcOriginal_/adminNCOriginal_) + "Cancel" visible.
+   Confirmado con el dueño: el boton "Edit" viejo desaparece por
+   completo, este es su reemplazo, solo para Servicios. */
+function activeSvcButtons(orderId, open) {
+  const btn = document.getElementById('active-svc-btn-' + orderId);
+  const cancel = document.getElementById('active-svc-cancel-' + orderId);
+  if (!btn) return;
+  if (!open) {
+    btn.textContent = 'Update';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.classList.remove('gs-ofp-btn-primary'); btn.classList.add('gs-ofp-btn-secondary');
+    if (cancel) cancel.style.display = 'none';
+    return;
+  }
+  const changed = svcSelectionChanged(orderId) || ncChanged(orderId) || activeFieldsChanged(orderId);
+  btn.textContent = 'Save';
+  btn.disabled = !changed;
+  btn.style.opacity = changed ? '' : '.5';
+  btn.classList.toggle('gs-ofp-btn-primary', changed);
+  btn.classList.toggle('gs-ofp-btn-secondary', !changed);
+  if (cancel) cancel.style.display = '';
+}
+
+/* Al abrir: History se oculta y en su MISMO lugar aparece el editor de
+   servicios (catalogo + "Selected for this order", ya con su Note/foto
+   de siempre, sin cambios). Al cerrar (boton ya dice "Save"): se
+   guarda de verdad -- Active SIEMPRE manda a Review (requestOnly),
+   nunca se aplica directo, a diferencia de Approvals. */
+/* Cuanto de lo NO-servicios cambio, comparado contra el snapshot que
+   ya se toma en cada render (adminFieldsOriginal_) -- mismo criterio
+   que ya usaba el Save Changes viejo. */
+function activeFieldsChanged(orderId) {
+  const val = id => document.getElementById(id + '-' + orderId)?.value || '';
+  const orig = window['adminFieldsOriginal_' + orderId] || {};
+  return val('edit-notes')      !== (orig.notes || '') ||
+    val('edit-due')             !== (orig.due || '') ||
+    val('edit-delaytype')       !== (orig.delaytype || '') ||
+    val('edit-delaynotes')      !== (orig.delaynotes || '');
+}
+
+function toggleActiveSvcUpdate(orderId, division) {
+  const histBox = document.getElementById('history-box-' + orderId);
+  const editorBox = document.getElementById('active-svc-editor-' + orderId);
+  if (!editorBox) return;
+
+  if (editorBox.style.display === 'block') {
+    const changed = svcSelectionChanged(orderId) || ncChanged(orderId) || activeFieldsChanged(orderId);
+    if (changed) {
+      const val = id => document.getElementById(id + '-' + orderId)?.value || '';
+      const orig = window['adminFieldsOriginal_' + orderId] || {};
+      const notesVal = val('edit-notes'), dueVal = val('edit-due'), delayTypeVal = val('edit-delaytype'), delayNotesVal = val('edit-delaynotes');
+      if (delayTypeVal === 'Other' && !delayNotesVal.trim()) {
+        showToast('Delay reason "Other" needs a note explaining it.');
+        document.getElementById('edit-delaynotes-' + orderId)?.focus();
+        return;
+      }
+      const body = { orderId, changedBy: getActorName(), requestOnly: true };
+      if (notesVal      !== (orig.notes || ''))      body.notes            = notesVal;
+      if (dueVal        !== (orig.due || ''))        body.dueDate          = dueVal;
+      if (delayTypeVal  !== (orig.delaytype || ''))  body.delayReasonType  = delayTypeVal;
+      if (delayNotesVal !== (orig.delaynotes || '')) body.delayReasonNotes = delayNotesVal;
+      if (svcSelectionChanged(orderId) || ncChanged(orderId)) body.services = buildServicesPayload(orderId) || [];
+      (async () => {
+        try {
+          showLoadingOverlay('Saving order ' + orderId + '…');
+          await api('/admin-update-order', { body });
+          await uploadPendingServicePhotos(orderId);
+          showToast('Change sent to Review — waiting for approval before it takes effect.');
+          await loadAll();
+        } catch (e) {
+          showToast('Could not save: ' + e.message);
+        }
+      })();
+    }
+    editorBox.style.display = 'none';
+    editorBox.innerHTML = '';
+    if (histBox) histBox.style.display = '';
+    activeSvcButtons(orderId, false);
+    return;
+  }
+
+  if (!activeCatalogCache || !activeCatalogCache.length) {
+    showToast('No catalog imported yet — import it in Service Catalog first.');
+    return;
+  }
+  const o = allOrders.find(x => x.OrderID === orderId) || {};
+  editorBox.innerHTML = `
+    <p class="detail-label">Update Order</p>
+    <a class="eo-link" onclick="goToScheduleForOrder('${jsStr(orderId)}')">Reassign in Scheduling →</a>
+
+    <div class="gs-ofp-unitrow" style="margin-top:16px">
+      <div class="gs-ofp-unitfield">
+        <div class="gs-ofp-unitfield-label">Notes for client</div>
+        <input type="text" id="edit-notes-${orderId}" value="${esc(o.Notes||'')}" oninput="activeSvcButtons('${jsStr(orderId)}', true)">
+      </div>
+    </div>
+    <div class="gs-ofp-unitrow">
+      <div class="gs-ofp-unitfield">
+        <div class="gs-ofp-unitfield-label">Due Date</div>
+        ${GSDateTimePicker.dateHtml('edit-due-' + orderId, dateInputValue(o.DueDate))}
+      </div>
+    </div>
+    <div class="gs-ofp-unitrow">
+      <div class="gs-ofp-unitfield">
+        <div class="gs-ofp-unitfield-label">Delay Reason <span style="text-transform:none;font-weight:400;color:#C9C5BA">— optional</span></div>
+        <select id="edit-delaytype-${orderId}" onchange="activeSvcButtons('${jsStr(orderId)}', true)">${optionsHtml(DELAY_REASONS, o.DelayReasonType || '')}</select>
+      </div>
+      <div class="gs-ofp-unitfield">
+        <div class="gs-ofp-unitfield-label">Delay Notes</div>
+        <input type="text" id="edit-delaynotes-${orderId}" value="${esc(o.DelayReasonNotes||'')}" oninput="activeSvcButtons('${jsStr(orderId)}', true)">
+      </div>
+    </div>
+
+    <p class="detail-label" style="margin-top:20px">Update Services</p>
+    <p style="font-size:10.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">Catalog — click to add</p>
+    <div id="admin-svc-picker-${orderId}"></div>
+    <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
+    <p style="font-size:10.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px">Selected for this order</p>
+    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
+    <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
+  editorBox.style.display = 'block';
+  if (histBox) histBox.style.display = 'none';
+  mountAdminServicePicker(orderId, division);
+  activeSvcButtons(orderId, true);
+}
+
+/* Cancel: descarta lo que se toco en esta sesion y vuelve a lo
+   guardado -- mismo criterio que cancelApprSvcUpdate. */
+function cancelActiveSvcUpdate(orderId) {
+  const histBox = document.getElementById('history-box-' + orderId);
+  const editorBox = document.getElementById('active-svc-editor-' + orderId);
+  window['adminSvc_' + orderId] = JSON.parse(JSON.stringify(window['adminSvcOriginal_' + orderId] || {}));
+  window['adminLevel_' + orderId] = JSON.parse(JSON.stringify(window['adminLevelOriginal_' + orderId] || {}));
+  window['adminNC_' + orderId] = JSON.parse(JSON.stringify(window['adminNCOriginal_' + orderId] || {}));
+  if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
+  if (histBox) histBox.style.display = '';
+  activeSvcButtons(orderId, false);
 }
 
 /* Diff verde/rojo contra los servicios que la orden tenia al abrir el
