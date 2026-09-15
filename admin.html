@@ -53,6 +53,8 @@
       transition: border-color .15s, background .15s; }
     .svc-row-note:focus { border-color: var(--gold); background: var(--white); }
     .svc-row-note::placeholder { color: #A9A49A; }
+    .svc-row-note.warn { border-color: var(--red); }
+    .warn-tag { font-size: 10.5px; color: var(--red); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
     .svc-row-cam { flex-shrink: 0; width: 32px; height: 32px; border-radius: 6px; border: 1.5px solid var(--border);
       background: var(--white); color: var(--gray); cursor: pointer; display: flex; align-items: center;
       justify-content: center; transition: border-color .15s, color .15s; position: relative; }
@@ -7722,13 +7724,17 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
         <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
+        <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>
       <div>
-        <div id="history-box-${esc(o.OrderID)}">
-          <p class="detail-label">History</p>
+        <div class="hist-head" style="cursor:pointer" onclick="toggleHistDetail('hist-detail-${esc(o.OrderID)}')">
+          <p class="detail-label" style="margin:0">History</p>
+          <span class="hist-toggle">&#9660; details</span>
+        </div>
+        <div id="hist-detail-${esc(o.OrderID)}" class="hist-detail" style="padding:0;background:none;margin-top:10px">
           ${histHtml}
         </div>
-        <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none"></div>
+        <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none;margin-top:20px"></div>
       </div>
     </div>
     ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}</div>`}
@@ -8001,16 +8007,18 @@ function activeSvcReadOnlyHtml(orderId) {
 function renderActiveSvcEditable(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const ncState = window['adminNC_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sku]) => rows.push({ cat, svcName, sku }));
   });
   const listHtml = rows.length ? rows.map(r => {
     const mins = svcMinutesLabel(r.sku, levelState[ncKey(r.cat, r.svcName)]);
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px">' +
-      '<span>' + esc(r.svcName) + '</span>' +
-      '<span>' + (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '') +
-      '<span style="color:var(--red);font-weight:700;cursor:pointer" onclick="removeActiveSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">&#10005;</span></span>' +
+    const removed = !!(ncState[ncKey(r.cat, r.svcName)] || {}).nc;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px' + (removed ? ';opacity:.6' : '') + '">' +
+      '<span' + (removed ? ' style="text-decoration:line-through"' : '') + '>' + esc(r.svcName) + '</span>' +
+      '<span>' + (removed ? '<span class="warn-tag">removed</span>' : (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '')) +
+      '<button type="button" class="svc-remove-btn" title="' + (removed ? 'Undo' : 'Mark as not completed / remove') + '" onclick="toggleActiveSvcRemoved(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">' + (removed ? '&#8635;' : '&#10005;') + '</button></span>' +
       '</div>';
   }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
@@ -8020,7 +8028,27 @@ function renderActiveSvcEditable(orderId) {
         'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
         'oninput="filterActiveCatalog(\'' + jsStr(orderId) + '\', this.value)">' +
       '<div id="active-svc-search-results-' + orderId + '" style="margin-top:8px"></div>' +
+    '</div>' +
+    '<div class="gs-ofp-unitrow" style="margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--border)">' +
+      '<div class="gs-ofp-unitfield">' +
+        '<div class="gs-ofp-unitfield-label">Notes for client</div>' +
+        '<input type="text" id="edit-notes-' + orderId + '" oninput="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">' +
+      '</div>' +
     '</div>';
+}
+
+/* Toggle real de "removido" -- NO borra el servicio, marca Not
+   Completed (mismo adminNC_ que ya usa el resto del sistema): se
+   queda tachado EN SU LUGAR aqui, y sigue apareciendo en "Selected
+   for this order" (a la derecha), pero ahi su nota se vuelve
+   obligatoria (confirmado con el dueño: "seria de hacer el servicio
+   removido obligatorio de ponerse [la nota] del lado derecho"). */
+function toggleActiveSvcRemoved(orderId, cat, svcName) {
+  const state = window['adminNC_' + orderId] || (window['adminNC_' + orderId] = {});
+  const k = ncKey(cat, svcName);
+  const was = !!(state[k] || {}).nc;
+  state[k] = { nc: !was, reason: (state[k] || {}).reason || '' };
+  refreshActiveSvcUI(orderId);
 }
 
 /* El buscador arranca vacio a proposito -- nunca lista el catalogo
@@ -8059,19 +8087,6 @@ function addActiveSvc(orderId, category, serviceName, sku, division) {
   refreshActiveSvcUI(orderId);
 }
 
-function removeActiveSvc(orderId, category, serviceName) {
-  const sel = window['adminSvc_' + orderId] || {};
-  if (sel[category]) {
-    delete sel[category][serviceName];
-    if (!Object.keys(sel[category]).length) delete sel[category];
-  }
-  const ncState = window['adminNC_' + orderId] || {};
-  delete ncState[ncKey(category, serviceName)];
-  const levelState = window['adminLevel_' + orderId] || {};
-  delete levelState[ncKey(category, serviceName)];
-  refreshActiveSvcUI(orderId);
-}
-
 /* Repinta todo lo que depende de la seleccion de servicios: la lista
    editable de la izquierda, el contador, "Selected for this order" +
    diff a la derecha, el tiempo estimado, y el boton Save/Update. */
@@ -8101,10 +8116,10 @@ function refreshActiveSvcUI(orderId) {
    Al cerrar (boton ya dice "Save"): se guarda de verdad -- Active
    SIEMPRE manda a Review (requestOnly), nunca se aplica directo. */
 function toggleActiveSvcUpdate(orderId, division) {
-  const histBox = document.getElementById('history-box-' + orderId);
   const editorBox = document.getElementById('active-svc-editor-' + orderId);
   const dueDisplay = document.getElementById('due-display-' + orderId);
   const winDisplay = document.getElementById('window-display-' + orderId);
+  const reassignLink = document.getElementById('reassign-link-' + orderId);
   const svcDetailId = activeSvcDomId(orderId);
   const listBox = document.getElementById(svcDetailId);
   if (!editorBox) return;
@@ -8112,6 +8127,15 @@ function toggleActiveSvcUpdate(orderId, division) {
   if (editorBox.style.display === 'block') {
     const changed = svcSelectionChanged(orderId) || ncChanged(orderId) || activeFieldsChanged(orderId);
     if (changed) {
+      /* Un servicio marcado como removido/no completado NECESITA su
+         nota -- confirmado con el dueño, no se puede guardar sin
+         explicar por que no se hizo. */
+      const ncState = window['adminNC_' + orderId] || {};
+      const missingReason = Object.values(ncState).some(st => st.nc && !st.reason);
+      if (missingReason) {
+        showToast('A removed / not-completed service needs its note filled in before saving.');
+        return;
+      }
       const val = id => document.getElementById(id + '-' + orderId)?.value || '';
       const orig = window['adminFieldsOriginal_' + orderId] || {};
       const notesVal = val('edit-notes'), dueVal = val('edit-due'), windowVal = val('edit-window'),
@@ -8143,9 +8167,9 @@ function toggleActiveSvcUpdate(orderId, division) {
     if (dueDisplay) dueDisplay.textContent = document.getElementById('edit-due-' + orderId)?.value ? fmtDate(document.getElementById('edit-due-' + orderId).value) : '—';
     if (winDisplay) winDisplay.textContent = document.getElementById('edit-window-' + orderId)?.value || '—';
     if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
+    if (reassignLink) reassignLink.style.display = 'none';
     editorBox.style.display = 'none';
     editorBox.innerHTML = '';
-    if (histBox) histBox.style.display = '';
     activeSvcButtons(orderId, false);
     return;
   }
@@ -8155,17 +8179,11 @@ function toggleActiveSvcUpdate(orderId, division) {
   if (dueDisplay) dueDisplay.innerHTML = '<input type="date" id="edit-due-' + orderId + '" value="' + dateInputValue(o.DueDate) + '" oninput="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">';
   if (winDisplay) winDisplay.innerHTML = '<select id="edit-window-' + orderId + '" onchange="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">' + optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '') + '</select>';
   if (listBox) listBox.innerHTML = renderActiveSvcEditable(orderId);
+  const notesInput = document.getElementById('edit-notes-' + orderId);
+  if (notesInput) notesInput.value = o.Notes || '';
+  if (reassignLink) reassignLink.style.display = '';
 
   editorBox.innerHTML = `
-    <p class="detail-label">Update Order</p>
-    <a class="eo-link" onclick="goToScheduleForOrder('${jsStr(orderId)}')">Reassign in Scheduling →</a>
-
-    <div class="gs-ofp-unitrow" style="margin-top:16px">
-      <div class="gs-ofp-unitfield">
-        <div class="gs-ofp-unitfield-label">Notes for client</div>
-        <input type="text" id="edit-notes-${orderId}" value="${esc(o.Notes||'')}" oninput="activeSvcButtons('${jsStr(orderId)}', true)">
-      </div>
-    </div>
     <div class="gs-ofp-unitrow">
       <div class="gs-ofp-unitfield">
         <div class="gs-ofp-unitfield-label">Delay Reason <span style="text-transform:none;font-weight:400;color:#C9C5BA">— optional</span></div>
@@ -8181,17 +8199,16 @@ function toggleActiveSvcUpdate(orderId, division) {
     <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
     <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
   editorBox.style.display = 'block';
-  if (histBox) histBox.style.display = 'none';
   activeSvcButtons(orderId, true);
 }
 
 /* Cancel: descarta lo que se toco en esta sesion y vuelve a lo
    guardado -- mismo criterio que cancelApprSvcUpdate. */
 function cancelActiveSvcUpdate(orderId) {
-  const histBox = document.getElementById('history-box-' + orderId);
   const editorBox = document.getElementById('active-svc-editor-' + orderId);
   const dueDisplay = document.getElementById('due-display-' + orderId);
   const winDisplay = document.getElementById('window-display-' + orderId);
+  const reassignLink = document.getElementById('reassign-link-' + orderId);
   const listBox = document.getElementById(activeSvcDomId(orderId));
   const o = allOrders.find(x => x.OrderID === orderId) || {};
   window['adminSvc_' + orderId] = JSON.parse(JSON.stringify(window['adminSvcOriginal_' + orderId] || {}));
@@ -8200,8 +8217,8 @@ function cancelActiveSvcUpdate(orderId) {
   if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
   if (winDisplay) winDisplay.textContent = o.ServiceWindow ? o.ServiceWindow : '—';
   if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
+  if (reassignLink) reassignLink.style.display = 'none';
   if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
-  if (histBox) histBox.style.display = '';
   activeSvcButtons(orderId, false);
 }
 
@@ -8229,16 +8246,17 @@ function buildAdminSelectedListHtml(orderId) {
   const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
   return rows.map(r => {
     const st = ncState[ncKey(r.cat, r.svcName)] || { nc: false, reason: '' };
+    const needsNote = st.nc && !st.reason;
     const lvl = levelState[ncKey(r.cat, r.svcName)];
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
     const rid = 'nc-note-' + safe + '-' + catSafe + '-' + svcSafe;
     const mins = svcMinutesLabel(r.sub, lvl);
-    return `<div class="svc-row">
-      <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}</b>
+    return `<div class="svc-row"${needsNote ? ' style="background:#FBEAEA"' : ''}>
+      <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}${needsNote ? ' <span class="warn-tag">removed — note required</span>' : ''}</b>
       <div class="svc-row-notewrap">
-        <input type="text" id="${rid}" class="svc-row-note" placeholder="Note if not completed — leave blank if it's done" value="${esc(st.reason)}"
-          oninput="setNotCompletedNote('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value)">
+        <input type="text" id="${rid}" class="svc-row-note${needsNote ? ' warn' : ''}" placeholder="${needsNote ? "Required — explain why this wasn't completed" : "Note if not completed — leave blank if it's done"}" value="${esc(st.reason)}"
+          oninput="setNotCompletedNote('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value);this.classList.remove('warn')">
       </div>
       <button type="button" class="svc-row-cam" id="svc-cam-${safe}-${catSafe}-${svcSafe}" title="Add a photo for this service" onclick="startServicePhoto('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
