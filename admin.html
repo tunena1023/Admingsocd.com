@@ -4778,7 +4778,10 @@ function renderGalleryPanel() {
 
   function addImportRecurringAssignment(id) {
     const r = importRecurringRows.find(x => x.id === id);
-    r.assignments.push({ payrollNumber: '', hoursAllocated: 8 }); // mismo default que addAssignRow() del formulario normal
+    // 0, no 8 -- aqui las horas son POR DIA (a diferencia de
+    // addAssignRow() del formulario normal, que es semanal), asi que
+    // ese mismo default no aplicaba. A peticion del dueno (15/09/2026).
+    r.assignments.push({ payrollNumber: '', hoursAllocated: 0 });
     renderImportRecurringPreview();
     saveRecurringImportMatrixRow(id);
   }
