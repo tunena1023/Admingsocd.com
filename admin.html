@@ -928,7 +928,6 @@
 </head>
 <body>
 
-<input type="file" id="svc-photo-input" accept="image/*" capture="environment" style="display:none">
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.9/gallery-groups/gallery-groups.js"></script>
@@ -941,6 +940,7 @@
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.27.3/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.0/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
 <nav>
@@ -956,6 +956,8 @@
 </nav>
 
 <div id="gsNav"></div>
+
+<div id="camera-queue-banner" style="display:none;background:#3a2f18;color:#E2C97E;font-size:12px;padding:8px 16px;text-align:center"></div>
 
 <!-- APPROVALS -->
 <div class="panel active" id="panel-approvals">
@@ -1884,7 +1886,8 @@ async function initAuth() {
   GSOrderFormPremium.styleTag();
   document.getElementById('tpl-admin-div-toggle').innerHTML = GSOrderFormPremium.divButtonsHtml('tplAdminSelectDiv');
     checkDeveloperAccess();
-    loadAll();
+    initCameraQueue();
+    loadAll().then(restoreAdminEditSnapshotIfAny);
     applyUrlTabParam();
     return;
   }
@@ -1912,7 +1915,8 @@ async function initAuth() {
   GSOrderFormPremium.styleTag();
   document.getElementById('tpl-admin-div-toggle').innerHTML = GSOrderFormPremium.divButtonsHtml('tplAdminSelectDiv');
   checkDeveloperAccess();
-  loadAll();
+  initCameraQueue();
+  loadAll().then(restoreAdminEditSnapshotIfAny);
   applyUrlTabParam();
 }
 
@@ -2471,6 +2475,32 @@ const DIRECTOR_NAME = 'Daniel Aguilar (Operations Director)';
    pide a nadie que escriba su nombre a mano. */
 function getActorName() {
   return (adminUser && (adminUser.name || adminUser.email)) || 'Admin';
+}
+
+/* Mismo dbName que camera-capture.html -- para que el contador y los
+   reintentos funcionen tambien desde admin.html, no solo dentro de
+   la camara (igual que en Tech). */
+function initCameraQueue() {
+  GSCameraQueue.init({
+    dbName: 'gs-admin-camera-queue',
+    maxAttempts: 10,
+    retryIntervalMs: 20000,
+    uploadFn: async function (item) { return api(item.endpoint, { body: item.body }); },
+    onChange: function (pending) {
+      const banner = document.getElementById('camera-queue-banner');
+      const waiting = pending.filter(p => !p.failed).length;
+      const failed = pending.filter(p => p.failed).length;
+      if (failed) {
+        banner.style.display = 'block';
+        banner.textContent = failed + ' photo' + (failed === 1 ? '' : 's') + ' could not be uploaded — open the order and try again.';
+      } else if (waiting) {
+        banner.style.display = 'block';
+        banner.textContent = waiting + ' photo' + (waiting === 1 ? '' : 's') + ' waiting for signal — will upload automatically.';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+  });
 }
 
 /* Pide el password del director. Si es correcto, la accion queda
@@ -8214,7 +8244,6 @@ function toggleActiveSvcUpdate(orderId, division) {
               notes: adminSvcDiffNotes(orderId)
             } });
           }
-          await uploadPendingServicePhotos(orderId);
           showToast('Saved.');
           await loadAll();
         } catch (e) {
@@ -8406,11 +8435,6 @@ function ncChanged(orderId) {
   return JSON.stringify(ncNow) !== JSON.stringify(ncOrig);
 }
 
-function hasPendingServicePhotos(orderId) {
-  const pending = svcPhotoPending[orderId];
-  return !!(pending && Object.keys(pending).length);
-}
-
 document.addEventListener('gs-date-picked', (e) => {
   if (e.detail.fieldId.indexOf('edit-due-') === 0) {
     refreshSaveBtn(e.detail.fieldId.slice('edit-due-'.length));
@@ -8429,7 +8453,7 @@ function refreshSaveBtn(orderId) {
     val('edit-delaytype')  !== (orig.delaytype || '') ||
     val('edit-delaynotes') !== (orig.delaynotes || '');
 
-  btn.style.display = (fieldsChanged || svcSelectionChanged(orderId) || ncChanged(orderId) || hasPendingServicePhotos(orderId)) ? '' : 'none';
+  btn.style.display = (fieldsChanged || svcSelectionChanged(orderId) || ncChanged(orderId)) ? '' : 'none';
 }
 
 /* ============================================================
@@ -8463,42 +8487,87 @@ function setNotCompletedNote(orderId, cat, svc, value) {
 }
 
 /* ===== Foto por servicio (Not Completed) =====
-   Mismo mecanismo que las fotos del cliente (tracking.html): un solo
-   <input type="file"> oculto y compartido, reusado para cualquier
-   servicio -- se sabe para cual es por svcPhotoTarget. La foto se
-   queda en memoria (base64) hasta que se le de "Save Changes" (asi
-   se confirmo con el usuario): saveOrderUpdate() es quien de verdad
-   la sube, llamando a /upload-service-photo. */
-let svcPhotoTarget = null;
-const svcPhotoPending = {}; // { [orderId]: { [ncKey]: { imageBase64, serviceName } } }
+   Cámara nueva (camera-capture.html), con cola offline real -- la
+   foto se guarda y sube AL MOMENTO de tomarla (regla de oro: nunca
+   se pierde, no importa si al final se le da Save o Cancel al panel
+   de servicios -- son cosas distintas, confirmado con el dueño).
 
-function startServicePhoto(orderId, cat, svc) {
-  svcPhotoTarget = { orderId, cat, svc };
-  document.getElementById('svc-photo-input').click();
+   Como esto navega FUERA de admin.html por completo (misma razon de
+   siempre: IndexedDB no cruza dominios), y aqui SI hay edicion sin
+   guardar que se perderia con una recarga (adminSvc_/adminNC_/
+   adminLevel_ + los campos del panel), se guarda un snapshot completo
+   en sessionStorage justo antes de salir, y se restaura solo al
+   regresar (ver restoreAdminEditSnapshotIfAny). */
+function saveAdminEditSnapshot(orderId, photoTarget) {
+  const val = id => document.getElementById(id + '-' + orderId)?.value ?? null;
+  sessionStorage.setItem('admin_edit_snapshot', JSON.stringify({
+    orderId: orderId,
+    division: (orderDetailCacheData[orderId] || {}).Division || '',
+    adminSvc: window['adminSvc_' + orderId] || {},
+    adminNC: window['adminNC_' + orderId] || {},
+    adminLevel: window['adminLevel_' + orderId] || {},
+    fields: {
+      due: val('edit-due'), window: val('edit-window'),
+      delaytype: val('edit-delaytype'), delaynotes: val('edit-delaynotes'),
+      notes: val('edit-notes')
+    },
+    photoTarget: photoTarget || null // {cat, svc} -- para marcar el punto de "ya tiene foto" al volver
+  }));
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const input = document.getElementById('svc-photo-input');
-  if (!input) return;
-  input.addEventListener('change', function () {
-    const file = this.files[0];
-    const target = svcPhotoTarget;
-    this.value = '';
-    svcPhotoTarget = null;
-    if (!file || !target) return;
+/* Al cargar admin.html, si hay un snapshot pendiente (venimos de
+   regreso de la camara), se reabre la MISMA orden, se abre su panel
+   de Update, y se pisa el estado recien inicializado (fresco del
+   servidor) con lo que de verdad tenia el usuario sin guardar. */
+async function restoreAdminEditSnapshotIfAny() {
+  const raw = sessionStorage.getItem('admin_edit_snapshot');
+  if (!raw) return;
+  sessionStorage.removeItem('admin_edit_snapshot');
+  let snap;
+  try { snap = JSON.parse(raw); } catch (e) { return; }
+  if (!snap || !snap.orderId) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const store = svcPhotoPending[target.orderId] || (svcPhotoPending[target.orderId] = {});
-      store[ncKey(target.cat, target.svc)] = { imageBase64: reader.result, serviceName: target.svc };
-      const safe = String(target.orderId).replace(/[^a-z0-9]/gi, '_');
-      const btn = document.getElementById('svc-cam-' + safe + '-' + target.cat.replace(/[^a-z0-9]/gi, '_') + '-' + target.svc.replace(/[^a-z0-9]/gi, '_'));
-      if (btn) btn.classList.add('has-photo');
-      refreshSaveBtn(target.orderId);
-    };
-    reader.readAsDataURL(file);
-  });
-});
+  showTab('active');
+  const id = 'order-active-' + snap.orderId.replace(/[^a-z0-9]/gi, '_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  body.classList.add('open');
+  cardOpenState('active').open = snap.orderId;
+  await loadOrderBody(snap.orderId, 'active', body);
+
+  toggleActiveSvcUpdate(snap.orderId, snap.division);
+
+  window['adminSvc_' + snap.orderId] = snap.adminSvc || {};
+  window['adminNC_' + snap.orderId] = snap.adminNC || {};
+  window['adminLevel_' + snap.orderId] = snap.adminLevel || {};
+  const setVal = (id, v) => { const el = document.getElementById(id + '-' + snap.orderId); if (el && v != null) el.value = v; };
+  setVal('edit-due', snap.fields.due);
+  setVal('edit-window', snap.fields.window);
+  setVal('edit-delaytype', snap.fields.delaytype);
+  setVal('edit-delaynotes', snap.fields.delaynotes);
+  setVal('edit-notes', snap.fields.notes);
+
+  refreshActiveSvcUI(snap.orderId);
+  activeSvcButtons(snap.orderId, true);
+
+  if (snap.photoTarget) {
+    const safe = String(snap.orderId).replace(/[^a-z0-9]/gi, '_');
+    const catSafe = String(snap.photoTarget.cat).replace(/[^a-z0-9]/gi, '_');
+    const svcSafe = String(snap.photoTarget.svc).replace(/[^a-z0-9]/gi, '_');
+    const camBtn = document.getElementById('svc-cam-' + safe + '-' + catSafe + '-' + svcSafe);
+    if (camBtn) camBtn.classList.add('has-photo');
+  }
+
+  body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function startServicePhoto(orderId, cat, svc) {
+  saveAdminEditSnapshot(orderId, { cat, svc });
+  const safe = String(orderId).replace(/[^a-z0-9]/gi, '_');
+  location.href = 'camera-capture.html?context=service-photo&orderId=' + encodeURIComponent(orderId) +
+    '&serviceName=' + encodeURIComponent(svc) + '&cat=' + encodeURIComponent(cat) +
+    '&return=admin.html&label=' + encodeURIComponent(svc);
+}
 
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
@@ -8605,7 +8674,6 @@ async function saveOrderUpdate(orderId, sendToClient, context) {
   try {
     showLoadingOverlay('Saving order ' + orderId + '…');
     const res = await api('/admin-update-order', { body });
-    await uploadPendingServicePhotos(orderId);
     showToast(sendToClient
       ? 'Change sent to the client for confirmation.'
       : (requestOnly ? 'Change sent to Review — waiting for approval before it takes effect.' : 'Saved.'));
@@ -8613,31 +8681,6 @@ async function saveOrderUpdate(orderId, sendToClient, context) {
   } catch(e) {
     showToast('Error: ' + e.message);
   }
-}
-
-/* Sube todas las fotos de servicio que quedaron pendientes en esta
-   sesion (confirmado con el usuario: esperan a Save Changes, igual
-   que el resto del formulario). Se llama DESPUES de que
-   admin-update-order ya guardo bien los servicios/NotCompletedReason
-   -- get-admin-gallery.js cruza el nombre de archivo contra esa
-   misma nota al armar la descripcion en Gallery, asi que el orden
-   importa: primero el texto, despues la foto. Si una foto en
-   particular falla, las demas se siguen subiendo -- un aviso, sin
-   tronar todo el guardado que ya se aplico. */
-async function uploadPendingServicePhotos(orderId) {
-  const pending = svcPhotoPending[orderId];
-  if (!pending || !Object.keys(pending).length) return;
-  const entries = Object.entries(pending);
-  delete svcPhotoPending[orderId];
-  const failures = [];
-  for (const [key, p] of entries) {
-    try {
-      await api('/upload-service-photo', { body: { orderId, serviceName: p.serviceName, imageBase64: p.imageBase64 } });
-    } catch (e) {
-      failures.push(p.serviceName);
-    }
-  }
-  if (failures.length) showToast('Saved, but could not upload photo for: ' + failures.join(', '));
 }
 
 /* Revela/oculta el formulario de edicion de Active detras del boton

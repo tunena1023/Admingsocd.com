@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Camera</title>
+<style>
+  :root{
+    --black:#111; --gold:#C9A84C; --gold-lt:#E2C97E; --gold-dk:#8C6F2A;
+    --white:#fff; --off:#F7F6F3; --gray:#6B6B6B; --border:#E0D9CC; --red:#c0392b; --green:#27ae60;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Inter', -apple-system, sans-serif;
+    background: #000; color: var(--white); min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; background: rgba(0,0,0,.65); position: relative; z-index: 5;
+  }
+  .top-bar h1 { font-size: 14px; margin: 0; font-weight: 600; }
+  .close-btn {
+    background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer;
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  }
+  .camera-wrap {
+    flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+    background: #1a1a1a; min-height: 40vh; overflow: hidden;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-error { color: var(--gray); font-size: 13px; text-align: center; padding: 24px; display: none; }
+  .counter-pill {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.55); border-radius: 20px; padding: 6px 14px;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  }
+  .bottom-panel { background: var(--black); padding: 14px 16px 20px; }
+  .thumb-row {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; min-height: 60px;
+  }
+  .thumb {
+    width: 52px; height: 52px; border-radius: 6px; flex-shrink: 0; position: relative;
+    background: #333; overflow: hidden; border: 1px solid rgba(255,255,255,.15); cursor: default;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb-status {
+    position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;
+  }
+  .thumb-status.uploading { background: var(--gold); color: var(--black); }
+  .thumb-status.waiting { background: #555; color: #fff; }
+  .thumb-status.done { background: var(--green); color: #fff; }
+  .thumb-status.failed { background: var(--red); color: #fff; cursor: pointer; }
+  .controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .spacer-btn { width: 64px; }
+  .shutter-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--white);
+    background: var(--white); cursor: pointer; flex-shrink: 0; position: relative;
+  }
+  .shutter-btn:active { transform: scale(.94); }
+  .shutter-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .done-btn {
+    background: var(--gold); color: var(--black); border: none; border-radius: 24px;
+    padding: 12px 22px; font-size: 13px; font-weight: 700; cursor: pointer; width: 64px;
+  }
+  .status-line {
+    text-align: center; font-size: 11px; color: var(--gray); margin-top: 10px; min-height: 14px;
+  }
+  .status-line.warn { color: var(--gold-lt); }
+</style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <h1 id="page-title">Camera</h1>
+    <button class="close-btn" id="close-btn" title="Close">✕</button>
+  </div>
+
+  <div class="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="camera-error" id="camera-error">
+      Could not open the camera — check that you gave permission, then reload this page.
+    </div>
+    <div class="counter-pill" id="counter-pill">0 / 10 photos</div>
+  </div>
+
+  <div class="bottom-panel">
+    <div class="thumb-row" id="thumb-row"></div>
+    <div class="controls">
+      <div class="spacer-btn"></div>
+      <button class="shutter-btn" id="shutter-btn"></button>
+      <button class="done-btn" id="done-btn">Done</button>
+    </div>
+    <div class="status-line" id="status-line"></div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.0/camera-queue/camera-queue.js"></script>
+<script>
+  /* No hay MSAL/sesion completa aqui a proposito -- /upload-service-photo
+     no necesita saber quien es el actor (solo orderId/serviceName/
+     imageBase64), asi que no vale la pena cargar toda la libreria de
+     login solo para esta pagina chica. Se checa nomas que exista una
+     sesion guardada (mismo criterio rapido que admin.html usa antes
+     de inicializar MSAL), para que no cualquiera llegue aqui directo
+     por la URL sin haber iniciado sesion antes en admin.html. */
+  if (!sessionStorage.getItem('admin_account')) { location.href = 'index.html'; }
+
+  async function api(path, opts = {}) {
+    const res = await fetch('/api' + path, {
+      method: opts.method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const context = params.get('context');        // 'service-photo' por ahora
+  const orderId = params.get('orderId');
+  const serviceName = params.get('serviceName');
+  const label = params.get('label');
+  const returnTo = params.get('return') || 'admin.html';
+  const MAX_PHOTOS = 10;
+
+  document.getElementById('page-title').textContent = label || (orderId ? ('Order ' + orderId) : 'Camera');
+  document.getElementById('close-btn').addEventListener('click', goBack);
+  document.getElementById('done-btn').addEventListener('click', goBack);
+
+  function goBack() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    location.href = returnTo;
+  }
+
+  /* La cola es la MISMA pieza compartida que ya usa Tech -- lo unico
+     que cambia es dbName (cajon propio de IndexedDB para Admin) y
+     uploadFn (usa el api() de arriba en vez de GS.api). */
+  GSCameraQueue.init({
+    dbName: 'gs-admin-camera-queue',
+    maxAttempts: 10,
+    retryIntervalMs: 20000,
+    uploadFn: async function (item) { return api(item.endpoint, { body: item.body }); },
+    onChange: onQueueChange
+  });
+
+  let stream = null;
+  let count = 0;
+  const thumbById = {};
+
+  async function initCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      document.getElementById('video').srcObject = stream;
+    } catch (e) {
+      document.getElementById('video').style.display = 'none';
+      document.getElementById('camera-error').style.display = 'block';
+    }
+  }
+  initCamera();
+
+  function captureFrame() {
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  }
+
+  function addThumb(imageBase64) {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = imageBase64;
+    thumb.appendChild(img);
+    const status = document.createElement('div');
+    status.className = 'thumb-status uploading';
+    status.textContent = '↑';
+    thumb.appendChild(status);
+    document.getElementById('thumb-row').appendChild(thumb);
+    document.getElementById('thumb-row').scrollLeft = 999999;
+    return { thumb, status };
+  }
+
+  async function capture() {
+    if (count >= MAX_PHOTOS || !stream) return;
+    count++;
+    document.getElementById('counter-pill').textContent = count + ' / ' + MAX_PHOTOS + ' photos';
+    if (count >= MAX_PHOTOS) document.getElementById('shutter-btn').disabled = true;
+
+    const imageBase64 = captureFrame();
+    const { thumb, status } = addThumb(imageBase64);
+
+    /* enqueue() ya guarda la foto en el telefono/navegador ANTES de
+       intentar subirla (regla de oro: nunca se pierde, pase lo que
+       pase -- ni con Save ni con Cancel del panel de servicios, son
+       cosas distintas, confirmado con el dueño). */
+    const id = await GSCameraQueue.enqueue({
+      endpoint: '/upload-service-photo',
+      body: { orderId: orderId, serviceName: serviceName, imageBase64: imageBase64 },
+      meta: { orderId: orderId, serviceName: serviceName }
+    });
+    thumbById[id] = { thumb, status };
+  }
+  document.getElementById('shutter-btn').addEventListener('click', capture);
+
+  function onQueueChange(pending) {
+    const byId = {};
+    pending.forEach(p => { byId[p.id] = p; });
+    let waitingCount = 0, failedCount = 0;
+
+    Object.keys(thumbById).forEach(idStr => {
+      const id = Number(idStr);
+      const entry = thumbById[id];
+      const item = byId[id];
+      if (item) {
+        if (item.failed) {
+          entry.status.className = 'thumb-status failed';
+          entry.status.textContent = '!';
+          entry.status.onclick = () => GSCameraQueue.retryNow(id);
+          failedCount++;
+        } else {
+          entry.status.className = 'thumb-status waiting';
+          entry.status.textContent = '⏳';
+          waitingCount++;
+        }
+      } else {
+        entry.status.className = 'thumb-status done';
+        entry.status.textContent = '✓';
+      }
+    });
+
+    const statusLine = document.getElementById('status-line');
+    if (failedCount) {
+      statusLine.textContent = failedCount + ' photo' + (failedCount === 1 ? '' : 's') + ' could not be uploaded — tap it to try again.';
+      statusLine.className = 'status-line warn';
+    } else if (waitingCount) {
+      statusLine.textContent = waitingCount + ' photo' + (waitingCount === 1 ? '' : 's') + ' waiting for signal — will upload automatically.';
+      statusLine.className = 'status-line warn';
+    } else {
+      statusLine.textContent = '';
+      statusLine.className = 'status-line';
+    }
+  }
+</script>
+
+</body>
+</html>
