@@ -81,6 +81,15 @@
     .est-time-box-value { font-size: 22px; font-weight: 700; color: #8C6F2A; }
 
     .svc-remove-btn { background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 3px 6px; }
+    /* Copiado literal de gsocd-shared/service-picker.js (.gs-sp-lvl-*)
+       -- ese CSS solo se inyecta cuando se monta el picker completo
+       (GSServicePicker.mount), que aqui ya no se usa. Se reusa la
+       regla real tal cual, no se inventa una nueva. */
+    .gs-sp-lvl-group { display:flex; border:1px solid var(--border); border-radius:20px; overflow:hidden; flex-shrink:0; }
+    .gs-sp-lvl-btn { width:34px; height:26px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; cursor:pointer; background:var(--white); color:var(--gray); border-right:1px solid var(--border); }
+    .gs-sp-lvl-btn:last-child { border-right:none; }
+    .gs-sp-lvl-btn.active { background:var(--gold); color:var(--black); }
+    .gs-sp-lvl-btn:hover:not(.active) { background:#F7F6F3; }
 
     /* NAV */
     nav {
@@ -8026,11 +8035,17 @@ function renderActiveSvcEditable(orderId) {
     Object.entries(svcs).forEach(([svcName, sku]) => rows.push({ cat, svcName, sku }));
   });
   const listHtml = rows.length ? rows.map(r => {
-    const mins = svcMinutesLabel(r.sku, levelState[ncKey(r.cat, r.svcName)]);
+    const catalogEntry = (activeCatalogCache || []).find(s => s.serviceName === r.svcName);
+    const isJan = String((catalogEntry || {}).division || '').toLowerCase() === 'janitorial';
+    const curLevel = levelState[ncKey(r.cat, r.svcName)];
+    const mins = svcMinutesLabel(r.sku, curLevel);
     const removed = !!(ncState[ncKey(r.cat, r.svcName)] || {}).nc;
+    const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px' + (removed ? ';opacity:.5;pointer-events:none' : '') + '">' +
+      ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setActiveSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+      '</div>' : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px' + (removed ? ';opacity:.6' : '') + '">' +
       '<span' + (removed ? ' style="text-decoration:line-through"' : '') + '>' + esc(r.svcName) + '</span>' +
-      '<span>' + (removed ? '<span class="warn-tag">removed</span>' : (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '')) +
+      '<span style="display:flex;align-items:center">' + lvlHtml + (removed ? '<span class="warn-tag">removed</span>' : (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '')) +
       '<button type="button" class="svc-remove-btn" title="' + (removed ? 'Undo' : 'Mark as not completed / remove') + '" onclick="toggleActiveSvcRemoved(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">' + (removed ? '&#8635;' : '&#10005;') + '</button></span>' +
       '</div>';
   }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
@@ -8048,6 +8063,16 @@ function renderActiveSvcEditable(orderId) {
         '<input type="text" id="edit-notes-' + orderId + '" oninput="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">' +
       '</div>' +
     '</div>';
+}
+
+/* Cambiar el nivel (L1/L2/L3) de un servicio Janitorial ya
+   seleccionado -- mismos pills reales del picker compartido
+   (gs-sp-lvl-btn), mismo adminLevel_ que ya usa todo el sistema para
+   esto (Approvals, el tiempo estimado, "Selected for this order"). */
+function setActiveSvcLevel(orderId, cat, svcName, level) {
+  if (!window['adminLevel_' + orderId]) window['adminLevel_' + orderId] = {};
+  window['adminLevel_' + orderId][ncKey(cat, svcName)] = level;
+  refreshActiveSvcUI(orderId);
 }
 
 /* Toggle real de "removido" -- NO borra el servicio, marca Not
