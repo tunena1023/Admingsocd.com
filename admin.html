@@ -7703,25 +7703,25 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <p class="detail-label">Order Details</p>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">
           <div><div class="field-caption">Entry</div><div class="field-value">${fmtDate(o.EntryDate)}</div></div>
-          <div><div class="field-caption">Due</div><div class="field-value">${fmtDate(o.DueDate)}</div></div>
+          <div><div class="field-caption">Due</div><div class="field-value" id="due-display-${esc(o.OrderID)}">${fmtDate(o.DueDate)}</div></div>
           <div><div class="field-caption">Supervisor</div><div class="field-value">${o.Supervisor ? esc(o.Supervisor) + (findTechPhoneByName(o.Supervisor) ? ' · ' + esc(findTechPhoneByName(o.Supervisor)) : '') : '—'}</div></div>
           <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber||'—')} / ${esc(o.UnitNumber||'—')}</div></div>
           <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms||'—')} / ${esc(o.Bathrooms||'—')}</div></div>
-          <div><div class="field-caption">Service window</div><div class="field-value">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</div></div>
+          <div><div class="field-caption">Service window</div><div class="field-value" id="window-display-${esc(o.OrderID)}">${o.ServiceWindow ? esc(o.ServiceWindow) : '—'}</div></div>
         </div>
         ${o.Notes ? `<p class="meta-line" style="margin-bottom:14px">Notes: ${esc(o.Notes)}</p>` : ''}
-        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden" id="active-svc-box-${esc(o.OrderID)}">
           <div class="hist-head" style="padding:10px 14px;background:var(--bg);cursor:pointer;margin:0" onclick="toggleHistDetail('${svcDetailId}')">
             <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
             <div style="display:flex;align-items:center;gap:10px">
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-btn-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px" onclick="event.stopPropagation();toggleActiveSvcUpdate('${esc(o.OrderID)}','${esc(o.Division||'')}')">Update</button>
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-cancel-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px;display:none" onclick="event.stopPropagation();cancelActiveSvcUpdate('${esc(o.OrderID)}')">Cancel</button>
-              <span class="hist-toggle">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
+              <span class="hist-toggle" id="active-svc-count-${esc(o.OrderID)}">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
             </div>
           </div>
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
-        ${estimatedTimeHtml(services)}
+        <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
       </div>
       <div>
         <div id="history-box-${esc(o.OrderID)}">
@@ -7961,13 +7961,152 @@ function activeFieldsChanged(orderId) {
   const orig = window['adminFieldsOriginal_' + orderId] || {};
   return val('edit-notes')      !== (orig.notes || '') ||
     val('edit-due')             !== (orig.due || '') ||
+    val('edit-window')          !== (orig.window || '') ||
     val('edit-delaytype')       !== (orig.delaytype || '') ||
     val('edit-delaynotes')      !== (orig.delaynotes || '');
 }
 
+function activeSvcDomId(orderId) { return 'ro-svc-' + String(orderId).replace(/[^a-z0-9]/gi, '_'); }
+
+/* Tabla de solo-lectura de Services Requested, reconstruida desde el
+   estado actual (adminSvc_/adminLevel_) -- se usa para "repintar" esa
+   caja despues de guardar o cancelar, sin tener que re-renderizar toda
+   la tarjeta. Mismo formato exacto que la tabla original. */
+function activeSvcReadOnlyHtml(orderId) {
+  const sel = window['adminSvc_' + orderId] || {};
+  const levelState = window['adminLevel_' + orderId] || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    let first = true;
+    Object.entries(svcs).forEach(([svcName, sku]) => {
+      rows.push({ cat: first ? cat : '', name: svcName, sku, lvl: levelState[ncKey(cat, svcName)] });
+      first = false;
+    });
+  });
+  if (!rows.length) return '<p class="empty-note" style="padding:12px 0">No services.</p>';
+  return '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+      '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+      '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || '') + '</td>' +
+      '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
+      '</tr>').join('') +
+    '</table>';
+}
+
+/* Version EDITABLE de la misma lista -- cada renglon con su X para
+   quitar, y hasta abajo un buscador que empieza VACIO: solo se
+   populan resultados si de verdad se escribe algo (confirmado con el
+   dueño), nunca se muestra el catalogo completo de una vez. */
+function renderActiveSvcEditable(orderId) {
+  const sel = window['adminSvc_' + orderId] || {};
+  const levelState = window['adminLevel_' + orderId] || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sku]) => rows.push({ cat, svcName, sku }));
+  });
+  const listHtml = rows.length ? rows.map(r => {
+    const mins = svcMinutesLabel(r.sku, levelState[ncKey(r.cat, r.svcName)]);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+      '<span>' + esc(r.svcName) + '</span>' +
+      '<span>' + (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '') +
+      '<span style="color:var(--red);font-weight:700;cursor:pointer" onclick="removeActiveSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">&#10005;</span></span>' +
+      '</div>';
+  }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
+
+  return listHtml +
+    '<div style="padding:12px 0 4px">' +
+      '<input type="text" id="active-svc-search-' + orderId + '" placeholder="Search the catalog to add a service…" ' +
+        'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
+        'oninput="filterActiveCatalog(\'' + jsStr(orderId) + '\', this.value)">' +
+      '<div id="active-svc-search-results-' + orderId + '" style="margin-top:8px"></div>' +
+    '</div>';
+}
+
+/* El buscador arranca vacio a proposito -- nunca lista el catalogo
+   completo, solo lo que de verdad coincide con lo escrito. */
+function filterActiveCatalog(orderId, q) {
+  const box = document.getElementById('active-svc-search-results-' + orderId);
+  if (!box) return;
+  q = q.trim().toLowerCase();
+  if (!q) { box.innerHTML = ''; return; }
+  const sel = window['adminSvc_' + orderId] || {};
+  const already = new Set();
+  Object.values(sel).forEach(svcs => Object.keys(svcs).forEach(n => already.add(n)));
+  const matches = (activeCatalogCache || []).filter(s =>
+    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName)
+  ).slice(0, 15);
+  box.innerHTML = matches.length
+    ? matches.map(s => '<div style="padding:7px 10px;font-size:12.5px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between" ' +
+        'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'" ' +
+        'onclick="addActiveSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(s.category || '') + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + jsStr(s.division || '') + '\')">' +
+        '<span>' + esc(s.serviceName) + '</span><span style="color:var(--green);font-weight:700;font-size:11px">+ add</span></div>').join('')
+    : '<div style="font-size:12px;color:#C9C5BA;font-style:italic;padding:4px 10px">No matches.</div>';
+}
+
+function addActiveSvc(orderId, category, serviceName, sku, division) {
+  if (!window['adminSvc_' + orderId]) window['adminSvc_' + orderId] = {};
+  if (!window['adminSvc_' + orderId][category]) window['adminSvc_' + orderId][category] = {};
+  window['adminSvc_' + orderId][category][serviceName] = sku;
+  if (String(division).toLowerCase() === 'janitorial') {
+    if (!window['adminLevel_' + orderId]) window['adminLevel_' + orderId] = {};
+    window['adminLevel_' + orderId][ncKey(category, serviceName)] = 'Level 1';
+  }
+  const searchEl = document.getElementById('active-svc-search-' + orderId);
+  if (searchEl) searchEl.value = '';
+  const resultsEl = document.getElementById('active-svc-search-results-' + orderId);
+  if (resultsEl) resultsEl.innerHTML = '';
+  refreshActiveSvcUI(orderId);
+}
+
+function removeActiveSvc(orderId, category, serviceName) {
+  const sel = window['adminSvc_' + orderId] || {};
+  if (sel[category]) {
+    delete sel[category][serviceName];
+    if (!Object.keys(sel[category]).length) delete sel[category];
+  }
+  const ncState = window['adminNC_' + orderId] || {};
+  delete ncState[ncKey(category, serviceName)];
+  const levelState = window['adminLevel_' + orderId] || {};
+  delete levelState[ncKey(category, serviceName)];
+  refreshActiveSvcUI(orderId);
+}
+
+/* Repinta todo lo que depende de la seleccion de servicios: la lista
+   editable de la izquierda, el contador, "Selected for this order" +
+   diff a la derecha, el tiempo estimado, y el boton Save/Update. */
+function refreshActiveSvcUI(orderId) {
+  const listBox = document.getElementById(activeSvcDomId(orderId));
+  if (listBox) listBox.innerHTML = renderActiveSvcEditable(orderId);
+  const countEl = document.getElementById('active-svc-count-' + orderId);
+  if (countEl) {
+    const sel = window['adminSvc_' + orderId] || {};
+    let n = 0; Object.values(sel).forEach(svcs => n += Object.keys(svcs).length);
+    countEl.innerHTML = '&#9660; ' + n + ' service' + (n === 1 ? '' : 's');
+  }
+  const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
+  if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
+  const diffBox = document.getElementById('admin-svc-diff-' + orderId);
+  if (diffBox) diffBox.innerHTML = adminSvcDiffHtml(orderId);
+  const estBox = document.getElementById('active-est-time-' + orderId);
+  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
+  activeSvcButtons(orderId, true);
+}
+
+/* Al abrir: Due y Service Window se vuelven editables EN SU MISMO
+   SITIO (Order Details, izquierda); Services Requested (tambien
+   izquierda) cambia a su version editable (X + buscador); a la
+   derecha, History se oculta y aparece Reassign + Notes + Delay +
+   "Selected for this order" (Note/foto de siempre, sin cambios).
+   Al cerrar (boton ya dice "Save"): se guarda de verdad -- Active
+   SIEMPRE manda a Review (requestOnly), nunca se aplica directo. */
 function toggleActiveSvcUpdate(orderId, division) {
   const histBox = document.getElementById('history-box-' + orderId);
   const editorBox = document.getElementById('active-svc-editor-' + orderId);
+  const dueDisplay = document.getElementById('due-display-' + orderId);
+  const winDisplay = document.getElementById('window-display-' + orderId);
+  const svcDetailId = activeSvcDomId(orderId);
+  const listBox = document.getElementById(svcDetailId);
   if (!editorBox) return;
 
   if (editorBox.style.display === 'block') {
@@ -7975,7 +8114,8 @@ function toggleActiveSvcUpdate(orderId, division) {
     if (changed) {
       const val = id => document.getElementById(id + '-' + orderId)?.value || '';
       const orig = window['adminFieldsOriginal_' + orderId] || {};
-      const notesVal = val('edit-notes'), dueVal = val('edit-due'), delayTypeVal = val('edit-delaytype'), delayNotesVal = val('edit-delaynotes');
+      const notesVal = val('edit-notes'), dueVal = val('edit-due'), windowVal = val('edit-window'),
+            delayTypeVal = val('edit-delaytype'), delayNotesVal = val('edit-delaynotes');
       if (delayTypeVal === 'Other' && !delayNotesVal.trim()) {
         showToast('Delay reason "Other" needs a note explaining it.');
         document.getElementById('edit-delaynotes-' + orderId)?.focus();
@@ -7984,6 +8124,7 @@ function toggleActiveSvcUpdate(orderId, division) {
       const body = { orderId, changedBy: getActorName(), requestOnly: true };
       if (notesVal      !== (orig.notes || ''))      body.notes            = notesVal;
       if (dueVal        !== (orig.due || ''))        body.dueDate          = dueVal;
+      if (windowVal     !== (orig.window || ''))     body.serviceWindow    = windowVal;
       if (delayTypeVal  !== (orig.delaytype || ''))  body.delayReasonType  = delayTypeVal;
       if (delayNotesVal !== (orig.delaynotes || '')) body.delayReasonNotes = delayNotesVal;
       if (svcSelectionChanged(orderId) || ncChanged(orderId)) body.services = buildServicesPayload(orderId) || [];
@@ -7999,6 +8140,9 @@ function toggleActiveSvcUpdate(orderId, division) {
         }
       })();
     }
+    if (dueDisplay) dueDisplay.textContent = document.getElementById('edit-due-' + orderId)?.value ? fmtDate(document.getElementById('edit-due-' + orderId).value) : '—';
+    if (winDisplay) winDisplay.textContent = document.getElementById('edit-window-' + orderId)?.value || '—';
+    if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
     editorBox.style.display = 'none';
     editorBox.innerHTML = '';
     if (histBox) histBox.style.display = '';
@@ -8006,11 +8150,12 @@ function toggleActiveSvcUpdate(orderId, division) {
     return;
   }
 
-  if (!activeCatalogCache || !activeCatalogCache.length) {
-    showToast('No catalog imported yet — import it in Service Catalog first.');
-    return;
-  }
   const o = allOrders.find(x => x.OrderID === orderId) || {};
+
+  if (dueDisplay) dueDisplay.innerHTML = '<input type="date" id="edit-due-' + orderId + '" value="' + dateInputValue(o.DueDate) + '" oninput="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">';
+  if (winDisplay) winDisplay.innerHTML = '<select id="edit-window-' + orderId + '" onchange="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">' + optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '') + '</select>';
+  if (listBox) listBox.innerHTML = renderActiveSvcEditable(orderId);
+
   editorBox.innerHTML = `
     <p class="detail-label">Update Order</p>
     <a class="eo-link" onclick="goToScheduleForOrder('${jsStr(orderId)}')">Reassign in Scheduling →</a>
@@ -8019,12 +8164,6 @@ function toggleActiveSvcUpdate(orderId, division) {
       <div class="gs-ofp-unitfield">
         <div class="gs-ofp-unitfield-label">Notes for client</div>
         <input type="text" id="edit-notes-${orderId}" value="${esc(o.Notes||'')}" oninput="activeSvcButtons('${jsStr(orderId)}', true)">
-      </div>
-    </div>
-    <div class="gs-ofp-unitrow">
-      <div class="gs-ofp-unitfield">
-        <div class="gs-ofp-unitfield-label">Due Date</div>
-        ${GSDateTimePicker.dateHtml('edit-due-' + orderId, dateInputValue(o.DueDate))}
       </div>
     </div>
     <div class="gs-ofp-unitrow">
@@ -8038,16 +8177,11 @@ function toggleActiveSvcUpdate(orderId, division) {
       </div>
     </div>
 
-    <p class="detail-label" style="margin-top:20px">Update Services</p>
-    <p style="font-size:10.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">Catalog — click to add</p>
-    <div id="admin-svc-picker-${orderId}"></div>
+    <p class="detail-label" style="margin-top:20px">Selected for this order</p>
     <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
-    <p style="font-size:10.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px">Selected for this order</p>
-    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
-    <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
+    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>`;
   editorBox.style.display = 'block';
   if (histBox) histBox.style.display = 'none';
-  mountAdminServicePicker(orderId, division);
   activeSvcButtons(orderId, true);
 }
 
@@ -8056,9 +8190,16 @@ function toggleActiveSvcUpdate(orderId, division) {
 function cancelActiveSvcUpdate(orderId) {
   const histBox = document.getElementById('history-box-' + orderId);
   const editorBox = document.getElementById('active-svc-editor-' + orderId);
+  const dueDisplay = document.getElementById('due-display-' + orderId);
+  const winDisplay = document.getElementById('window-display-' + orderId);
+  const listBox = document.getElementById(activeSvcDomId(orderId));
+  const o = allOrders.find(x => x.OrderID === orderId) || {};
   window['adminSvc_' + orderId] = JSON.parse(JSON.stringify(window['adminSvcOriginal_' + orderId] || {}));
   window['adminLevel_' + orderId] = JSON.parse(JSON.stringify(window['adminLevelOriginal_' + orderId] || {}));
   window['adminNC_' + orderId] = JSON.parse(JSON.stringify(window['adminNCOriginal_' + orderId] || {}));
+  if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
+  if (winDisplay) winDisplay.textContent = o.ServiceWindow ? o.ServiceWindow : '—';
+  if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
   if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
   if (histBox) histBox.style.display = '';
   activeSvcButtons(orderId, false);
