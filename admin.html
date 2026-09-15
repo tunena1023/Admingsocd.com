@@ -4621,7 +4621,17 @@ function renderGalleryPanel() {
     }
     GSOrderFormPremium.styleTag(); // mismo componente que ya usa el resto de Admin -- trae el CSS real de .gs-ofp-day-pill
     const clientOpts = clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
-    const empOpts = employeesCache.filter(e => e.janitorial);
+    /* A peticion del dueno (15/09/2026): este dropdown usaba
+       employeesCache (viene de FieldEmployees via get-hours-overview),
+       una lista que se llenaba subiendo un reporte aparte -- y que
+       wipe-test-data SI borra (correcto, es de prueba). allTechs
+       (Techs, la misma tabla de Developer > Settings > Techs) ya trae
+       PayrollID/nombre/division igual de bien, y NO se toca en el
+       wipe -- se mapea al mismo shape {payrollNumber, name} que ya
+       esperaba el resto de esta funcion, para no tocar nada mas. */
+    const empOpts = allTechs
+      .filter(t => t.division === 'Janitorial' && t.active !== false && t.payrollId)
+      .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() || t.payrollId }));
 
     const rowsHtml = importRecurringRows.map(r => {
       // El numero junto al nombre es POR DIA -- el total real de la fila
@@ -4733,7 +4743,8 @@ function renderGalleryPanel() {
     const clientNameById = {};
     clientsCache.forEach(c => { clientNameById[c.clientId] = c.businessName; });
     const empNameByPayroll = {};
-    employeesCache.forEach(e => { empNameByPayroll[e.payrollNumber] = e.name; });
+    // Misma fuente que empOpts arriba -- allTechs (Techs), no employeesCache (FieldEmployees).
+    allTechs.forEach(t => { if (t.payrollId) empNameByPayroll[t.payrollId] = (t.firstName + ' ' + t.lastName).trim() || t.payrollId; });
 
     const maxTechs = Math.max(1, ...importRecurringRows.map(r => r.assignments.length));
     const techHeaders = [];
