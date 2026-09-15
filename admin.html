@@ -4649,10 +4649,21 @@ function renderGalleryPanel() {
       // Target: columna permanente (ya no un aviso que desaparece al guardar) --
       // siempre muestra lo que pedia el reporte, en verde si Hours ya coincide,
       // en rojo con la diferencia si no.
+      // Target: a peticion del dueno (15/09/2026), ahora editable
+      // directo en la tabla -- mismo guardado automatico que ya usan
+      // Frequency/dias/horas por tecnico (updateImportRecurring ya
+      // manda r.target como horasPorVisita al guardar, sin cambio de
+      // backend). El color verde/rojo se conserva como borde del
+      // input + una nota de diferencia a un lado cuando no coincide.
       const targetDiff = totalHoras - r.target;
-      const targetHtml = targetDiff === 0
-        ? '<span style="color:var(--green);font-weight:600">' + r.target + 'h</span>'
-        : '<span style="color:var(--red);font-weight:600">' + r.target + 'h (' + (targetDiff > 0 ? '+' : '') + targetDiff + ')</span>';
+      const targetHtml =
+        '<input type="number" step="0.5" min="0" class="sched-select" style="width:64px;text-align:right;' +
+          (targetDiff === 0 ? 'border-color:var(--green);color:var(--green);font-weight:600'
+                             : 'border-color:var(--red);color:var(--red);font-weight:600') + '" ' +
+          'value="' + escAttr(r.target) + '" onchange="updateImportRecurring(' + r.id + ',\'target\',this.value)">' +
+        (targetDiff !== 0
+          ? '<div style="font-size:10.5px;color:var(--red);margin-top:2px">' + (targetDiff > 0 ? '+' : '') + targetDiff + '</div>'
+          : '');
       // Chips compactos -- cada tecnico ocupa solo el ancho que necesita,
       // varios caben en la misma linea, solo bajan a otra si de plano no caben.
       const chipsHtml = r.assignments.map((a, ai) => {
@@ -4696,6 +4707,7 @@ function renderGalleryPanel() {
       '<p style="font-size:13px;margin-bottom:10px"><b>' + importRecurringRows.length + '</b> contracts found' +
         (importRecurringRows.some(r => r.alreadyExisted) ? ' (<b>' + importRecurringRows.filter(r => r.alreadyExisted).length + '</b> already exist -- editable here with their real data, won\'t duplicate)' : '') +
         '. Every change here saves automatically to the matrix. Fields in red need fixing before Save unlocks.</p>' +
+      '<button type="button" class="gs-ofp-btn-secondary" style="margin-bottom:12px" onclick="downloadRecurringSchedulerReport()">⬇ Download Report (.xlsx)</button>' +
       '<div style="overflow-x:auto"><table class="sched-table">' +
       '<colgroup>' +
         '<col style="width:190px"><col style="width:190px"><col style="width:130px">' +
@@ -4707,6 +4719,46 @@ function renderGalleryPanel() {
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
         '<th>Hours</th><th>Target</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+  }
+
+  /* Descarga el mismo Recurring Services Scheduler como .xlsx, columna
+     por columna -- mismo XLSX (SheetJS) ya cargado en la pagina para
+     leer reportes subidos, aqui usado al reves (escribir). Cada dia
+     es su propia columna (X si esta marcado), cada tecnico asignado
+     tambien su propia columna (nombre + horas/dia) -- hasta el maximo
+     de tecnicos que tenga cualquier renglon, para no perder a nadie. */
+  function downloadRecurringSchedulerReport() {
+    if (!importRecurringRows.length) { showToast('Nothing to download yet.'); return; }
+    const clientNameById = {};
+    clientsCache.forEach(c => { clientNameById[c.clientId] = c.businessName; });
+    const empNameByPayroll = {};
+    employeesCache.forEach(e => { empNameByPayroll[e.payrollNumber] = e.name; });
+
+    const maxTechs = Math.max(1, ...importRecurringRows.map(r => r.assignments.length));
+    const techHeaders = [];
+    for (let i = 1; i <= maxTechs; i++) techHeaders.push('Tech ' + i, 'Tech ' + i + ' Hours/Day');
+
+    const header = ['Edificio', 'Client', 'Frequency', ...DAY_LIST, 'Hours', 'Target', ...techHeaders];
+    const rows = importRecurringRows.map(r => {
+      const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0) * r.dias.length, 0);
+      const dayCols = DAY_LIST.map(d => r.dias.includes(d) ? 'X' : '');
+      const techCols = [];
+      for (let i = 0; i < maxTechs; i++) {
+        const a = r.assignments[i];
+        techCols.push(a && a.payrollNumber ? (empNameByPayroll[a.payrollNumber] || a.payrollNumber) : '');
+        techCols.push(a && a.payrollNumber ? (Number(a.hoursAllocated) || 0) : '');
+      }
+      return [
+        r.edificio, clientNameById[r.clientId] || r.clientId || '', r.frequency || 'Weekly',
+        ...dayCols, totalHoras, Number(r.target) || 0, ...techCols
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Recurring Scheduler');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, 'Recurring-Services-Scheduler-' + todayStr + '.xlsx');
   }
 
   function updateImportRecurring(id, field, value) {
