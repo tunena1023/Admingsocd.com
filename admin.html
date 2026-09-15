@@ -8192,6 +8192,13 @@ function toggleActiveSvcUpdate(orderId, division) {
       if (windowVal     !== (orig.window || ''))     body.serviceWindow    = windowVal;
       if (delayTypeVal  !== (orig.delaytype || ''))  body.delayReasonType  = delayTypeVal;
       if (delayNotesVal !== (orig.delaynotes || '')) body.delayReasonNotes = delayNotesVal;
+      /* El historial de "Services Updated" YA sabe mostrar solo que
+         servicio se marco Not Completed (y su razon) -- GSOrderHistory
+         lo arma comparando OldValue/NewValue (los snapshots reales de
+         servicios), sin depender de "notes" para nada. Por eso aqui
+         NUNCA se manda un resumen armado a mano en notes: ese campo es
+         el mismo que Notes for client -- mandar otra cosa ahi
+         pisaria la nota real del cliente. */
       if (svcSelectionChanged(orderId) || ncChanged(orderId)) body.services = buildServicesPayload(orderId) || [];
       (async () => {
         try {
@@ -8275,6 +8282,7 @@ function cancelActiveSvcUpdate(orderId) {
    editor (adminSvcOriginal_) -- mismo look que el Request a Change del
    cliente (gsocd-shared/service-change-panel), pero solo informativo:
    aqui la oficina aplica directo con Save, no manda a Review. */
+
 function adminSvcDiffHtml(orderId) {
   if (!window.GSServiceChangePanel) return '';
   return GSServiceChangePanel.diffHtml(
