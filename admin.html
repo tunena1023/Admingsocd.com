@@ -7727,11 +7727,11 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>
       <div>
-        <div class="hist-head" style="cursor:pointer" onclick="toggleHistDetail('hist-detail-${esc(o.OrderID)}')">
-          <p class="detail-label" style="margin:0">History</p>
-          <span class="hist-toggle">&#9660; details</span>
+        <div class="hist-head">
+          <div class="hist-head-main"><p class="detail-label" style="margin:0">History</p></div>
+          <span class="hist-toggle" id="hist-toggle-${esc(o.OrderID)}" style="display:none;cursor:pointer" onclick="toggleHistDetail('hist-detail-${esc(o.OrderID)}')">&#9660; details</span>
         </div>
-        <div id="hist-detail-${esc(o.OrderID)}" class="hist-detail" style="padding:0;background:none;margin-top:10px">
+        <div id="hist-detail-${esc(o.OrderID)}" class="hist-detail open" style="padding:0;background:none;margin-top:10px">
           ${histHtml}
         </div>
         <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none;margin-top:20px"></div>
@@ -8120,6 +8120,8 @@ function toggleActiveSvcUpdate(orderId, division) {
   const dueDisplay = document.getElementById('due-display-' + orderId);
   const winDisplay = document.getElementById('window-display-' + orderId);
   const reassignLink = document.getElementById('reassign-link-' + orderId);
+  const histToggle = document.getElementById('hist-toggle-' + orderId);
+  const histDetail = document.getElementById('hist-detail-' + orderId);
   const svcDetailId = activeSvcDomId(orderId);
   const listBox = document.getElementById(svcDetailId);
   if (!editorBox) return;
@@ -8168,6 +8170,8 @@ function toggleActiveSvcUpdate(orderId, division) {
     if (winDisplay) winDisplay.textContent = document.getElementById('edit-window-' + orderId)?.value || '—';
     if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
     if (reassignLink) reassignLink.style.display = 'none';
+    if (histToggle) histToggle.style.display = 'none';
+    if (histDetail) histDetail.classList.add('open');
     editorBox.style.display = 'none';
     editorBox.innerHTML = '';
     activeSvcButtons(orderId, false);
@@ -8182,6 +8186,8 @@ function toggleActiveSvcUpdate(orderId, division) {
   const notesInput = document.getElementById('edit-notes-' + orderId);
   if (notesInput) notesInput.value = o.Notes || '';
   if (reassignLink) reassignLink.style.display = '';
+  if (histToggle) histToggle.style.display = '';
+  if (histDetail) histDetail.classList.remove('open');
 
   editorBox.innerHTML = `
     <div class="gs-ofp-unitrow">
@@ -8209,6 +8215,8 @@ function cancelActiveSvcUpdate(orderId) {
   const dueDisplay = document.getElementById('due-display-' + orderId);
   const winDisplay = document.getElementById('window-display-' + orderId);
   const reassignLink = document.getElementById('reassign-link-' + orderId);
+  const histToggle = document.getElementById('hist-toggle-' + orderId);
+  const histDetail = document.getElementById('hist-detail-' + orderId);
   const listBox = document.getElementById(activeSvcDomId(orderId));
   const o = allOrders.find(x => x.OrderID === orderId) || {};
   window['adminSvc_' + orderId] = JSON.parse(JSON.stringify(window['adminSvcOriginal_' + orderId] || {}));
@@ -8218,6 +8226,8 @@ function cancelActiveSvcUpdate(orderId) {
   if (winDisplay) winDisplay.textContent = o.ServiceWindow ? o.ServiceWindow : '—';
   if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
   if (reassignLink) reassignLink.style.display = 'none';
+  if (histToggle) histToggle.style.display = 'none';
+  if (histDetail) histDetail.classList.add('open');
   if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
   activeSvcButtons(orderId, false);
 }
