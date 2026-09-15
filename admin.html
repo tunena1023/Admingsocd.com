@@ -1445,12 +1445,12 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">Import Recurring Contracts</div>
-        <div class="order-desc">Upload the cleaned recurring-clients report — matched rows land in Recurring Services Scheduler below.</div></div>
+        <div class="order-desc">Upload the same report you get from "Download Report" below — matched rows land in Recurring Services Scheduler.</div></div>
         <span class="dev-chevron">▸</span>
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">
-          Upload the <b>Recurring Organized</b> spreadsheet (columns: Building, Client in QuickBooks, Frequency, Monday…Sunday, Hours per visit, Suggested tech). Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Field Employees lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
+          Upload the <b>same .xlsx</b> the "Download Report" button below produces (columns: Edificio, Client, Frequency, Mon…Sun, Hours, Target, Tech 1/Tech 1 Hours/Day, Tech 2/Tech 2 Hours/Day…). Mark a day with <b>X</b> (either case). Hours go as <b>duration, "xx:xx"</b> — 8 hours is "08:00", 4.5 hours is "04:30", not a time of day. Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Techs lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
         </p>
         <input type="file" id="import-recurring-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onImportRecurringFileChosen()">
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('import-recurring-file').click()">Choose file…</button>
@@ -4426,11 +4426,13 @@ function renderGalleryPanel() {
   }
 
   /* ===== Import Recurring Contracts (Developer > Services) =====
-     Sube el reporte YA limpiado (Recurrentes Organizado, ver su propio
-     Léeme) -- esta pantalla NO hace matching de nombres ni geocodifica
-     nada; eso ya se hizo en el Excel. Aqui solo se confirma
-     Cliente/Tecnico contra las listas REALES (clientsCache/
-     employeesCache, las mismas que ya carga loadInitialData).
+     Desde el 15/09/2026, sube el MISMO reporte que se descarga con
+     "Download Report" de esta misma seccion (downloadRecurringSchedulerReport)
+     -- columnas en ingles, dias con "X" (mayuscula o minuscula), horas
+     en "xx:xx" (duracion, no hora del dia). Ya no hay 2 formatos de
+     reporte que mantener sincronizados. Cliente/Tecnico se confirman
+     contra las listas REALES (clientsCache/
+     allTechs, las mismas que ya carga loadAll).
 
      La matriz vive PERMANENTE en su propia lista de SharePoint
      (RecurringImportMatrix) -- se carga sola al abrir la pagina
@@ -4506,44 +4508,66 @@ function renderGalleryPanel() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
+        /* A partir del 15/09/2026, este import lee el MISMO reporte
+           que se descarga con el boton "Download Report (.xlsx)" de
+           esta misma seccion (downloadRecurringSchedulerReport) --
+           columnas en ingles, dias marcados con "X" (mayuscula o
+           minuscula), horas en formato "xx:xx" (duracion, no hora del
+           dia -- 8h es "08:00", 4.5h es "04:30"), y un tecnico por
+           PAR de columnas ("Tech 1"/"Tech 1 Hours/Day", "Tech 2"/
+           "Tech 2 Hours/Day", cuantos haga falta). El formato viejo
+           (Edificio/Cliente/Frecuencia en espanol, dias con "Si",
+           Tecnico unico) se retiro -- ya no hay 2 reportes que
+           mantener sincronizados, nomas este. */
         const data = new Uint8Array(reader.result);
         const wb = XLSX.read(data, { type: 'array' });
-        const sheetName = wb.SheetNames.find(n => n.toLowerCase().indexOf('recurrentes') >= 0) || wb.SheetNames[0];
+        const sheetName = wb.SheetNames.find(n => n.toLowerCase().indexOf('recurring') >= 0) || wb.SheetNames[0];
         const sheet = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
         if (!rows.length) throw new Error('File is empty.');
 
         const headers = rows[0];
+        const normHeaders = headers.map(h => String(h || '').trim().toLowerCase());
         const colEdificio = findCol(headers, ['edificio']);
-        const colCliente = findCol(headers, ['cliente en quickbooks', 'cliente']);
-        const colFreq = findCol(headers, ['frecuencia']);
-        const colLun = findCol(headers, ['lunes']);
-        const colMar = findCol(headers, ['martes']);
-        const colMie = findCol(headers, ['miercoles']);
-        const colJue = findCol(headers, ['jueves']);
-        const colVie = findCol(headers, ['viernes']);
-        const colSab = findCol(headers, ['sabado']);
-        const colDom = findCol(headers, ['domingo']);
-        const colHoras = findCol(headers, ['horas por visita']);
-        const colTecnico = findCol(headers, ['tecnico']);
+        const colCliente = findCol(headers, ['client']);
+        const colFreq = findCol(headers, ['frequency']);
+        const DAY_COLS = DAY_LIST.map(d => [findCol(headers, [d.toLowerCase()]), d]);
+        const colTarget = findCol(headers, ['target']);
 
-        // El orden real del Excel es Lunes..Domingo -> se traduce a Mon..Sun aqui
-        const DAY_COLS = [[colLun,'Mon'],[colMar,'Tue'],[colMie,'Wed'],[colJue,'Thu'],[colVie,'Fri'],[colSab,'Sat'],[colDom,'Sun']];
+        // Tech 1, Tech 2, ... -- match EXACTO de header (no findCol/
+        // includes, porque "tech 1" tambien esta contenido dentro de
+        // "tech 1 hours/day" y se encontraria la columna equivocada).
+        const techCols = [];
+        for (let i = 1; ; i++) {
+          const nameCol = normHeaders.indexOf('tech ' + i);
+          if (nameCol < 0) break;
+          const hoursCol = normHeaders.indexOf('tech ' + i + ' hours/day');
+          techCols.push([nameCol, hoursCol]);
+        }
 
         const parsedRows = rows.slice(1)
           .filter(r => r && r.length && (colEdificio < 0 || r[colEdificio]))
           .map((r) => {
-            const frecuencia = String((colFreq >= 0 ? r[colFreq] : '') || '').trim();
-            // Mapeo real -- Frequency ya se respeta de verdad en recurring.html
-            // (isServiceDueToday), no es solo una etiqueta.
-            const FREQ_MAP = { 'Semanal': 'Weekly', 'Quincenal': 'Biweekly', 'Mensual': 'Monthly' };
-            const dias = DAY_COLS.filter(([col]) => col >= 0 && String(r[col] || '').trim().toLowerCase() === 'si').map(([, abbr]) => abbr);
+            const frequency = String((colFreq >= 0 ? r[colFreq] : '') || '').trim() || 'Weekly';
+            const dias = DAY_COLS.filter(([col]) => col >= 0 && /^x$/i.test(String(r[col] || '').trim())).map(([, abbr]) => abbr);
             const clienteReporte = String((colCliente >= 0 ? r[colCliente] : '') || '').trim();
-            const tecnicoReporte = String((colTecnico >= 0 ? r[colTecnico] : '') || '').split(',')[0].trim();
             const clientMatch = clientsCache.find(c => c.businessName.trim().toLowerCase() === clienteReporte.toLowerCase());
-            const empMatch = employeesCache.find(e => e.name.trim().toLowerCase() === tecnicoReporte.toLowerCase());
-            const target = Number((colHoras >= 0 ? r[colHoras] : '') || 0); // lo que pedia el reporte -- solo referencia, ya no se multiplica por dias
             const clientId = clientMatch ? clientMatch.clientId : '';
+            const target = colTarget >= 0 ? hhmmToDecimalHours(r[colTarget]) : 0;
+
+            // Un renglon de assignment por cada par Tech N / Tech N Hours/Day
+            // que traiga nombre -- match contra allTechs (Techs, no
+            // FieldEmployees, mismo cambio del dropdown de esta tabla).
+            const assignmentsFromReport = techCols
+              .map(([nameCol, hoursCol]) => {
+                const techName = nameCol >= 0 ? String(r[nameCol] || '').trim() : '';
+                if (!techName) return null;
+                const techMatch = allTechs.find(t => (t.firstName + ' ' + t.lastName).trim().toLowerCase() === techName.toLowerCase());
+                const hoursPerDay = hoursCol >= 0 ? hhmmToDecimalHours(r[hoursCol]) : 0;
+                return { payrollNumber: techMatch ? techMatch.payrollId : '', hoursAllocated: hoursPerDay };
+              })
+              .filter(Boolean);
+
             // Misma logica de deduplicado que Bulk Import Clients: la fuente de
             // verdad es lo que YA existe en el sistema real (rcServicesCache, se
             // recarga fresco cada vez que se abre la pagina), no algo que se
@@ -4561,8 +4585,8 @@ function renderGalleryPanel() {
             // divide entre los dias marcados (mismo criterio que loadRecurringImportMatrix).
             const realAssignments = alreadyExists && existingService.assignments.length
               ? existingService.assignments.map(a => ({ payrollNumber: a.payrollNumber, hoursAllocated: realDias.length ? (Number(a.hoursAllocated) || 0) / realDias.length : (Number(a.hoursAllocated) || 0) }))
-              : [{ payrollNumber: empMatch ? empMatch.payrollNumber : '', hoursAllocated: target }];
-            const realFrequency = alreadyExists ? (existingService.frequency || 'Weekly') : (FREQ_MAP[frecuencia] || 'Weekly');
+              : (assignmentsFromReport.length ? assignmentsFromReport : [{ payrollNumber: '', hoursAllocated: target }]);
+            const realFrequency = alreadyExists ? (existingService.frequency || 'Weekly') : frequency;
             // Sin fecha ancla no hay forma de contar "cada cuantas semanas" --
             // se propone hoy como default (el dueño la puede corregir a la
             // fecha real de la primera visita si la sabe).
@@ -4571,7 +4595,7 @@ function renderGalleryPanel() {
             return {
               matrixId: null,
               edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
-              frecuencia: frecuencia || 'TBD',
+              frecuencia: frequency,
               dias: realDias,
               frequency: realFrequency,
               anchorDate: realAnchorDate,
@@ -4585,7 +4609,7 @@ function renderGalleryPanel() {
               existingService: existingService || null
             };
           })
-          .filter(r => r.edificio && r.frecuencia !== 'TBD');
+          .filter(r => r.edificio);
 
         // Fusion, NUNCA reemplazo -- un edificio que ya esta en la matriz
         // (por nombre) se deja tal cual esta, con lo que ya se guardo/edito
@@ -4613,10 +4637,33 @@ function renderGalleryPanel() {
   }
 
   const DAY_LIST = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  /* Horas como "xx:xx" (duracion, no hora del dia) -- 8h -> "08:00",
+     4.5h -> "04:30". A peticion del dueno (15/09/2026), para que el
+     mismo Excel se pueda subir de vuelta y no perder precision con
+     decimales raros. Compartido entre el boton de descargar y el
+     parser de subir. */
+  function decimalHoursToHHMM(h) {
+    h = Number(h) || 0;
+    const totalMin = Math.round(h * 60);
+    const hh = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  }
+  function hhmmToDecimalHours(s) {
+    const str = String(s == null ? '' : s).trim();
+    const m = str.match(/^(\d{1,3}):(\d{1,2})$/);
+    if (m) return Number(m[1]) + Number(m[2]) / 60;
+    // Compatibilidad: si alguien escribe un numero plano (sin xx:xx),
+    // se acepta igual en vez de tronar.
+    const n = Number(str);
+    return isNaN(n) ? 0 : n;
+  }
+
   function renderImportRecurringPreview() {
     const box = document.getElementById('import-recurring-preview');
     if (!importRecurringRows.length) {
-      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">Nothing here yet — upload a report in Import Recurring Contracts above (or check it has "Edificio" and "Frecuencia" columns).</p>';
+      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">Nothing here yet — upload a report in Import Recurring Contracts above (or check it has "Edificio" and "Client" columns).</p>';
       return;
     }
     GSOrderFormPremium.styleTag(); // mismo componente que ya usa el resto de Admin -- trae el CSS real de .gs-ofp-day-pill
@@ -4758,11 +4805,11 @@ function renderGalleryPanel() {
       for (let i = 0; i < maxTechs; i++) {
         const a = r.assignments[i];
         techCols.push(a && a.payrollNumber ? (empNameByPayroll[a.payrollNumber] || a.payrollNumber) : '');
-        techCols.push(a && a.payrollNumber ? (Number(a.hoursAllocated) || 0) : '');
+        techCols.push(a && a.payrollNumber ? decimalHoursToHHMM(a.hoursAllocated) : '');
       }
       return [
         r.edificio, clientNameById[r.clientId] || r.clientId || '', r.frequency || 'Weekly',
-        ...dayCols, totalHoras, Number(r.target) || 0, ...techCols
+        ...dayCols, decimalHoursToHHMM(totalHoras), decimalHoursToHHMM(r.target), ...techCols
       ];
     });
 
