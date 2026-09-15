@@ -4657,9 +4657,10 @@ function renderGalleryPanel() {
       // input + una nota de diferencia a un lado cuando no coincide.
       const targetDiff = totalHoras - r.target;
       const targetHtml =
-        '<input type="number" step="0.5" min="0" class="sched-select" style="width:64px;text-align:right;' +
-          (targetDiff === 0 ? 'border-color:var(--green);color:var(--green);font-weight:600'
-                             : 'border-color:var(--red);color:var(--red);font-weight:600') + '" ' +
+        '<input type="number" step="0.5" min="0" style="width:56px;box-sizing:border-box;text-align:right;' +
+          'border:none;border-bottom:1.5px solid;padding:5px 2px;font-size:14px;font-family:\'Inter\',sans-serif;background:transparent;outline:none;' +
+          (targetDiff === 0 ? 'border-bottom-color:var(--green);color:var(--green);font-weight:600'
+                             : 'border-bottom-color:var(--red);color:var(--red);font-weight:600') + '" ' +
           'value="' + escAttr(r.target) + '" onchange="updateImportRecurring(' + r.id + ',\'target\',this.value)">' +
         (targetDiff !== 0
           ? '<div style="font-size:10.5px;color:var(--red);margin-top:2px">' + (targetDiff > 0 ? '+' : '') + targetDiff + '</div>'
