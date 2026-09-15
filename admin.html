@@ -8186,24 +8186,34 @@ function toggleActiveSvcUpdate(orderId, division) {
         document.getElementById('edit-delaynotes-' + orderId)?.focus();
         return;
       }
-      const body = { orderId, changedBy: getActorName(), requestOnly: false };
-      if (notesVal      !== (orig.notes || ''))      body.notes            = notesVal;
-      if (dueVal        !== (orig.due || ''))        body.dueDate          = dueVal;
-      if (windowVal     !== (orig.window || ''))     body.serviceWindow    = windowVal;
-      if (delayTypeVal  !== (orig.delaytype || ''))  body.delayReasonType  = delayTypeVal;
-      if (delayNotesVal !== (orig.delaynotes || '')) body.delayReasonNotes = delayNotesVal;
-      /* El historial de "Services Updated" YA sabe mostrar solo que
-         servicio se marco Not Completed (y su razon) -- GSOrderHistory
-         lo arma comparando OldValue/NewValue (los snapshots reales de
-         servicios), sin depender de "notes" para nada. Por eso aqui
-         NUNCA se manda un resumen armado a mano en notes: ese campo es
-         el mismo que Notes for client -- mandar otra cosa ahi
-         pisaria la nota real del cliente. */
-      if (svcSelectionChanged(orderId) || ncChanged(orderId)) body.services = buildServicesPayload(orderId) || [];
+      const svcChanged = svcSelectionChanged(orderId) || ncChanged(orderId);
+      const fieldsBody = { orderId, changedBy: getActorName(), requestOnly: false };
+      if (notesVal      !== (orig.notes || ''))      fieldsBody.notes            = notesVal;
+      if (dueVal        !== (orig.due || ''))        fieldsBody.dueDate          = dueVal;
+      if (windowVal     !== (orig.window || ''))     fieldsBody.serviceWindow    = windowVal;
+      if (delayTypeVal  !== (orig.delaytype || ''))  fieldsBody.delayReasonType  = delayTypeVal;
+      if (delayNotesVal !== (orig.delaynotes || '')) fieldsBody.delayReasonNotes = delayNotesVal;
+      const fieldsActuallyChanged = Object.keys(fieldsBody).length > 3;
+      /* MISMO patron exacto que toggleApprSvcUpdate (Approvals, ya
+         funcionando en produccion): el historial de "Services Updated"
+         necesita el resumen real (adminSvcDiffNotes) en notes para
+         decir que servicio cambio. Se manda en llamada APARTE cuando
+         tambien cambio algo de Notes for client/Due/Window/Delay, para
+         no pisar la nota real del cliente con el resumen de servicios
+         (el backend usa el mismo campo "notes" para ambas cosas). */
       (async () => {
         try {
           showLoadingOverlay('Saving order ' + orderId + '…');
-          await api('/admin-update-order', { body });
+          if (fieldsActuallyChanged) {
+            await api('/admin-update-order', { body: fieldsBody });
+          }
+          if (svcChanged) {
+            await api('/admin-update-order', { body: {
+              orderId, changedBy: getActorName(), requestOnly: false,
+              services: buildServicesPayload(orderId) || [],
+              notes: adminSvcDiffNotes(orderId)
+            } });
+          }
           await uploadPendingServicePhotos(orderId);
           showToast('Saved.');
           await loadAll();
@@ -8282,6 +8292,35 @@ function cancelActiveSvcUpdate(orderId) {
    editor (adminSvcOriginal_) -- mismo look que el Request a Change del
    cliente (gsocd-shared/service-change-panel), pero solo informativo:
    aqui la oficina aplica directo con Save, no manda a Review. */
+
+/* Mismo patron EXACTO que apprSvcDiffNotes (Approvals, ya confirmado
+   funcionando en produccion) -- texto real para el historial de
+   "Services Updated" ("Added: X, Y. Removed: Z."). */
+function adminSvcDiffNotes(orderId) {
+  if (!window.GSServiceChangePanel) return '';
+  const base = GSServiceChangePanel.namesOf(window['adminSvcOriginal_' + orderId] || {});
+  const now = GSServiceChangePanel.namesOf(window['adminSvc_' + orderId] || {});
+  const added = now.filter(n => base.indexOf(n) === -1);
+  const removed = base.filter(n => now.indexOf(n) === -1);
+  /* Un servicio "removido" con la X en este editor no se borra de
+     verdad (se queda marcado Not Completed) -- eso no lo detecta el
+     compare de arriba, hay que revisar adminNC_ aparte para nombrarlo. */
+  const ncOrig = window['adminNCOriginal_' + orderId] || {};
+  const ncNow = window['adminNC_' + orderId] || {};
+  const svcNameByKey = {};
+  Object.entries(window['adminSvc_' + orderId] || {}).forEach(([cat, svcs]) => {
+    Object.keys(svcs).forEach(svcName => { svcNameByKey[ncKey(cat, svcName)] = svcName; });
+  });
+  const markedNC = Object.keys(ncNow).filter(k => ncNow[k].nc && !(ncOrig[k] || {}).nc).map(k => svcNameByKey[k]).filter(Boolean);
+  const unmarkedNC = Object.keys(ncOrig).filter(k => ncOrig[k].nc && !(ncNow[k] || {}).nc).map(k => svcNameByKey[k]).filter(Boolean);
+  const parts = [];
+  if (added.length) parts.push('Added: ' + added.join(', '));
+  if (removed.length) parts.push('Removed: ' + removed.join(', '));
+  if (markedNC.length) parts.push('Marked not completed: ' + markedNC.join(', '));
+  if (unmarkedNC.length) parts.push('Marked completed again: ' + unmarkedNC.join(', '));
+  if (!parts.length && (svcSelectionChanged(orderId) || ncChanged(orderId))) parts.push('Service levels updated');
+  return parts.join('. ') + (parts.length ? '.' : '');
+}
 
 function adminSvcDiffHtml(orderId) {
   if (!window.GSServiceChangePanel) return '';
