@@ -864,6 +864,17 @@
   .eo-readonly-row .k { color: var(--gray); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 3px; }
   .eo-readonly-row .v { font-weight: 600; }
   .eo-link { font-size: 11px; color: var(--gold-dk); text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 10px; }
+  /* Services en Active > Edit: picker (elegir mas) a la izquierda,
+     "Selected for this order" (Note/foto, ya existente sin cambios) a
+     la derecha -- mismo pedido confirmado en mini antes de tocar esto. */
+  .svc-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px; }
+  /* La columna de la derecha es angosta (mitad de pantalla) aunque
+     estemos en escritorio -- el renglon de servicio (svc-row) se
+     disenio para ancho completo, asi que aqui se apila igual que ya
+     hace en mobile (nombre arriba, nota+foto abajo) para que no se
+     amontone. */
+  .svc-2col .svc-row { flex-wrap: wrap; }
+  .svc-2col .svc-row-name { max-width: none; flex-basis: 100%; white-space: normal; }
   @media (max-width: 768px) {
     .eo-body { padding: 18px 16px; }
     .gs-ofp-unitrow { gap: 16px; }
@@ -871,6 +882,7 @@
     .eo-status-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
     .btn-actions { flex-direction: column; }
     .btn-actions button { width: 100%; }
+    .svc-2col { grid-template-columns: 1fr; }
   }
 
 
@@ -7914,10 +7926,16 @@ function buildServiceRows(orderId, division) {
     return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
   }
   return buildAdminLegacyNote(orderId) +
-    `<div id="admin-svc-picker-${orderId}"></div>
-    <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
-    <p class="detail-label" style="margin:16px 0 6px">Selected for this order</p>
-    <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
+    `<div class="svc-2col">
+      <div>
+        <div id="admin-svc-picker-${orderId}"></div>
+      </div>
+      <div>
+        <p class="detail-label" style="margin:0 0 6px">Selected for this order</p>
+        <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
+        <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
+      </div>
+    </div>
     <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
 }
 
