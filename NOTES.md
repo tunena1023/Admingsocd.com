@@ -417,3 +417,131 @@ repos). Aquí solo lo que le tocó a **Admin específicamente**:
   ACTUAL de ese servicio, no un valor congelado al momento de subir), así
   que no importa el orden en que lleguen foto y nota.
 
+## Cómo funciona hoy: Recurring Services Scheduler (Developer > Services)
+
+Tabla editable para crear y mantener contratos recurrentes en lote, sin
+pasar uno por uno por el formulario normal de "Recurring". Vive junto a
+"Import Recurring Contracts" (misma tarjeta la sube, la de abajo la
+edita).
+
+**Cómo se llena:**
+- **Import Recurring Contracts** — sube un `.xlsx` con columnas en
+  inglés: `Contract #, Client, Frequency, Mon…Sun, Hours, Target,
+  Tech 1, Tech 1 Hours/Day, Tech 2, Tech 2 Hours/Day…` (tantos pares de
+  Tech como haga falta). Los días se marcan con `X` (mayúscula o
+  minúscula). Las horas van como duración en formato `xx:xx` — 8 horas
+  es `"08:00"`, 4.5 horas es `"04:30"` (no es hora del día).
+- **Contract #** se rellena solo: si la celda viene vacía (caso normal
+  la primera vez), se calcula al momento de agregar la fila. Es el
+  ClientID real del cliente (`GS-1001`) una vez que su nombre logra
+  cruzar contra la lista real de Clientes — si ese mismo cliente ya
+  tiene otro edificio en la matriz, se le agrega una letra
+  (`GS-1001-A`, `GS-1001-B`…) para distinguirlos. Mientras el Client de
+  una fila no tenga cruce, Contract # se queda vacío hasta que se elija
+  el cliente a mano en el dropdown de esa fila — en ese momento se
+  calcula y se guarda solo.
+- También se puede simplemente dar clic en **Save** en cualquier fila
+  ya cargada, sin volver a subir ningún archivo — cada campo se guarda
+  automáticamente en cuanto se edita (autosave), Save nomás confirma
+  que el contrato real ya se creó/actualizó en `RecurringServices`.
+
+**Botón "Download Report (.xlsx)"** — baja exactamente lo que está
+cargado en la tabla en ese momento, mismas columnas y mismo formato que
+espera Import Recurring Contracts (Contract # ya con su ClientID/letra
+puestos, días en `X`, horas en `xx:xx`). Sirve para tener una copia de
+respaldo, o para volver a subir ese mismo archivo más adelante sin
+perder nada — un archivo ya descargado con su Contract # puesto se
+reconoce como "ya existe" al volver a subirlo, no se duplica.
+
+**Técnicos:** el selector de "Tech" en cada fila sale de `allTechs`
+(Developer > Settings > Techs & Roles), filtrado a división Janitorial
+o Mixed y activos — no de una lista aparte. Un técnico que no tenga
+`PayrollID` real (como un Contractor recién agregado a mano) no
+funciona aquí todavía porque el cruce del picker necesita un sku/id
+real para reconocer la selección ya hecha.
+
+**Mobile:** cada contrato se ve como tarjeta (Contract #/Client/
+Frequency apilados con su etiqueta, Days+Hours+Target juntos en una
+sola línea con mini-etiquetas arriba de cada uno). Desktop se queda
+exactamente con la tabla de columnas de siempre — son 2 renderizados
+distintos que arma la misma función según el ancho de pantalla.
+
+**Pendiente:**
+- Solo se pueden crear contratos con Frequency **Weekly** desde aquí —
+  Biweekly/Monthly se pueden seleccionar en la tabla pero el botón Save
+  se queda bloqueado (falta la fecha ancla real y esa lógica no está
+  terminada para este flujo en lote).
+- El cruce de Client por nombre (columna "Client" del reporte contra el
+  nombre real del negocio) es exacto — mayúsculas/espacios/apodos
+  distintos no cruzan solos, hay que corregir el dropdown a mano fila
+  por fila cuando no coincide. Se podría hacer más tolerante (ignorar
+  mayúsculas, buscar coincidencia parcial) para que menos filas
+  necesiten corrección manual.
+- Ningún tech sin `PayrollID` real (Contractors agregados a mano)
+  aparece asignable aquí todavía de forma completamente confiable — la
+  lista sí los incluye (si son Janitorial o Mixed), pero como no traen
+  un sku propio, el picker los reconoce por nombre, no por id — mismo
+  comportamiento que ya tienen los técnicos de Recurring en general
+  (ver el "quirk" documentado en `gsocd-shared/service-change-panel`),
+  no algo exclusivo de Contractors.
+
+## Cómo funciona hoy: Subcontratistas (Developer > Settings > Techs & Roles)
+
+Un subcontratista es, para el sistema, un técnico más — se le asigna
+trabajo exactamente igual que a cualquier empleado (el campo
+"Supervisor" de una orden es texto libre, cualquier nombre ahí ya
+funciona sin nada especial). La única diferencia real es que no está en
+nómina.
+
+**Cómo se da de alta:** botón **"+ Add Person Manually"** junto al
+buscador de Techs & Roles — pide Nombre, Apellido, Teléfono, División y
+Rol (con "Contractor" ya preseleccionado). El teléfono es obligatorio
+porque de sus últimos 4 dígitos sale el código temporal con el que la
+persona reclama su propio dispositivo — sin eso no se le puede generar
+el QR para que entre a `tech.gsocd.com` y vea sus órdenes asignadas,
+igual que cualquier técnico.
+
+Una vez creado, aparece en la tabla con su propio botón "Generate QR"
+(el mismo mecanismo que ya existía para todos los técnicos, sin ningún
+cambio ahí) y con **"Contractor — no payroll"** en la columna de nómina
+en vez de la alarma naranja de "falta payroll" que sale para todos los
+demás — para un Contractor eso es lo esperado, no algo por resolver.
+
+**División "Mixed"** — para alguien que puede trabajar en las 3
+divisiones (Janitorial, Renovations, Exteriors) en vez de estar atado a
+una sola. Donde el sistema necesita filtrar por una división exacta
+(hoy, el único lugar real es el selector de técnicos del Recurring
+Scheduler, que es Janitorial nomás), Mixed cuenta igual que si fuera
+esa división.
+
+**Mobile:** tanto Techs & Roles como Staff & Roles (la tabla de quién
+tiene acceso a Developer) se ven como tarjetas apiladas, una persona
+por tarjeta con su propia etiqueta arriba de cada campo. El formulario
+de "Add Person Manually" usa los mismos campos (`.field-group`/
+`.field-row`) que ya usa el resto de los formularios de Developer, así
+que hereda su mismo comportamiento mobile sin nada aparte.
+
+**Pendiente:**
+- Un Contractor no puede iniciar sesión en `tech.gsocd.com` sin que
+  alguien de oficina le genere el QR primero desde aquí y se lo
+  comparta — no hay (ni se pidió) un flujo de auto-registro para ellos
+  como sí lo tienen los empleados reales.
+- No hay todavía ninguna vista que junte "las órdenes que se le han
+  asignado a este subcontratista" en un solo lugar dentro de Admin —
+  su trabajo se ve orden por orden (igual que cualquier Supervisor), no
+  hay un resumen tipo "Active > By Employee" armado específicamente
+  para Contractors.
+
+## Estado del repaso de mobile (Admin)
+
+Se revisó Admin de punta a punta (los 8 tabs principales + las 6
+categorías de Developer con sus tarjetas) renderizando cada uno a
+375px real, no adivinando. Quedaron corregidos: las filas de filtro
+"pill" que se cortaban en Active > By Employee/History/Schedule, y las
+3 tablas de Developer que no tenían ninguna versión mobile (Recurring
+Services Scheduler, Techs & Roles, Staff & Roles). El resto de Admin ya
+estaba bien.
+
+**Pendiente:** el mismo repaso todavía no se ha hecho en los otros 2
+repos (`ordersgsocd.com` y `tech.gsocd.com`) — quedó ofrecido, no
+empezado.
