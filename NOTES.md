@@ -134,16 +134,6 @@ habían quedado en una versión vieja del componente sin el acordeón.
   una categoría del acordeón esté abierta a la vez (hoy se pueden abrir
   varias al mismo tiempo). Vive en el sandbox de la sesión del 10/09/2026,
   no en GitHub — si no aparece en el repo y no se sabe por qué, es por esto.
-- **RESUELTO (confirmado por el dueño, 13/09/2026):** banner "File
-  downloaded... sharepoint.com" en Tech (portal de empleados, celular) —
-  el fondo o logo se descargaba como archivo en vez de solo mostrarse.
-  `site-image.js` de Tech ya sirve el buffer con `Content-Type` correcto
-  por extensión y sin `Content-Disposition: attachment`. No quedó
-  registrado en un commit con ese nombre específico — probablemente se
-  arregló junto con otro cambio a `site-image.js`/`lib/graph.js`.
-- 404 de `Logo.jpg` / `NavBackground.jpg` en Orders (`/api/site-image`) —
-  pendiente de que el dueño confirme el nombre real de esos archivos en la
-  raíz del drive de SharePoint (Onlineorders).
 - **BUG REAL arreglado (12/09/2026): `devApi` no existia en admin.html.**
   Al fusionar developer.html dentro de admin.html (mismo dia), se
   renombraron todas las llamadas de su `api()` original a `devApi()`
