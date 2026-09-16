@@ -820,6 +820,31 @@
   #panel-developer table.staff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   #panel-developer table.staff-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
   #panel-developer table.staff-table td.role-cell { color: var(--gray); }
+
+  /* Mobile (<=768px, mismo breakpoint que el resto de la app): mismo
+     patron ya aprobado para Recurring Services Scheduler -- cada <tr>
+     se vuelve tarjeta, cada <td> se apila con su propia etiqueta
+     (data-label). Sin nada que combinar en una linea aqui (a
+     diferencia de Days/Hours/Target del Scheduler), asi que es la
+     tecnica simple sola. Afecta Techs & Roles Y Staff & Roles, ambas
+     usan .staff-table -- confirmado con render real a 375px que las
+     2 desbordaban. */
+  @media (max-width: 768px) {
+    #panel-developer table.staff-table,
+    #panel-developer table.staff-table thead,
+    #panel-developer table.staff-table tbody,
+    #panel-developer table.staff-table tr,
+    #panel-developer table.staff-table td { display: block; width: auto !important; }
+    #panel-developer table.staff-table thead { display: none; }
+    #panel-developer table.staff-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 14px; padding: 14px; background: var(--white); }
+    #panel-developer table.staff-table td { border: none; padding: 7px 0; }
+    #panel-developer table.staff-table td[data-label]::before {
+      content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--gray); font-weight: 700; margin-bottom: 4px;
+    }
+    #panel-developer table.staff-table select { width: 100%; }
+    #manual-tech-form > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  }
   #panel-developer table.staff-table th { padding: 8px; text-align: left; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
   #panel-developer table.staff-table input[type=number] { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px; font-family: inherit; }
   #panel-developer .toast {
@@ -6443,12 +6468,12 @@ function renderGalleryPanel() {
     const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors'];
     tbody.innerHTML = list.map(t => `
       <tr>
-        <td>
+        <td data-label="Name">
           <div>${esc(t.firstName)} ${esc(t.lastName)}</div>
           <div style="font-size:11px;color:var(--gray)">${esc(t.phone)}${t.email ? ' · ' + esc(t.email) : ''}</div>
         </td>
-        <td class="role-cell">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : (t.role === 'Contractor' ? '<span style="color:var(--gray)">Contractor — no payroll</span>' : '<span style="color:#B06A2A">No payroll ID yet</span>')}</td>
-        <td>
+        <td class="role-cell" data-label="Payroll">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : (t.role === 'Contractor' ? '<span style="color:var(--gray)">Contractor — no payroll</span>' : '<span style="color:#B06A2A">No payroll ID yet</span>')}</td>
+        <td data-label="Role">
           <select onchange="updateTech('${t.id}','role',this.value)">
             <option value="Employee" ${t.role === 'Employee' ? 'selected' : ''}>Employee</option>
             <option value="Supervisor" ${t.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
@@ -6456,17 +6481,17 @@ function renderGalleryPanel() {
             <option value="Developer" ${t.role === 'Developer' ? 'selected' : ''}>Developer</option>
           </select>
         </td>
-        <td>
+        <td data-label="Division">
           <select onchange="updateTech('${t.id}','division',this.value)">
             ${divisionOpts.map(d => '<option value="' + d + '"' + (t.division === d ? ' selected' : '') + '>' + (d || 'No division') + '</option>').join('')}
           </select>
         </td>
-        <td>
+        <td data-label="Active">
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)">
             <input type="checkbox" ${t.active ? 'checked' : ''} onchange="updateTech('${t.id}','active',this.checked)"> Active
           </label>
         </td>
-        <td>
+        <td data-label="Device">
           ${t.hasActiveDevice
             ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
             : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="gs-ofp-btn-primary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
@@ -6605,8 +6630,8 @@ function renderGalleryPanel() {
     }
     tbody.innerHTML = allStaff.map(s => `
       <tr>
-        <td>${esc(s.Email)}</td>
-        <td class="role-cell">${esc(s.Role)}</td>
+        <td data-label="Email">${esc(s.Email)}</td>
+        <td class="role-cell" data-label="Role">${esc(s.Role)}</td>
         <td style="text-align:right"><button class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
       </tr>`).join('');
   }
