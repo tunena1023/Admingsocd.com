@@ -128,12 +128,6 @@ Orders, más `tpl-admin` (Admin) y `template-editor` (Orders) para
 plantillas — estos últimos 2 se estandarizaron el 10/09/2026, antes se
 habían quedado en una versión vieja del componente sin el acordeón.
 
-## Pendientes conocidos (al 10/09/2026)
-
-- **En local, sin subir al repo:** fix en `service-picker.js` para que solo
-  una categoría del acordeón esté abierta a la vez (hoy se pueden abrir
-  varias al mismo tiempo). Vive en el sandbox de la sesión del 10/09/2026,
-  no en GitHub — si no aparece en el repo y no se sabe por qué, es por esto.
 - **BUG REAL arreglado (12/09/2026): `devApi` no existia en admin.html.**
   Al fusionar developer.html dentro de admin.html (mismo dia), se
   renombraron todas las llamadas de su `api()` original a `devApi()`
