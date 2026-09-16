@@ -843,7 +843,6 @@
       letter-spacing: .05em; color: var(--gray); font-weight: 700; margin-bottom: 4px;
     }
     #panel-developer table.staff-table select { width: 100%; }
-    #manual-tech-form > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
   }
   #panel-developer table.staff-table th { padding: 8px; text-align: left; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); }
   #panel-developer table.staff-table input[type=number] { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px; font-family: inherit; }
@@ -1408,18 +1407,18 @@
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here. Subcontractors (no payroll ID) get added manually below — pick "Contractor" as their role.</p>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
-          <div class="field-wrap" style="max-width:320px;flex:1;min-width:220px">
+          <div class="field-group" style="max-width:320px;flex:1;min-width:220px;margin-bottom:0">
             <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
           </div>
           <button type="button" class="gs-ofp-btn-secondary" onclick="toggleManualTechForm()">+ Add Person Manually</button>
         </div>
         <div id="manual-tech-form" style="display:none;background:var(--off);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:16px">
           <p class="section-sub" style="margin:0 0 12px">For subcontractors and anyone else who isn't in payroll but still needs to log in to tech.gsocd.com and get assigned orders.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-            <div class="field-wrap"><label>First Name</label><input type="text" id="manual-tech-first" placeholder="First name"></div>
-            <div class="field-wrap"><label>Last Name</label><input type="text" id="manual-tech-last" placeholder="Last name"></div>
-            <div class="field-wrap"><label>Phone</label><input type="tel" id="manual-tech-phone" placeholder="(555) 555-5555"></div>
-            <div class="field-wrap"><label>Division</label>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field-group"><label>First Name</label><input type="text" id="manual-tech-first" placeholder="First name"></div>
+            <div class="field-group"><label>Last Name</label><input type="text" id="manual-tech-last" placeholder="Last name"></div>
+            <div class="field-group"><label>Phone</label><input type="tel" id="manual-tech-phone" placeholder="(555) 555-5555"></div>
+            <div class="field-group"><label>Division</label>
               <select id="manual-tech-division">
                 <option value="">No division</option>
                 <option value="Janitorial">Janitorial</option>
@@ -1427,7 +1426,7 @@
                 <option value="Exteriors">Exteriors</option>
               </select>
             </div>
-            <div class="field-wrap"><label>Role</label>
+            <div class="field-group"><label>Role</label>
               <select id="manual-tech-role">
                 <option value="Contractor" selected>Contractor</option>
                 <option value="Employee">Employee</option>
