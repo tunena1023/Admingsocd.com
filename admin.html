@@ -1450,7 +1450,7 @@
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" style="margin-top:16px">
-          Upload the <b>same .xlsx</b> the "Download Report" button below produces (columns: Edificio, Client, Frequency, Mon…Sun, Hours, Target, Tech 1/Tech 1 Hours/Day, Tech 2/Tech 2 Hours/Day…). Mark a day with <b>X</b> (either case). Hours go as <b>duration, "xx:xx"</b> — 8 hours is "08:00", 4.5 hours is "04:30", not a time of day. Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Techs lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
+          Upload the <b>same .xlsx</b> the "Download Report" button below produces (columns: Contract #, Client, Frequency, Mon…Sun, Hours, Target, Tech 1/Tech 1 Hours/Day, Tech 2/Tech 2 Hours/Day…). Leave <b>Contract #</b> blank for a brand new row — it gets auto-numbered (1001, 1002…) the same way Order IDs do. Mark a day with <b>X</b> (either case). Hours go as <b>duration, "xx:xx"</b> — 8 hours is "08:00", 4.5 hours is "04:30", not a time of day. Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Techs lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
         </p>
         <input type="file" id="import-recurring-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onImportRecurringFileChosen()">
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('import-recurring-file').click()">Choose file…</button>
@@ -4528,7 +4528,7 @@ function renderGalleryPanel() {
 
         const headers = rows[0];
         const normHeaders = headers.map(h => String(h || '').trim().toLowerCase());
-        const colEdificio = findCol(headers, ['edificio']);
+        const colEdificio = findCol(headers, ['contract', 'edificio']);
         const colCliente = findCol(headers, ['client']);
         const colFreq = findCol(headers, ['frequency']);
         const DAY_COLS = DAY_LIST.map(d => [findCol(headers, [d.toLowerCase()]), d]);
@@ -4545,8 +4545,20 @@ function renderGalleryPanel() {
           techCols.push([nameCol, hoursCol]);
         }
 
+        // Contador local para este import -- arranca del siguiente
+        // disponible y sube de uno en uno, para que varios renglones
+        // SIN numero en el MISMO archivo no terminen con el mismo
+        // numero repetido entre si (nextRecurringMatrixNumber() por si
+        // sola solo ve lo que YA esta en la matriz, no lo que este
+        // mismo import esta a punto de agregar).
+        let autoNumCounter = null;
+        function nextAutoNum() {
+          if (autoNumCounter === null) autoNumCounter = parseInt(nextRecurringMatrixNumber(), 10);
+          return String(autoNumCounter++);
+        }
+
         const parsedRows = rows.slice(1)
-          .filter(r => r && r.length && (colEdificio < 0 || r[colEdificio]))
+          .filter(r => r && r.length && (colCliente < 0 || r[colCliente]))
           .map((r) => {
             const frequency = String((colFreq >= 0 ? r[colFreq] : '') || '').trim() || 'Weekly';
             const dias = DAY_COLS.filter(([col]) => col >= 0 && /^x$/i.test(String(r[col] || '').trim())).map(([, abbr]) => abbr);
@@ -4594,7 +4606,7 @@ function renderGalleryPanel() {
 
             return {
               matrixId: null,
-              edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim(),
+              edificio: String((colEdificio >= 0 ? r[colEdificio] : '') || '').trim() || nextAutoNum(),
               frecuencia: frequency,
               dias: realDias,
               frequency: realFrequency,
@@ -4638,6 +4650,23 @@ function renderGalleryPanel() {
 
   const DAY_LIST = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+  /* Numero automatico que reemplaza "Edificio" (a peticion del dueno,
+     15/09/2026) -- mismo mecanismo EXACTO que usan las ordenes
+     (nextGlobalSuffix en submit-order.js): maximo numero ya usado + 1,
+     arranca en 1001 si no hay ninguno. r.edificio sigue siendo el
+     nombre interno del campo (para no tocar el backend ni el
+     dedup-por-nombre de mas abajo) -- ahora simplemente guarda un
+     numero en vez de un nombre de edificio. Renglones viejos que
+     todavia tengan un nombre de edificio de antes de este cambio no
+     cuentan para el maximo (no son numero), pero se muestran tal cual
+     estan -- no se les asigna un numero nuevo solos. */
+  function nextRecurringMatrixNumber() {
+    const nums = importRecurringRows
+      .map(r => parseInt(String(r.edificio || '').trim(), 10))
+      .filter(n => !isNaN(n));
+    return String(nums.length ? Math.max(...nums) + 1 : 1001);
+  }
+
   /* Horas como "xx:xx" (duracion, no hora del dia) -- 8h -> "08:00",
      4.5h -> "04:30". A peticion del dueno (15/09/2026), para que el
      mismo Excel se pueda subir de vuelta y no perder precision con
@@ -4663,7 +4692,7 @@ function renderGalleryPanel() {
   function renderImportRecurringPreview() {
     const box = document.getElementById('import-recurring-preview');
     if (!importRecurringRows.length) {
-      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">Nothing here yet — upload a report in Import Recurring Contracts above (or check it has "Edificio" and "Client" columns).</p>';
+      box.innerHTML = '<p style="font-size:13px;color:var(--gray)">Nothing here yet — upload a report in Import Recurring Contracts above (or check it has "Contract #" and "Client" columns).</p>';
       return;
     }
     GSOrderFormPremium.styleTag(); // mismo componente que ya usa el resto de Admin -- trae el CSS real de .gs-ofp-day-pill
@@ -4743,7 +4772,7 @@ function renderGalleryPanel() {
           ? '<input type="date" class="sched-select" style="margin-top:4px;min-width:130px;font-size:12px" value="' + escAttr(r.anchorDate) + '" onchange="updateImportRecurring(' + r.id + ',\'anchorDate\',this.value)" title="First real visit date -- counts weeks from here">'
           : '');
       return '<tr>' +
-        '<td><div class="building-name">' + esc(r.edificio) + '</div>' + existsNote + '</td>' +
+        '<td><div class="building-name" style="color:var(--gray);font-weight:400">#' + esc(r.edificio) + '</div>' + existsNote + '</td>' +
         '<td>' +
           '<select class="sched-select ' + (r.clientId ? '' : 'warn') + '" onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)">' +
             '<option value="">— select client —</option>' + clientOpts.replace('value="' + escAttr(r.clientId) + '"', 'value="' + escAttr(r.clientId) + '" selected') +
@@ -4773,7 +4802,7 @@ function renderGalleryPanel() {
         '<col style="width:70px"><col style="width:90px"><col><col style="width:150px">' +
       '</colgroup>' +
       '<thead><tr>' +
-        '<th>Edificio</th><th>Client</th><th>Frequency</th>' +
+        '<th>Contract #</th><th>Client</th><th>Frequency</th>' +
         DAY_LIST.map(d => '<th class="day-th">' + d[0] + '</th>').join('') +
         '<th>Hours</th><th>Target</th><th>Tech</th><th></th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
@@ -4797,7 +4826,7 @@ function renderGalleryPanel() {
     const techHeaders = [];
     for (let i = 1; i <= maxTechs; i++) techHeaders.push('Tech ' + i, 'Tech ' + i + ' Hours/Day');
 
-    const header = ['Edificio', 'Client', 'Frequency', ...DAY_LIST, 'Hours', 'Target', ...techHeaders];
+    const header = ['Contract #', 'Client', 'Frequency', ...DAY_LIST, 'Hours', 'Target', ...techHeaders];
     const rows = importRecurringRows.map(r => {
       const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0) * r.dias.length, 0);
       const dayCols = DAY_LIST.map(d => r.dias.includes(d) ? 'X' : '');
