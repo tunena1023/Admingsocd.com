@@ -976,7 +976,7 @@ exports.handler = async (event) => {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
       const validRoles = ['Employee', 'Supervisor', 'Developer', 'Contractor'];
-      const validDivisions = ['Janitorial', 'Renovations', 'Exteriors'];
+      const validDivisions = ['Janitorial', 'Renovations', 'Exteriors', 'Mixed'];
       const fields = {};
       if (body.role !== undefined) {
         if (validRoles.indexOf(body.role) === -1) return jsonResponse(400, { error: 'Invalid role.' });
@@ -1009,7 +1009,7 @@ exports.handler = async (event) => {
       const division = String(body.division || '').trim();
       const role = String(body.role || 'Contractor').trim();
       const validRoles = ['Employee', 'Supervisor', 'Developer', 'Contractor'];
-      const validDivisions = ['', 'Janitorial', 'Renovations', 'Exteriors'];
+      const validDivisions = ['', 'Janitorial', 'Renovations', 'Exteriors', 'Mixed'];
       if (!firstName || !lastName) return jsonResponse(400, { error: 'First and last name are required.' });
       if (validRoles.indexOf(role) === -1) return jsonResponse(400, { error: 'Invalid role.' });
       if (validDivisions.indexOf(division) === -1) return jsonResponse(400, { error: 'Invalid division.' });

@@ -1424,6 +1424,7 @@
                 <option value="Janitorial">Janitorial</option>
                 <option value="Renovations">Renovations</option>
                 <option value="Exteriors">Exteriors</option>
+                <option value="Mixed">Mixed (all three)</option>
               </select>
             </div>
             <div class="field-group"><label>Role</label>
@@ -4818,7 +4819,7 @@ function renderGalleryPanel() {
        wipe -- se mapea al mismo shape {payrollNumber, name} que ya
        esperaba el resto de esta funcion, para no tocar nada mas. */
     const empOpts = allTechs
-      .filter(t => t.division === 'Janitorial' && t.active !== false && t.payrollId)
+      .filter(t => (t.division === 'Janitorial' || t.division === 'Mixed') && t.active !== false && t.payrollId)
       .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() || t.payrollId }));
 
     const rowsHtml = importRecurringRows.map(r => {
@@ -6464,7 +6465,7 @@ function renderGalleryPanel() {
     const tbody = document.querySelector('#techs-table tbody');
     if (!list.length) { tbody.innerHTML = '<tr><td class="empty-note">No techs match that search.</td></tr>'; return; }
 
-    const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors'];
+    const divisionOpts = ['', 'Janitorial', 'Renovations', 'Exteriors', 'Mixed'];
     tbody.innerHTML = list.map(t => `
       <tr>
         <td data-label="Name">
