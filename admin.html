@@ -1446,34 +1446,7 @@
     </div>
   </section>
 
-  <section id="times-routes-section" data-category="settings" style="display:none">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div><div class="order-id">Times and Routes</div>
-        <div class="order-desc">Arrival/departure times per stop, from photo and video timestamps — plain data, no flags or warnings. You decide what's worth a closer look.</div></div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">Each gap between stops is compared against what it should realistically take (exit cushion at the last place + real driving time between those exact coordinates, via OpenStreetMap's routing — not an estimate + entry cushion at the next place, plus extra if that order needs office access) — the difference is "unexplained," not "wrong." A building with an elevator and one with stairs shouldn't be judged the same way.</p>
 
-        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:16px 0;padding:14px;background:var(--bg);border-radius:4px">
-          <div class="field-small" style="max-width:200px;margin-bottom:0"><label>Extra min. if needs office access</label>
-            <input type="number" id="tr-office-extra" min="0"></div>
-          <button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="saveTimesRoutesSettings()">Save</button>
-          <span id="tr-settings-saved" style="font-size:11px;color:#1F7A3F;display:none">Saved.</span>
-        </div>
-
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-          <select id="tr-tech-filter" onchange="renderTimesRoutes()" style="padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
-            <option value="">All employees</option>
-          </select>
-          <button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="loadTimesRoutes()">Refresh</button>
-        </div>
-
-        <div id="times-routes-wrap"><p class="empty-note">Loading…</p></div>
-      </div>
-    </div>
-  </section>
 
   <section id="service-times-section" data-category="services" style="display:none">
     <div class="order-card">
@@ -2068,7 +2041,6 @@ let allOrders = [];
 let allClients = [];
 let allTechs = [];
 let recurringPendingCache = [];
-let allServices = null;
 /* Cache del HTML ya renderizado de cada orden (Active/History), para
    que reabrir una que ya se vio antes sea instantaneo, sin volver a
    pedirle el detalle a la API cada vez. Se invalida entera en cada
@@ -2149,10 +2121,9 @@ function showHistorySubTab(tab) {
 ============================================================ */
 async function loadAll() {
   try {
-    const [ordersRes, clientsRes, svcRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes, galleryRes] = await Promise.all([
+    const [ordersRes, clientsRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes, galleryRes] = await Promise.all([
       api('/admin-get-orders', { body: {} }),
       api('/admin-get-clients', { body: {} }),
-      api('/get-services', { method: 'GET' }),
       api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
       api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] })),
       api('/developer-admin', { body: { action: 'list-recurring-pending', email: adminUser.email } }).catch(() => ({ pending: [] })),
@@ -2172,8 +2143,7 @@ async function loadAll() {
     ]);
     allOrders = ordersRes.orders || [];
     allClients = clientsRes.clients || [];
-    if (svcRes && !svcRes.error) allServices = svcRes;
-    /* Catalogo nuevo (ServicesCatalog) -- precargado igual que allServices,
+    /* Catalogo (ServicesCatalog) -- precargado en loadAll(),
        para que Active/Approvals lo tengan listo sin esperar un fetch
        aparte cada vez que se abre un editor. Solo activos. */
     activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
@@ -2205,7 +2175,7 @@ async function loadAll() {
    picker de Create Order -- se usa al abrir esas pestanas (ver
    showTab/showClientsSubTab) para que un cliente recien
    desactivado/activado desde Developer se refleje sin recargar toda
-   la pagina. No toca allOrders/allServices/allTechs, solo clientes. */
+   la pagina. No toca allOrders/activeCatalogCache/allTechs, solo clientes. */
 async function refreshAllClients() {
   try {
     const cres = await api('/admin-get-clients', { body: {} });
@@ -5696,7 +5666,7 @@ function renderGalleryPanel() {
     }
 
     if (myRole === 'Developer') {
-      ['staff-section', 'techs-section', 'times-routes-section', 'service-times-section', 'password-section', 'geocode-section', 'debug-section']
+      ['staff-section', 'techs-section', 'service-times-section', 'password-section', 'geocode-section', 'debug-section']
         .forEach(id => document.getElementById(id).classList.add('role-eligible'));
       loadStaff();
       loadTechs();
@@ -5736,7 +5706,6 @@ function renderGalleryPanel() {
       headerEl.querySelector('.dev-chevron').textContent = '▾';
       if (body.querySelector('#upload-history-employee') || body.querySelector('#upload-history-hours')) loadUploadHistory();
       if (body.querySelector('#all-clients-table')) loadAllClients();
-      if (body.querySelector('#times-routes-wrap') && !body.dataset.trLoaded) { body.dataset.trLoaded = 'true'; loadTimesRoutes(); }
     }
   }
 
@@ -6401,76 +6370,6 @@ function renderGalleryPanel() {
       await loadTechs();
     } catch (e) {
       showToast('Could not revoke: ' + e.message);
-    }
-  }
-
-  /* ===== Times and Routes -- puros datos, sin avisos ni acusaciones
-     (confirmado con el usuario). El color rojo en un hueco es solo
-     visual, para que salte a la vista mas rapido -- no bloquea nada
-     ni le manda ningun aviso a nadie mas. */
-  let timesRoutesData = null;
-
-  async function loadTimesRoutes() {
-    const wrap = document.getElementById('times-routes-wrap');
-    wrap.innerHTML = '<p class="empty-note">Loading…</p>';
-    try {
-      const res = await devApi('get-times-and-routes');
-      timesRoutesData = res.days || [];
-      document.getElementById('tr-office-extra').value = res.settings.officeAccessExtraMin;
-
-      const techSelect = document.getElementById('tr-tech-filter');
-      const currentPick = techSelect.value;
-      const uniqueTechs = [...new Set(timesRoutesData.map(d => d.techName))].sort();
-      techSelect.innerHTML = '<option value="">All employees</option>' +
-        uniqueTechs.map(n => '<option value="' + esc(n) + '"' + (n === currentPick ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
-
-      renderTimesRoutes();
-    } catch (e) {
-      wrap.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
-    }
-  }
-
-  function renderTimesRoutes() {
-    const wrap = document.getElementById('times-routes-wrap');
-    if (!timesRoutesData) return;
-    const filterTech = document.getElementById('tr-tech-filter').value;
-    const filtered = filterTech ? timesRoutesData.filter(d => d.techName === filterTech) : timesRoutesData;
-
-    if (!filtered.length) { wrap.innerHTML = '<p class="empty-note">No photos or videos logged yet.</p>'; return; }
-
-    wrap.innerHTML = filtered.map(day => {
-      const rowsHtml = day.stops.map(s => {
-        if (s.type === 'stop') {
-          return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">' +
-            '<b>' + esc(s.orderId) + '</b> — arrived ' + esc(s.arrival) + ', left ' + esc(s.departure) +
-            '</div>';
-        }
-        const u = s.unexplainedMinutes;
-        const flagged = u != null && u > 20;
-        const color = flagged ? '#A6362D' : 'var(--gray)';
-        const detail = s.expectedMinutes != null
-          ? '— expected ~' + s.expectedMinutes + ' min' + (u >= 0 ? ', ' + u + ' min unexplained' : ' (faster than expected)')
-          : '— no route available to compare (missing location, or the map service didn\u2019t answer)';
-        return '<div style="padding:6px 0 6px 16px;font-size:11px;color:' + color + (flagged ? ';font-weight:700' : '') + '">' +
-          '\u21B3 ' + s.realMinutes + ' min gap' + (s.milesDriven != null ? ' (' + s.milesDriven + ' mi)' : '') + ' ' + detail +
-          '</div>';
-      }).join('');
-      return '<div class="order-card" style="margin-bottom:10px">' +
-        '<div style="padding:12px 16px;font-weight:700;font-size:13px;border-bottom:1px solid var(--border)">' + esc(day.techName) + ' — ' + esc(day.date) + '</div>' +
-        '<div style="padding:12px 16px">' + rowsHtml + '</div>' +
-        '</div>';
-    }).join('');
-  }
-
-  async function saveTimesRoutesSettings() {
-    try {
-      await devApi('save-setting', { key: 'TimesRoutesOfficeAccessExtraMin', value: document.getElementById('tr-office-extra').value });
-      const saved = document.getElementById('tr-settings-saved');
-      saved.style.display = 'inline';
-      setTimeout(() => { saved.style.display = 'none'; }, 2000);
-      await loadTimesRoutes();
-    } catch (e) {
-      showToast('Could not save: ' + e.message);
     }
   }
 
