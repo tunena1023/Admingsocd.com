@@ -1381,9 +1381,40 @@
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="techs-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here.</p>
-        <div class="field-wrap" style="max-width:320px;margin-bottom:16px">
-          <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+        <p class="section-sub" style="margin-top:16px">Everyone who has registered on the tech portal (tech.gsocd.com). New accounts start as Employee with no division until assigned here. Subcontractors (no payroll ID) get added manually below — pick "Contractor" as their role.</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+          <div class="field-wrap" style="max-width:320px;flex:1;min-width:220px">
+            <input type="text" id="techs-search" placeholder="Search by name, phone or email…" oninput="renderTechs()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
+          </div>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="toggleManualTechForm()">+ Add Person Manually</button>
+        </div>
+        <div id="manual-tech-form" style="display:none;background:var(--off);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:16px">
+          <p class="section-sub" style="margin:0 0 12px">For subcontractors and anyone else who isn't in payroll but still needs to log in to tech.gsocd.com and get assigned orders.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="field-wrap"><label>First Name</label><input type="text" id="manual-tech-first" placeholder="First name"></div>
+            <div class="field-wrap"><label>Last Name</label><input type="text" id="manual-tech-last" placeholder="Last name"></div>
+            <div class="field-wrap"><label>Phone</label><input type="tel" id="manual-tech-phone" placeholder="(555) 555-5555"></div>
+            <div class="field-wrap"><label>Division</label>
+              <select id="manual-tech-division">
+                <option value="">No division</option>
+                <option value="Janitorial">Janitorial</option>
+                <option value="Renovations">Renovations</option>
+                <option value="Exteriors">Exteriors</option>
+              </select>
+            </div>
+            <div class="field-wrap"><label>Role</label>
+              <select id="manual-tech-role">
+                <option value="Contractor" selected>Contractor</option>
+                <option value="Employee">Employee</option>
+                <option value="Supervisor">Supervisor</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="gs-ofp-btn-primary" onclick="submitManualTech()">Add Person</button>
+            <button type="button" class="gs-ofp-btn-secondary" onclick="toggleManualTechForm()">Cancel</button>
+          </div>
+          <p id="manual-tech-error" style="color:#B33A3A;font-size:12px;margin-top:10px;display:none"></p>
         </div>
         <table class="staff-table" id="techs-table"><tbody></tbody></table>
       </div>
@@ -6416,11 +6447,12 @@ function renderGalleryPanel() {
           <div>${esc(t.firstName)} ${esc(t.lastName)}</div>
           <div style="font-size:11px;color:var(--gray)">${esc(t.phone)}${t.email ? ' · ' + esc(t.email) : ''}</div>
         </td>
-        <td class="role-cell">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : '<span style="color:#B06A2A">No payroll ID yet</span>'}</td>
+        <td class="role-cell">${t.payrollId ? 'Payroll #' + esc(t.payrollId) : (t.role === 'Contractor' ? '<span style="color:var(--gray)">Contractor — no payroll</span>' : '<span style="color:#B06A2A">No payroll ID yet</span>')}</td>
         <td>
           <select onchange="updateTech('${t.id}','role',this.value)">
             <option value="Employee" ${t.role === 'Employee' ? 'selected' : ''}>Employee</option>
             <option value="Supervisor" ${t.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
+            <option value="Contractor" ${t.role === 'Contractor' ? 'selected' : ''}>Contractor</option>
             <option value="Developer" ${t.role === 'Developer' ? 'selected' : ''}>Developer</option>
           </select>
         </td>
@@ -6451,6 +6483,45 @@ function renderGalleryPanel() {
     } catch (e) {
       showToast('Error: ' + e.message);
       loadTechs();
+    }
+  }
+
+  /* + Add Person Manually -- para subcontratistas y cualquier otra
+     persona que no este en nomina pero si necesite entrar a
+     tech.gsocd.com y que se le asignen ordenes (Supervisor es texto
+     libre en una orden, su nombre ya funciona ahi sin nada mas que
+     construir -- lo unico nuevo es poder darlos de alta aqui, ya que
+     antes un tech solo se creaba por el reporte de nomina o
+     auto-registrandose en la app). A peticion del dueno, 16/09/2026. */
+  function toggleManualTechForm() {
+    const box = document.getElementById('manual-tech-form');
+    const opening = box.style.display === 'none';
+    box.style.display = opening ? 'block' : 'none';
+    if (opening) {
+      ['manual-tech-first', 'manual-tech-last', 'manual-tech-phone'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('manual-tech-division').value = '';
+      document.getElementById('manual-tech-role').value = 'Contractor';
+      document.getElementById('manual-tech-error').style.display = 'none';
+    }
+  }
+
+  async function submitManualTech() {
+    const firstName = document.getElementById('manual-tech-first').value.trim();
+    const lastName = document.getElementById('manual-tech-last').value.trim();
+    const phone = document.getElementById('manual-tech-phone').value.trim();
+    const division = document.getElementById('manual-tech-division').value;
+    const role = document.getElementById('manual-tech-role').value;
+    const errBox = document.getElementById('manual-tech-error');
+    errBox.style.display = 'none';
+    if (!firstName || !lastName) { errBox.textContent = 'First and last name are required.'; errBox.style.display = 'block'; return; }
+    try {
+      await devApi('create-tech-manual', { firstName, lastName, phone, division, role });
+      toggleManualTechForm();
+      showToast(firstName + ' ' + lastName + ' added.');
+      await loadTechs();
+    } catch (e) {
+      errBox.textContent = e.message;
+      errBox.style.display = 'block';
     }
   }
 

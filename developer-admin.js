@@ -975,7 +975,7 @@ exports.handler = async (event) => {
     if (action === 'update-tech') {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
-      const validRoles = ['Employee', 'Supervisor', 'Developer'];
+      const validRoles = ['Employee', 'Supervisor', 'Developer', 'Contractor'];
       const validDivisions = ['Janitorial', 'Renovations', 'Exteriors'];
       const fields = {};
       if (body.role !== undefined) {
@@ -990,6 +990,41 @@ exports.handler = async (event) => {
       if (!Object.keys(fields).length) return jsonResponse(400, { error: 'Nothing to update.' });
       await updateListItemByItemId(TECHS_LIST, techId, fields);
       return jsonResponse(200, { success: true });
+    }
+
+    /* Agregar una persona a mano (Techs & Roles > + Add Person
+       Manually) -- a peticion del dueno (16/09/2026), para
+       subcontratistas: gente que se asigna a ordenes igual que
+       cualquier empleado (Supervisor es texto libre, su nombre ya
+       funciona ahi sin nada mas que construir) y que SI necesita
+       entrar a tech.gsocd.com para enterarse de sus asignaciones y
+       ver su trabajo -- igual que cualquier tech, con su propio QR
+       (boton "Generate QR" que ya existe en la tabla, sin cambios).
+       La unica diferencia real es que no estan en nomina -- sin
+       PayrollID. Rol 'Contractor' para distinguirlos de un vistazo. */
+    if (action === 'create-tech-manual') {
+      const firstName = String(body.firstName || '').trim();
+      const lastName = String(body.lastName || '').trim();
+      const phone = String(body.phone || '').trim();
+      const division = String(body.division || '').trim();
+      const role = String(body.role || 'Contractor').trim();
+      const validRoles = ['Employee', 'Supervisor', 'Developer', 'Contractor'];
+      const validDivisions = ['', 'Janitorial', 'Renovations', 'Exteriors'];
+      if (!firstName || !lastName) return jsonResponse(400, { error: 'First and last name are required.' });
+      if (validRoles.indexOf(role) === -1) return jsonResponse(400, { error: 'Invalid role.' });
+      if (validDivisions.indexOf(division) === -1) return jsonResponse(400, { error: 'Invalid division.' });
+      // Mismo TempID que ya usa el import de nomina para un tech nuevo
+      // (ultimos 4 digitos del telefono) -- es lo que deja usar
+      // "Generate QR" para que puedan reclamar su dispositivo.
+      const tempId = phone.replace(/\D/g, '').slice(-4);
+      if (tempId.length !== 4) return jsonResponse(400, { error: 'A phone number is required (needed to generate their app QR code).' });
+      const created = await createListItem(TECHS_LIST, {
+        Title: firstName + ' ' + lastName,
+        FirstName: firstName, LastName: lastName,
+        Phone: phone, Email: '', TempID: tempId, PayrollID: '',
+        Role: role, Division: division, Active: true
+      });
+      return jsonResponse(200, { success: true, id: created.id });
     }
 
     /* Acceso por QR -- la oficina genera un SetupToken de un solo uso
