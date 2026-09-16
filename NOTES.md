@@ -390,3 +390,46 @@ viejo ("Need anything from the office?", "What do we need from the
 office?", "Keys for the mailroom...") ni del CSS huérfano (`.field-sub`).
 Deployment en Vercel: `READY`, sin errores nuevos en runtime logs.
 
+## Proyecto grande (15/09/2026): cámara propia + cola offline real
+
+Ver `gsocd-shared/NOTES.md` para el contexto completo (origen, por qué
+`camera-capture.html` vive por dominio, los 9 puntos totales en los 3
+repos). Aquí solo lo que le tocó a **Admin específicamente**:
+
+- Único punto de captura en este repo: la foto de "Not Completed" en
+  Active > Update Services (`startServicePhoto`).
+- **`Admingsocd.com/camera-capture.html`** (nuevo) -- sin MSAL a
+  propósito: `/upload-service-photo` no necesita saber el actor (solo
+  `orderId`/`serviceName`/`imageBase64`), así que no valía la pena cargar
+  toda la librería de login solo para esta página chica. Solo checa que
+  exista `sessionStorage.getItem('admin_account')` antes de dejar entrar
+  (mismo criterio rápido que `admin.html` ya usaba antes de inicializar
+  MSAL de verdad).
+- Se quitó por completo el mecanismo viejo (`svcPhotoPending`,
+  `uploadPendingServicePhotos`, `hasPendingServicePhotos`) -- la foto ya
+  no espera a "Save Changes", se guarda y sube al momento de tomarla,
+  totalmente separada del guardado de servicios (confirmado con el
+  dueño: "son cosas diferentes... si en lugar de dar clic en Save se da
+  clic en Cancel, igual se guardan").
+- **Efecto secundario real:** como esto navega fuera de `admin.html` por
+  completo, y el panel de "Update Services" de Active SÍ tiene edición
+  sin guardar que solo vive en memoria (`adminSvc_`/`adminNC_`/
+  `adminLevel_` + los campos del formulario), se agregó
+  `saveAdminEditSnapshot()`/`restoreAdminEditSnapshotIfAny()` --
+  `sessionStorage` guarda un snapshot completo justo antes de ir a la
+  cámara, y al volver reabre la MISMA orden, abre su panel de Update, y
+  pisa el estado recién inicializado (fresco del servidor) con lo que de
+  verdad tenía el usuario sin guardar -- incluyendo el puntito visual de
+  "ya tiene foto" en el ícono de cámara de ese servicio.
+- Se revisó `get-admin-gallery.js` antes de subir por una duda real: ¿el
+  orden foto-antes-de-nota rompe algo en cómo Gallery arma la
+  descripción? No -- la descripción se arma EN VIVO cada vez que se ve
+  la Galería (cruza el nombre de archivo contra el `NotCompletedReason`
+  ACTUAL de ese servicio, no un valor congelado al momento de subir), así
+  que no importa el orden en que lleguen foto y nota.
+
+**Pendiente:** nada de esto se ha probado en un navegador real todavía
+(solo `node --check` de sintaxis). Ver la sección de pendientes en
+`gsocd-shared/NOTES.md` para el detalle completo de qué falta probar en
+los 3 repos.
+
