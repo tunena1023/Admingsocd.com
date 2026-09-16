@@ -120,13 +120,22 @@ sí por el sistema — son fuentes independientes, a propósito:**
 **El selector de servicios compartido (`gsocd-shared/service-picker`)**
 tiene una opción `groupByCategory: true` que agrupa por `Category` en un
 acordeón (categorías sin asignar caen en "Uncategorized", nunca se pierden).
-Por regla del dueño (confirmada 10/09/2026): **este acordeón es el estándar
-en TODO lugar de Admin u Orders donde se pone o edita una orden** — no
-aplica a Tech (ahí nunca se crean órdenes). Los 6 lugares que existen hoy:
-`create-order` y `appr-`/`admin-` (edición) en Admin, `customer-order` en
-Orders, más `tpl-admin` (Admin) y `template-editor` (Orders) para
-plantillas — estos últimos 2 se estandarizaron el 10/09/2026, antes se
-habían quedado en una versión vieja del componente sin el acordeón.
+Por regla del dueño (confirmada 10/09/2026): este acordeón es el estándar
+en TODO lugar de Admin u Orders donde se pone o edita una orden — no
+aplica a Tech (ahí nunca se crean órdenes). Los 5 lugares reales hoy (verificado
+contra el código, 15/09/2026): `appr-` (Approvals > Update) en Admin,
+`create-order` en Admin, `customer-order` en Orders, más `tpl-admin` (Admin)
+y `template-editor` (Orders) para plantillas.
+
+**Excepción confirmada:** Active (`admin.html`) YA NO usa este acordeón para
+editar servicios de una orden en curso -- el rediseño del 15/09/2026 lo
+reemplazó por una lista editable en línea (X/undo por servicio, pills
+L1/L2/L3 para Janitorial), sin categorías. El código viejo que montaba el
+acordeón ahí (`buildServiceRows`/`mountAdminServicePicker`/
+`buildAdminLegacyNote`) se dejó de llamar en ese rediseño pero no se borró
+hasta ahora (15/09/2026) -- quedó como código muerto que hacía parecer que
+Active seguía usando el acordeón cuando ya no era cierto. Se confirmó con
+el dueño que no hace falta reactivarlo, y se borró por completo.
 
 - **BUG REAL arreglado (12/09/2026): `devApi` no existia en admin.html.**
   Al fusionar developer.html dentro de admin.html (mismo dia), se
