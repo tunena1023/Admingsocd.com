@@ -3636,21 +3636,6 @@ function apprInferPropType(orderId, division) {
   return 'Commercial';
 }
 
-function apprLegacyNote(orderId) {
-  const sel = window['apprSvc_' + orderId] || {};
-  const legacyNames = [];
-  Object.entries(sel).forEach(([, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sub]) => {
-      const known = (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
-      if (!known) legacyNames.push(svcName);
-    });
-  });
-  if (!legacyNames.length) return '';
-  return '<p class="empty-note" style="text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">' +
-    'This order still has services saved in the old catalog format: ' + esc(legacyNames.join(', ')) +
-    '. They stay on the order exactly as they are — re-select the matching service below to move them to the new catalog.</p>';
-}
-
 /* Mismo diff informativo que en Active, contra apprSvcOriginal_ */
 function apprSvcDiffHtml(orderId) {
   if (!window.GSServiceChangePanel) return '';
@@ -3664,8 +3649,7 @@ function apprServiceEditorHtml(orderId, division) {
   if (window['apprPropType_' + orderId] === undefined) {
     window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
   }
-  return apprLegacyNote(orderId) +
-    `<div id="appr-svc-picker-${orderId}"></div>
+  return `<div id="appr-svc-picker-${orderId}"></div>
     <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
     <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}))}</div>`;
 }
@@ -7382,7 +7366,6 @@ function closeOtherCards(context, exceptOrderId) {
 async function loadOrderBody(orderId, context, body) {
   if (orderDetailCache[orderId]) {
     body.innerHTML = orderDetailCache[orderId];
-    if (context === 'active' && orderDetailCacheData[orderId]) mountAdminServicePicker(orderId, orderDetailCacheData[orderId].Division);
     return;
   }
   body.innerHTML = '<p class="empty-note" style="padding:20px">Loading…</p>';
@@ -7395,7 +7378,6 @@ async function loadOrderBody(orderId, context, body) {
     orderDetailCache[orderId] = html;
     orderDetailCacheData[orderId] = o;
     body.innerHTML = html;
-    if (context === 'active') mountAdminServicePicker(orderId, o.Division);
   } catch (e) {
     body.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
   }
@@ -7955,37 +7937,8 @@ function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
    la misma que usan svcSelectionChanged/buildServicesPayload/
    rebuildServicesFromSelection sin tocar esas funciones: "cat" ahora
    es el PropertyType (Residential/Commercial) y "subOption" ahora es
-   el SKU, exactamente igual que se decidio para Create Order.
-   Ordenes viejas guardadas con el catalogo por-cuarto (cat=Kitchen,
-   sub=Deep Clean, sin match de SKU) se detectan y se muestran aparte
-   como nota informativa -- se quedan en la orden tal cual hasta que
-   alguien las vuelva a elegir con el picker nuevo y le de Save. */
-function inferPropType(orderId, division) {
-  const sel = window['adminSvc_' + orderId] || {};
-  for (const c of Object.keys(sel)) {
-    for (const svcName in (sel[c] || {})) {
-      const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => String(s.sku) === String(sku) && s.division.toLowerCase() === String(division).toLowerCase());
-      if (found) return found.propertyType;
-    }
-  }
-  return 'Commercial';
-}
+   el SKU, exactamente igual que se decidio para Create Order. */
 
-function buildAdminLegacyNote(orderId) {
-  const sel = window['adminSvc_' + orderId] || {};
-  const legacyNames = [];
-  Object.entries(sel).forEach(([, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sub]) => {
-      const known = (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
-      if (!known) legacyNames.push(svcName);
-    });
-  });
-  if (!legacyNames.length) return '';
-  return '<p class="empty-note" style="text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">' +
-    'This order still has services saved in the old catalog format: ' + esc(legacyNames.join(', ')) +
-    '. They stay on the order exactly as they are — re-select the matching service below (and Save) to move them to the new catalog.</p>';
-}
 
 /* Mismo aplanado que ya hace buildAdminSelectedListHtml (sel/lvl del
    picker -> renglones), pero en la forma que necesita
@@ -8090,59 +8043,6 @@ function estimatedTimeHtml(services) {
     '<span class="est-time-box-label">Estimated time</span>' +
     '<span class="est-time-box-value">' + esc(fmtDuration(result.totalMinutes)) + '</span>' +
   '</div>';
-}
-
-function buildServiceRows(orderId, division) {
-  if (window['adminPropType_' + orderId] === undefined) {
-    window['adminPropType_' + orderId] = inferPropType(orderId, division);
-  }
-  if (!activeCatalogCache || !activeCatalogCache.length) {
-    return '<p style="font-size:13px;color:var(--gray)">No catalog imported yet — import it in Service Catalog first.</p>';
-  }
-  return buildAdminLegacyNote(orderId) +
-    `<div class="svc-2col">
-      <div>
-        <div id="admin-svc-picker-${orderId}"></div>
-      </div>
-      <div>
-        <p class="detail-label" style="margin:0 0 6px">Selected for this order</p>
-        <div id="admin-svc-selected-${orderId}">${buildAdminSelectedListHtml(orderId)}</div>
-        <div id="admin-svc-diff-${orderId}">${adminSvcDiffHtml(orderId)}</div>
-      </div>
-    </div>
-    <div id="admin-est-time-${orderId}">${estimatedTimeHtml(flattenSelectedForEstimate(orderId))}</div>`;
-}
-
-function mountAdminServicePicker(orderId, division) {
-  if (!activeCatalogCache || !activeCatalogCache.length) return;
-  if (!document.getElementById('admin-svc-picker-' + orderId)) return;
-  const isJan = String(division).toLowerCase() === 'janitorial';
-  GSServicePicker.mount('admin-' + orderId, 'admin-svc-picker-' + orderId, {
-    catalog: activeCatalogCache,
-    division: division,
-    crossDivision: true,
-    mode: isJan ? 'levels' : 'toggle',
-    filterMode: 'selected-plus-search',
-    showSelectAll: isJan,
-    groupByCategory: true,
-    propertyType: window['adminPropType_' + orderId] || 'Commercial',
-    initialSelected: window['adminSvc_' + orderId] || {},
-    initialLevels: window['adminLevel_' + orderId] || {},
-    onChange: function (sel, lvl, propType) {
-      window['adminSvc_' + orderId] = sel;
-      window['adminLevel_' + orderId] = lvl;
-      window['adminPropType_' + orderId] = propType;
-      const selectedBox = document.getElementById('admin-svc-selected-' + orderId);
-      if (selectedBox) selectedBox.innerHTML = buildAdminSelectedListHtml(orderId);
-      const diffBox = document.getElementById('admin-svc-diff-' + orderId);
-      if (diffBox) diffBox.innerHTML = adminSvcDiffHtml(orderId);
-      const estBox = document.getElementById('admin-est-time-' + orderId);
-      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
-      refreshConfirmBtn(orderId);
-      refreshSaveBtn(orderId);
-      activeSvcButtons(orderId, true);
-    }
-  });
 }
 
 /* Botones del "Update" de servicios en Active -- MISMO patron real que
