@@ -1523,6 +1523,48 @@
       width: auto !important; height: 30px; line-height: 1; flex-shrink: 0; white-space: nowrap;
     }
     #import-recurring-preview .save-btn.saved { background: var(--green) !important; }
+
+    /* ===== Mobile (<=768px, mismo breakpoint que el resto de la app):
+       cada <tr> se vuelve tarjeta, cada <td> se apila con su propia
+       etiqueta (data-label) -- tecnica estandar de tabla-a-tarjetas,
+       mismo HTML de siempre. Aprobado con mini el 15/09/2026 (2 rondas
+       de ajuste: alineacion arriba, no abajo; input con fondo blanco
+       explicito para que no salga negro en modo oscuro).
+       El grupo Days/Hours/Target NO viene de estas mismas <td> --
+       renderImportRecurringPreview() ya arma un <td colspan="9"> aparte
+       con su propio layout (.sched-field-trio) cuando isMobileSched es
+       true, para que quepan los 3 en una sola linea en vez de 9
+       renglones apilados. Desktop nunca entra a esta rama de JS ni a
+       este CSS -- su HTML de 9 columnas separadas no cambio. ===== */
+    @media (max-width: 768px) {
+      #import-recurring-preview .sched-table,
+      #import-recurring-preview .sched-table thead,
+      #import-recurring-preview .sched-table tbody,
+      #import-recurring-preview .sched-table tr,
+      #import-recurring-preview .sched-table td { display: block; width: auto !important; }
+      #import-recurring-preview .sched-table thead { display: none; }
+      #import-recurring-preview .sched-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 14px; padding: 14px; background: var(--white); }
+      #import-recurring-preview .sched-table td { border: none; padding: 7px 0; }
+      #import-recurring-preview .sched-table td[data-label]:not([data-label=""])::before {
+        content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase;
+        letter-spacing: .05em; color: var(--gray); font-weight: 700; margin-bottom: 4px;
+      }
+      #import-recurring-preview .sched-select { width: 100% !important; }
+      #import-recurring-preview .tech-cell { justify-content: flex-start; }
+
+      #import-recurring-preview .sched-field-trio { display: flex; align-items: flex-start; gap: 14px; }
+      #import-recurring-preview .sched-field-trio > div { display: flex; flex-direction: column; gap: 4px; }
+      #import-recurring-preview .sched-field-trio label {
+        display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); font-weight: 700;
+      }
+      #import-recurring-preview .sched-days-group { display: flex; gap: 3px; flex-shrink: 0; }
+      #import-recurring-preview .sched-hours-inline { font-weight: 600; white-space: nowrap; font-size: 13px; padding-bottom: 2px; }
+      #import-recurring-preview .sched-target-inline input {
+        width: 44px; border: 1.5px solid; border-radius: 4px; padding: 4px; font-size: 12px;
+        text-align: right; background: var(--white); font-family: 'Inter', sans-serif;
+        -webkit-appearance: none; appearance: none;
+      }
+    }
   </style>
 
   <section id="recurring-scheduler-section" data-category="services" style="display:none">
@@ -4691,6 +4733,19 @@ function renderGalleryPanel() {
     return isNaN(n) ? 0 : n;
   }
 
+  /* isMobileSched (dentro de renderImportRecurringPreview) se calcula
+     en cada render, pero un simple resize de ventana -- sin ninguna
+     edicion de por medio -- no dispara un render solo. Con debounce
+     para no re-renderizar en cada pixel mientras se arrastra la
+     ventana. */
+  let schedResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(schedResizeTimer);
+    schedResizeTimer = setTimeout(() => {
+      if (document.getElementById('import-recurring-preview') && importRecurringRows.length) renderImportRecurringPreview();
+    }, 200);
+  });
+
   function renderImportRecurringPreview() {
     const box = document.getElementById('import-recurring-preview');
     if (!importRecurringRows.length) {
@@ -4717,17 +4772,26 @@ function renderGalleryPanel() {
       const totalHoras = r.assignments.reduce((s, a) => s + (Number(a.hoursAllocated) || 0) * r.dias.length, 0);
       const validAssignments = r.assignments.filter(a => a.payrollNumber);
       const canSave = r.clientId && validAssignments.length > 0 && r.dias.length > 0 && (r.frequency === 'Weekly' || !!r.anchorDate);
-      // Mismo markup que GSOrderFormPremium.officeHoursHtml usa para sus pastillas
-      // de dia (gs-ofp-day-pill) -- se reusa suelto porque aqui no aplican los
-      // 2 campos de "Opens at/Closes at" que trae ese componente completo.
-      const dayCells = DAY_LIST.map(d =>
-        '<td class="day-pill-cell">' +
-          '<label class="gs-ofp-day-pill" style="display:inline-block;width:24px;height:24px;font-size:10.5px">' +
-            '<input type="checkbox" ' + (r.dias.includes(d) ? 'checked' : '') + ' onchange="toggleImportRecurringDay(' + r.id + ',\'' + d + '\',this.checked)">' +
-            '<span>' + d[0] + '</span>' +
-          '</label>' +
-        '</td>'
-      ).join('');
+    // Mobile (<=768px, mismo breakpoint que el resto de la app): Days +
+    // Hours + Target se combinan en UNA sola celda con su propio layout
+    // (flex, cada uno con su mini-etiqueta arriba) para que quepan en
+    // una sola linea sin desperdiciar 9 renglones apilados. Desktop usa
+    // EXACTAMENTE el mismo codigo de 9 columnas separadas que ya tenia
+    // -- nada cambia ahi. Se recalcula en cada render normal (cualquier
+    // edicion ya vuelve a llamar a esta funcion); en un resize sin
+    // ninguna edicion de por medio (poco comun, ej. girar el telefono)
+    // no se refresca solo, mismo costo/beneficio que el resto de la app
+    // (los breakpoints CSS puros si responden solos, este caso puntual
+    // no, por ser JS).
+    const isMobileSched = window.innerWidth <= 768;
+    const dayCells = DAY_LIST.map(d =>
+      '<td class="day-pill-cell">' +
+        '<label class="gs-ofp-day-pill" style="display:inline-block;width:24px;height:24px;font-size:10.5px">' +
+          '<input type="checkbox" ' + (r.dias.includes(d) ? 'checked' : '') + ' onchange="toggleImportRecurringDay(' + r.id + ',\'' + d + '\',this.checked)">' +
+          '<span>' + d[0] + '</span>' +
+        '</label>' +
+      '</td>'
+    ).join('');
       const existsNote = r.alreadyExisted
         ? '<div class="building-tag">✓ already exists</div>' : '';
       // El aviso de "el reporte pedia Xh" solo sirve la primera vez -- una vez
@@ -4753,6 +4817,28 @@ function renderGalleryPanel() {
         (targetDiff !== 0
           ? '<div style="font-size:10.5px;color:var(--red);margin-top:2px">' + (targetDiff > 0 ? '+' : '') + targetDiff + '</div>'
           : '');
+      // Mobile: mismos 3 controles (dias/horas/target), reales -- mismo
+      // checkbox de dia, mismo input de target con el mismo onchange --
+      // nomas acomodados en una fila con su propia mini-etiqueta arriba
+      // de cada uno, en vez de las 9 columnas separadas de desktop.
+      // Aprobado con mini el 15/09/2026.
+      const mobileFieldTrioHtml =
+        '<td colspan="' + (DAY_LIST.length + 2) + '"><div class="sched-field-trio">' +
+          '<div><label>Days</label><div class="sched-days-group">' +
+            DAY_LIST.map(d =>
+              '<label class="gs-ofp-day-pill" style="display:inline-block;width:21px;height:21px;font-size:9px">' +
+                '<input type="checkbox" ' + (r.dias.includes(d) ? 'checked' : '') + ' onchange="toggleImportRecurringDay(' + r.id + ',\'' + d + '\',this.checked)">' +
+                '<span>' + d[0] + '</span>' +
+              '</label>'
+            ).join('') +
+          '</div></div>' +
+          '<div><label>Hours</label><span class="sched-hours-inline">' + totalHoras + 'h</span></div>' +
+          '<div><label>Target</label><span class="sched-target-inline">' +
+            '<input type="number" step="0.5" min="0" style="' +
+              (targetDiff === 0 ? 'border-color:var(--green);color:var(--green)' : 'border-color:var(--red);color:var(--red)') + '" ' +
+              'value="' + escAttr(r.target) + '" onchange="updateImportRecurring(' + r.id + ',\'target\',this.value)">' +
+          '</span></div>' +
+        '</div></td>';
       // Chips compactos -- cada tecnico ocupa solo el ancho que necesita,
       // varios caben en la misma linea, solo bajan a otra si de plano no caben.
       const chipsHtml = r.assignments.map((a, ai) => {
@@ -4774,18 +4860,18 @@ function renderGalleryPanel() {
           ? '<input type="date" class="sched-select" style="margin-top:4px;min-width:130px;font-size:12px" value="' + escAttr(r.anchorDate) + '" onchange="updateImportRecurring(' + r.id + ',\'anchorDate\',this.value)" title="First real visit date -- counts weeks from here">'
           : '');
       return '<tr>' +
-        '<td><div class="building-name" style="color:var(--gray);font-weight:400">#' + esc(r.edificio) + '</div>' + existsNote + '</td>' +
-        '<td>' +
+        '<td data-label="Contract #"><div class="building-name" style="color:var(--gray);font-weight:400">#' + esc(r.edificio) + '</div>' + existsNote + '</td>' +
+        '<td data-label="Client">' +
           '<select class="sched-select ' + (r.clientId ? '' : 'warn') + '" onchange="updateImportRecurring(' + r.id + ',\'clientId\',this.value)">' +
             '<option value="">— select client —</option>' + clientOpts.replace('value="' + escAttr(r.clientId) + '"', 'value="' + escAttr(r.clientId) + '" selected') +
           '</select>' +
         '</td>' +
-        '<td>' + freqCellHtml + '</td>' +
-        dayCells +
-        '<td style="font-weight:600">' + totalHoras + 'h</td>' +
-        '<td>' + targetHtml + '</td>' +
-        '<td><div class="tech-cell">' + chipsHtml + '</div></td>' +
-        '<td><div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
+        '<td data-label="Frequency">' + freqCellHtml + '</td>' +
+        (isMobileSched
+          ? mobileFieldTrioHtml
+          : dayCells + '<td style="font-weight:600">' + totalHoras + 'h</td>' + '<td>' + targetHtml + '</td>') +
+        '<td data-label="Tech"><div class="tech-cell">' + chipsHtml + '</div></td>' +
+        '<td data-label=""><div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
           '<button type="button" class="add-btn" title="Add person" onclick="addImportRecurringAssignment(' + r.id + ')">+</button>' +
           '<button class="gs-ofp-btn-primary save-btn ' + (r.justSaved ? 'saved' : '') + '" ' + (canSave ? '' : 'disabled') + ' onclick="saveImportRecurringRow(' + r.id + ')">' + (r.justSaved ? '✓' : 'Save') + '</button>' +
         '</div></td>' +
