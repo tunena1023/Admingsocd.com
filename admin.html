@@ -4633,7 +4633,7 @@ function renderGalleryPanel() {
             const frequency = String((colFreq >= 0 ? r[colFreq] : '') || '').trim() || 'Weekly';
             const dias = DAY_COLS.filter(([col]) => col >= 0 && /^x$/i.test(String(r[col] || '').trim())).map(([, abbr]) => abbr);
             const clienteReporte = String((colCliente >= 0 ? r[colCliente] : '') || '').trim();
-            const clientMatch = clientsCache.find(c => c.businessName.trim().toLowerCase() === clienteReporte.toLowerCase());
+            const clientMatch = clientsCache.find(c => normalizeForClientMatch(c.businessName) === normalizeForClientMatch(clienteReporte));
             const clientId = clientMatch ? clientMatch.clientId : '';
             const target = colTarget >= 0 ? hhmmToDecimalHours(r[colTarget]) : 0;
 
@@ -4787,6 +4787,26 @@ function renderGalleryPanel() {
     // se acepta igual en vez de tronar.
     const n = Number(str);
     return isNaN(n) ? 0 : n;
+  }
+
+  /* Cruce de nombre de cliente al importar (columna "Client" del
+     reporte contra el nombre real del negocio) -- tolerante a
+     mayusculas/acentos/espacios dobles/puntuacion comun (.,'&"), que
+     eran la causa mas comun de que un renglon no cruzara solo. A
+     proposito NO intenta match parcial/por substring (un apodo como
+     "Viejitos Southridge" que no comparte texto real con el nombre
+     del negocio, o una version acortada como "D&K" contra
+     "D&K Products") -- eso arriesgaria cruzar al cliente equivocado
+     sin que nadie lo note; esos casos siguen necesitando corregirse a
+     mano en el dropdown de esa fila, a proposito. */
+  function normalizeForClientMatch(s) {
+    return String(s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar acentos
+      .toLowerCase()
+      .replace(/&/g, ' ')        // "&" -> espacio, para que "D&K" y "D & K" normalicen igual
+      .replace(/[.,'"]/g, '')    // puntuacion comun que varia entre reporte y sistema
+      .replace(/\s+/g, ' ')      // espacios dobles/triples -> uno solo
+      .trim();
   }
 
   /* isMobileSched (dentro de renderImportRecurringPreview) se calcula

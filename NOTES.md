@@ -471,12 +471,17 @@ distintos que arma la misma función según el ancho de pantalla.
   Biweekly/Monthly se pueden seleccionar en la tabla pero el botón Save
   se queda bloqueado (falta la fecha ancla real y esa lógica no está
   terminada para este flujo en lote).
-- El cruce de Client por nombre (columna "Client" del reporte contra el
-  nombre real del negocio) es exacto — mayúsculas/espacios/apodos
-  distintos no cruzan solos, hay que corregir el dropdown a mano fila
-  por fila cuando no coincide. Se podría hacer más tolerante (ignorar
-  mayúsculas, buscar coincidencia parcial) para que menos filas
-  necesiten corrección manual.
+- **Resuelto en parte (16/09/2026):** el cruce de Client por nombre ya
+  ignora mayúsculas, acentos, espacios dobles y puntuación común
+  (`. , ' " &`) — `"St. John's Lutheran Church"` cruza contra
+  `"St Johns Lutheran Church"`, `"D&K Products"` contra
+  `"D & K Products"`, etc. (`normalizeForClientMatch()`, junto a los
+  demás helpers del parser). Lo que sigue sin cruzar solo, a propósito,
+  porque no hay forma segura de resolverlo sin arriesgar cruzar al
+  cliente equivocado: un **apodo** que no comparte texto real con el
+  nombre del negocio (`"Viejitos Southridge"` vs `"Southridge Senior
+  Lofts"`), o un nombre **acortado** (`"D&K"` vs `"D&K Products"`) — esos
+  siguen necesitando corregirse a mano en el dropdown de esa fila.
 - Ningún tech sin `PayrollID` real (Contractors agregados a mano)
   aparece asignable aquí todavía de forma completamente confiable — la
   lista sí los incluye (si son Janitorial o Mixed), pero como no traen
