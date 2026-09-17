@@ -6666,7 +6666,8 @@ function renderGalleryPanel() {
     }).join('');
 
     box.innerHTML =
-      '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">' +
+      '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="downloadAllClientsReport()">⬇ Download Report (.xlsx)</button>' +
       '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
       '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
       '<tr style="background:var(--bg);position:sticky;top:0"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
@@ -6682,6 +6683,44 @@ function renderGalleryPanel() {
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Est. Time</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
+  }
+
+  /* Descarga la tabla de All Clients como .xlsx -- mismo patron que
+     downloadRecurringSchedulerReport (XLSX/SheetJS ya cargado en la
+     pagina). Un renglon por cliente con las mismas columnas que se ven
+     en pantalla, mas un renglon "↳ " por cada edificio/direccion
+     adicional (additionalAddresses) debajo de su cliente, igual que se
+     ve en la tabla. Clientes inactivos se incluyen igual (con su
+     columna Active en "No") -- es un reporte completo, no un filtro. */
+  function downloadAllClientsReport() {
+    if (!allClientsCache || !allClientsCache.length) { showToast('Nothing to download yet.'); return; }
+    const header = ['Business', 'Address', 'City', 'Zip', 'Phone', 'Email',
+      'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Office Hours',
+      'Entry cushion', 'Exit cushion', 'Active'];
+    const rows = [];
+    allClientsCache.forEach(c => {
+      rows.push([
+        c.businessName || '', c.address || '', c.city || '', c.zip || '',
+        c.phone || '', c.email || '',
+        ...DAY_FIELDS.map(f => c[f] ? 'X' : ''),
+        c.officeHours || '', c.entryCushionMinutes || 0, c.exitCushionMinutes || 0,
+        c.active === false ? 'No' : 'Yes'
+      ]);
+      (c.additionalAddresses || []).forEach(a => {
+        rows.push([
+          '↳ ' + (a.label || ''), a.address || '', a.city || '', a.zip || '',
+          '', '',
+          ...DAY_FIELDS.map(f => a[f] ? 'X' : ''),
+          a.officeHours || '', a.entryCushionMinutes || 0, a.exitCushionMinutes || 0,
+          ''
+        ]);
+      });
+    });
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'All Clients');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, 'All-Clients-' + todayStr + '.xlsx');
   }
 
   /* ===== Reloj oficial generico (mismo componente/patron ya usado en
