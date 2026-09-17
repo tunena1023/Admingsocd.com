@@ -493,10 +493,15 @@ distintos que arma la misma función según el ancho de pantalla.
 ## Cómo funciona hoy: Subcontratistas (Developer > Settings > Techs & Roles)
 
 Un subcontratista es, para el sistema, un técnico más — se le asigna
-trabajo exactamente igual que a cualquier empleado (el campo
-"Supervisor" de una orden es texto libre, cualquier nombre ahí ya
-funciona sin nada especial). La única diferencia real es que no está en
-nómina.
+trabajo exactamente igual que a cualquier empleado. En Active > Edit y
+Approvals eso ya era cierto de entrada (el campo "Supervisor" es texto
+libre, cualquier nombre ahí ya funciona). En **Scheduling** — donde se
+elige quién va a hacer una orden nueva — el selector de candidatos no
+salía de ahí sino de una lista curada (empleados reales, con sus horas
+de la semana); un Contractor no aparecía y no se le podía asignar
+trabajo por ese camino. Ya se corrigió: ahora aparece en la misma
+lista, junto a los empleados reales, solo que sin las estadísticas de
+horas (no se les da seguimiento ahí).
 
 **Cómo se da de alta:** botón **"+ Add Person Manually"** junto al
 buscador de Techs & Roles — pide Nombre, Apellido, Teléfono, División y
