@@ -10596,18 +10596,38 @@ let pendingDirectLinkOrderId = null;
   }
 
   function assignFormHtml(o) {
+    const key = (o.Division || '').toLowerCase();
     const candidates = hoursOverviewCache.filter(e => {
-      const key = (o.Division || '').toLowerCase();
       return (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors);
     }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
 
-    const candidatesHtml = !candidates.length
+    /* Contractors (Developer > Techs & Roles > Add Person Manually) no
+       estan en FieldEmployees -- nunca aparecian aqui, no se les podia
+       asignar una orden normal por este camino (solo por Supervisor
+       de texto libre en Active/Approvals, aparte). Se agregan a la
+       misma lista, usando su id de Techs como identificador (en vez
+       de un PayrollNumber real, que no tienen) -- SCHEDULING_LIST solo
+       lo guarda como texto, no lo valida contra nomina, asi que
+       funciona igual de bien. Sin horas/ordenes de esta semana que
+       mostrar (no se les da seguimiento ahi), se marcan como
+       Contractor nomas. A peticion del dueno, 16/09/2026. */
+    const contractorCandidates = allTechs.filter(t =>
+      t.role === 'Contractor' && t.active !== false &&
+      (t.division.toLowerCase() === key || t.division === 'Mixed')
+    );
+
+    const candidatesHtml = (!candidates.length && !contractorCandidates.length)
       ? '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>'
       : candidates.map(c => `
         <div class="candidate-row" data-payroll="${escAttr(c.payrollNumber)}" data-selected="false" onclick="toggleCandidateRow(this)">
           <span class="candidate-name">${esc(c.name)}</span>
           <span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span>
           <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
+        </div>`).join('') +
+        contractorCandidates.map(t => `
+        <div class="candidate-row" data-payroll="${escAttr('tech:' + t.id)}" data-selected="false" onclick="toggleCandidateRow(this)">
+          <span class="candidate-name">${esc(t.firstName)} ${esc(t.lastName)}</span>
+          <span class="candidate-stat">Contractor${t.division === 'Mixed' ? ' — Mixed' : ''}</span>
         </div>`).join('');
 
     /* Servicios de la orden + su tiempo, mismo formato de tabla que ya
@@ -10683,7 +10703,9 @@ let pendingDirectLinkOrderId = null;
 
     const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
       (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
-    const names = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name).join(', ');
+    const realNames = hoursOverviewCache.filter(e => checked.includes(e.payrollNumber)).map(e => e.name);
+    const contractorNames = allTechs.filter(t => checked.includes('tech:' + t.id)).map(t => t.firstName + ' ' + t.lastName);
+    const names = realNames.concat(contractorNames).join(', ');
 
     try {
       showLoadingOverlay('Assigning order ' + orderId + '…');
