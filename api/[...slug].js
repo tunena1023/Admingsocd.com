@@ -19,7 +19,6 @@ const handlers = {
   'get-order-document':  require('../get-order-document').handler,
   'get-order-photos':    require('../get-order-photos').handler,
   'get-admin-gallery':   require('../get-admin-gallery').handler,
-  'get-services':        require('../get-services').handler,
   'register-client':     require('../register-client').handler,
   'site-image':          require('../site-image').handler,
   'submit-order':        require('../submit-order').handler,
