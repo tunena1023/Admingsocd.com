@@ -14,7 +14,7 @@
   ::view-transition-new(root) { animation: gs-fade-in .25s ease-out both; }
   @keyframes gs-fade-in { from { opacity: 0; } }
   @keyframes gs-fade-out { to { opacity: 0; } }
-  :root { --black:#111111; --gold:#C9A84C; --gold-dk:#8C6F2A; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#4E9A5D; --blue:#7FA8D9; --red:#C97B72; --orange:#D9922E; }
+  :root { --black:#111111; --gold:#C9A84C; --gold-dk:#8C6F2A; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#4E9A5D; --blue:#7FA8D9; --red:#C97B72; --orange:#D9922E; --purple:#9B7EBD; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { margin:0; font-family: 'Inter', sans-serif; background:var(--bg); color:var(--black); }
 
@@ -75,6 +75,7 @@
   .cal-dot.janitorial { background: var(--green); }
   .cal-dot.renovations { background: var(--blue); }
   .cal-dot.exteriors { background: var(--red); }
+  .cal-dot.mixed { background: var(--purple); }
   .cal-dot.recurring-color { background: var(--orange); }
 
   .cal-month-total { font-size: 12px; color: var(--gray); }
@@ -104,6 +105,7 @@
   .cal-item.janitorial { background: var(--green); }
   .cal-item.renovations { background: var(--blue); }
   .cal-item.exteriors { background: var(--red); }
+  .cal-item.mixed { background: var(--purple); }
   .cal-item.recurring-color { background: var(--orange); }
   .cal-item.more { background: none; color: var(--gray); font-weight: 600; cursor: pointer; }
   .cal-item-icon {
@@ -138,6 +140,7 @@
   .week-item { font-size: 10.5px; padding: 4px 6px; border-radius: 3px; margin-bottom: 5px; color: var(--white); display: flex; align-items: center; gap: 4px; }
   .week-item.janitorial { background: var(--green); } .week-item.renovations { background: var(--blue); }
   .week-item.exteriors { background: var(--red); } .week-item.recurring-color { background: var(--orange); }
+  .week-item.mixed { background: var(--purple); }
   .week-col-empty { font-size: 10.5px; color: #C9C5BA; font-style: italic; text-align: center; padding-top: 8px; }
 
   /* ===== Agenda -- mini-calendario a la izquierda + detalle dia por dia a la derecha ===== */
@@ -345,6 +348,7 @@
           <div class="cal-legend-item"><span class="cal-dot janitorial"></span>Janitorial</div>
           <div class="cal-legend-item"><span class="cal-dot renovations"></span>Renovations</div>
           <div class="cal-legend-item"><span class="cal-dot exteriors"></span>Exteriors</div>
+          <div class="cal-legend-item"><span class="cal-dot mixed"></span>Mixed</div>
           <div class="cal-legend-item" id="cal-legend-glow"><span class="cal-item-icon">&#8635;</span>Recurring (icon)</div>
         </div>
       </div>
@@ -603,7 +607,19 @@ function itemsForDate(dateObj, restrictToMonth) {
     meta: (s.time || '') + (s.time ? ' \u00b7 ' : '') + Math.round(s.hoursPerVisit * 10) / 10 + 'h'
   }));
   const ord = ordersCache.filter(o => {
-    const d = new Date(o.dispatchDate + 'T00:00:00');
+    /* BUG REAL CRITICO encontrado y arreglado (18/09/2026, reportado
+       por el dueño): esto concatenaba + 'T00:00:00' a o.dispatchDate,
+       pensado para cuando la fecha viene como "2026-09-19" pelona.
+       Pero DispatchDate (como EntryDate/DueDate en todo el sistema)
+       SIEMPRE es un timestamp ISO completo, con su propia hora y Z
+       -- ej. "2026-09-19T13:00:00.000Z". Concatenar producia
+       "2026-09-19T13:00:00.000ZT00:00:00", una fecha invalida
+       (Invalid Date) -- d.getDate()/getMonth()/getFullYear() daban
+       NaN, que nunca hace match contra ningun dia real del mes. El
+       calendario se quedaba sin mostrar NINGUNA orden asignada, sin
+       importar su division -- no era un problema de Mixed, era
+       general. Parsear el timestamp directo, sin concatenar nada. */
+    const d = new Date(o.dispatchDate);
     return d.getDate() === dom && d.getMonth() === mo && d.getFullYear() === yr;
   }).map(o => ({
     label: o.label, division: o.division, isOrder: true,
