@@ -494,28 +494,23 @@ exports.handler = async (event) => {
     if (Array.isArray(b.Units) && b.Units.length >= 2) {
       if (!b.Services) return jsonResponse(400, { error: 'Services are required' });
 
-      const buildingIds = b.Units.map(u => String(u.buildingId || '').trim());
-      if (buildingIds.some(id => !id)) {
-        return jsonResponse(400, { error: 'Every unit needs a building selected.' });
-      }
-
-      const [allOrderRows, allBuildingRows] = await Promise.all([
+      /* Building # es texto libre y opcional, igual que en Single y en
+         Flujo E (agregar una unidad a un batch ya existente) -- si se
+         deja vacio, se autorellena con los digitos iniciales de la
+         direccion del cliente. ANTES este flujo exigia un buildingId
+         de un edificio ya guardado en CLIENT_ADDRESSES_LIST (un
+         <select> obligatorio) -- ese mecanismo quedo huerfano cuando
+         el frontend paso a texto libre (confirmado 12/09/2026 para
+         Single/Flujo E), nunca se actualizo aqui. Bug real encontrado
+         y arreglado a peticion del dueno, 17/09/2026. */
+      const [allOrderRows, allClientsRowsD] = await Promise.all([
         fetchAll(ORDERS_LIST),
-        fetchAll(CLIENT_ADDRESSES_LIST)
+        fetchAll(CLIENTS_LIST)
       ]);
-      const buildingRows = allBuildingRows.filter(it =>
+      const clientItemD = allClientsRowsD.find(it =>
         it.fields && String(it.fields.ClientID || '').trim().toLowerCase() === String(b.ClientID).trim().toLowerCase()
       );
-
-      const buildingsById = {};
-      buildingRows.forEach(it => { if (it.fields) buildingsById[it.id] = it.fields; });
-      /* 'CLIENT_ADDRESS' es un id especial (no es un renglon real de
-         CLIENT_ADDRESSES_LIST) -- significa "esta unidad no tiene
-         building guardado, usa la direccion del cliente". Se salta la
-         validacion de pertenencia para ese caso unicamente. */
-      for (const id of buildingIds) {
-        if (id !== 'CLIENT_ADDRESS' && !buildingsById[id]) return jsonResponse(403, { error: 'One of the selected buildings does not belong to this client.' });
-      }
+      const clientAddressD = clientItemD && clientItemD.fields ? String(clientItemD.fields.Address || '') : '';
 
       const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
       const poTag = nextGlobalPO(allOrderRows);
@@ -524,13 +519,12 @@ exports.handler = async (event) => {
 
       const createdOrderIds = [];
       for (const unit of b.Units) {
-        const bId = String(unit.buildingId).trim();
-        /* Sin building guardado -- usar la direccion del cliente
-           (ya geocodificada arriba, en orderFields) en vez de un
-           renglon real de CLIENT_ADDRESSES_LIST. */
-        const bf = bId === 'CLIENT_ADDRESS'
-          ? { BuildingNumber: '', Address: orderFields.Address, Suite: orderFields.Suite, City: orderFields.City, Zip: orderFields.Zip, Latitude: orderFields.Latitude, Longitude: orderFields.Longitude }
-          : buildingsById[bId];
+        let buildingNumber = String(unit.buildingNumber || '').trim();
+        if (!buildingNumber) {
+          const m = clientAddressD.match(/^\s*(\d+)/);
+          buildingNumber = m ? m[1] : '';
+        }
+        const bf = { BuildingNumber: buildingNumber, Address: orderFields.Address, Suite: orderFields.Suite, City: orderFields.City, Zip: orderFields.Zip, Latitude: orderFields.Latitude, Longitude: orderFields.Longitude };
         const suffix = String(nextSuffixNum++).padStart(4, '0');
         const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + poTag;
 
@@ -546,7 +540,6 @@ exports.handler = async (event) => {
           City:           bf.City    || '',
           Zip:            bf.Zip     || '',
           BatchId:        poTag,
-          BuildingId:     bId,
           /* Cada unidad tiene su PROPIO building, distinto a la
              direccion de facturacion que ya se geocodifico en
              orderFields -- se sobreescribe con las coordenadas
