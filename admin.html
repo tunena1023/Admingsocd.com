@@ -3783,7 +3783,7 @@ function apprServiceEditorHtml(orderId, division) {
   }
   return `<div id="appr-svc-picker-${orderId}"></div>
     <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
-    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}))}</div>`;
+    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}))}</div>`;
 }
 
 function mountApprServicePicker(orderId, division) {
@@ -8288,7 +8288,7 @@ function flattenSelectedForEstimate(orderId) {
       activeOnly[cat][svcName] = sku;
     });
   });
-  return flattenSelected(activeOnly, window['adminLevel_' + orderId] || {});
+  return flattenSelected(activeOnly, window['adminLevel_' + orderId] || {}, window['adminQty_' + orderId] || {});
 }
 
 /* Tiempo de UN solo servicio (para mostrarlo junto a cada renglon,
