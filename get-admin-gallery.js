@@ -39,12 +39,22 @@ function safeName(s) { return String(s || '').replace(/[^a-z0-9]/gi, '_'); }
    SVC_PHOTO_PREFIX -- el timestamp ya viene en el nombre del archivo
    (fileTimestamp() en upload-service-photo.js), no hace falta pedirle
    nada extra a Graph. Mismo formato en Admin/Tech/Orders. */
-const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* BUG REAL encontrado y arreglado (18/09/2026): el nombre del
+   archivo guarda la hora del SERVIDOR (Vercel corre en UTC por
+   default), no la hora de Iowa -- se mostraba tal cual, sin
+   convertir, y una foto tomada a las 9:57 PM se veia como "2:57 AM"
+   en Gallery (5-6 horas adelantada, segun horario de verano/
+   invierno). Ahora se convierte a America/Chicago antes de mostrarla
+   -- Intl.DateTimeFormat ya calcula solo el ajuste correcto de CDT/
+   CST segun la fecha, sin tener que llevar la cuenta a mano. */
 function formatSvcPhotoDate(y, mo, d, h, mi) {
-  const hNum = parseInt(h, 10);
-  const ampm = hNum >= 12 ? 'PM' : 'AM';
-  const h12 = hNum % 12 === 0 ? 12 : hNum % 12;
-  return MONTH_NAMES[parseInt(mo, 10) - 1] + ' ' + parseInt(d, 10) + ', ' + y + ' · ' + h12 + ':' + mi + ' ' + ampm;
+  const utcDate = new Date(Date.UTC(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10), parseInt(h, 10), parseInt(mi, 10)));
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  }).formatToParts(utcDate);
+  const get = type => (parts.find(p => p.type === type) || {}).value || '';
+  return get('month') + ' ' + get('day') + ', ' + get('year') + ' · ' + get('hour') + ':' + get('minute') + ' ' + get('dayPeriod');
 }
 
 async function fetchByOrderId(listName, orderId) {

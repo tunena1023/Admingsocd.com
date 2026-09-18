@@ -201,23 +201,35 @@
 
   async function capture() {
     if (count >= MAX_PHOTOS || !stream) return;
+    /* Mismo fix que tech.gsocd.com (18/09/2026, ver ese commit para
+       el detalle completo): el boton se bloquea durante toda la
+       captura -- si se toca de nuevo mientras GSCameraQueue.enqueue()
+       todavia esta en curso, antes se disparaba una segunda captura
+       de la misma imagen. */
+    const btn = document.getElementById('shutter-btn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+
     count++;
     document.getElementById('counter-pill').textContent = count + ' / ' + MAX_PHOTOS + ' photos';
-    if (count >= MAX_PHOTOS) document.getElementById('shutter-btn').disabled = true;
 
     const imageBase64 = captureFrame();
     const { thumb, status } = addThumb(imageBase64);
 
-    /* enqueue() ya guarda la foto en el telefono/navegador ANTES de
-       intentar subirla (regla de oro: nunca se pierde, pase lo que
-       pase -- ni con Save ni con Cancel del panel de servicios, son
-       cosas distintas, confirmado con el dueño). */
-    const id = await GSCameraQueue.enqueue({
-      endpoint: '/upload-service-photo',
-      body: { orderId: orderId, serviceName: serviceName, imageBase64: imageBase64 },
-      meta: { orderId: orderId, serviceName: serviceName }
-    });
-    thumbById[id] = { thumb, status };
+    try {
+      /* enqueue() ya guarda la foto en el telefono/navegador ANTES de
+         intentar subirla (regla de oro: nunca se pierde, pase lo que
+         pase -- ni con Save ni con Cancel del panel de servicios, son
+         cosas distintas, confirmado con el dueño). */
+      const id = await GSCameraQueue.enqueue({
+        endpoint: '/upload-service-photo',
+        body: { orderId: orderId, serviceName: serviceName, imageBase64: imageBase64 },
+        meta: { orderId: orderId, serviceName: serviceName }
+      });
+      thumbById[id] = { thumb, status };
+    } finally {
+      if (count < MAX_PHOTOS) btn.disabled = false;
+    }
   }
   document.getElementById('shutter-btn').addEventListener('click', capture);
 
