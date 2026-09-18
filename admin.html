@@ -4322,7 +4322,13 @@ function renderGalleryPanel() {
     const wrap = document.getElementById('assign-rows');
     const row = document.createElement('div');
     row.className = 'assign-row';
-    const options = employeesCache.filter(e => e.janitorial)
+    /* allTechs (Techs), no employeesCache (FieldEmployees) -- mismo
+       cambio ya hecho para el Scheduler (Developer > Recurring
+       Services Scheduler) y para el picker de Scheduling: allTechs
+       sobrevive un Wipe Test Data, FieldEmployees no. Mixed cuenta
+       como Janitorial aqui tambien. */
+    const options = allTechs.filter(t => t.active !== false && t.payrollId && (t.division.toLowerCase() === 'janitorial' || t.division === 'Mixed'))
+      .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }))
       .map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
     row.innerHTML =
       '<div class="field-group"><label>Employee</label><select class="assign-emp">' + options + '</select></div>' +
@@ -5357,7 +5363,9 @@ function renderGalleryPanel() {
       lvPeopleRows = s.assignments.length ? s.assignments.map(a => ({ payrollNumber: a.payrollNumber, hours: a.hoursAllocated })) : [{ payrollNumber: '', hours: 8 }];
     }
 
-    const empOptions = employeesCache.filter(e => e.janitorial);
+    // allTechs (Techs), no employeesCache (FieldEmployees) -- mismo fix que addAssignRow arriba.
+    const empOptions = allTechs.filter(t => t.active !== false && t.payrollId && (t.division.toLowerCase() === 'janitorial' || t.division === 'Mixed'))
+      .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }));
     const peopleRowsHtml = lvPeopleRows.map((p, i) =>
       '<div class="assign-row">' +
         '<div class="field-group"><label>' + (i === 0 ? 'Employee' : '') + '</label><select onchange="lvSetPerson(' + i + ', this.value)">' +
