@@ -2409,7 +2409,7 @@ function statusClass(s) {
   const m = {
     'Pending': 'pending', 'Received': 'pending',
     'Review': 'review', 'Change Review': 'review',
-    'Assigned': 'assigned', 'Working': 'working',
+    'Scheduled': 'assigned', 'Assigned': 'assigned', 'Working': 'working',
     'Completed': 'completed',
     'Change Requested': 'change', 'Cancellation Requested': 'cancel',
     'Updated': 'updated', 'Delayed': 'delayed', 'Cancelled': 'cancel'
@@ -3917,8 +3917,17 @@ function filterReview() {
 const ACTIVE_STATUSES = ['Assigned', 'Updated'];
 
 /* Etiqueta visual, no el estatus real. Si no hay DispatchDate todavia
-   se muestra el estatus real tal cual (Assigned/Updated). */
+   se muestra el estatus real tal cual (Assigned/Updated).
+   BUG REAL encontrado y arreglado (18/09/2026, confirmado con captura
+   real del dueño): una orden Received que YA fue agendada de verdad
+   (Supervisor/Service Window/Dispatch Date puestos por Scheduling)
+   se seguia viendo como "Received" a secas en esta lista, aunque el
+   panel expandido (unseenActiveCardHtml) ya mostrara el detalle
+   completo -- son 2 piezas de UI distintas, esta se me habia
+   escapado antes. Mismo criterio ya aplicado en Orders (customer.html/
+   tracking.html) para el badge que ve el cliente. */
 function displayStatus(o) {
+  if (o.Status === 'Received' && o.Supervisor && o.ServiceWindow && o.DispatchDate) return 'Scheduled';
   if (ACTIVE_STATUSES.indexOf(o.Status) === -1) return o.Status;
   if (!o.DispatchDate) return o.Status;
   const dispatch = new Date(o.DispatchDate);
