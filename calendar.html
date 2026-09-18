@@ -553,13 +553,25 @@ async function loadCalendarData() {
     let estimates = {};
     if (scheduled.length) {
       try {
-        const estRes = await api('/developer-admin', { body: { action: 'get-order-time-estimates', email: adminUser.email, orderIds: scheduled.map(o => o.id) } });
+        /* BUG REAL encontrado y arreglado (18/09/2026, reportado por
+           el dueño): se mandaba o.id (el ID interno de SharePoint,
+           ej. "1234") en vez de o.OrderID (el string real de la
+           orden, ej. "GS-1001-1001"). El backend
+           (get-order-time-estimates en developer-admin.js) compara
+           cada servicio contra orderIdSet.has(it.fields.OrderID) --
+           nunca coincidia con un ID interno, asi que NINGUN servicio
+           se sumaba a NINGUNA orden, y las horas siempre daban 0,
+           sin importar el dia o la division. Mismo backend que usa
+           Routing (fetchOrderTimeEstimates en admin.html), que SI
+           manda o.OrderID correctamente -- solo este archivo se
+           quedo con el ID equivocado. */
+        const estRes = await api('/developer-admin', { body: { action: 'get-order-time-estimates', email: adminUser.email, orderIds: scheduled.map(o => o.OrderID) } });
         estimates = estRes.estimates || {};
       } catch (e) { /* si falla, las ordenes se muestran sin horas -- mejor que trabar el calendario */ }
     }
 
     ordersCache = scheduled.map(o => {
-      const est = estimates[o.id];
+      const est = estimates[o.OrderID];
       return {
         label: o.BusinessName || o.ClientID,
         division: (o.Division || 'janitorial').toLowerCase(),
