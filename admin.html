@@ -2858,7 +2858,7 @@ function newOrderApprovalCard(o) {
     </div>
     <div id="${dom}-bypass-form" style="display:none;margin-top:16px">
       <div class="edit-grid">
-        <div class="field-group"><label>Supervisor</label><input type="text" id="${dom}-supervisor" oninput="checkBypassReady('${dom}')"></div>
+        <div class="field-group"><label>Supervisor</label><select id="${dom}-supervisor" onchange="checkBypassReady('${dom}')">${bypassSupervisorOptionsHtml(o.Division)}</select></div>
         <div class="field-group"><label>Service Window</label><select id="${dom}-window" onchange="checkBypassReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select></div>
         <div class="field-group"><label>Service Date</label>${GSDateTimePicker.dateHtml(dom + '-dispatch', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
         <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml(dom + '-inspection', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
@@ -2895,6 +2895,30 @@ function newOrderApprovalCard(o) {
    mini-formulario para escribir Supervisor/Ventana/Fecha ahi mismo,
    saltandose Scheduling -- excepcion para casos urgentes, no la
    regla (confirmado explicitamente). */
+/* Bypass (Director password): antes el Supervisor era texto libre --
+   BUG REAL (18/09/2026, reportado por el dueño): si el nombre escrito
+   no coincidia EXACTO con como esta registrado en Techs (acentos,
+   abreviaturas, etc.), Tech nunca encontraba al match y la orden le
+   quedaba invisible a ese tecnico. Mismo criterio de filtro que ya
+   usa el picker de candidatos de Scheduling (division de la orden, o
+   Mixed, activos) -- sin filtrar por rol, para que Supervisor tambien
+   pueda quedar asignado aqui, no solo Employee/Contractor. El value
+   de cada opcion es el nombre completo tal cual vive en Techs, para
+   que el match por nombre en Tech nunca falle. */
+function bypassSupervisorOptionsHtml(division) {
+  const key = String(division || '').toLowerCase();
+  const opts = allTechs
+    .filter(t => t.active !== false && (t.division.toLowerCase() === key || t.division === 'Mixed'))
+    .map(t => ({ name: (t.firstName + ' ' + t.lastName).trim(), role: t.role, mixed: t.division === 'Mixed' }))
+    .filter(t => t.name);
+  if (!opts.length) {
+    return '<option value="">No active staff in ' + esc(division || 'this division') + '</option>';
+  }
+  return '<option value="">— Select supervisor —</option>' +
+    opts.map(t => '<option value="' + escAttr(t.name) + '">' + esc(t.name) +
+      (t.role ? ' (' + esc(t.role) + (t.mixed ? ' — Mixed' : '') + ')' : '') + '</option>').join('');
+}
+
 async function bypassScheduling(orderId) {
   const actor = await promptDirectorPassword();
   if (!actor) return;
