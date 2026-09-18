@@ -10,14 +10,25 @@
     --white:#fff; --off:#F7F6F3; --gray:#6B6B6B; --border:#E0D9CC; --red:#c0392b; --green:#27ae60;
   }
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0; font-family: 'Inter', -apple-system, sans-serif;
-    background: #000; color: var(--white); min-height: 100vh;
+    background: #000; color: var(--white);
+    /* 100dvh, no 100vh -- BUG REAL reportado con captura real (mismo
+       fix ya aplicado y verificado en tech.gsocd.com, 18/09/2026): en
+       movil 100vh se calcula con la barra de direcciones colapsada
+       (el maximo posible), pero la pagina carga con la barra visible
+       (mas chica) -- la pagina quedaba mas alta que lo visible al
+       inicio, se volvia scrolleable, y al hacer scroll se revelaba
+       ese sobrante de abajo (se veia como si la barra de arriba se
+       repitiera). height fijo + overflow:hidden = nunca se puede
+       hacer scroll, es una camara de pantalla completa. */
+    height: 100dvh; overflow: hidden;
     display: flex; flex-direction: column;
   }
   .top-bar {
     display: flex; justify-content: space-between; align-items: center;
     padding: 14px 16px; background: rgba(0,0,0,.65); position: relative; z-index: 5;
+    flex-shrink: 0;
   }
   .top-bar h1 { font-size: 14px; margin: 0; font-weight: 600; }
   .close-btn {
@@ -25,8 +36,12 @@
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .camera-wrap {
-    flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
-    background: #1a1a1a; min-height: 40vh; overflow: hidden;
+    /* min-height: 0 (no el "auto" default de flex) es lo que de
+       verdad evita que un <video> con resolucion real de camara mas
+       alta que el espacio disponible fuerce este contenedor a crecer
+       mas alla de lo que flex:1 le queria dar. */
+    flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center;
+    background: #1a1a1a; overflow: hidden;
   }
   video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .camera-error { color: var(--gray); font-size: 13px; text-align: center; padding: 24px; display: none; }
@@ -35,7 +50,7 @@
     background: rgba(0,0,0,.55); border-radius: 20px; padding: 6px 14px;
     font-size: 12px; font-weight: 600; letter-spacing: .02em;
   }
-  .bottom-panel { background: var(--black); padding: 14px 16px 20px; }
+  .bottom-panel { background: var(--black); padding: 14px 16px 20px; flex-shrink: 0; }
   .thumb-row {
     display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; min-height: 60px;
   }
