@@ -10642,12 +10642,13 @@ let pendingDirectLinkOrderId = null;
 
   function orderQueueCardHtml(o) {
     const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
+    const poTag = o.BatchId ? ' · PO #' + esc((o.ClientID || '') + '-' + o.BatchId) : '';
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}${poTag}</div>
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <span style="font-size:11px;color:var(--gray)">▾</span>
@@ -10657,12 +10658,13 @@ let pendingDirectLinkOrderId = null;
   }
 
   function orderScheduledCardHtml(o) {
+    const poTag = o.BatchId ? ' · PO #' + esc((o.ClientID || '') + '-' + o.BatchId) : '';
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}${poTag}</div>
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
@@ -10746,6 +10748,17 @@ let pendingDirectLinkOrderId = null;
         '</table>';
 
     return `
+      <div class="detail-grid" style="margin:0 0 14px">
+        <div>
+          <p class="detail-label">Order Details</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px">
+            <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber || '—')} / ${esc(o.UnitNumber || '—')}</div></div>
+            <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms || '—')} / ${esc(o.Bathrooms || '—')}</div></div>
+            <div><div class="field-caption">Entry / Due</div><div class="field-value">${fmtDate(o.EntryDate)} / ${fmtDate(o.DueDate)}</div></div>
+            ${o.BatchId ? '<div><div class="field-caption">PO</div><div class="field-value">' + esc((o.ClientID || '') + '-' + o.BatchId) + '</div></div>' : ''}
+          </div>
+        </div>
+      </div>
       <div class="detail-grid" style="margin:0 0 20px">
         <div>
           <p class="detail-label">Services</p>
