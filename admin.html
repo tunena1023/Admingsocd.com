@@ -10881,6 +10881,40 @@ let pendingDirectLinkOrderId = null;
       days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
 
     let employees = hoursOverviewCache.slice();
+    /* BUG REAL encontrado y arreglado (18/09/2026, reportado por el
+       dueño): get-hours-overview solo trae de FIELD_EMPLOYEES_LIST --
+       tiene sentido para las horas (esa lista es la que uAttend
+       reporta), pero este calendario reusa esa misma lista para
+       decidir QUE FILAS mostrar. Cualquiera asignado via Scheduling
+       que venga de Techs en vez de FieldEmployees (Contractors, y
+       sobre todo Mixed -- ese candidato casi siempre vive en Techs,
+       no en FieldEmployees, desde que se agrego esa division) nunca
+       aparecia como fila -- sus lugares programados quedaban
+       invisibles aunque la asignacion SI existiera en Scheduling.
+       Mismo criterio de dedup ya usado en el candidato de Scheduling:
+       agregar de allTechs solo a quien no este ya en
+       hoursOverviewCache (por payrollNumber), y solo si de verdad
+       tiene algo asignado esta semana (a diferencia de FieldEmployees,
+       que siempre se listan todos activos, tengan o no trabajo --
+       Techs es una lista mucho mas grande y variada, listarlos TODOS
+       aqui inundaria el calendario con gente sin nada que mostrar). */
+    const existingPayrolls = new Set(employees.map(e => e.payrollNumber));
+    const weekDayStrs = new Set(days.map(d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')));
+    const scheduledPayrollsThisWeek = new Set(
+      schedulingCache.filter(s => weekDayStrs.has(String(s.AssignedDate).slice(0, 10))).map(s => String(s.PayrollNumber || '').trim())
+    );
+    (allTechs || []).forEach(t => {
+      const pn = String(t.payrollId || '').trim();
+      if (!pn || !t.active || existingPayrolls.has(pn) || !scheduledPayrollsThisWeek.has(pn)) return;
+      employees.push({
+        payrollNumber: pn,
+        name: (t.firstName + ' ' + t.lastName).trim(),
+        janitorial: String(t.division).toLowerCase() === 'janitorial' || String(t.division).toLowerCase() === 'mixed',
+        renovations: String(t.division).toLowerCase() === 'renovations' || String(t.division).toLowerCase() === 'mixed',
+        exteriors: String(t.division).toLowerCase() === 'exteriors' || String(t.division).toLowerCase() === 'mixed'
+      });
+      existingPayrolls.add(pn);
+    });
     if (calendarDivisionFilter) employees = employees.filter(e => e[calendarDivisionFilter]);
     employees.sort((a, b) => a.name.localeCompare(b.name));
 
