@@ -10755,7 +10755,6 @@ let pendingDirectLinkOrderId = null;
             <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber || '—')} / ${esc(o.UnitNumber || '—')}</div></div>
             <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms || '—')} / ${esc(o.Bathrooms || '—')}</div></div>
             <div><div class="field-caption">Entry / Due</div><div class="field-value">${fmtDate(o.EntryDate)} / ${fmtDate(o.DueDate)}</div></div>
-            ${o.BatchId ? '<div><div class="field-caption">PO</div><div class="field-value">' + esc((o.ClientID || '') + '-' + o.BatchId) + '</div></div>' : ''}
           </div>
         </div>
       </div>
