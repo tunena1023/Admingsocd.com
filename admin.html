@@ -5956,6 +5956,7 @@ function renderGalleryPanel() {
   let tplAdminPropertyType = 'Commercial';
   let tplAdminSelected = {};
   let tplAdminSvcLevel = {};
+  let tplAdminQty = {};
   let tplAdminEditingId = null;
 
   function tplAdminSvcKey(p, n) { return p + '|' + n; }
@@ -6241,7 +6242,7 @@ function renderGalleryPanel() {
     document.getElementById('tpl-admin-editor-title').textContent = 'New Office Template';
     document.getElementById('tpl-admin-name').value = '';
     tplAdminCurrentDiv = 'Janitorial';
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminQty = {}; tplAdminPropertyType = 'Commercial';
     GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', tplAdminCurrentDiv);
     document.getElementById('tpl-admin-editor-card').style.display = 'block';
     tplAdminRenderPicker();
@@ -6255,12 +6256,13 @@ function renderGalleryPanel() {
     document.getElementById('tpl-admin-editor-title').textContent = 'Editing: ' + t.name;
     document.getElementById('tpl-admin-name').value = t.name;
     tplAdminCurrentDiv = t.division || 'Janitorial';
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminQty = {}; tplAdminPropertyType = 'Commercial';
     (t.services || []).forEach(s => {
       const cat = s.Category || 'Commercial';
       if (!tplAdminSelected[cat]) tplAdminSelected[cat] = {};
       tplAdminSelected[cat][s.ServiceName] = s.SubOption;
       if (s.Level) tplAdminSvcLevel[tplAdminSvcKey(cat, s.ServiceName)] = s.Level;
+      if (s.Quantity) tplAdminQty[tplAdminSvcKey(cat, s.ServiceName)] = Number(s.Quantity);
     });
     const firstCat = Object.keys(tplAdminSelected)[0];
     if (firstCat) tplAdminPropertyType = firstCat;
@@ -6278,7 +6280,7 @@ function renderGalleryPanel() {
   function tplAdminSelectDiv(div, el) {
     tplAdminCurrentDiv = div;
     GSOrderFormPremium.activateDivButton('tpl-admin-div-toggle', el);
-    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminPropertyType = 'Commercial';
+    tplAdminSelected = {}; tplAdminSvcLevel = {}; tplAdminQty = {}; tplAdminPropertyType = 'Commercial';
     tplAdminRenderPicker();
   }
 
@@ -6297,9 +6299,11 @@ function renderGalleryPanel() {
       propertyType: tplAdminPropertyType,
       initialSelected: tplAdminSelected,
       initialLevels: tplAdminSvcLevel,
-      onChange: function (sel, lvl, propType) {
+      initialQuantities: tplAdminQty,
+      onChange: function (sel, lvl, propType, qty) {
         tplAdminSelected = sel;
         tplAdminSvcLevel = lvl;
+        tplAdminQty = qty;
         tplAdminPropertyType = propType;
       }
     });
@@ -6314,7 +6318,8 @@ function renderGalleryPanel() {
           ServiceName: svcName,
           SubOption:   sku,
           Division:    GSOrderFormPremium.realDivisionForSku(allCatalogRows, sku, tplAdminCurrentDiv),
-          Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || ''
+          Level:       tplAdminSvcLevel[tplAdminSvcKey(propType, svcName)] || '',
+          Quantity:    tplAdminQty[tplAdminSvcKey(propType, svcName)] || ''
         });
       });
     });
