@@ -103,6 +103,9 @@ function snapshotServices(svcRows, division) {
     SubOption:          it.fields.SubOption   || '',
     Division:           it.fields.Division    || division,
     Level:              it.fields.Level       || '',
+    /* Paso 5 del pedido del dueno (18/09/2026): puertas, ventanas,
+       persianas, etc. -- mismo criterio que Level. */
+    Quantity:           it.fields.Quantity    || '',
     NotCompleted:       truthy(it.fields.NotCompleted),
     NotCompletedReason: it.fields.NotCompletedReason || ''
   }));
@@ -432,6 +435,7 @@ exports.handler = async (event) => {
           SubOption:          s.SubOption   || '',
           Division:           s.Division    || division,
           Level:              s.Level       || '',
+          Quantity:           s.Quantity    || '',
           NotCompleted:       truthy(s.NotCompleted),
           NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
         })

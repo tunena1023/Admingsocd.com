@@ -166,6 +166,7 @@ exports.handler = async (event) => {
         SubOption:   it.fields.SubOption   || '',
         Division:    it.fields.Division    || order.Division,
         Level:       it.fields.Level       || '',
+        Quantity:    it.fields.Quantity    || '',
         /* Columnas nuevas 28/08/2026: servicio no realizado + motivo */
         NotCompleted:       it.fields.NotCompleted === true
                             || String(it.fields.NotCompleted) === 'true',

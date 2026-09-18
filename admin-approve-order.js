@@ -491,6 +491,7 @@ exports.handler = async (event) => {
             SubOption:          s.SubOption   || s.subOption || '',
             Division:           s.Division    || division,
             Level:              s.Level       || s.level || '',
+            Quantity:           s.Quantity    || s.qty   || '',
             NotCompleted:       truthy(s.NotCompleted),
             NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
           })
