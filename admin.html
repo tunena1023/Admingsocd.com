@@ -4457,7 +4457,7 @@ function renderGalleryPanel() {
      reconstruye aqui. ===== */
   let rcPicker = null;
 
-  function mountRcPicker(initialSelected, initialLevels, propertyType) {
+  function mountRcPicker(initialSelected, initialLevels, propertyType, initialQuantities) {
     rcPicker = GSServicePicker.mount('rc-services', 'rc-svc-picker-mount', {
       catalog: servicesCache,
       division: 'Janitorial',
@@ -4466,7 +4466,8 @@ function renderGalleryPanel() {
       groupByCategory: true,
       propertyType: propertyType || 'Commercial',
       initialSelected: initialSelected || {},
-      initialLevels: initialLevels || {}
+      initialLevels: initialLevels || {},
+      initialQuantities: initialQuantities || {}
     });
   }
 
@@ -4486,10 +4487,11 @@ function renderGalleryPanel() {
     if (!rcPicker) return [];
     const selected = rcPicker.getSelected();
     const levels = rcPicker.getLevels();
+    const qtys = rcPicker.getQuantities();
     const out = [];
     Object.keys(selected).forEach(propType => {
       Object.entries(selected[propType]).forEach(([serviceName, sku]) => {
-        out.push({ sku, serviceName, level: levels[propType + '|' + serviceName] || '' });
+        out.push({ sku, serviceName, level: levels[propType + '|' + serviceName] || '', quantity: qtys[propType + '|' + serviceName] || '' });
       });
     });
     return out;
@@ -4506,6 +4508,7 @@ function renderGalleryPanel() {
     try { services = JSON.parse(servicesJson || '[]'); } catch (e) { /* deja vacio */ }
     const selected = {};
     const levels = {};
+    const qty = {};
     let hasLegacy = false;
     let firstType = 'Commercial';
     services.forEach(s => {
@@ -4515,12 +4518,13 @@ function renderGalleryPanel() {
         if (!selected[propType]) selected[propType] = {};
         selected[propType][s.serviceName] = s.sku;
         levels[propType + '|' + s.serviceName] = s.level || 'Level 1';
+        if (s.quantity) qty[propType + '|' + s.serviceName] = Number(s.quantity);
         if (found) firstType = propType;
       } else {
         hasLegacy = true;
       }
     });
-    return { selected, levels, hasLegacy, firstType };
+    return { selected, levels, qty, hasLegacy, firstType };
   }
 
   /* ===== Cargar datos iniciales ===== */
@@ -5521,7 +5525,7 @@ function renderGalleryPanel() {
     lvPicker = GSServicePicker.mount('log-visit', 'lv-svc-picker-mount', {
       catalog: servicesCache, division: 'Janitorial', mode: 'levels', showSelectAll: false,
       groupByCategory: true, propertyType: built.firstType || 'Commercial',
-      initialSelected: built.selected, initialLevels: built.levels,
+      initialSelected: built.selected, initialLevels: built.levels, initialQuantities: built.qty,
       onChange: function () { renderLvDiff(); }
     });
     renderLvDiff();
@@ -5564,10 +5568,11 @@ function renderGalleryPanel() {
     if (!lvPicker) return;
     const selected = lvPicker.getSelected();
     const levels = lvPicker.getLevels();
+    const qtys = lvPicker.getQuantities();
     const services = [];
     Object.keys(selected).forEach(propType => {
       Object.entries(selected[propType]).forEach(([name, sku]) => {
-        if (!lvBaseSelectedKeys.includes(name)) services.push({ sku, serviceName: name, level: levels[propType + '|' + name] || '' });
+        if (!lvBaseSelectedKeys.includes(name)) services.push({ sku, serviceName: name, level: levels[propType + '|' + name] || '', quantity: qtys[propType + '|' + name] || '' });
       });
     });
     const nowNames = new Set();
@@ -5632,7 +5637,7 @@ function renderGalleryPanel() {
     document.getElementById('add-services-btn').style.display = 'none';
     const built = buildInitialSelectedFrom(svc.servicesJson);
     document.getElementById('rc-svc-legacy-note').style.display = built.hasLegacy ? 'block' : 'none';
-    mountRcPicker(built.selected, built.levels, built.firstType);
+    mountRcPicker(built.selected, built.levels, built.firstType, built.qty);
 
     const days = (svc.daysOfWeek || '').split(',');
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
