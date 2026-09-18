@@ -3452,18 +3452,22 @@ function approvalDetailHtml(card, o, services, history) {
        darle "Update", para cuando de verdad se va a cambiar algo. */
     const sel = {};
     const levelSeed = {};
+    const qtySeed = {};
     services.forEach(s => {
       if (!sel[s.Category]) sel[s.Category] = {};
       sel[s.Category][s.ServiceName] = s.SubOption;
       if (s.Level) levelSeed[ncKey(s.Category, s.ServiceName)] = s.Level;
+      if (s.Quantity) qtySeed[ncKey(s.Category, s.ServiceName)] = Number(s.Quantity);
     });
     window['apprSvc_' + card.OrderID] = sel;
     window['apprLevel_' + card.OrderID] = levelSeed;
+    window['apprQty_' + card.OrderID] = qtySeed;
     window['apprDiv_' + card.OrderID] = o.Division || '';
     /* Snapshot de como venian los servicios (y niveles), para el diff
        del editor y para saber si el boton Save debe activarse */
     window['apprSvcOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(sel));
     window['apprLevelOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(levelSeed));
+    window['apprQtyOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(qtySeed));
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
     rows.push('<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svcbtn" style="margin-top:10px;padding:4px 12px;font-size:12px" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>'
@@ -3567,10 +3571,11 @@ function estimatedTimeCompareHtml(oldServices, newServices) {
 function apprServicesArray(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
   const levelState = window['apprLevel_' + orderId] || {};
+  const qtyState = window['apprQty_' + orderId] || {};
   const out = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      out.push({ Category: cat, ServiceName: svcName, SubOption: sub, Level: levelState[ncKey(cat, svcName)] || '' });
+      out.push({ Category: cat, ServiceName: svcName, SubOption: sub, Level: levelState[ncKey(cat, svcName)] || '', Quantity: qtyState[ncKey(cat, svcName)] || '' });
     });
   });
   return out;
@@ -3657,6 +3662,7 @@ async function toggleApprSvcUpdate(orderId, division) {
       /* Lo guardado es ahora la base para el proximo diff */
       window['apprSvcOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprSvc_' + orderId] || {}));
       window['apprLevelOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprLevel_' + orderId] || {}));
+      window['apprQtyOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprQty_' + orderId] || {}));
     } catch (e) {
       showToast('Could not save: ' + e.message);
     }
@@ -3713,7 +3719,12 @@ function apprSvcHasChanges(orderId) {
   const b = JSON.stringify(window['apprSvc_' + orderId] || {});
   const la = JSON.stringify(window['apprLevelOriginal_' + orderId] || {});
   const lb = JSON.stringify(window['apprLevel_' + orderId] || {});
-  return a !== b || la !== lb;
+  /* Un cambio de SOLO cantidad (mismo servicio elegido, distinto
+     numero de puertas) no se veia como cambio -- se agrega la misma
+     comparacion que ya existia para nivel. */
+  const qa = JSON.stringify(window['apprQtyOriginal_' + orderId] || {});
+  const qb = JSON.stringify(window['apprQty_' + orderId] || {});
+  return a !== b || la !== lb || qa !== qb;
 }
 
 /* "Added: X, Y. Removed: Z." -- para Notes del renglon Services Updated */
@@ -3737,6 +3748,7 @@ function cancelApprSvcUpdate(orderId) {
   const readonlyBox = document.getElementById(dom + '-svcreadonly');
   window['apprSvc_' + orderId] = JSON.parse(JSON.stringify(window['apprSvcOriginal_' + orderId] || {}));
   window['apprLevel_' + orderId] = JSON.parse(JSON.stringify(window['apprLevelOriginal_' + orderId] || {}));
+  window['apprQty_' + orderId] = JSON.parse(JSON.stringify(window['apprQtyOriginal_' + orderId] || {}));
   if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
   if (readonlyBox) { readonlyBox.style.display = ''; readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId); }
   apprSvcButtons(orderId, false);
@@ -3797,14 +3809,16 @@ function mountApprServicePicker(orderId, division) {
     propertyType: window['apprPropType_' + orderId] || 'Commercial',
     initialSelected: window['apprSvc_' + orderId] || {},
     initialLevels: window['apprLevel_' + orderId] || {},
-    onChange: function (sel, lvl, propType) {
+    initialQuantities: window['apprQty_' + orderId] || {},
+    onChange: function (sel, lvl, propType, qty) {
       window['apprSvc_' + orderId] = sel;
       window['apprLevel_' + orderId] = lvl;
+      window['apprQty_' + orderId] = qty;
       window['apprPropType_' + orderId] = propType;
       const diffBox = document.getElementById('appr-svc-diff-' + orderId);
       if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
       const estBox = document.getElementById('appr-est-time-' + orderId);
-      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl));
+      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl, qty));
       apprSvcButtons(orderId, true);
     }
   });
@@ -8031,6 +8045,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   const adminSvcSelected = {};
   const adminNCInit = {};
   const adminLevelInit = {};
+  const adminQtyInit = {};
   services.forEach(s => {
     if (!adminSvcSelected[s.Category]) adminSvcSelected[s.Category] = {};
     adminSvcSelected[s.Category][s.ServiceName] = s.SubOption;
@@ -8043,10 +8058,12 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       adminNCInit[ncKey(s.Category, s.ServiceName)] = { nc: isNC, reason: s.NotCompletedReason || '' };
     }
     if (s.Level) adminLevelInit[ncKey(s.Category, s.ServiceName)] = s.Level;
+    if (s.Quantity) adminQtyInit[ncKey(s.Category, s.ServiceName)] = Number(s.Quantity);
   });
   window['adminSvc_' + o.OrderID] = adminSvcSelected;
   window['adminNC_' + o.OrderID] = adminNCInit;
   window['adminLevel_' + o.OrderID] = adminLevelInit;
+  window['adminQty_' + o.OrderID] = adminQtyInit;
   /* Snapshot congelado de como estaban los servicios al abrir el editor.
      Se compara contra esto (nunca contra las fechas, que no aplican aqui)
      para decidir si el boton "Request Confirmation" debe verse. */
@@ -8060,6 +8077,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
      nivel SI cuenta como cambio de servicio real (svcSelectionChanged
      ya lo incluye), a diferencia de Not Completed que es interno. */
   window['adminLevelOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminLevelInit));
+  window['adminQtyOriginal_' + o.OrderID] = JSON.parse(JSON.stringify(adminQtyInit));
   window['adminDiv_' + o.OrderID] = o.Division || '';
   /* Snapshot de TODOS los campos editables (no solo servicios), para que
      "Save Changes" solo aparezca cuando de verdad hay algo que guardar
@@ -8235,11 +8253,11 @@ function ncKey(cat, svc) { return (cat || '') + '|' + (svc || ''); }
    (que guarda su estado en window['adminSvc_'+orderId]), pero
    Approvals y Create Order tienen su propio estado por separado --
    cada quien llama esto directo con su sel/lvl. */
-function flattenSelected(sel, lvl) {
+function flattenSelected(sel, lvl, qty) {
   const rows = [];
   Object.entries(sel || {}).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => {
-      rows.push({ ServiceName: svcName, SubOption: sub, Level: (lvl || {})[ncKey(cat, svcName)] || '' });
+      rows.push({ ServiceName: svcName, SubOption: sub, Level: (lvl || {})[ncKey(cat, svcName)] || '', Quantity: (qty || {})[ncKey(cat, svcName)] || '' });
     });
   });
   return rows;
@@ -8385,11 +8403,13 @@ function activeSvcDomId(orderId) { return 'ro-svc-' + String(orderId).replace(/[
 function activeSvcReadOnlyHtml(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const qtyState = window['adminQty_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     let first = true;
     Object.entries(svcs).forEach(([svcName, sku]) => {
-      rows.push({ cat: first ? cat : '', name: svcName, sku, lvl: levelState[ncKey(cat, svcName)] });
+      const qty = qtyState[ncKey(cat, svcName)];
+      rows.push({ cat: first ? cat : '', name: svcName, sku, lvl: levelState[ncKey(cat, svcName)], qty });
       first = false;
     });
   });
@@ -8398,7 +8418,7 @@ function activeSvcReadOnlyHtml(orderId) {
     rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
       '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
-      '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || '') + '</td>' +
+      '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
       '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
       '</tr>').join('') +
     '</table>';
@@ -8411,6 +8431,7 @@ function activeSvcReadOnlyHtml(orderId) {
 function renderActiveSvcEditable(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const qtyState = window['adminQty_' + orderId] || {};
   const ncState = window['adminNC_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
@@ -8419,15 +8440,25 @@ function renderActiveSvcEditable(orderId) {
   const listHtml = rows.length ? rows.map(r => {
     const catalogEntry = (activeCatalogCache || []).find(s => s.serviceName === r.svcName);
     const isJan = String((catalogEntry || {}).division || '').toLowerCase() === 'janitorial';
+    const isQty = !!(catalogEntry || {}).requiresQuantity;
     const curLevel = levelState[ncKey(r.cat, r.svcName)];
+    const curQty = qtyState[ncKey(r.cat, r.svcName)] || '';
     const mins = svcMinutesLabel(r.sku, curLevel);
     const removed = !!(ncState[ncKey(r.cat, r.svcName)] || {}).nc;
     const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px' + (removed ? ';opacity:.5;pointer-events:none' : '') + '">' +
       ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setActiveSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
       '</div>' : '';
+    /* Cantidad -- paso 5 del pedido del dueno (puertas, ventanas,
+       persianas, etc.). Mismo mecanismo que Level (pills), pero un
+       numero -- oninput llama setActiveSvcQty, mismo patron que
+       setActiveSvcLevel. */
+    const qtyHtml = isQty ? '<span style="margin-right:14px' + (removed ? ';opacity:.5;pointer-events:none' : '') + '">' +
+      '<span style="font-size:10px;color:var(--gray);text-transform:uppercase;margin-right:4px">Qty</span>' +
+      '<input type="number" min="1" step="1" inputmode="numeric" value="' + escAttr(curQty) + '" style="width:48px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;font-family:inherit" ' +
+      'onchange="setActiveSvcQty(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',this.value)"></span>' : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px' + (removed ? ';opacity:.6' : '') + '">' +
       '<span' + (removed ? ' style="text-decoration:line-through"' : '') + '>' + esc(r.svcName) + '</span>' +
-      '<span style="display:flex;align-items:center">' + lvlHtml + (removed ? '<span class="warn-tag">removed</span>' : (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '')) +
+      '<span style="display:flex;align-items:center">' + lvlHtml + qtyHtml + (removed ? '<span class="warn-tag">removed</span>' : (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '')) +
       '<button type="button" class="svc-remove-btn" title="' + (removed ? 'Undo' : 'Mark as not completed / remove') + '" onclick="toggleActiveSvcRemoved(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">' + (removed ? '&#8635;' : '&#10005;') + '</button></span>' +
       '</div>';
   }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
@@ -8454,6 +8485,18 @@ function renderActiveSvcEditable(orderId) {
 function setActiveSvcLevel(orderId, cat, svcName, level) {
   if (!window['adminLevel_' + orderId]) window['adminLevel_' + orderId] = {};
   window['adminLevel_' + orderId][ncKey(cat, svcName)] = level;
+  refreshActiveSvcUI(orderId);
+}
+
+/* Cantidad -- mismo patron que setActiveSvcLevel. Cero/vacio/no
+   numero borra la llave en vez de guardar basura (el input ya tiene
+   min="1", pero se revalida aqui por si acaso). */
+function setActiveSvcQty(orderId, cat, svcName, rawValue) {
+  if (!window['adminQty_' + orderId]) window['adminQty_' + orderId] = {};
+  const n = parseInt(rawValue, 10);
+  const k = ncKey(cat, svcName);
+  if (!n || n < 1) delete window['adminQty_' + orderId][k];
+  else window['adminQty_' + orderId][k] = n;
   refreshActiveSvcUI(orderId);
 }
 
@@ -8657,6 +8700,7 @@ function cancelActiveSvcUpdate(orderId) {
   const o = allOrders.find(x => x.OrderID === orderId) || {};
   window['adminSvc_' + orderId] = JSON.parse(JSON.stringify(window['adminSvcOriginal_' + orderId] || {}));
   window['adminLevel_' + orderId] = JSON.parse(JSON.stringify(window['adminLevelOriginal_' + orderId] || {}));
+  window['adminQty_' + orderId] = JSON.parse(JSON.stringify(window['adminQtyOriginal_' + orderId] || {}));
   window['adminNC_' + orderId] = JSON.parse(JSON.stringify(window['adminNCOriginal_' + orderId] || {}));
   if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
   if (winDisplay) winDisplay.textContent = o.ServiceWindow ? o.ServiceWindow : '—';
@@ -8752,8 +8796,11 @@ function svcSelectionChanged(orderId) {
   const orig = window['adminSvcOriginal_' + orderId] || {};
   const levelNow  = window['adminLevel_' + orderId] || {};
   const levelOrig = window['adminLevelOriginal_' + orderId] || {};
+  const qtyNow  = window['adminQty_' + orderId] || {};
+  const qtyOrig = window['adminQtyOriginal_' + orderId] || {};
   return JSON.stringify(normalizeSvcSel(now)) !== JSON.stringify(normalizeSvcSel(orig)) ||
-    JSON.stringify(levelNow) !== JSON.stringify(levelOrig);
+    JSON.stringify(levelNow) !== JSON.stringify(levelOrig) ||
+    JSON.stringify(qtyNow) !== JSON.stringify(qtyOrig);
 }
 
 /* Ordena categorias y servicios para que la comparacion de JSON no
@@ -8938,6 +8985,7 @@ function buildServicesPayload(orderId) {
   const division = window['adminDiv_' + orderId] || '';
   const ncState = window['adminNC_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const qtyState = window['adminQty_' + orderId] || {};
   const services = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, subOption]) => {
@@ -8945,6 +8993,7 @@ function buildServicesPayload(orderId) {
       services.push({
         Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
         Level: levelState[ncKey(cat, svcName)] || '',
+        Quantity: qtyState[ncKey(cat, svcName)] || '',
         NotCompleted: !!st.nc,
         NotCompletedReason: st.nc ? (st.reason || '') : ''
       });
@@ -10299,7 +10348,7 @@ async function loadCreateServices() {
     showSelectAll: isJan,
     groupByCategory: true,
     propertyType: createPropertyType,
-    onChange: function (sel, lvl, propType) {
+    onChange: function (sel, lvl, propType, qty) {
       createPropertyType = propType;
       createSelected = new Map();
       Object.entries(sel).forEach(([pt, svcs]) => {
@@ -10307,14 +10356,17 @@ async function loadCreateServices() {
           const svc = createCatalogCache.find(s => String(s.sku) === String(sku));
           if (!svc) return;
           const level = lvl[pt + '|' + svcName];
-          createSelected.set(sku, level ? Object.assign({}, svc, { level }) : svc);
+          const q = qty[pt + '|' + svcName];
+          createSelected.set(sku, Object.assign({}, svc,
+            level ? { level } : {},
+            q ? { qty: q } : {}));
         });
       });
       /* Mismo Map que ya usa submitCreateOrder() para armar el
          renglon final -- se reusa tal cual para el calculo, en vez
          de duplicar la logica de aplanado. */
       const rows = Array.from(createSelected.entries()).map(([sku, svc]) =>
-        ({ ServiceName: svc.serviceName, SubOption: sku, Level: svc.level || '' }));
+        ({ ServiceName: svc.serviceName, SubOption: sku, Level: svc.level || '', Quantity: svc.qty || '' }));
       document.getElementById('create-est-time').innerHTML = estimatedTimeHtml(rows);
     }
   });
@@ -10331,7 +10383,7 @@ async function submitCreateOrder() {
      (Residential/Commercial) y SubOption lleva el SKU. */
   const services = [];
   createSelected.forEach((svc, sku) => {
-    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: svc.division || division, Level: svc.level || '' });
+    services.push({ Category: svc.propertyType, ServiceName: svc.serviceName, SubOption: sku, Division: svc.division || division, Level: svc.level || '', Quantity: svc.qty || '' });
   });
   if (!services.length) { showToast('Select at least one service.'); return; }
 
