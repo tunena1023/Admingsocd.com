@@ -32,8 +32,20 @@ const ACTIVE_STATUSES = ['Assigned', 'Updated'];
    NotCompletedReason en OrderServices, el mismo campo que ya llena
    "Save Changes". Por eso esa nota "no cambia nunca" una vez tomada
    la foto -- es el registro de ESE momento, no algo editable despues. */
-const SVC_PHOTO_PREFIX = /^svc-(.+?)-\d{4}-\d{2}-\d{2}_\d{6}\.[a-z0-9]+$/i;
+const SVC_PHOTO_PREFIX = /^svc-(.+?)-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.[a-z0-9]+$/i;
 function safeName(s) { return String(s || '').replace(/[^a-z0-9]/gi, '_'); }
+
+/* "Sep 17, 2026 · 2:30 PM" a partir de los grupos que ya captura
+   SVC_PHOTO_PREFIX -- el timestamp ya viene en el nombre del archivo
+   (fileTimestamp() en upload-service-photo.js), no hace falta pedirle
+   nada extra a Graph. Mismo formato en Admin/Tech/Orders. */
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatSvcPhotoDate(y, mo, d, h, mi) {
+  const hNum = parseInt(h, 10);
+  const ampm = hNum >= 12 ? 'PM' : 'AM';
+  const h12 = hNum % 12 === 0 ? 12 : hNum % 12;
+  return MONTH_NAMES[parseInt(mo, 10) - 1] + ' ' + parseInt(d, 10) + ', ' + y + ' · ' + h12 + ':' + mi + ' ' + ampm;
+}
 
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
@@ -72,7 +84,8 @@ async function buildServiceCaptions(orderId, photoNames) {
     if (!m) return;
     const svc = bySafeName[m[1]];
     if (!svc) return;
-    captions[fileName] = svc.name + (svc.reason ? ' — ' + svc.reason : '');
+    const dateStr = formatSvcPhotoDate(m[2], m[3], m[4], m[5], m[6]);
+    captions[fileName] = svc.name + (svc.reason ? ' — ' + svc.reason : '') + ' · ' + dateStr;
   });
   return captions;
 }
