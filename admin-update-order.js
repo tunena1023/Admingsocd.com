@@ -115,7 +115,22 @@ exports.handler = async (event) => {
     const {
       orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason, sendToClient,
       entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
-      delayReasonType, delayReasonNotes, technician, completedDate
+      delayReasonType, delayReasonNotes, technician, completedDate,
+      /* BUG REAL de perdida de datos encontrado y arreglado (18/09/2026,
+         confirmado con captura real del dueño): cuando solo cambiaban
+         servicios (sin tocar Notes para el cliente), el frontend
+         mandaba el resumen auto-generado ("Added: X. Removed: Y.")
+         como "notes" -- pensado SOLO para el renglon Notes del evento
+         "Services Updated" en el historial. Pero el backend trata
+         CUALQUIER "notes" como una peticion de actualizar el campo
+         Notes REAL de la orden (esta en scalarFields) -- sin querer,
+         cada vez que se guardaban servicios, el campo Notes real de
+         la orden se SOBRESCRIBIA en silencio con ese resumen
+         auto-generado, borrando cualquier nota real que hubiera.
+         svcChangeSummary es un parametro APARTE, exclusivo para el
+         texto del evento de historial -- nunca entra a scalarFields/
+         patch, nunca toca el campo Notes real. */
+      svcChangeSummary
     } = body;
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
@@ -428,7 +443,7 @@ exports.handler = async (event) => {
           Title:        nextAdminLabel(),
           ChangeType:   statusChanged ? status : 'Services Updated',
           FieldChanged: 'Services',
-          Notes:        notes || '',
+          Notes:        svcChangeSummary || notes || '',
           OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '' }),
           NewValue:     'SERVICES:' + JSON.stringify({ services: services, dirtLevel: f.DirtLevel || '' }),
           /* El tracker del cliente muestra la fecha de ESTE evento; si se
@@ -442,7 +457,7 @@ exports.handler = async (event) => {
           Title:        nextAdminLabel(),
           ChangeType:   status,
           FieldChanged: 'Status',
-          Notes:        notes || '',
+          Notes:        svcChangeSummary || notes || '',
           OldValue:     oldStatus,
           NewValue:     status,
           ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
@@ -453,7 +468,7 @@ exports.handler = async (event) => {
         Title:        nextAdminLabel(),
         ChangeType:   status,
         FieldChanged: 'Status',
-        Notes:        notes || '',
+        Notes:        svcChangeSummary || notes || '',
         OldValue:     oldStatus,
         NewValue:     status,
         ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})

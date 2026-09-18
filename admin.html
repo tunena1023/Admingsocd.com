@@ -3602,7 +3602,7 @@ async function toggleApprSvcUpdate(orderId, division) {
     const notes = apprSvcDiffNotes(orderId);
     try {
       showLoadingOverlay('Saving services…');
-      await api('/admin-update-order', { body: { orderId, changedBy: getActorName(), services: services || [], notes: notes } });
+      await api('/admin-update-order', { body: { orderId, changedBy: getActorName(), services: services || [], svcChangeSummary: notes } });
       showToast('Services saved.');
       /* Lo guardado es ahora la base para el proximo diff */
       window['apprSvcOriginal_' + orderId] = JSON.parse(JSON.stringify(window['apprSvc_' + orderId] || {}));
@@ -8472,7 +8472,7 @@ function toggleActiveSvcUpdate(orderId, division) {
             await api('/admin-update-order', { body: {
               orderId, changedBy: getActorName(), requestOnly: false,
               services: buildServicesPayload(orderId) || [],
-              notes: adminSvcDiffNotes(orderId)
+              svcChangeSummary: adminSvcDiffNotes(orderId)
             } });
           }
           showToast('Saved.');
