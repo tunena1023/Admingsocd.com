@@ -2860,8 +2860,8 @@ function newOrderApprovalCard(o) {
       <div class="edit-grid">
         <div class="field-group"><label>Supervisor</label><input type="text" id="${dom}-supervisor" oninput="checkBypassReady('${dom}')"></div>
         <div class="field-group"><label>Service Window</label><select id="${dom}-window" onchange="checkBypassReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select></div>
-        <div class="field-group"><label>Service Date</label>${GSDateTimePicker.dateHtml(dom + '-dispatch', null)}</div>
-        <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml(dom + '-inspection', null)}</div>
+        <div class="field-group"><label>Service Date</label>${GSDateTimePicker.dateHtml(dom + '-dispatch', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
+        <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml(dom + '-inspection', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
       </div>
     </div>`;
 
@@ -4090,8 +4090,8 @@ function addUnitPanelHtml(clientId, batchId, dom) {
     submitLabel: 'Add Unit', submitOnclick: "event.stopPropagation(); submitAddBatchUnitAdmin('" + esc(clientId) + "','" + esc(batchId) + "','" + dom + "')",
     cancelLabel: 'Cancel', cancelOnclick: "event.stopPropagation(); toggleAddUnitForm('" + dom + "')"
   });
-  html = html.replace('id="' + dom + '-entry-mount"></div>', 'id="' + dom + '-entry-mount">' + GSDateTimePicker.dateHtml(dom + '-entry', null) + '</div>');
-  html = html.replace('id="' + dom + '-due-mount"></div>', 'id="' + dom + '-due-mount">' + GSDateTimePicker.dateHtml(dom + '-due', null) + '</div>');
+  html = html.replace('id="' + dom + '-entry-mount"></div>', 'id="' + dom + '-entry-mount">' + GSDateTimePicker.dateHtml(dom + '-entry', null, null, { min: todayISO() }) + '</div>');
+  html = html.replace('id="' + dom + '-due-mount"></div>', 'id="' + dom + '-due-mount">' + GSDateTimePicker.dateHtml(dom + '-due', null, null, { min: todayISO() }) + '</div>');
   return html;
 }
 
@@ -5136,7 +5136,14 @@ function renderGalleryPanel() {
     return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
   }
   function todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    /* Hora LOCAL del navegador, no UTC -- toISOString() usa UTC, que
+       en la noche (Iowa esta 5-6 horas detras) ya habia rodado al dia
+       siguiente, dando manana en vez de hoy. Bug real corregido de
+       paso al agregar min=hoy a los calendarios de fecha nueva,
+       18/09/2026. */
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   }
 
   async function loadRecurringList() {
@@ -9968,9 +9975,9 @@ function startCreateOrderFor(clientId) {
       cancelLabel: 'Cancel',
       cancelOnclick: 'cancelCreate()'
     });
-    document.getElementById('create-entry-mount').innerHTML = GSDateTimePicker.dateHtml('create-entry-date', null);
+    document.getElementById('create-entry-mount').innerHTML = GSDateTimePicker.dateHtml('create-entry-date', null, null, { min: todayISO() });
     document.getElementById('create-entry-time-mount').innerHTML = GSDateTimePicker.timeHtml('create-entry-time', '08:00');
-    document.getElementById('create-due-mount').innerHTML = GSDateTimePicker.dateHtml('create-due-date', null);
+    document.getElementById('create-due-mount').innerHTML = GSDateTimePicker.dateHtml('create-due-date', null, null, { min: todayISO() });
   } catch (e) {
     console.error('No se pudo montar el panel de Access & scheduling:', e);
   }
@@ -10059,9 +10066,9 @@ function toggleCreateUnitCustomize(idx) {
     const dom = 'create-unit-' + idx;
     try {
       reveal.innerHTML = GSOrderFormPremium.unitDetailPanelHtml(dom, { showTime: true, showButtons: false });
-      document.getElementById(dom + '-entry-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-entry', '');
+      document.getElementById(dom + '-entry-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-entry', '', null, { min: todayISO() });
       document.getElementById(dom + '-entry-time-mount').innerHTML = GSDateTimePicker.timeHtml(dom + '-entry-time', '08:00');
-      document.getElementById(dom + '-due-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-due', '');
+      document.getElementById(dom + '-due-mount').innerHTML = GSDateTimePicker.dateHtml(dom + '-due', '', null, { min: todayISO() });
       reveal.dataset.mounted = '1';
     } catch (e) {
       console.error('No se pudo montar el panel de Customize para la unidad ' + idx + ':', e);
