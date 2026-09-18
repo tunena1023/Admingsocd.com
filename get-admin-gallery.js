@@ -57,6 +57,24 @@ function formatSvcPhotoDate(y, mo, d, h, mi) {
   return get('month') + ' ' + get('day') + ', ' + get('year') + ' · ' + get('hour') + ':' + get('minute') + ' ' + get('dayPeriod');
 }
 
+/* BUG REAL encontrado y arreglado (18/09/2026, reportado por el
+   dueño): fotos normales (sin pasar por la camarita de servicio)
+   nunca tenian caption -- se veian sin fecha/hora en Gallery. Mismo
+   criterio que tech.gsocd.com/get-my-gallery.js: usar
+   createdDateTime (Graph lo da gratis en cada archivo) como
+   respaldo. */
+function formatIsoDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  }).formatToParts(d);
+  const get = type => (parts.find(p => p.type === type) || {}).value || '';
+  return get('month') + ' ' + get('day') + ', ' + get('year') + ' · ' + get('hour') + ':' + get('minute') + ' ' + get('dayPeriod');
+}
+
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
   let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
@@ -147,7 +165,7 @@ exports.handler = async (event) => {
         division: f.Division || '',
         status: f.Status || '',
         date: f.EntryDate || f.DispatchDate || f.createdDateTime || '',
-        photos: photos.map(p => ({ name: p.name, downloadUrl: p.downloadUrl, caption: captions[p.name] || undefined }))
+        photos: photos.map(p => ({ name: p.name, downloadUrl: p.downloadUrl, caption: captions[p.name] || formatIsoDate(p.createdDateTime) || undefined }))
       };
     }));
 
