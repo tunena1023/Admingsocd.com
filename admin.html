@@ -3750,7 +3750,7 @@ function apprSvcDiffNotes(orderId) {
   const parts = [];
   if (added.length) parts.push('Added: ' + added.join(', '));
   if (removed.length) parts.push('Removed: ' + removed.join(', '));
-  if (!parts.length && apprSvcHasChanges(orderId)) parts.push('Service levels updated');
+  if (!parts.length && apprSvcHasChanges(orderId)) parts.push('Service details updated');
   return parts.join('. ') + (parts.length ? '.' : '');
 }
 
@@ -8813,7 +8813,7 @@ function adminSvcDiffNotes(orderId) {
   if (removed.length) parts.push('Removed: ' + removed.join(', '));
   if (markedNC.length) parts.push('Marked not completed: ' + markedNC.join(', '));
   if (unmarkedNC.length) parts.push('Marked completed again: ' + unmarkedNC.join(', '));
-  if (!parts.length && (svcSelectionChanged(orderId) || ncChanged(orderId))) parts.push('Service levels updated');
+  if (!parts.length && (svcSelectionChanged(orderId) || ncChanged(orderId))) parts.push('Service details updated');
   return parts.join('. ') + (parts.length ? '.' : '');
 }
 
