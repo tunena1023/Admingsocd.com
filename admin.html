@@ -2821,6 +2821,31 @@ function filterApprovals() {
    momento, sin esperar a las demas. Por eso ya no hay un "Approve
    All": no hay nada que aprobar en bloque, cada unidad ya fluye sola
    en cuanto Scheduling la asigna (confirmado con el usuario). */
+/* Pedido del dueno (18/09/2026), confirmado antes de tocar nada:
+   el encabezado de un PO cerrado no mostraba ninguna fecha -- una
+   sola fecha visible, la de creacion original del PO, O la del
+   ultimo cambio si alguna de sus unidades se movio despues (la que
+   sea mas reciente de las 2, nunca las 2 a la vez). createdDateTime
+   y lastModifiedDateTime ya vienen en cada unidad (admin-get-orders.js,
+   Graph los trae gratis) -- no hizo falta ningun cambio de backend. */
+function poGroupDateLabel(units) {
+  /* BUG encontrado antes de subir nada: comparar el createdDateTime
+     MAS TEMPRANO del grupo contra el lastModifiedDateTime MAS TARDIO
+     del grupo confundia el desfase normal de un par de segundos entre
+     la creacion de cada unidad del mismo PO con una modificacion de
+     verdad. Correcto: cada unidad se compara contra SU PROPIA fecha
+     de creacion -- si CUALQUIERA de verdad cambio despues de nacer,
+     se muestra el cambio mas reciente de esas; si ninguna cambio de
+     verdad, se muestra cuando nacio el PO (la mas temprana de todas). */
+  const created = units.map(o => o.createdDateTime).filter(Boolean).sort();
+  const realChanges = units
+    .filter(o => o.createdDateTime && o.lastModifiedDateTime && o.lastModifiedDateTime > o.createdDateTime)
+    .map(o => o.lastModifiedDateTime)
+    .sort();
+  if (realChanges.length) return 'Last change ' + fmtDateTime(realChanges[realChanges.length - 1]);
+  return created.length ? 'Created ' + fmtDateTime(created[0]) : '';
+}
+
 function batchApprovalGroupCard(batchId, units) {
   const groupOrderId = 'batch-' + batchId;
   const dom = apprDomId(groupOrderId);
@@ -2831,7 +2856,7 @@ function batchApprovalGroupCard(batchId, units) {
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
         <div>
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
-          <div class="order-meta">${units.length} units awaiting scheduling</div>
+          <div class="order-meta">${units.length} units awaiting scheduling${poGroupDateLabel(units) ? ' · ' + poGroupDateLabel(units) : ''}</div>
         </div>
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
@@ -4233,7 +4258,7 @@ function batchOrderGroupCard(batchId, units, context) {
       <div class="order-card-header" onclick="toggleBatchCard('${esc(groupOrderId)}','${context}')">
         <div>
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
-          <div class="order-meta">${units.length} units</div>
+          <div class="order-meta">${units.length} units${poGroupDateLabel(units) ? ' · ' + poGroupDateLabel(units) : ''}</div>
         </div>
         <span style="font-size:11px;color:var(--gray)">▼</span>
       </div>
