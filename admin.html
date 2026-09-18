@@ -10642,13 +10642,12 @@ let pendingDirectLinkOrderId = null;
 
   function orderQueueCardHtml(o) {
     const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
-    const poTag = o.BatchId ? ' · PO #' + esc((o.ClientID || '') + '-' + o.BatchId) : '';
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}${poTag}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <span style="font-size:11px;color:var(--gray)">▾</span>
@@ -10658,13 +10657,12 @@ let pendingDirectLinkOrderId = null;
   }
 
   function orderScheduledCardHtml(o) {
-    const poTag = o.BatchId ? ' · PO #' + esc((o.ClientID || '') + '-' + o.BatchId) : '';
     return `
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header">
           <div>
             <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}${poTag}</div>
+            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
