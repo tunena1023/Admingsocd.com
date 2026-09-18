@@ -7840,7 +7840,14 @@ function unseenActiveCardHtml(o, services, history) {
       ).join('')
     : '<p class="empty-note">No services recorded.</p>';
 
-  return `
+  /* Mismo patron detail-grid (2 columnas, History SIEMPRE a la
+     derecha) que ya usan Active/Review/Approvals -- esta tarjeta
+     reducida se quedo apilando todo en una sola columna cuando se
+     construyo, con History hasta el fondo, distinto al resto de la
+     app. A peticion del dueno, 17/09/2026. */
+  const historyHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
+
+  const leftCol = `
     <div style="background:#EAF3FF;border:1px solid #BFDBFE;color:#1A56C4;font-size:12px;padding:10px 12px;margin-bottom:16px;font-weight:600">
       ⬤ Not seen yet — just assigned from Scheduling
     </div>
@@ -7856,9 +7863,12 @@ function unseenActiveCardHtml(o, services, history) {
       <button class="gs-ofp-btn-primary" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
       <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
     </div>
-    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>
-    <p class="appr-h" style="margin-top:20px">History</p>
-    ${GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku })}`;
+    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>`;
+
+  return '<div class="detail-grid">' +
+    '<div>' + leftCol + '</div>' +
+    '<div><p class="appr-h">History</p>' + historyHtml + '</div>' +
+    '</div>';
 }
 
 async function markSeen(orderId) {
