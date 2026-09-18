@@ -2835,9 +2835,9 @@ function batchApprovalGroupCard(batchId, units) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-bar" style="margin-bottom:16px">
-          ${addUnitButtonHtml(clientId, batchId)}
+          ${addUnitButtonHtml(clientId, batchId, 'appr')}
         </div>
-        ${addUnitFormHtml(clientId, batchId)}
+        ${addUnitFormHtml(clientId, batchId, 'appr')}
         <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Individual units</div>
         ${innerHtml}
       </div>
@@ -4050,14 +4050,27 @@ function groupByBatch(orders) {
    Edit/Complete/Cancel normal. */
 /* Widget reusable de "+ Add a Unit", usado tanto en Active como en
    Approvals -- copia Division/Servicios del resto del PO
-   automaticamente, solo pide Building/Unit#/Bed/Bath/fechas. */
-function addUnitButtonHtml(clientId, batchId) {
-  const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
+   automaticamente, solo pide Building/Unit#/Bed/Bath/fechas.
+   BUG REAL encontrado y arreglado (18/09/2026, confirmado por el
+   dueño probando en vivo): un mismo lote (batchId) puede tener
+   unidades en Approvals (Received, esperando aprobar) Y en Active
+   (ya Assigned) AL MISMO TIEMPO -- las 2 pestañas renderizan su
+   propio widget "+ Add a Unit" para ese mismo batchId, y como el dom
+   se calculaba SOLO con el batchId (sin importar el contexto), las 2
+   copias terminaban con el MISMO id de formulario en la pagina a la
+   vez (una de Approvals, oculta; otra de Active, visible).
+   document.getElementById() siempre devuelve la PRIMERA que aparece
+   en el HTML -- que resultaba ser la de Approvals, oculta -- asi que
+   el boton de Active SI hacia algo, nomas en el formulario
+   equivocado e invisible: se veia "muerto" sin ningun error. Ahora
+   el contexto entra al dom, nunca puede haber 2 iguales. */
+function addUnitButtonHtml(clientId, batchId, context) {
+  const dom = 'addunit-' + (context || 'x') + '-' + batchId.replace(/[^a-z0-9]/gi,'_');
   return `<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleAddUnitForm('${dom}')">+ Add a Unit</button>`;
 }
 
-function addUnitFormHtml(clientId, batchId) {
-  const dom = 'addunit-' + batchId.replace(/[^a-z0-9]/gi,'_');
+function addUnitFormHtml(clientId, batchId, context) {
+  const dom = 'addunit-' + (context || 'x') + '-' + batchId.replace(/[^a-z0-9]/gi,'_');
 
   return `
     <div id="${dom}-form" style="display:none;border:1px dashed var(--border);padding:16px;margin-top:12px;margin-bottom:16px">
@@ -4113,8 +4126,8 @@ function addUnitPanelHtml(clientId, batchId, dom) {
 
 /* Se queda como estaba, junta boton+formulario, para batchOrderGroupCard
    (Active) que no necesita separarlos. */
-function addUnitWidgetHtml(clientId, batchId) {
-  return addUnitButtonHtml(clientId, batchId) + addUnitFormHtml(clientId, batchId);
+function addUnitWidgetHtml(clientId, batchId, context) {
+  return addUnitButtonHtml(clientId, batchId, context) + addUnitFormHtml(clientId, batchId, context);
 }
 
 function toggleAddUnitForm(dom) {
@@ -4176,7 +4189,7 @@ function batchOrderGroupCard(batchId, units, context) {
         <span style="font-size:11px;color:var(--gray)">▼</span>
       </div>
       <div class="order-body" id="${id}" style="padding:16px">
-        ${contextCan(context, 'addUnit') ? addUnitWidgetHtml(clientId, batchId) : ''}
+        ${contextCan(context, 'addUnit') ? addUnitWidgetHtml(clientId, batchId, context) : ''}
         ${innerHtml}
       </div>
     </div>`;
