@@ -959,7 +959,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.2/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.8/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.27.2/service-change-panel/service-change-panel.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.5/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
@@ -3724,10 +3724,24 @@ function apprServiceEditorHtml(orderId, division) {
 
 function mountApprServicePicker(orderId, division) {
   const isJan = String(division).toLowerCase() === 'janitorial';
+  /* BUG REAL encontrado y arreglado (18/09/2026, reportado por el
+     dueño): a este picker nunca se le paso crossDivision -- a
+     diferencia de los otros 5 lugares que YA lo tenian (Create Order,
+     Templates en Orders, Templates en Admin), este era el UNICO que
+     se quedo sin el fix cuando se agrego la division Mixed. division
+     llega literal como 'Mixed', y GSServicePicker compara
+     s.division.toLowerCase() === inst.division.toLowerCase() para
+     CADA servicio del catalogo -- ninguno tiene division='mixed' de
+     verdad (esa palabra no existe como categoria real, es una
+     combinacion de Janitorial+Renovations+Exteriors), asi que la
+     barra de busqueda de Approvals > Update nunca encontraba nada
+     para una orden Mixed, sin importar que escribieras. */
+  const isMixed = String(division).toLowerCase() === 'mixed';
   GSServicePicker.mount('appr-' + orderId, 'appr-svc-picker-' + orderId, {
     catalog: activeCatalogCache || [],
     division: division,
-    mode: isJan ? 'levels' : 'toggle',
+    crossDivision: isMixed,
+    mode: (isJan || isMixed) ? 'levels' : 'toggle',
     showSelectAll: isJan,
     groupByCategory: true,
     propertyType: window['apprPropType_' + orderId] || 'Commercial',
