@@ -32,7 +32,7 @@ const ACTIVE_STATUSES = ['Assigned', 'Updated'];
    NotCompletedReason en OrderServices, el mismo campo que ya llena
    "Save Changes". Por eso esa nota "no cambia nunca" una vez tomada
    la foto -- es el registro de ESE momento, no algo editable despues. */
-const SVC_PHOTO_PREFIX = /^svc-(.+?)-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.[a-z0-9]+$/i;
+const SVC_PHOTO_PREFIX = /^svc-(.+?)-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})(?:-[a-z0-9]+)?\.[a-z0-9]+$/i;
 function safeName(s) { return String(s || '').replace(/[^a-z0-9]/gi, '_'); }
 
 /* "Sep 17, 2026 · 2:30 PM" a partir de los grupos que ya captura
