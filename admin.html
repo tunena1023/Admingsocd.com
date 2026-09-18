@@ -549,6 +549,7 @@
     .candidate-row.selected .candidate-name::before { content: '✓ '; color: var(--gold-dk); }
     .candidate-name { font-weight: 700; flex: 1; }
     .candidate-stat { color: var(--gray); font-size: 11px; }
+    .candidate-conflict { color: #B06A2A; font-size: 11px; font-weight: 600; }
     .candidate-stat b { color: var(--black); }
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
@@ -10718,15 +10719,17 @@ let pendingDirectLinkOrderId = null;
     const candidatesHtml = (!candidates.length && !techCandidates.length)
       ? '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>'
       : candidates.map(c => `
-        <div class="candidate-row" data-payroll="${escAttr(c.payrollNumber)}" data-selected="false" onclick="toggleCandidateRow(this)">
+        <div class="candidate-row" data-payroll="${escAttr(c.payrollNumber)}" data-name="${escAttr(c.name)}" data-selected="false" onclick="toggleCandidateRow(this)">
           <span class="candidate-name">${esc(c.name)}</span>
           <span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span>
           <span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>
+          <span class="candidate-conflict" style="display:none"></span>
         </div>`).join('') +
         techCandidates.map(t => `
-        <div class="candidate-row" data-payroll="${escAttr('tech:' + t.id)}" data-selected="false" onclick="toggleCandidateRow(this)">
+        <div class="candidate-row" data-payroll="${escAttr('tech:' + t.id)}" data-name="${escAttr((t.firstName + ' ' + t.lastName).trim())}" data-selected="false" onclick="toggleCandidateRow(this)">
           <span class="candidate-name">${esc(t.firstName)} ${esc(t.lastName)}</span>
           <span class="candidate-stat">${esc(t.role)}${t.division === 'Mixed' ? ' — Mixed' : ''}</span>
+          <span class="candidate-conflict" style="display:none"></span>
         </div>`).join('');
 
     /* Servicios de la orden + su tiempo, mismo formato de tabla que ya
@@ -10761,7 +10764,7 @@ let pendingDirectLinkOrderId = null;
       <div class="field-row">
         <div class="field-group"><label>Assigned Date</label>${GSDateTimePicker.dateHtml('assign-date-' + escAttr(o.OrderID), null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
         <div class="field-group"><label>Service Window</label>
-          <select id="assign-window-${escAttr(o.OrderID)}">
+          <select id="assign-window-${escAttr(o.OrderID)}" onchange="refreshCandidateConflicts('${escAttr(o.OrderID)}')">
             <option value="">Select…</option>
             <option>5:00 AM - 8:00 AM</option>
             <option>8:00 AM - 11:00 AM</option>
@@ -10784,6 +10787,54 @@ let pendingDirectLinkOrderId = null;
     el.dataset.selected = on ? 'false' : 'true';
     el.classList.toggle('selected', !on);
   }
+
+  /* A peticion del dueno (18/09/2026): antes ningun picker de
+     personal (aqui, Bypass, o Recurring) tomaba en cuenta si la
+     persona ya tenia algo agendado ese dia -- solo mostraban totales
+     de la semana o la lista completa sin mas. Aqui, en cuanto se
+     elige la fecha (o se cambia la ventana), se revisa contra
+     allOrders quien de los candidatos visibles ya tiene otra orden
+     ESE MISMO DIA (mismo Supervisor por nombre, mismo dia
+     calendario, sin contar la orden que se esta agendando ahorita ni
+     las canceladas) y se le pone un aviso junto a su nombre -- no se
+     le oculta de la lista, sigue siendo elegible si de verdad le
+     cabe, solo se avisa. */
+  function refreshCandidateConflicts(orderId) {
+    const body = document.getElementById('order-body-' + orderId);
+    if (!body) return;
+    const dateEl = document.getElementById('assign-date-' + orderId);
+    const selectedDate = dateEl ? dateInputValue(dateEl.value) : '';
+    const rows = body.querySelectorAll('.candidate-row');
+    rows.forEach(row => {
+      const badge = row.querySelector('.candidate-conflict');
+      if (!badge) return;
+      if (!selectedDate) { badge.style.display = 'none'; badge.textContent = ''; return; }
+      const name = String(row.dataset.name || '').trim().toLowerCase();
+      if (!name) { badge.style.display = 'none'; badge.textContent = ''; return; }
+      const conflicts = allOrders.filter(o =>
+        o.OrderID !== orderId &&
+        String(o.Status || '') !== 'Cancelled' &&
+        String(o.Supervisor || '').trim().toLowerCase() === name &&
+        dateInputValue(o.DispatchDate) === selectedDate
+      );
+      if (!conflicts.length) { badge.style.display = 'none'; badge.textContent = ''; return; }
+      const windows = [...new Set(conflicts.map(o => o.ServiceWindow).filter(Boolean))];
+      badge.textContent = conflicts.length === 1
+        ? '⚠ Already booked' + (windows.length ? ' ' + windows[0] : '') + ' that day'
+        : '⚠ Already has ' + conflicts.length + ' orders that day';
+      badge.style.display = 'inline';
+    });
+  }
+
+  /* dateHtml() dispara este evento global cada vez que se elige una
+     fecha en CUALQUIER date picker de la pagina -- se filtra al
+     campo de esta pantalla especificamente (assign-date-<orderId>). */
+  document.addEventListener('gs-date-picked', (e) => {
+    const fieldId = String(e.detail.fieldId || '');
+    if (fieldId.indexOf('assign-date-') === 0) {
+      refreshCandidateConflicts(fieldId.slice('assign-date-'.length));
+    }
+  });
 
   async function submitAssignment(orderId) {
     const errEl = document.getElementById('assign-error-' + orderId);
