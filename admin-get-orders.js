@@ -133,7 +133,8 @@ exports.handler = async (event) => {
         ServiceName: name,
         SubOption: it.fields.SubOption || '',
         Division: it.fields.Division || '',
-        Level: it.fields.Level || ''
+        Level: it.fields.Level || '',
+        Quantity: it.fields.Quantity || ''
       });
     });
 

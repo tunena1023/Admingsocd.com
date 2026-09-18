@@ -3531,10 +3531,10 @@ function reviewSvcTableHtml(services) {
     '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     svcRows.map((r, i) => {
       const nc = (r.nc.NotCompleted === true || String(r.nc.NotCompleted) === 'true');
-      const subTxt = (r.sub ? esc(r.sub) : '—') +
+      const subTxt = (r.sub ? esc(r.sub) : (r.nc.Quantity ? 'Qty: ' + esc(r.nc.Quantity) : '—')) +
         (nc ? ' <b style="color:#B06A2A">· not completed' +
               (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</b>' : '');
-      const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level);
+      const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level, r.nc.Quantity);
       return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
@@ -3589,12 +3589,14 @@ function apprServicesArray(orderId) {
 function apprReadOnlySvcHtml(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
   const levelState = window['apprLevel_' + orderId] || {};
+  const qtyState = window['apprQty_' + orderId] || {};
   const svcRows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub], i) => {
       const lvl = levelState[ncKey(cat, svcName)];
-      const subTxt = isCatalogSku(sub) ? (lvl || '') : (sub || '');
-      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt, sku: sub, lvl: lvl });
+      const qty = qtyState[ncKey(cat, svcName)];
+      const subTxt = isCatalogSku(sub) ? (lvl || (qty ? 'Qty: ' + qty : '')) : (sub || '');
+      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt, sku: sub, lvl: lvl, qty: qty });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
@@ -3604,7 +3606,7 @@ function apprReadOnlySvcHtml(orderId) {
       '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
       '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
-      '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
+      '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
     '</table></div>' + estimatedTimeHtml(apprServicesArray(orderId));
 }
@@ -8167,7 +8169,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), sku: s.SubOption, lvl: s.Level }));
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), sku: s.SubOption, lvl: s.Level, qty: s.Quantity }));
   });
   const svcTableHtml = svcRows.length
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -8175,7 +8177,7 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : esc(displayStatus(o))) + '</td>' +
-        '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
+        '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
         '</tr>').join('') +
       '</table>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
@@ -8283,7 +8285,7 @@ function flattenSelectedForEstimate(orderId) {
    no solo en el total de abajo) -- misma logica y mismo catalogo que
    calcOrderEstimatedMinutes, nomas para un servicio suelto. '' si
    todavia no se conoce su tiempo. */
-function svcMinutesLabel(sku, level) {
+function svcMinutesLabel(sku, level, qty) {
   const svc = serviceTimesBySku.get(String(sku || '').trim());
   if (!svc) return '';
   let minutes;
@@ -8291,7 +8293,7 @@ function svcMinutesLabel(sku, level) {
   else if (svc.division === 'Janitorial' && level === 'Level 3') minutes = svc.level3;
   else minutes = svc.level1;
   if (minutes == null) return '';
-  return fmtDuration(minutes);
+  return fmtDuration(minutes * (Number(qty) || 1));
 }
 
 /* ============================================================
@@ -8323,8 +8325,12 @@ function calcOrderEstimatedMinutes(services) {
     else minutes = svc.level1; // Level 1, o no-Janitorial (siempre level1)
     if (minutes == null) return;
     anyKnown = true;
-    total += minutes;
-    lines.push(s.ServiceName + ': ' + minutes + 'min');
+    /* Pedido del dueno (18/09/2026): puertas, ventanas, persianas,
+       etc. -- el tiempo guardado en Service Times es por UNA sola
+       unidad, se multiplica por la cantidad elegida. */
+    const qty = Number(s.Quantity) || 1;
+    total += minutes * qty;
+    lines.push(s.ServiceName + (qty > 1 ? ' x' + qty : '') + ': ' + (minutes * qty) + 'min');
   });
   if (!anyKnown) return null;
   return { totalMinutes: total, lines: lines };
@@ -8419,7 +8425,7 @@ function activeSvcReadOnlyHtml(orderId) {
       '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
       '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
       '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
-      '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl) ? esc(svcMinutesLabel(r.sku, r.lvl)) : '') + '</td>' +
+      '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
     '</table>';
 }
@@ -8443,7 +8449,7 @@ function renderActiveSvcEditable(orderId) {
     const isQty = !!(catalogEntry || {}).requiresQuantity;
     const curLevel = levelState[ncKey(r.cat, r.svcName)];
     const curQty = qtyState[ncKey(r.cat, r.svcName)] || '';
-    const mins = svcMinutesLabel(r.sku, curLevel);
+    const mins = svcMinutesLabel(r.sku, curLevel, curQty);
     const removed = !!(ncState[ncKey(r.cat, r.svcName)] || {}).nc;
     const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px' + (removed ? ';opacity:.5;pointer-events:none' : '') + '">' +
       ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setActiveSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
@@ -8758,6 +8764,7 @@ function buildAdminSelectedListHtml(orderId) {
   const sel = window['adminSvc_' + orderId] || {};
   const ncState = window['adminNC_' + orderId] || {};
   const levelState = window['adminLevel_' + orderId] || {};
+  const qtyState = window['adminQty_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, sub]) => rows.push({ cat, svcName, sub }));
@@ -8768,12 +8775,13 @@ function buildAdminSelectedListHtml(orderId) {
     const st = ncState[ncKey(r.cat, r.svcName)] || { nc: false, reason: '' };
     const needsNote = st.nc && !st.reason;
     const lvl = levelState[ncKey(r.cat, r.svcName)];
+    const qty = qtyState[ncKey(r.cat, r.svcName)];
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
     const rid = 'nc-note-' + safe + '-' + catSafe + '-' + svcSafe;
-    const mins = svcMinutesLabel(r.sub, lvl);
+    const mins = svcMinutesLabel(r.sub, lvl, qty);
     return `<div class="svc-row"${needsNote ? ' style="background:#FBEAEA"' : ''}>
-      <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}${needsNote ? ' <span class="warn-tag">removed — note required</span>' : ''}</b>
+      <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${qty ? ' <span style="color:var(--gray);font-weight:400">— Qty: ' + esc(qty) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}${needsNote ? ' <span class="warn-tag">removed — note required</span>' : ''}</b>
       <div class="svc-row-notewrap">
         <input type="text" id="${rid}" class="svc-row-note${needsNote ? ' warn' : ''}" placeholder="${needsNote ? "Required — explain why this wasn't completed" : "Note if not completed — leave blank if it's done"}" value="${esc(st.reason)}"
           oninput="setNotCompletedNote('${jsStr(orderId)}','${jsStr(r.cat)}','${jsStr(r.svcName)}',this.value);this.classList.remove('warn')">
@@ -10841,8 +10849,8 @@ let pendingDirectLinkOrderId = null;
       ? '<p class="empty-note" style="padding:6px 0">No services on this order.</p>'
       : '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
         services.map((s, i) => '<tr' + (i < services.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
-          '<td style="padding:9px 10px 9px 0">' + esc(s.ServiceName) + (s.Level ? ' <span style="color:var(--gray)">— ' + esc(s.Level) + '</span>' : '') + '</td>' +
-          '<td style="padding:9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + esc(svcMinutesLabel(s.SubOption, s.Level) || '') + '</td>' +
+          '<td style="padding:9px 10px 9px 0">' + esc(s.ServiceName) + (s.Level ? ' <span style="color:var(--gray)">— ' + esc(s.Level) + '</span>' : '') + (s.Quantity ? ' <span style="color:var(--gray)">— Qty: ' + esc(s.Quantity) + '</span>' : '') + '</td>' +
+          '<td style="padding:9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + esc(svcMinutesLabel(s.SubOption, s.Level, s.Quantity) || '') + '</td>' +
           '</tr>').join('') +
         '</table>';
 
