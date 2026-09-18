@@ -2511,7 +2511,18 @@ function isFullyScheduled(o) {
 }
 const REVIEW_STATUSES = ['Change Requested', 'Cancellation Requested'];
 const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
-                       'Reschedule Requested', 'Change Requested by Client', 'Reactivation Requested'];
+                       'Reschedule Requested', 'Change Requested by Client', 'Reactivation Requested',
+                       /* BUG REAL encontrado probando Review de punta a punta (18/09/2026):
+                          faltaba este tipo -- es el que request-change.js (Orders) escribe
+                          de verdad cuando un cliente pide cambiar servicios. Sin el, la
+                          tarjeta de Review se saltaba ese evento y se iba mas atras en el
+                          historial (normalmente hasta "Created"), mostrando informacion
+                          vieja de cuando se creo la orden en vez del cambio real que se
+                          esta pidiendo -- la oficina no podia ver que servicio se agrego/
+                          quito, ni el antes/despues del tiempo, antes de aprobar o rechazar.
+                          No tiene nada que ver con cantidad -- afecta CUALQUIER solicitud
+                          de cambio de servicios, se encontro por estar probando con una. */
+                       'Services Change Requested'];
 
 /* ============================================================
    CAPACIDADES POR CONTEXTO -- renderOrderDetail() muestra el mismo
@@ -7809,8 +7820,30 @@ function historyChangeLines(h) {
 
   const oldPay = parseSvcPayload(h.OldValue);
   const newPay = parseSvcPayload(h.NewValue);
-  const oldSvcs = oldPay ? oldPay.services : null;
-  const newSvcs = newPay ? newPay.services : null;
+  /* BUG REAL encontrado probando Review de punta a punta con un
+     cambio de cantidad (18/09/2026): lo que el cliente pide desde
+     service-change-panel.js llega en minuscula (serviceName,
+     category, subOption, level, qty) -- collect() lo arma asi, y
+     request-change.js lo guarda tal cual, sin normalizar. Pero lo
+     que YA tiene la orden (OldValue = f.Services) usa mayuscula
+     (ServiceName, Category, SubOption, Level, Quantity). La
+     comparacion de abajo busca SIEMPRE con mayuscula -- sin esto, un
+     servicio nuevo (lado NewValue) nunca coincidia con el mismo
+     servicio del lado viejo, aunque fuera exactamente el mismo:
+     salia como "Removido" el real y "Agregado" uno con el nombre en
+     blanco. Le pasaba a CUALQUIER solicitud de cambio de servicios,
+     no solo a las de cantidad -- se encontro por probar con una. */
+  const normalizeSvc = s => ({
+    Category:    s.Category    || s.category    || '',
+    ServiceName: s.ServiceName || s.serviceName || '',
+    SubOption:   s.SubOption   || s.subOption    || '',
+    Level:       s.Level       || s.level        || '',
+    Quantity:    s.Quantity    || s.qty          || '',
+    NotCompleted:       s.NotCompleted,
+    NotCompletedReason: s.NotCompletedReason
+  });
+  const oldSvcs = oldPay ? oldPay.services.map(normalizeSvc) : null;
+  const newSvcs = newPay ? newPay.services.map(normalizeSvc) : null;
 
   /* Fechas propuestas: comparar campo por campo (Entry/Due/Service Window)
      y solo mostrar el que de verdad cambio, en vez de todo junto en una
@@ -7870,6 +7903,28 @@ function historyChangeLines(h) {
       } else {
         lines.push(changeRowHtml('&#128260;', s.ServiceName || '', esc(prev.SubOption || '(none)'), esc(sub || '(none)')));
       }
+    }
+    /* BUG REAL encontrado probando Review con un cambio de cantidad
+       (18/09/2026): mismo servicio, mismo SubOption -- lo unico que
+       cambio fue Quantity (6 puertas a 10) -- y esta funcion nunca
+       comparaba ese campo, asi que el cambio no generaba NINGUNA
+       linea. La oficina no veia que el cliente estaba pidiendo mas
+       puertas. Comparar como Number, no como texto -- lo guardado
+       llega como string ('6') y lo recien pedido puede llegar como
+       number (6): '6' !== 6 con === da falso positivo de cambio
+       aunque sea la misma cantidad, se encontro probando este mismo
+       arreglo antes de subirlo. */
+    const prevQty = Number(prev.Quantity) || 0;
+    const newQty = Number(s.Quantity) || 0;
+    if (prevQty !== newQty && (prevQty || newQty)) {
+      lines.push(changeRowHtml('&#128260;', (s.ServiceName || '') + ' — Quantity', esc(String(prevQty)), esc(String(newQty))));
+    }
+    /* Mismo bug, mismo arreglo, para Level (Janitorial L1/L2/L3) --
+       encontrado de paso al arreglar Quantity: un servicio que se
+       queda igual (mismo SubOption) pero cambia de nivel tampoco
+       generaba ninguna linea. */
+    if ((prev.Level || '') !== (s.Level || '') && ((prev.Level || '') || (s.Level || ''))) {
+      lines.push(changeRowHtml('&#128260;', (s.ServiceName || '') + ' — Level', esc(prev.Level || '(none)'), esc(s.Level || '(none)')));
     }
     /* Marcar un servicio como no realizado tambien es un cambio que debe verse */
     if (isNC(prev) !== isNC(s)) {
