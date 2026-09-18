@@ -206,6 +206,20 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
+    /* Pedido del dueño (18/09/2026), paso 2 de 5: servicios que no
+       son un simple si/no sino "cuantos" (pintar puertas, pintar
+       ventanas, cambiar persianas). Se marca aqui, servicio por
+       servicio -- el picker compartido (gsocd-shared/service-picker,
+       ya publicado v1.28.7) ya sabe mostrar el campo numerico para
+       cualquier servicio que traiga esta bandera, sin que haga falta
+       tocar codigo de nuevo cuando marquen uno nuevo. */
+    if (action === 'toggle-catalog-requires-qty') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      if (!body.id) return jsonResponse(400, { error: 'id is required' });
+      await updateListItemByItemId(SERVICES_CATALOG_LIST, body.id, { RequiresQuantity: !!body.requiresQuantity });
+      return jsonResponse(200, { success: true });
+    }
+
     /* ---- Renovations: Mark as Seen -- el staff reconoce el aviso de
        "materials ready" que mando el cliente. No es una decision (no
        hay Approve/Reject), solo apaga la burbuja de Review. Cualquier
@@ -238,6 +252,7 @@ exports.handler = async (event) => {
         description: it.fields.Description || '',
         price: it.fields.Price != null ? it.fields.Price : null,
         active: truthy(it.fields.Active),
+        requiresQuantity: truthy(it.fields.RequiresQuantity),
         /* Categoria manual -- confirmado con el usuario, con el hallazgo
            de por medio: el catalogo viene de QuickBooks (Division/
            PropertyType/Price se sobreescriben en cada import), pero

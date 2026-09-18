@@ -5858,6 +5858,25 @@ function renderGalleryPanel() {
     }
   }
 
+  /* Pedido del dueño (18/09/2026), paso 2 de 5: servicios que piden
+     cantidad (pintar puertas, ventanas, persianas, etc.) en vez de
+     ser un simple si/no. Mismo patron que toggleCatalogActive de
+     arriba -- el picker compartido (v1.28.7) ya sabe mostrar el
+     campo numerico para cualquier servicio marcado aqui. */
+  async function toggleCatalogRequiresQty(id, requiresQuantity) {
+    const row = allCatalogRows.find(r => r.id === id);
+    const prev = row ? row.requiresQuantity : !requiresQuantity;
+    if (row) row.requiresQuantity = requiresQuantity;
+    try {
+      await devApi('toggle-catalog-requires-qty', { id, requiresQuantity });
+      renderCatalogTable();
+    } catch (e) {
+      if (row) row.requiresQuantity = prev;
+      renderCatalogTable();
+      showToast('Could not update: ' + e.message);
+    }
+  }
+
   function renderCatalogTable() {
     const wrap = document.getElementById('catalog-table-wrap');
     const q = (document.getElementById('catalog-search').value || '').trim().toLowerCase();
@@ -5872,7 +5891,7 @@ function renderGalleryPanel() {
       return;
     }
     wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
-      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th>' +
+      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th><th>Qty?</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
         '<td>' + esc(r.serviceName) + '</td>' +
@@ -5886,6 +5905,11 @@ function renderGalleryPanel() {
         '<td><label class="svc-toggle">' +
           '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
           ' onchange="toggleCatalogActive(\'' + r.id + '\', this.checked)">' +
+          '<span class="svc-toggle-track"></span>' +
+        '</label></td>' +
+        '<td><label class="svc-toggle">' +
+          '<input type="checkbox" ' + (r.requiresQuantity ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
+          ' onchange="toggleCatalogRequiresQty(\'' + r.id + '\', this.checked)">' +
           '<span class="svc-toggle-track"></span>' +
         '</label></td>' +
         '</tr>').join('') +
