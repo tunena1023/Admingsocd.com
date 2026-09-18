@@ -4114,6 +4114,15 @@ function addUnitPanelHtml(clientId, batchId, dom) {
   });
   html = html.replace('id="' + dom + '-entry-mount"></div>', 'id="' + dom + '-entry-mount">' + GSDateTimePicker.dateHtml(dom + '-entry', null, null, { min: todayISO() }) + '</div>');
   html = html.replace('id="' + dom + '-due-mount"></div>', 'id="' + dom + '-due-mount">' + GSDateTimePicker.dateHtml(dom + '-due', null, null, { min: todayISO() }) + '</div>');
+  /* A peticion del dueño (18/09/2026): en Add Unit, entrada/vencimiento
+     son opcionales -- si se dejan vacias, la unidad nueva hereda las
+     mismas fechas que ya tiene el resto del lote (el backend hace el
+     fallback real). Las etiquetas del componente compartido dicen
+     "Entry Date"/"Due Date" a secas porque en Create Order SI son
+     obligatorias -- aqui se les agrega "(optional)" solo en este
+     contexto, sin tocar el componente compartido ni otros usos. */
+  html = html.replace('id="' + dom + '-entry-label">Entry Date<', 'id="' + dom + '-entry-label">Entry Date (optional, copies the order if left blank)<');
+  html = html.replace('id="' + dom + '-due-label">Due Date<', 'id="' + dom + '-due-label">Due Date (optional, copies the order if left blank)<');
   return html;
 }
 
@@ -4151,15 +4160,16 @@ async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
   if (!unitNumber)  { if (errEl) errEl.textContent = 'Please enter the Unit Number.'; return; }
   if (!bedrooms || parseInt(bedrooms) < 1)  { if (errEl) errEl.textContent = 'Please enter valid Bedrooms.'; return; }
   if (!bathrooms || parseInt(bathrooms) < 1) { if (errEl) errEl.textContent = 'Please enter valid Bathrooms.'; return; }
-  if (!entryDateVal) { if (errEl) errEl.textContent = 'Please enter the entry date.'; return; }
-  if (!dueDateVal)   { if (errEl) errEl.textContent = 'Please enter the due date.'; return; }
+  /* A peticion del dueño (18/09/2026): entryDate/dueDate ya NO son
+     obligatorias aqui -- si se dejan vacias, el backend hace que la
+     unidad nueva herede las mismas fechas del resto del lote. */
 
   const body = {
     ClientID: clientId,
     AddUnitToBatch: {
       batchId, buildingNumber, unitNumber, bedrooms, bathrooms,
-      entryDate: new Date(entryDateVal + 'T08:00').toISOString(),
-      dueDate:   new Date(dueDateVal + 'T23:59:59').toISOString(),
+      entryDate: entryDateVal ? new Date(entryDateVal + 'T08:00').toISOString() : '',
+      dueDate:   dueDateVal   ? new Date(dueDateVal + 'T23:59:59').toISOString() : '',
       needsOfficeAccess, officeNeedNotes
     },
     changedBy: getActorName()

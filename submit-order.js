@@ -171,9 +171,14 @@ exports.handler = async (event) => {
       if (!add.unitNumber) return jsonResponse(400, { error: 'Please enter the Unit Number.' });
       if (!add.bedrooms)   return jsonResponse(400, { error: 'Please enter Bedrooms.' });
       if (!add.bathrooms)  return jsonResponse(400, { error: 'Please enter Bathrooms.' });
-      if (!add.entryDate)  return jsonResponse(400, { error: 'Please enter the entry date.' });
-      if (!add.dueDate)    return jsonResponse(400, { error: 'Please enter the due date.' });
-      /* add.buildingNumber es OPCIONAL a proposito -- ver el fallback abajo. */
+      /* add.buildingNumber es OPCIONAL a proposito -- ver el fallback abajo.
+         A peticion del dueño (18/09/2026): entryDate/dueDate TAMBIEN son
+         opcionales -- si vienen vacias, la unidad nueva hereda las mismas
+         fechas que ya tiene el resto del lote (template.EntryDate/DueDate,
+         de la primera unidad hermana), en vez de obligar a escribirlas de
+         nuevo cuando de hecho van a ser las mismas casi siempre. Si SI se
+         escriben, se usan las nuevas tal cual (para el caso real donde
+         esta unidad en particular entra o vence en otra fecha). */
 
       const [allOrders, allClientsRows] = await Promise.all([
         fetchAll(ORDERS_LIST),
@@ -205,6 +210,10 @@ exports.handler = async (event) => {
       const bf = { BuildingNumber: buildingNumber, Address: cf.Address || '', Suite: cf.Suite || '', City: cf.City || '', Zip: cf.Zip || '' };
 
       const template = siblings[0].fields;
+      const effectiveEntryDate = add.entryDate || template.EntryDate || '';
+      const effectiveDueDate = add.dueDate || template.DueDate || '';
+      if (!effectiveEntryDate) return jsonResponse(400, { error: 'Please enter the entry date (the order this belongs to has none to copy either).' });
+      if (!effectiveDueDate)   return jsonResponse(400, { error: 'Please enter the due date (the order this belongs to has none to copy either).' });
       const actor = (b.changedBy && String(b.changedBy).trim()) || 'Admin';
       const suffix = nextGlobalSuffix(allOrders);
       const orderId = String(b.ClientID).trim() + '-' + suffix + '-' + add.batchId;
@@ -241,8 +250,8 @@ exports.handler = async (event) => {
         Notes:          template.Notes || '',
         NeedsOfficeAccess: needsOfficeAccess,
         OfficeNeedNotes:   officeNeedNotes,
-        EntryDate:      add.entryDate,
-        DueDate:        add.dueDate,
+        EntryDate:      effectiveEntryDate,
+        DueDate:        effectiveDueDate,
         DraftData:      '',
         BatchId:        add.batchId,
         ...(coords ? { Latitude: coords.lat, Longitude: coords.lon } : {})
@@ -274,7 +283,7 @@ exports.handler = async (event) => {
           ChangeDate: new Date().toISOString(),
           Notes:      'Added to existing order ' + template.OrderID + ' by ' + actor + '.',
           OldValue:   '',
-          NewValue:   'SERVICES:' + JSON.stringify({ services: unitServices, dirtLevel: '', entryDate: add.entryDate || '', dueDate: add.dueDate || '' })
+          NewValue:   'SERVICES:' + JSON.stringify({ services: unitServices, dirtLevel: '', entryDate: effectiveEntryDate, dueDate: effectiveDueDate })
         });
       } catch (e) {
         console.error('AddUnitToBatch post-create write failed:', e.message);
