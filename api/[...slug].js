@@ -24,7 +24,9 @@ const handlers = {
   'submit-order':        require('../submit-order').handler,
   'upload-service-photo': require('../upload-service-photo').handler,
   'quickbooks-connect':  require('../quickbooks-connect').handler,
-  'quickbooks-callback': require('../quickbooks-callback').handler
+  'quickbooks-callback': require('../quickbooks-callback').handler,
+  'quickbooks-status':   require('../quickbooks-status').handler,
+  'quickbooks-import-estimates': require('../quickbooks-import-estimates').handler
 };
 
 module.exports = async (req, res) => {
