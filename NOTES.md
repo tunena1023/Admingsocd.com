@@ -190,6 +190,50 @@ general de "asi trabajamos" no cuenta como luz verde para subir algo
 especifico. Si el dueño pide varios ajustes seguidos, se acumulan en
 local (ver regla 4 de arriba) hasta que diga que los suba.
 
+## Regla nueva (19/09/2026): probar en un Preview de Vercel ANTES de pedir el "dale" a main -- no solo prometer que se probo
+
+Motivo: una sesion anterior subio cambios directo a main sin permiso del
+dueno (violando la regla de arriba), y otra dejo un bug real sin poder
+probarlo de verdad antes de subirlo. Esto reemplaza "confio en que
+funciona" por una forma de que el dueno lo vea funcionando de verdad,
+en su propio celular, con datos reales, ANTES de que exista la
+posibilidad de tocar produccion:
+
+1. Cualquier cambio que vaya a subirse (no solo visual -- ver regla 3
+   para el mini de UI, este paso es el que sigue DESPUES de eso, al
+   tocar el repo real) se hace en una rama nueva creada desde
+   `origin/main`, nunca commiteando directo a main. Nombre descriptivo,
+   ej. `fix/services-requested-mobile-cards`.
+2. Se hace `git push` de esa rama (con el token de GitHub). Vercel
+   arma automaticamente un deployment de Preview para esa rama -- no
+   hace falta configurar nada, es automatico en este proyecto (equipo
+   "GS Solutions" en Vercel).
+3. Para conseguir el link real del Preview (no adivinarlo): usar las
+   herramientas de Vercel (`list_deployments` filtrando por `branch` y
+   `slug: "gs-solutions1"`, luego `get_deployment` hasta que
+   `readyState` sea `READY`). El campo `alias` del deployment trae la
+   URL estable tipo
+   `<proyecto>-git-<rama-slug>-gs-solutions1.vercel.app` -- ESA es la
+   que se le manda al dueno, no la URL de un deployment individual
+   (que cambia cada vez que se sube algo nuevo a la rama).
+4. Esa URL alias NO cambia aunque se suban mas commits a la misma
+   rama despues (para iterar un fix sin mandar un link nuevo cada
+   vez) -- se le puede pedir al dueno que solo haga refresh.
+5. Es el MISMO backend/datos reales que produccion (mismas
+   SharePoint lists, mismo Graph), asi que el dueno puede probar con
+   una orden real de verdad -- no es una simulacion.
+6. Solo cuando el dueno prueba en ese link y dice explicitamente que
+   se suba (ej. "dale", "subelo a produccion") se hace el merge de esa
+   rama a `main` y el push a main (que es lo unico que de verdad toca
+   orders.gsocd.com / admin.gsocd.com / tech.gsocd.com reales). Esto
+   nunca se asume ni se hace por iniciativa propia, ni siquiera si el
+   cambio "ya se probo y se ve bien" en el Preview -- ver la primera
+   regla de este archivo.
+7. Si algo sale mal despues de subir a la rama, se siguen iterando
+   ahi (mas commits a la misma rama) -- production nunca se toca
+   hasta que el dueno lo confirma, sin importar cuantas vueltas tome
+   arreglarlo bien.
+
 
 ## Regla reforzada (12/09/2026): leer TODO este archivo antes de tocar nada
 
