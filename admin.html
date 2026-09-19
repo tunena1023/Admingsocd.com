@@ -962,15 +962,30 @@
     pointer-events: none;
   }
 
-  /* Destello dorado elegante en la tarjeta especifica de una orden
-     nueva (19/09/2026, a peticion del dueno) -- ver mismo efecto en
-     Orders/Tech, misma marca. */
-  @keyframes gsNewOrderGlow {
-    0% { box-shadow: 0 0 0 0 rgba(201,168,76,.6); border-color: var(--gold); }
-    55% { box-shadow: 0 0 18px 5px rgba(201,168,76,.32); border-color: var(--gold); }
-    100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+  /* Reflejo diagonal que cruza toda la tarjeta una sola vez
+     (19/09/2026, ajustado a peticion del dueno -- el glow anterior
+     con box-shadow se veia opaco/cafe, no dorado). Mismos tonos que
+     los botones dorados (--gold/--gold-lt), misma marca que
+     Orders/Tech. */
+  .gs-new-order { position: relative; overflow: hidden; }
+  .gs-new-order::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(115deg,
+      transparent 32%,
+      rgba(226,201,126,.55) 46%,
+      rgba(255,255,255,.9) 50%,
+      rgba(226,201,126,.55) 54%,
+      transparent 68%);
+    background-size: 260% 260%;
+    background-position: -80% -80%;
+    animation: gsNewOrderSheen 1.6s cubic-bezier(.35,0,.25,1);
+    pointer-events: none;
   }
-  .gs-new-order { animation: gsNewOrderGlow 2.6s ease-out; }
+  @keyframes gsNewOrderSheen {
+    0% { background-position: -80% -80%; }
+    100% { background-position: 80% 80%; }
+  }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -2248,7 +2263,7 @@ function flashNewOrder(orderId) {
   const card = document.querySelector('.order-card[data-order="' + CSS.escape(orderId) + '"]');
   if (!card) return;
   card.classList.add('gs-new-order');
-  setTimeout(() => card.classList.remove('gs-new-order'), 2700);
+  setTimeout(() => card.classList.remove('gs-new-order'), 1800);
 }
 
 let liveRefreshWatcher = null;
