@@ -981,6 +981,10 @@
 </nav>
 
 <div id="gsNav"></div>
+<div id="gs-update-banner" style="display:none;align-items:center;justify-content:center;gap:14px;background:#FDF3E0;border-bottom:2px solid #8C6F2A;color:#8C6F2A;font-size:13px;font-weight:600;padding:10px 16px;position:sticky;top:0;z-index:500">
+  <span>🔔 New activity came in — this view may be out of date.</span>
+  <button type="button" class="gs-ofp-btn-secondary" style="padding:5px 14px;font-size:12px" onclick="refreshFromUpdateBanner()">Update</button>
+</div>
 
 <div id="camera-queue-banner" style="display:none;background:#3a2f18;color:#E2C97E;font-size:12px;padding:8px 16px;text-align:center"></div>
 
@@ -1960,6 +1964,7 @@ async function initAuth() {
     checkDeveloperAccess();
     initCameraQueue();
     loadAll().then(restoreAdminEditSnapshotIfAny);
+    startOrderActivityPolling();
     applyUrlTabParam();
     return;
   }
@@ -1989,6 +1994,7 @@ async function initAuth() {
   checkDeveloperAccess();
   initCameraQueue();
   loadAll().then(restoreAdminEditSnapshotIfAny);
+  startOrderActivityPolling();
   applyUrlTabParam();
 }
 
@@ -2143,6 +2149,15 @@ async function loadAll() {
       api('/get-admin-gallery', { body: { statusFilter: 'all' } }).catch(() => ({ groups: [] }))
     ]);
     allOrders = ordersRes.orders || [];
+    /* "Nueva actividad" (aviso arriba, ver checkForNewActivity abajo):
+       cada loadAll() de verdad (login inicial, o cualquier accion que
+       ya recargaba todo antes de esto) es la fuente de verdad mas
+       reciente -- se recalcula la firma aqui y se esconde el aviso,
+       para no dejarlo prendido despues de que el usuario ya vio los
+       datos frescos por cualquier via (no solo dandole "Update" en
+       la barra). */
+    orderActivitySignature = buildOrderActivitySignature(allOrders);
+    hideUpdateBanner();
     allClients = clientsRes.clients || [];
     /* Catalogo (ServicesCatalog) -- precargado en loadAll(),
        para que Active/Approvals lo tengan listo sin esperar un fetch
@@ -2170,6 +2185,74 @@ async function loadAll() {
   } catch (e) {
     showToast('Error loading data: ' + e.message);
   }
+}
+
+/* ============================================================
+   AVISO DE ACTIVIDAD NUEVA -- pedido del dueno: si tiene Admin
+   abierto y llega/cambia algo, que se entere sin tener que refrescar
+   a fuerza. Comportamiento elegido (confirmado): avisa con una barra
+   + boton "Update", NUNCA refresca solo -- un refresh de golpe podria
+   borrar una edicion en curso (ej. Approvals > Update Services a
+   medio llenar). "Algo nuevo" = orden nueva O cualquier orden que
+   cambio de status/se modifico (mismo criterio, ver hasNewActivity).
+
+   Se checa cada 30s llamando SOLO /admin-get-orders (no todo
+   loadAll(), que trae 7 endpoints incluida la galeria completa --
+   demasiado para una revision de fondo cada 30s). Pausado cuando la
+   pestana no esta visible (Page Visibility API), y revisa de
+   inmediato al volver a ella en vez de esperar al siguiente tick --
+   asi no se siente atrasado si estuvo minutos en otra pestana. */
+let orderActivitySignature = null;
+let orderPollIntervalId = null;
+
+function buildOrderActivitySignature(orders) {
+  const sig = new Map();
+  (orders || []).forEach(o => sig.set(o.OrderID, (o.Status || '') + '|' + (o.lastModifiedDateTime || '')));
+  return sig;
+}
+
+function hasNewActivity(oldSig, newSig) {
+  for (const [id, val] of newSig) {
+    if (!oldSig.has(id) || oldSig.get(id) !== val) return true;
+  }
+  return false;
+}
+
+async function checkForNewActivity() {
+  if (document.visibilityState !== 'visible') return;
+  if (!orderActivitySignature) return; // todavia no hay una carga base con que comparar
+  try {
+    const res = await api('/admin-get-orders', { body: {} });
+    const freshSig = buildOrderActivitySignature(res.orders || []);
+    if (hasNewActivity(orderActivitySignature, freshSig)) showUpdateBanner();
+  } catch (e) {
+    /* Silencioso a proposito -- es una revision de fondo, no debe
+       molestar con un toast de error cada vez que la red falla un
+       segundo. Si de verdad hay un problema, el usuario lo va a ver
+       en cuanto intente hacer algo real. */
+  }
+}
+
+function showUpdateBanner() {
+  const el = document.getElementById('gs-update-banner');
+  if (el) el.style.display = 'flex';
+}
+
+function hideUpdateBanner() {
+  const el = document.getElementById('gs-update-banner');
+  if (el) el.style.display = 'none';
+}
+
+async function refreshFromUpdateBanner() {
+  await loadAll(); // ya esconde el aviso solo y recalcula la firma
+}
+
+function startOrderActivityPolling() {
+  if (orderPollIntervalId) return; // ya esta corriendo, no duplicar
+  orderPollIntervalId = setInterval(checkForNewActivity, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForNewActivity();
+  });
 }
 
 /* Vuelve a pedir la lista de clientes fresca y repinta Clients + el
