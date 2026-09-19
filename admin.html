@@ -945,6 +945,22 @@
   }
   .gs-ofp-btn-danger:hover { background: var(--red); color: var(--white); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.12); }
   .gs-ofp-btn-danger:active { transform: translateY(0); }
+
+  /* Shimmer dorado breve cuando el live-refresh actualiza la
+     pantalla sola (19/09/2026) -- una franja de luz que cruza arriba
+     una sola vez, para que se note visualmente que algo se acaba de
+     refrescar, sin ser intrusivo. */
+  @keyframes gsLiveFlash {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  body.gs-live-flash::before {
+    content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
+    background: linear-gradient(90deg, transparent, var(--gold-lt), var(--gold), var(--gold-lt), transparent);
+    background-size: 200% 100%;
+    animation: gsLiveFlash 0.9s ease-out;
+    pointer-events: none;
+  }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -966,6 +982,7 @@
      (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.10/camera-queue/camera-queue.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.29.0/live-refresh/live-refresh.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
 <nav>
@@ -981,10 +998,6 @@
 </nav>
 
 <div id="gsNav"></div>
-<div id="gs-update-banner" style="display:none;align-items:center;justify-content:center;gap:14px;background:#FDF3E0;border-bottom:2px solid #8C6F2A;color:#8C6F2A;font-size:13px;font-weight:600;padding:10px 16px;position:sticky;top:0;z-index:500">
-  <span>🔔 New activity came in — this view may be out of date.</span>
-  <button type="button" class="gs-ofp-btn-secondary" style="padding:5px 14px;font-size:12px" onclick="refreshFromUpdateBanner()">Update</button>
-</div>
 
 <div id="camera-queue-banner" style="display:none;background:#3a2f18;color:#E2C97E;font-size:12px;padding:8px 16px;text-align:center"></div>
 
@@ -1964,7 +1977,7 @@ async function initAuth() {
     checkDeveloperAccess();
     initCameraQueue();
     loadAll().then(restoreAdminEditSnapshotIfAny);
-    startOrderActivityPolling();
+    startLiveRefresh();
     applyUrlTabParam();
     return;
   }
@@ -1994,7 +2007,7 @@ async function initAuth() {
   checkDeveloperAccess();
   initCameraQueue();
   loadAll().then(restoreAdminEditSnapshotIfAny);
-  startOrderActivityPolling();
+  startLiveRefresh();
   applyUrlTabParam();
 }
 
@@ -2149,15 +2162,6 @@ async function loadAll() {
       api('/get-admin-gallery', { body: { statusFilter: 'all' } }).catch(() => ({ groups: [] }))
     ]);
     allOrders = ordersRes.orders || [];
-    /* "Nueva actividad" (aviso arriba, ver checkForNewActivity abajo):
-       cada loadAll() de verdad (login inicial, o cualquier accion que
-       ya recargaba todo antes de esto) es la fuente de verdad mas
-       reciente -- se recalcula la firma aqui y se esconde el aviso,
-       para no dejarlo prendido despues de que el usuario ya vio los
-       datos frescos por cualquier via (no solo dandole "Update" en
-       la barra). */
-    orderActivitySignature = buildOrderActivitySignature(allOrders);
-    hideUpdateBanner();
     allClients = clientsRes.clients || [];
     /* Catalogo (ServicesCatalog) -- precargado en loadAll(),
        para que Active/Approvals lo tengan listo sin esperar un fetch
@@ -2188,23 +2192,19 @@ async function loadAll() {
 }
 
 /* ============================================================
-   AVISO DE ACTIVIDAD NUEVA -- pedido del dueno: si tiene Admin
-   abierto y llega/cambia algo, que se entere sin tener que refrescar
-   a fuerza. Comportamiento elegido (confirmado): avisa con una barra
-   + boton "Update", NUNCA refresca solo -- un refresh de golpe podria
-   borrar una edicion en curso (ej. Approvals > Update Services a
-   medio llenar). "Algo nuevo" = orden nueva O cualquier orden que
-   cambio de status/se modifico (mismo criterio, ver hasNewActivity).
+   ACTUALIZACION AUTOMATICA -- pedido del dueno (19/09/2026):
+   reemplaza la barra manual de "Update" que habia antes (ver
+   historial de este archivo). Ahora GSLiveRefresh (gsocd-shared)
+   revisa /admin-get-orders cada 30s y, si algo cambio de verdad
+   (orden nueva o alguna que cambio de status/se modifico), llama
+   loadAll() sola y pinta un toast -- sin boton, sin preguntar.
 
-   Se checa cada 30s llamando SOLO /admin-get-orders (no todo
-   loadAll(), que trae 7 endpoints incluida la galeria completa --
-   demasiado para una revision de fondo cada 30s). Pausado cuando la
-   pestana no esta visible (Page Visibility API), y revisa de
-   inmediato al volver a ella en vez de esperar al siguiente tick --
-   asi no se siente atrasado si estuvo minutos en otra pestana. */
-let orderActivitySignature = null;
-let orderPollIntervalId = null;
-
+   Unica proteccion (interna a GSLiveRefresh, no aqui): si el
+   usuario tiene el cursor metido en un campo de texto justo en el
+   momento de revisar, ese ciclo se salta solo -- se reintenta el
+   siguiente tick. Con eso ya no hace falta la logica de "nunca
+   refresca solo" que existia antes por miedo a borrar una edicion
+   en curso. */
 function buildOrderActivitySignature(orders) {
   const sig = new Map();
   (orders || []).forEach(o => sig.set(o.OrderID, (o.Status || '') + '|' + (o.lastModifiedDateTime || '')));
@@ -2218,40 +2218,30 @@ function hasNewActivity(oldSig, newSig) {
   return false;
 }
 
-async function checkForNewActivity() {
-  if (document.visibilityState !== 'visible') return;
-  if (!orderActivitySignature) return; // todavia no hay una carga base con que comparar
-  try {
-    const res = await api('/admin-get-orders', { body: {} });
-    const freshSig = buildOrderActivitySignature(res.orders || []);
-    if (hasNewActivity(orderActivitySignature, freshSig)) showUpdateBanner();
-  } catch (e) {
-    /* Silencioso a proposito -- es una revision de fondo, no debe
-       molestar con un toast de error cada vez que la red falla un
-       segundo. Si de verdad hay un problema, el usuario lo va a ver
-       en cuanto intente hacer algo real. */
-  }
+/* Shimmer dorado breve sobre el nav, para que se note visualmente
+   que algo se acaba de actualizar solo (a peticion del dueno: "que
+   se vea padre cuando cambia la info"). */
+function flashLiveUpdate() {
+  document.body.classList.add('gs-live-flash');
+  setTimeout(() => document.body.classList.remove('gs-live-flash'), 900);
 }
 
-function showUpdateBanner() {
-  const el = document.getElementById('gs-update-banner');
-  if (el) el.style.display = 'flex';
-}
+let liveRefreshWatcher = null;
 
-function hideUpdateBanner() {
-  const el = document.getElementById('gs-update-banner');
-  if (el) el.style.display = 'none';
-}
-
-async function refreshFromUpdateBanner() {
-  await loadAll(); // ya esconde el aviso solo y recalcula la firma
-}
-
-function startOrderActivityPolling() {
-  if (orderPollIntervalId) return; // ya esta corriendo, no duplicar
-  orderPollIntervalId = setInterval(checkForNewActivity, 30000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForNewActivity();
+function startLiveRefresh() {
+  if (liveRefreshWatcher) return; // ya esta corriendo, no duplicar
+  liveRefreshWatcher = GSLiveRefresh.watch({
+    intervalMs: 30000,
+    checkFn: async () => {
+      const res = await api('/admin-get-orders', { body: {} });
+      return buildOrderActivitySignature(res.orders || []);
+    },
+    hasChanged: hasNewActivity,
+    onChange: async () => {
+      await loadAll();
+      flashLiveUpdate();
+      showToast('Updated with the latest info.');
+    }
   });
 }
 
