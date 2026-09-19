@@ -124,7 +124,13 @@
       auth: {
         clientId: '18dfcf2e-0059-40f5-831c-69d13b9091fc',
         authority: 'https://login.microsoftonline.com/d18a66ea-5185-4a02-99cc-46b6578ff498',
-        redirectUri: 'https://admin.gsocd.com/'
+        /* Dinamico (19/09/2026) -- antes estaba escrito a mano como
+           'https://admin.gsocd.com/', asi que el login SIEMPRE
+           regresaba a produccion sin importar desde que dominio se
+           entrara (rompia probar el login en una rama de Preview).
+           admin.html ya usaba window.location.origin para esto mismo
+           -- aqui se quedo suelto con el valor fijo. */
+        redirectUri: window.location.origin + '/'
       },
       cache: { cacheLocation: 'sessionStorage' }
     };
