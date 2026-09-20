@@ -3997,17 +3997,32 @@ function apprReadOnlySvcHtml(orderId) {
    (window['apprSvc_'+orderId]/apprLevel_/apprDiv_) -- mismo shape
    exacto que buildServicesPayload(), sin NotCompleted (eso es cosa de
    Active, aqui la orden todavia ni se ha aprobado). */
+/* BUG REAL encontrado y arreglado (20/09/2026, reportado por el dueño
+   con una orden real): esta funcion nunca leia window['apprQty_'+
+   orderId] -- Quantity nunca se mandaba al guardar desde Approvals
+   (comparar con buildServicesPayload, la version de Active, que si lo
+   hace desde siempre). Para un servicio que SI requiere cantidad
+   (requiresQuantity en el catalogo), guardarlo sin Quantity tira una
+   excepcion real del lado de SharePoint (columna que la necesita) --
+   y como el guardado primero BORRA los renglones viejos y despues
+   intenta crear los nuevos en paralelo (Promise.all), un renglon que
+   truena por esto no evita que los DEMAS ya se hayan creado bien: el
+   resultado es que esos servicios especificos desaparecen de la orden
+   para siempre y sale "Could not save: General exception while
+   processing" -- exactamente lo reportado. */
 function buildApprServicesPayload(orderId) {
   const sel = window['apprSvc_' + orderId];
   if (!sel) return null;
   const division = window['apprDiv_' + orderId] || '';
   const levelState = window['apprLevel_' + orderId] || {};
+  const qtyState = window['apprQty_' + orderId] || {};
   const services = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
     Object.entries(svcs).forEach(([svcName, subOption]) => {
       services.push({
         Category: cat, ServiceName: svcName, SubOption: subOption, Division: division,
         Level: levelState[ncKey(cat, svcName)] || '',
+        Quantity: qtyState[ncKey(cat, svcName)] || '',
         NotCompleted: false, NotCompletedReason: ''
       });
     });
@@ -8664,7 +8679,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
-        '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : esc(displayStatus(o))) + '</td>' +
+        '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
         '</tr>').join('') +
       '</table>'
