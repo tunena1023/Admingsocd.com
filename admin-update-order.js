@@ -36,7 +36,7 @@ const { notifyOrderTechs } = require('./lib/push');
    confiando en el campo Division que ya venga en cada renglon) y, si
    aplica, la orden pasa a 'Mixed' de una vez, sin preguntar, con
    constancia en el historial. Confirmado con el dueño, 20/09/2026. */
-const { resolveOrderDivision, divisionChangeNotes } = require('gsocd-shared/lib/division-rules');
+const { resolveOrderDivision, divisionChangeHistoryPayload } = require('gsocd-shared/lib/division-rules');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
 
@@ -428,10 +428,44 @@ exports.handler = async (event) => {
       ChangeDate: new Date().toISOString()
     });
 
+    /* Primera vez que se asigna (Supervisor + Service Window + Dispatch
+       Date pasan de vacio a tener valor) -- a diferencia de 'Order
+       Details Set' (que se crea SIEMPRE y esta oculto del cliente,
+       incluyendo reasignaciones), esto crea un evento aparte que SI ve
+       el cliente, una sola vez. Una reasignacion despues (cambiar de
+       supervisor) actualiza los mismos campos otra vez, pero como ya
+       no estaban vacios, esta condicion no se vuelve a cumplir -- no
+       se crea un segundo evento, el cliente nunca ve el cambio interno.
+
+       Se calcula AQUI (antes de armar 'Order Details Set', no despues
+       como antes) porque hace falta para el BUG REAL de abajo. */
+    const wasUnassigned = !String(f.Supervisor || '').trim()
+      && !String(f.ServiceWindow || '').trim() && !String(f.DispatchDate || '').trim();
+    const nowAssigned = String(patch.Supervisor !== undefined ? patch.Supervisor : f.Supervisor || '').trim()
+      && String(patch.ServiceWindow !== undefined ? patch.ServiceWindow : f.ServiceWindow || '').trim()
+      && String(patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate || '').trim();
+
     /* Control fields are overwritten on the order itself, so the previous value
-       only survives if we record it here. Un renglon por campo. */
-    if (changes.length) {
-      const summary = changes.map(ch => ch.label + ': ' + (ch.next || '(empty)')).join('  ·  ');
+       only survives if we record it here. Un renglon por campo.
+
+       BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+       dueño con captura real): en la primera asignacion (wasUnassigned
+       && nowAssigned), 'Order Details Set' y 'Assigned' (el evento de
+       abajo) mostraban EXACTAMENTE la misma informacion -- Supervisor/
+       Service Window/Dispatch Date -- una encima de la otra, sin
+       aportar nada distinto. Ahora, solo en ese caso puntual, esos 3
+       campos se quitan de 'Order Details Set' antes de armarlo (se
+       quedan documentados en 'Assigned', que ya los muestra en su
+       propio detalle). Si en la MISMA orden tambien cambio algo mas
+       (Notes, Delay Reason, etc.), eso si se sigue viendo aqui -- solo
+       se quita lo que ya es puro duplicado. En cualquier otro caso
+       (reasignacion, edicion normal) esto no aplica -- se sigue
+       viendo tal cual, como siempre. */
+    const detailsChanges = (wasUnassigned && nowAssigned)
+      ? changes.filter(c => c.label !== 'Supervisor' && c.label !== 'Service Window' && c.label !== 'Dispatch Date')
+      : changes;
+    if (detailsChanges.length) {
+      const summary = detailsChanges.map(ch => ch.label + ': ' + (ch.next || '(empty)')).join('  ·  ');
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   'Order Details Set',
@@ -442,19 +476,6 @@ exports.handler = async (event) => {
       }));
     }
 
-    /* Primera vez que se asigna (Supervisor + Service Window + Dispatch
-       Date pasan de vacio a tener valor) -- a diferencia de 'Order
-       Details Set' (que se crea SIEMPRE y esta oculto del cliente,
-       incluyendo reasignaciones), esto crea un evento aparte que SI ve
-       el cliente, una sola vez. Una reasignacion despues (cambiar de
-       supervisor) actualiza los mismos campos otra vez, pero como ya
-       no estaban vacios, esta condicion no se vuelve a cumplir -- no
-       se crea un segundo evento, el cliente nunca ve el cambio interno. */
-    const wasUnassigned = !String(f.Supervisor || '').trim()
-      && !String(f.ServiceWindow || '').trim() && !String(f.DispatchDate || '').trim();
-    const nowAssigned = String(patch.Supervisor !== undefined ? patch.Supervisor : f.Supervisor || '').trim()
-      && String(patch.ServiceWindow !== undefined ? patch.ServiceWindow : f.ServiceWindow || '').trim()
-      && String(patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate || '').trim();
     if (wasUnassigned && nowAssigned) {
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
@@ -494,13 +515,21 @@ exports.handler = async (event) => {
       const divisionResult = resolveOrderDivision(division, services, divisionCatalog);
       if (divisionResult) {
         await updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision });
+        /* BUG REAL arreglado (20/09/2026, reportado por el dueño con
+           captura real): antes Notes traia una frase completa en
+           prosa, que se veia repetida/de mas junto al detalle
+           "Division: X -> Y". Ahora Notes se manda vacio y el/los
+           servicios que causaron el cambio van en NewValue, como
+           payload estructurado -- order-history.js v1.35.0+ ya lo
+           sabe dibujar en el mismo detalle, con el mismo formato de
+           "servicio agregado" que usa el resto del historial. */
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   'Division Changed',
           FieldChanged: 'Division',
-          Notes:        divisionChangeNotes(divisionResult),
+          Notes:        '',
           OldValue:     divisionResult.previousDivision,
-          NewValue:     divisionResult.newDivision
+          NewValue:     JSON.stringify(divisionChangeHistoryPayload(divisionResult))
         }));
       }
 

@@ -50,7 +50,7 @@ const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
    admin-update-order.js. Aqui se necesita en Reassign/Reschedule,
    donde los servicios PROPUESTOS de un cambio pendiente se aplican
    de verdad por primera vez. */
-const { resolveOrderDivision, divisionChangeNotes } = require('gsocd-shared/lib/division-rules');
+const { resolveOrderDivision, divisionChangeHistoryPayload } = require('gsocd-shared/lib/division-rules');
 
 const NEW_STATUSES    = ['Received'];
 const CHANGE_STATUSES = ['Change Requested'];
@@ -509,13 +509,18 @@ exports.handler = async (event) => {
         const divisionResult = resolveOrderDivision(division, proposed.services, divisionCatalog);
         if (divisionResult) {
           await updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision });
+          /* BUG REAL arreglado (20/09/2026, ver el comentario completo
+             en admin-update-order.js): Notes vacio, el/los servicios
+             que causaron el cambio van en NewValue como payload
+             estructurado -- order-history.js v1.35.0+ lo dibuja en el
+             mismo detalle que "Division: X -> Y". */
           await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
             Title:        nextAdminLabel(),
             ChangeType:   'Division Changed',
             FieldChanged: 'Division',
-            Notes:        divisionChangeNotes(divisionResult),
+            Notes:        '',
             OldValue:     divisionResult.previousDivision,
-            NewValue:     divisionResult.newDivision
+            NewValue:     JSON.stringify(divisionChangeHistoryPayload(divisionResult))
           }));
         }
 
