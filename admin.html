@@ -2110,7 +2110,11 @@ async function renderQuickBooksPanel() {
       return;
     }
     const imported = status.imported || {};
-    const eligible = (allOrders || []).filter(o => o.Status !== 'Cancelled' && o.Status !== 'Incomplete');
+    /* Solo Completed -- a peticion del dueno (19/09/2026): antes
+       mostraba cualquier orden que no fuera Cancelled/Incomplete
+       (Received, Assigned, Active, etc.), pero el flujo real es
+       facturar hasta que el trabajo ya se termino. */
+    const eligible = (allOrders || []).filter(o => o.Status === 'Completed');
     if (!eligible.length) {
       box.innerHTML = '<p class="empty-note">No orders to show.</p>';
       return;
