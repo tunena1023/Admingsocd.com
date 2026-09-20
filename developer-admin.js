@@ -36,6 +36,72 @@ const {
 
 const { ensureRecurringOrders, propagateContractEdit } = require('./lib/recurring-orders');
 
+/* A peticion del dueño (20/09/2026): si alguien con ordenes futuras
+   asignadas se desactiva (en Techs & Roles, o solo por el reporte de
+   nomina), esas ordenes ya NO se quedan huerfanas esperando a que
+   alguien las note -- regresan a Approvals (Status='Received') de
+   inmediato, esperando a ser asignadas de nuevo como si fueran
+   nuevas, con una nota en su historial de que esa persona ya no esta
+   disponible. payrollId: PayrollNumber en FieldEmployees, PayrollID
+   en Techs -- Scheduling siempre guarda el numero bajo el campo
+   PayrollNumber, sea cual sea la lista de origen de la persona.
+   Regresa cuantas ordenes se revirtieron (0 si no tenia ninguna). */
+async function revertOrdersForDeactivatedPerson(payrollId, personName) {
+  const pn = String(payrollId || '').trim();
+  if (!pn) return 0;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  const [scheduling, orders] = await Promise.all([
+    fetchAll(SCHEDULING_LIST),
+    fetchAll(ORDERS_LIST)
+  ]);
+
+  const affectedRows = scheduling.filter(it => {
+    if (!it.fields) return false;
+    if (String(it.fields.PayrollNumber || '').trim() !== pn) return false;
+    const d = new Date(it.fields.AssignedDate);
+    return !isNaN(d) && d >= today;
+  });
+  if (!affectedRows.length) return 0;
+
+  const orderIds = Array.from(new Set(affectedRows.map(it => it.fields.OrderID).filter(Boolean)));
+  const orderByOrderId = {};
+  orders.forEach(it => {
+    if (!it.fields) return;
+    const oid = it.fields.OrderID || it.fields.Title;
+    if (oid) orderByOrderId[oid] = it;
+  });
+
+  const who = String(personName || '').trim() || 'The assigned technician';
+
+  await Promise.all(orderIds.map(async orderId => {
+    const orderItem = orderByOrderId[orderId];
+    if (!orderItem) return;
+    /* Nunca tocar una orden que ya este Completed o Cancelled, aunque
+       por algun motivo raro tuviera un renglon de Scheduling futuro
+       sin limpiar -- esas nunca deben regresar a Approvals. */
+    const currentStatus = String((orderItem.fields || {}).Status || '');
+    if (currentStatus === 'Completed' || currentStatus === 'Cancelled') return;
+    const rowsForThisOrder = affectedRows.filter(it => it.fields.OrderID === orderId);
+    await Promise.all([
+      ...rowsForThisOrder.map(it => deleteListItem(SCHEDULING_LIST, it.id)),
+      updateListItemByItemId(ORDERS_LIST, orderItem.id, {
+        Status: 'Received', Supervisor: '', ServiceWindow: '', DispatchDate: '', InspectionDate: ''
+      }),
+      createListItem(ORDER_HISTORY_LIST, {
+        Title: orderId + '-unavailable-' + Date.now(),
+        OrderID: orderId,
+        ChangeType: 'Technician Unavailable',
+        ChangedBy: 'System',
+        ChangeDate: new Date().toISOString(),
+        Notes: who + ' is no longer available. Order returned to Approvals to be reassigned.'
+      })
+    ]);
+  }));
+
+  return orderIds.length;
+}
+
 /* Mismo nombre de carpeta que get-admin-gallery.js / get-order-photos.js /
    upload-service-photo.js -- ninguna columna nueva en SharePoint, solo
    la convencion de carpetas ya usada en toda la app. */
@@ -550,13 +616,23 @@ exports.handler = async (event) => {
       }
 
       /* Quien ya no aparecio en este reporte, se desactiva (no se
-         borra) -- si vuelve a aparecer despues, se reactiva solo. */
+         borra) -- si vuelve a aparecer despues, se reactiva solo.
+         A peticion del dueño: sus ordenes futuras asignadas regresan
+         a Approvals, con nota en el historial -- ANTES de marcarla
+         inactiva, para tener a la mano su PayrollNumber/nombre. */
       let deactivated = 0;
+      let revertedOrdersTotal = 0;
       const toDeactivate = existing.filter(it => it.fields && !seenIds.has(it.id) && truthy(it.fields.Active));
-      await Promise.all(toDeactivate.map(it => updateListItemByItemId(FIELD_EMPLOYEES_LIST, it.id, { Active: false })));
+      await Promise.all(toDeactivate.map(async it => {
+        const pn = String(it.fields.PayrollNumber || '').trim();
+        const name = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+        revertedOrdersTotal += await revertOrdersForDeactivatedPerson(pn, name);
+        await updateListItemByItemId(FIELD_EMPLOYEES_LIST, it.id, { Active: false });
+      }));
       deactivated = toDeactivate.length;
 
-      const summary = created + ' agregados, ' + updated + ' actualizados, ' + deactivated + ' desactivados, ' +
+      const summary = created + ' agregados, ' + updated + ' actualizados, ' + deactivated + ' desactivados' +
+        (revertedOrdersTotal ? ' (' + revertedOrdersTotal + ' orden(es) regresadas a Approvals)' : '') + ', ' +
         officeCount + ' de oficina (guardados, nunca asignables). Tech portal: ' +
         techsCreated + ' cuentas nuevas, ' + techsUpdated + ' actualizadas' +
         (missingPhone.length ? '. Sin telefono valido (sin cuenta creada): ' + missingPhone.join(', ') : '') +
@@ -976,8 +1052,24 @@ exports.handler = async (event) => {
       }
       if (body.active !== undefined) fields.Active = !!body.active;
       if (!Object.keys(fields).length) return jsonResponse(400, { error: 'Nothing to update.' });
+
+      /* A peticion del dueño: si se esta desactivando (no si solo se
+         cambia rol/division), sus ordenes futuras regresan a Approvals.
+         Se necesita el registro ANTES de actualizarlo, para saber su
+         PayrollID/nombre. */
+      let revertedCount = 0;
+      if (fields.Active === false) {
+        const techRows = await fetchAll(TECHS_LIST);
+        const techItem = techRows.find(it => it.id === techId);
+        if (techItem && techItem.fields) {
+          const pn = String(techItem.fields.PayrollID || '').trim();
+          const name = (String(techItem.fields.FirstName || '').trim() + ' ' + String(techItem.fields.LastName || '').trim()).trim();
+          revertedCount = await revertOrdersForDeactivatedPerson(pn, name);
+        }
+      }
+
       await updateListItemByItemId(TECHS_LIST, techId, fields);
-      return jsonResponse(200, { success: true });
+      return jsonResponse(200, { success: true, revertedOrders: revertedCount });
     }
 
     /* Agregar una persona a mano (Techs & Roles > + Add Person
