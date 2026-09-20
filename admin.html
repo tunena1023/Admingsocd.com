@@ -968,6 +968,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.31.0/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
@@ -8638,21 +8639,19 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       </div>
     </div>` : '';
 
-  /* UN SOLO boton "Print" (a peticion del dueño, 19/09/2026) -- antes
-     eran 2 botones separados ("Print Order"/"Print Completion").
-     Ahora decide solo: si la orden ya esta Completed, abre el
-     documento de completion (generateAndSaveCompletionPdf ya maneja
-     0 fotos sin problema -- "Photos" sale sin fotos, nomas eso); si
-     no esta completada, abre el documento normal de la orden. */
-  const isCompletedForPrint = o.Status === 'Completed';
-  const printDoc = isCompletedForPrint ? storedCompletionDoc : storedDoc;
-  const printUnavailableHint = isCompletedForPrint ? 'Not generated yet' : 'Available once the order is approved';
-  const printOrderHtml = `<span class="print-wrap">
-        <button class="gs-ofp-btn-secondary" ${printDoc ? '' : 'disabled'}
-          title="${printDoc ? 'Open ' + esc(printDoc.name) : printUnavailableHint}"
-          onclick="openOrderDocument('${esc(o.OrderID)}'${isCompletedForPrint ? ",'completion'" : ''})">Print</button>
-        ${printDoc ? '' : '<span class="print-hint">' + printUnavailableHint + '</span>'}
-      </span>`;
+  /* UN SOLO boton "Print" (a peticion del dueño, 19/09/2026) -- decide
+     solo con GSPrintButton (gsocd-shared): si la orden ya esta
+     Completed, abre el documento de completion; si no, el normal.
+     A peticion del dueño (misma fecha, "eso debe ser una funcion en
+     shared para que todos impriman igual" -- Admin y Orders tenian
+     cada quien su propia copia de esta logica, arreglar la regla de
+     habilitacion en un lado se le olvido al otro): ya no se arma a
+     mano aqui, se usa la pieza compartida -- se habilita desde que la
+     orden ya se asigno, sin importar si ya existe un archivo guardado
+     (el backend genera uno sobre la marcha si hace falta). */
+  const printOrderHtml = window.GSPrintButton
+    ? GSPrintButton.html(o, { storedDoc: o.Status === 'Completed' ? storedCompletionDoc : storedDoc })
+    : '<button class="gs-ofp-btn-secondary" disabled>Print</button>';
 
   const statusBar = contextCan(context, 'edit') ? `
     <div class="eo-status-bar">
