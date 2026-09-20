@@ -74,6 +74,14 @@ async function revertOrdersForDeactivatedPerson(payrollId, personName) {
 
   const who = String(personName || '').trim() || 'The assigned technician';
 
+  /* BUG REAL encontrado con una prueba simulada (20/09/2026, antes de
+     subir a producción): el valor que regresaba esta funcion contaba
+     TODAS las ordenes candidatas (orderIds.length) sin importar si la
+     proteccion Completed/Cancelled de abajo terminaba saltandolas --
+     asi que el numero mostrado al dueño podia decir, por ejemplo, "2
+     ordenes regresadas" cuando en realidad solo 1 se toco de verdad.
+     Ahora se cuenta SOLO cuando de verdad se revierte. */
+  let revertedCount = 0;
   await Promise.all(orderIds.map(async orderId => {
     const orderItem = orderByOrderId[orderId];
     if (!orderItem) return;
@@ -97,9 +105,10 @@ async function revertOrdersForDeactivatedPerson(payrollId, personName) {
         Notes: who + ' is no longer available. Order returned to Approvals to be reassigned.'
       })
     ]);
+    revertedCount++;
   }));
 
-  return orderIds.length;
+  return revertedCount;
 }
 
 /* Mismo nombre de carpeta que get-admin-gallery.js / get-order-photos.js /
