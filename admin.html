@@ -3309,7 +3309,30 @@ async function loadApprovalDetail(o) {
    necesita Archive / Mark as Active. Una Cancellation Requested
    siempre pide password del director y nota obligatoria al rechazar.
    Un Change Requested pide password solo si lo inicio la oficina. */
+/* Boton "Print" universal para Review: sin importar cual de los casos
+   de abajo aplique (cancelacion, cambio, reactivacion...), siempre
+   debe poder sacarse una constancia en papel de lo que se pidio. Por
+   eso se antepone aqui, en un solo lugar, en vez de repetirlo en cada
+   "return" de decisionAreaHtmlInner. A peticion del dueno, 19/09/2026. */
 function decisionAreaHtml(o, history) {
+  const printBtn = `<div class="appr-bar" style="margin-bottom:12px">
+    <button class="gs-ofp-btn-secondary" id="print-req-${esc(o.OrderID).replace(/[^a-z0-9]/gi,'_')}" onclick="printRequestDocument('${esc(o.OrderID)}', this)">Print</button>
+  </div>`;
+  return printBtn + decisionAreaHtmlInner(o, history);
+}
+
+async function printRequestDocument(orderId, btnEl) {
+  const original = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = 'Printing…';
+  try {
+    window.open('/api/print-request-document?orderId=' + encodeURIComponent(orderId), '_blank');
+  } finally {
+    setTimeout(() => { btnEl.disabled = false; btnEl.textContent = original; }, 1200);
+  }
+}
+
+function decisionAreaHtmlInner(o, history) {
   const dom = apprDomId(o.OrderID);
   const status = o.Status || '';
 

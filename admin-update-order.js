@@ -26,7 +26,7 @@ const {
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
-const { generateAndSaveOrderPdf, latestOrderPdf } = require('./lib/orderpdf');
+const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
@@ -485,6 +485,30 @@ exports.handler = async (event) => {
         body: 'Order ' + orderId + ' was marked as Completed.',
         url: '/employee.html'
       });
+
+      /* Documento de Completacion (con las fotos que se hayan tomado
+         en la orden) -- distinto del PDF oficial de arriba, misma
+         carpeta, nunca se sobreescribe. A peticion del dueno,
+         19/09/2026. Nunca debe tumbar el resto de la operacion: la
+         orden ya quedo guardada como Completed, eso es lo que importa. */
+      try {
+        const merged = Object.assign({}, f, patch, { OrderID: orderId });
+        const freshSvc = await fetchByOrderId(ORDER_SERVICES_LIST, orderId);
+        const completion = await generateAndSaveCompletionPdf({
+          order: merged,
+          services: freshSvc.filter(r => r.fields).map(r => r.fields),
+          completedBy: (technician && String(technician).trim()) || actor,
+          completedAt: completedDate ? toIsoDate(completedDate) : new Date().toISOString()
+        });
+        await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+          Title:        nextAdminLabel(),
+          ChangeType:   completion.ok ? 'Document Generated' : 'Document Failed',
+          FieldChanged: 'Completion Document',
+          Notes:        completion.ok
+            ? ('Completion document saved with ' + (completion.photoCount || 0) + ' photo(s).')
+            : ('The completion document could not be generated: ' + completion.error)
+        }));
+      } catch (e) { /* nunca tumbar el guardado de la orden por esto */ }
     }
 
     /* ------------------------------------------------------------------
