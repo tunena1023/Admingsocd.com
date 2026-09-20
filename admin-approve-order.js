@@ -504,6 +504,16 @@ exports.handler = async (event) => {
       if (proposed && proposed.fields && proposed.fields.notes !== undefined) {
         await updateListItemByItemId(ORDERS_LIST, item.id, { Notes: proposed.fields.notes });
       }
+      /* Solo para recurrentes (19/09/2026): es la UNICA via que tienen
+         para proponer quien la va a hacer, ya que nunca pasan por
+         Scheduling -- para una orden normal esto nunca aplica
+         (Supervisor es exclusivo de Scheduling, admin-update-order.js
+         nunca deja que newFieldsSnap.supervisor difiera del actual
+         salvo aqui). */
+      if (f.RecurringServiceID && proposed && proposed.fields && proposed.fields.supervisor !== undefined
+          && String(proposed.fields.supervisor).trim() && proposed.fields.supervisor !== f.Supervisor) {
+        await updateListItemByItemId(ORDERS_LIST, item.id, { Supervisor: proposed.fields.supervisor });
+      }
     }
 
     if (decision === 'approve') {

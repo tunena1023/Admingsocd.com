@@ -155,7 +155,14 @@ exports.handler = async (event) => {
        'Change Requested' y queda esperando al director en Review.
     ================================================================ */
     if (requestOnly) {
-      if (LIVE_STATUSES.indexOf(f.Status || '') === -1) {
+      /* Una visita recurrente todavia no vivida (Status 'Recurring
+         Scheduled', antes de su dia) tambien se puede editar por esta
+         via -- aclarado con el dueno, 19/09/2026: sin cambios pasa
+         directo a Active; con un cambio de servicios (o de quien la
+         va a hacer), se manda a Review igual que cualquier otra
+         solicitud. */
+      const isRecurring = !!f.RecurringServiceID;
+      if (LIVE_STATUSES.indexOf(f.Status || '') === -1 && !(isRecurring && f.Status === 'Recurring Scheduled')) {
         return jsonResponse(400, {
           error: 'This order is not in a state that can be edited right now (status: ' + (f.Status || '') + ').'
         });
@@ -170,15 +177,21 @@ exports.handler = async (event) => {
         delayReasonType: f.DelayReasonType || '', delayReasonNotes: f.DelayReasonNotes || ''
       };
       /* Supervisor/ServiceWindow/DispatchDate/InspectionDate NUNCA se
-         aceptan aqui, sin importar lo que llegue en el body -- esos 4
-         campos son exclusivos de Scheduling, punto. Un Change Request
-         es para lo que el cliente ve (fechas visibles, notas,
-         servicios), no para quien va a hacer el trabajo. Antes, si
-         este campo llegaba vacio (el input quedaba en blanco al
-         editar), se guardaba vacio de inmediato -- borrando al
-         supervisor real sin que nadie lo pidiera. */
+         aceptan aqui para una orden normal, sin importar lo que
+         llegue en el body -- esos 4 campos son exclusivos de
+         Scheduling, punto. Un Change Request es para lo que el
+         cliente ve (fechas visibles, notas, servicios), no para quien
+         va a hacer el trabajo. Antes, si este campo llegaba vacio (el
+         input quedaba en blanco al editar), se guardaba vacio de
+         inmediato -- borrando al supervisor real sin que nadie lo
+         pidiera.
+         EXCEPCION a proposito para recurrentes (19/09/2026): esas
+         nunca pasan por Scheduling, asi que "quien la va a hacer" SI
+         se puede proponer aqui como parte del cambio -- es la unica
+         via que tienen para eso. */
       const newFieldsSnap = {
-        supervisor:       oldFieldsSnap.supervisor,
+        supervisor:       (isRecurring && supervisor !== undefined && String(supervisor).trim())
+                            ? String(supervisor).trim() : oldFieldsSnap.supervisor,
         notes:            notes            !== undefined ? notes            : oldFieldsSnap.notes,
         entryDate:        entryDate        !== undefined ? dayOf(entryDate) : oldFieldsSnap.entryDate,
         dueDate:          dueDate          !== undefined ? dayOf(dueDate)   : oldFieldsSnap.dueDate,
