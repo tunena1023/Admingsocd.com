@@ -41,11 +41,16 @@
    ni reactivar.
 */
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
+/* gsocd-shared v1.34.0+ -- ver el comentario completo en
+   admin-update-order.js. Aqui se necesita en Reassign/Reschedule,
+   donde los servicios PROPUESTOS de un cambio pendiente se aplican
+   de verdad por primera vez. */
+const { resolveOrderDivision, divisionChangeNotes } = require('gsocd-shared/lib/division-rules');
 
 const NEW_STATUSES    = ['Received'];
 const CHANGE_STATUSES = ['Change Requested'];
@@ -76,6 +81,21 @@ async function fetchByOrderId(listName, orderId) {
     url = data['@odata.nextLink'] || null;
   }
   return out;
+}
+
+/* Catalogo completo de servicios, solo SKU+Division -- mismo helper
+   que ya existe en admin-update-order.js, repetido aqui (cada archivo
+   tiene su propia copia de sus helpers de fetch, mismo criterio que
+   ya usa todo este repo). */
+async function fetchServicesCatalogForDivisionCheck() {
+  let url = siteListPath(SERVICES_CATALOG_LIST) + '?$expand=fields($select=SKU,Division)&$top=500';
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out.filter(it => it.fields).map(it => ({ sku: it.fields.SKU || '', division: it.fields.Division || '' }));
 }
 
 function sortHistory(rows) {
@@ -479,6 +499,26 @@ exports.handler = async (event) => {
       const proposed = lastRequestedSnapshot(history);
       if (proposed && proposed.services && proposed.services.length) {
         const division = f.Division || '';
+
+        /* Mixed automatico (gsocd-shared v1.34.0+, ver el comentario
+           completo en admin-update-order.js): la sugerencia de un
+           supervisor o del cliente puede traer un servicio de otra
+           division -- aqui es donde se aplica de verdad por primera
+           vez, asi que aqui es donde hay que revisarlo. */
+        const divisionCatalog = await fetchServicesCatalogForDivisionCheck();
+        const divisionResult = resolveOrderDivision(division, proposed.services, divisionCatalog);
+        if (divisionResult) {
+          await updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision });
+          await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+            Title:        nextAdminLabel(),
+            ChangeType:   'Division Changed',
+            FieldChanged: 'Division',
+            Notes:        divisionChangeNotes(divisionResult),
+            OldValue:     divisionResult.previousDivision,
+            NewValue:     divisionResult.newDivision
+          }));
+        }
+
         if (svcRows.length) {
           await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
         }

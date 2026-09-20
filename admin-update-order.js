@@ -22,14 +22,38 @@
    aqui: se genera cuando el director aprueba el cambio, no antes.
 */
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
+/* gsocd-shared v1.34.0+ -- primera pieza de BACKEND (Node) de ese
+   repo, instalada como dependencia real de git (ver package.json),
+   no cargada con <script> como el resto de gsocd-shared. Detecta si
+   los servicios que se van a guardar pertenecen a otra division de
+   la que ya tiene la orden (por SKU contra el catalogo real, nunca
+   confiando en el campo Division que ya venga en cada renglon) y, si
+   aplica, la orden pasa a 'Mixed' de una vez, sin preguntar, con
+   constancia en el historial. Confirmado con el dueño, 20/09/2026. */
+const { resolveOrderDivision, divisionChangeNotes } = require('gsocd-shared/lib/division-rules');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
+
+/* Catalogo completo de servicios, solo SKU+Division -- lo minimo que
+   necesita resolveOrderDivision() para verificar la division real de
+   cada servicio que se va a guardar. Separado de fetchByOrderId
+   porque aqui no se filtra por orden, se trae la lista completa. */
+async function fetchServicesCatalogForDivisionCheck() {
+  let url = siteListPath(SERVICES_CATALOG_LIST) + '?$expand=fields($select=SKU,Division)&$top=500';
+  const out = [];
+  while (url) {
+    const data = await graphFetch(url);
+    out.push(...(data.value || []));
+    url = data['@odata.nextLink'] || null;
+  }
+  return out.filter(it => it.fields).map(it => ({ sku: it.fields.SKU || '', division: it.fields.Division || '' }));
+}
 
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
@@ -456,6 +480,29 @@ exports.handler = async (event) => {
     /* Si vienen servicios, refrescar OrderServices */
     if (services && services.length) {
       const division = f.Division || '';
+
+      /* Mixed automatico (gsocd-shared v1.34.0+, confirmado con el
+         dueño 20/09/2026): si alguno de los servicios que se van a
+         guardar pertenece, segun el catalogo real (por SKU, nunca por
+         el campo Division que ya venga en cada renglon), a una
+         division distinta a la que ya tiene la orden, la orden pasa a
+         Mixed de una vez -- sin preguntar, con constancia en el
+         historial de que division venia y que servicios lo causaron.
+         Sin efecto si la orden ya es Mixed (resolveOrderDivision
+         regresa null en ese caso). */
+      const divisionCatalog = await fetchServicesCatalogForDivisionCheck();
+      const divisionResult = resolveOrderDivision(division, services, divisionCatalog);
+      if (divisionResult) {
+        await updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision });
+        await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+          Title:        nextAdminLabel(),
+          ChangeType:   'Division Changed',
+          FieldChanged: 'Division',
+          Notes:        divisionChangeNotes(divisionResult),
+          OldValue:     divisionResult.previousDivision,
+          NewValue:     divisionResult.newDivision
+        }));
+      }
 
       /* Snapshot antes de borrar */
       const oldServices = snapshotServices(svcRows, division);
