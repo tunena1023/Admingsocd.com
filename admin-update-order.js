@@ -506,10 +506,15 @@ exports.handler = async (event) => {
          orden ya quedo guardada como Completed, eso es lo que importa. */
       try {
         const merged = Object.assign({}, f, patch, { OrderID: orderId });
-        const freshSvc = await fetchByOrderId(ORDER_SERVICES_LIST, orderId);
+        const [freshSvc, freshHist] = await Promise.all([
+          fetchByOrderId(ORDER_SERVICES_LIST, orderId),
+          fetchByOrderId(ORDER_HISTORY_LIST, orderId)
+        ]);
         const completion = await generateAndSaveCompletionPdf({
           order: merged,
           services: freshSvc.filter(r => r.fields).map(r => r.fields),
+          history: freshHist.filter(r => r.fields).map(r => r.fields)
+            .sort((a, b) => new Date(a.ChangeDate || 0) - new Date(b.ChangeDate || 0)),
           completedBy: (technician && String(technician).trim()) || actor,
           completedAt: completedDate ? toIsoDate(completedDate) : new Date().toISOString()
         });

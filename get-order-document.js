@@ -120,13 +120,15 @@ exports.handler = async (event) => {
 
     let result;
     if (kind === 'completion') {
-      const [freshSvc, photos] = await Promise.all([
+      const [freshSvc, freshHist, photos] = await Promise.all([
         fetchByField(ORDER_SERVICES_LIST, 'OrderID', orderId),
+        fetchByField(ORDER_HISTORY_LIST, 'OrderID', orderId),
         fetchOrderPhotoBuffers(merged)
       ]);
       result = await generateAndSaveCompletionPdf({
         order: merged,
         services: freshSvc,
+        history: freshHist.sort((a, b) => new Date(a.ChangeDate || 0) - new Date(b.ChangeDate || 0)),
         photos: photos,
         completedBy: order.Technician || order.Supervisor || '',
         completedAt: order.CompletedDate || new Date().toISOString()
