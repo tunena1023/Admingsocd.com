@@ -2015,6 +2015,12 @@ function applyUrlTabParam() {
   if (tab) showTab(tab);
   const subtab = params.get('subtab');
   if (subtab && tab === 'schedule') showSubTab(subtab);
+  /* Active tiene su propio mecanismo de sub-tabs (showActiveSubTab,
+     namespaced aparte para no chocar con Schedule) -- mismo
+     parametro ?subtab= de la URL, solo que aqui decide cual de los
+     dos llamar segun el tab. Necesario para que calendar.html pueda
+     enlazar directo a Active > Recurring. */
+  if (subtab && tab === 'active') showActiveSubTab(subtab);
 }
 
 /* Decide si se muestra la pestana "Developer" al cargar la pagina.
