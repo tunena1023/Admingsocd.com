@@ -590,12 +590,13 @@
     }
 
   /* ============================================================
-     PANEL RECURRING -- todas las reglas de aqui abajo vienen de
-     recurring.html (su propia pagina antes de unirla aqui). Se
-     encapsularon bajo #panel-recurring a proposito -- varios
-     nombres (.pill, .field-row, .btn-gold, .empty-note) ya existian
-     en admin.html con valores DISTINTOS, y sin este encapsulado se
-     hubieran pisado entre si en cualquier direccion.
+     RECURRING (Schedule > Recurring) -- fusion real (20/09/2026) de
+     las 2 copias gemelas que existian (esta seccion + recurring.html,
+     pagina aparte, ya eliminada). Encapsuladas bajo #panel-recurring
+     a proposito -- varios nombres (.pill, .field-row, .btn-gold,
+     .empty-note) ya existian en admin.html con valores DISTINTOS, y
+     sin este encapsulado se hubieran pisado entre si en cualquier
+     direccion.
   ============================================================ */
   #panel-recurring h1.page-title { font-family: 'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin:0 0 4px; }
   #panel-recurring p.page-sub { font-size:13px; color:var(--gray); margin:0 0 24px; }
@@ -1025,7 +1026,11 @@
   <div class="subtabs">
     <button class="subtab active-subtab active" data-activetab="all" onclick="showActiveSubTab('all')">All</button>
     <button class="subtab active-subtab" data-activetab="employee" onclick="showActiveSubTab('employee')">By Employee</button>
-    <button class="subtab active-subtab" data-activetab="recurring" onclick="location.href='recurring.html'">Recurring</button>
+    <!-- TEMPORAL (20/09/2026): deberia mostrar las ordenes REC reales
+         (la mas proxima por cliente), pendiente de construir -- por
+         ahora manda a Schedule > Recurring en vez de a
+         recurring.html, que se elimino. -->
+    <button class="subtab active-subtab" data-activetab="recurring" onclick="location.href='admin.html?tab=schedule&subtab=recurring'">Recurring</button>
     <button class="subtab active-subtab" data-activetab="calendar" onclick="location.href='calendar.html'">Calendar</button>
   </div>
   <div class="subpanel active-subpanel active" id="activesub-all">
@@ -1148,57 +1153,7 @@
   <div id="qb-panel-body">Loading…</div>
 </div>
 
-<!-- RECURRING -->
-<div class="panel" id="panel-recurring">
-  <h1 class="page-title">Recurring Services</h1>
-  <p class="page-sub">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. These never go through Approvals and never create a regular Order.</p>
 
-  <div class="card">
-    <div class="field-row">
-      <div class="field-group"><label>Client</label><select id="rc-client"><option value="">Select…</option></select></div>
-      <div class="field-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
-    </div>
-
-    <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
-      <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
-      <div style="text-align:right"><button class="gs-ofp-btn-secondary" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
-    </div>
-    <div id="svc-area" style="display:none;margin-bottom:16px">
-      <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
-      <div id="rc-svc-picker-mount"></div>
-    </div>
-
-    <div class="field-row">
-      <div class="field-group">
-        <label>Days</label>
-        <div class="day-pills" id="rc-days">
-          <div class="day-pill" data-day="Sun">S</div><div class="day-pill" data-day="Mon">M</div><div class="day-pill" data-day="Tue">T</div>
-          <div class="day-pill" data-day="Wed">W</div><div class="day-pill" data-day="Thu">T</div><div class="day-pill" data-day="Fri">F</div><div class="day-pill" data-day="Sat">S</div>
-        </div>
-      </div>
-      <div class="field-group"><label>Time</label><div id="rc-time-mount"></div></div>
-    </div>
-
-    <div class="field-row">
-      <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5"></div>
-      <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><div id="rc-expiration-mount"></div></div>
-    </div>
-
-    <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
-    <div id="assign-rows"></div>
-    <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
-
-    <div style="margin-top:16px">
-      <button class="gs-ofp-btn-primary" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
-      <button class="gs-ofp-btn-secondary" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
-      <p class="dialog-error" id="rc-error"></p>
-    </div>
-  </div>
-
-  <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Active Recurring Contracts</h2>
-  <div id="rc-pending-summary"></div>
-  <div id="rc-list"><p class="empty-note">Loading…</p></div>
-</div>
 
 <!-- DEVELOPER -->
 <div class="panel" id="panel-developer">
@@ -1807,6 +1762,7 @@
     <button class="subtab" data-tab="hours" onclick="showSubTab('hours')">Hours</button>
     <button class="subtab" data-tab="routing" onclick="showSubTab('routing')">Routing</button>
     <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
+    <button class="subtab" data-tab="recurring" onclick="showSubTab('recurring')">Recurring</button>
   </div>
 
   <div class="subpanel active" id="subpanel-orders">
@@ -1893,6 +1849,62 @@
   <div class="subpanel" id="subpanel-review">
     <p class="section-sub" style="margin-bottom:16px">Orders with someone assigned who has since gone inactive (no longer appears in the Employee Report) — nobody will show up to do that work unless someone catches it.</p>
     <div id="review-list"><p class="empty-note">Loading…</p></div>
+  </div>
+
+  <div class="subpanel" id="subpanel-recurring">
+    <div id="panel-recurring">
+      <p class="section-sub" style="margin-bottom:20px">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. Each visit becomes a real order, confirmed through Review if anything changes before its day.</p>
+
+      <div class="card">
+        <div class="field-row">
+          <div class="field-group"><label>Client</label><select id="rc-client"><option value="">Select…</option></select></div>
+          <div class="field-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
+        </div>
+
+        <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
+          <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
+          <div style="text-align:right"><button class="gs-ofp-btn-secondary" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
+        </div>
+        <div id="svc-area" style="display:none;margin-bottom:16px">
+          <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
+          <div id="rc-svc-picker-mount"></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label>Days</label>
+            <div class="day-pills" id="rc-days">
+              <div class="day-pill" data-day="Sun">S</div><div class="day-pill" data-day="Mon">M</div><div class="day-pill" data-day="Tue">T</div>
+              <div class="day-pill" data-day="Wed">W</div><div class="day-pill" data-day="Thu">T</div><div class="day-pill" data-day="Fri">F</div><div class="day-pill" data-day="Sat">S</div>
+            </div>
+          </div>
+          <div class="field-group"><label>Time</label><div id="rc-time-mount"></div></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group"><label>Total Hours (for this whole job)</label><input type="number" id="rc-total-hours" value="8" step="0.5"></div>
+          <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><div id="rc-expiration-mount"></div></div>
+        </div>
+
+        <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
+        <div id="assign-rows"></div>
+        <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
+
+        <div style="margin-top:16px">
+          <button class="gs-ofp-btn-primary" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
+          <button class="gs-ofp-btn-secondary" id="cancel-edit-btn" style="display:none" onclick="cancelEdit()">Cancel Edit</button>
+          <p class="dialog-error" id="rc-error"></p>
+        </div>
+      </div>
+
+      <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Active Recurring Contracts</h2>
+      <div id="rc-pending-summary"></div>
+      <div id="rc-list"><p class="empty-note">Loading…</p></div>
+
+      <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-top:36px">Generated Orders (next 30 days)</h2>
+      <p class="section-sub">Every real order the engine has already created for each contract. Click one to edit it — a change here goes to Review, same as any other order.</p>
+      <div id="recurring-generated-list"><p class="empty-note">Loading…</p></div>
+    </div>
   </div>
 </div>
 
@@ -1988,8 +2000,11 @@ async function initAuth() {
    abre ese tab directo al cargar -- sin esto, siempre se quedaba en
    Approvals sin importar de donde vinieras. */
 function applyUrlTabParam() {
-  const tab = new URLSearchParams(location.search).get('tab');
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab');
   if (tab) showTab(tab);
+  const subtab = params.get('subtab');
+  if (subtab && tab === 'schedule') showSubTab(subtab);
 }
 
 /* Decide si se muestra la pestana "Developer" al cargar la pagina.
@@ -2702,7 +2717,12 @@ const REQUEST_TYPES = ['Change Requested', 'Cancellation Requested',
 const ORDER_CONTEXT_CAPABILITIES = {
   active:   { edit: true,  reactivate: false, goToOrder: false, addUnit: true  },
   assigned: { edit: false, reactivate: false, goToOrder: true,  addUnit: false },
-  history:  { edit: false, reactivate: true,  goToOrder: false, addUnit: false }
+  history:  { edit: false, reactivate: true,  goToOrder: false, addUnit: false },
+  /* Schedule > Recurring, lista de "Generated Orders": mismas
+     capacidades que 'active' (SI se puede editar -- eso ya manda por
+     requestOnly:true/Review) -- solo necesita su propio nombre de
+     contexto para no compartir el contenedor con Active real. */
+  'recurring-generated': { edit: true, reactivate: false, goToOrder: false, addUnit: true }
 };
 function contextCan(context, capability) {
   return !!(ORDER_CONTEXT_CAPABILITIES[context] || {})[capability];
@@ -4662,12 +4682,31 @@ function renderGalleryPanel() {
   document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
     p.addEventListener('click', () => p.classList.toggle('active'));
   });
-  function selectedDays() {
+
+  /* ===== RECURRING (Schedule > Recurring) =====
+     Fusion real (20/09/2026) de las 2 copias gemelas que existian
+     (esta seccion de admin.html + recurring.html, pagina aparte) --
+     cada una tenia arreglos que la otra no.
+     3 BUGS REALES encontrados y corregidos en esta fusion (probados
+     ejecutando el codigo de verdad, no solo node --check):
+     1) loadInitialData (de recurring.html) no traia su propio
+        try/catch -- si truena, corta loadAll() a la mitad y init()
+        (la que oculta el spinner) nunca corre: TODA la app se queda
+        pegada en el spinner, no solo Recurring. Se le puso su
+        propio try/catch, igual que ya tenia la version vieja.
+     2) addAssignRow/refreshAssignRowOptions: t.division.toLowerCase()
+        truena si un tecnico real tiene Division vacio. Cambiado a
+        (t.division || '').toLowerCase().
+     3) renderRecurringList/renderLogVisitPanel: s.assignments.map(...)
+        truena si un contrato no trae Assignments. Cambiado a
+        (s.assignments || []).
+  ============================================================ */
+
+function selectedDays() {
     return Array.from(document.getElementById('rc-days').querySelectorAll('.day-pill.active')).map(p => p.dataset.day);
   }
 
-  /* ===== Assignment rows (1 o varias personas repartiendo horas) ===== */
-  function addAssignRow(payrollNumber, hours) {
+function addAssignRow(payrollNumber, hours) {
     const wrap = document.getElementById('assign-rows');
     const row = document.createElement('div');
     row.className = 'assign-row';
@@ -4676,7 +4715,7 @@ function renderGalleryPanel() {
        Services Scheduler) y para el picker de Scheduling: allTechs
        sobrevive un Wipe Test Data, FieldEmployees no. Mixed cuenta
        como Janitorial aqui tambien. */
-    const options = allTechs.filter(t => t.active !== false && t.payrollId && (t.division.toLowerCase() === 'janitorial' || t.division === 'Mixed'))
+    const options = allTechs.filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'))
       .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }))
       .map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
     row.innerHTML =
@@ -4686,15 +4725,16 @@ function renderGalleryPanel() {
     wrap.appendChild(row);
   }
 
-  /* ===== Services -- ahora usa el picker COMPARTIDO real
-     (GSServicePicker, mismo estandar que los otros 6 lugares donde
-     se pone/edita una orden), en vez de la implementacion propia de
-     antes. El picker ya trae su propia barra de busqueda, acordeon
-     por categoria, y toggle de Select All -- nada de eso se
-     reconstruye aqui. ===== */
-  let rcPicker = null;
+function refreshAssignRowOptions() {
+    document.querySelectorAll('#assign-rows .assign-emp').forEach(sel => {
+      const current = sel.value;
+      sel.innerHTML = allTechs.filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'))
+        .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }))
+        .map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === current ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
+    });
+  }
 
-  function mountRcPicker(initialSelected, initialLevels, propertyType, initialQuantities) {
+function mountRcPicker(initialSelected, initialLevels, propertyType, initialQuantities) {
     rcPicker = GSServicePicker.mount('rc-services', 'rc-svc-picker-mount', {
       catalog: servicesCache,
       division: 'Janitorial',
@@ -4708,19 +4748,12 @@ function renderGalleryPanel() {
     });
   }
 
-  /* Reloj y calendario real (gsocd-shared/date-time-picker) -- antes
-     esto eran <input type="time">/<input type="date"> nativos del
-     navegador, que no combinan con el estilo del resto de la app.
-     Se vuelve a llamar cada vez que se necesita un valor distinto
-     (crear/editar/limpiar) -- el componente mismo documenta que
-     regenerar con el mismo fieldId es seguro y limpia el estado
-     anterior correctamente. */
-  function mountRcDateTimeFields(time, expirationDate) {
+function mountRcDateTimeFields(time, expirationDate) {
     document.getElementById('rc-time-mount').innerHTML = GSDateTimePicker.timeHtml('rc-time', time || '06:00');
     document.getElementById('rc-expiration-mount').innerHTML = GSDateTimePicker.dateHtml('rc-expiration', expirationDate || null);
   }
 
-  function collectSelectedServices() {
+function collectSelectedServices() {
     if (!rcPicker) return [];
     const selected = rcPicker.getSelected();
     const levels = rcPicker.getLevels();
@@ -4734,13 +4767,7 @@ function renderGalleryPanel() {
     return out;
   }
 
-  /* Convierte lo guardado (formato [{sku,serviceName,level}]) a la
-     forma que el picker espera para precargar (initialSelected /
-     initialLevels, agrupado por propertyType). Si el renglon
-     guardado es del formato viejo (por cuarto: category/name/sub,
-     sin sku), no se puede mapear -- se avisa con la nota, sin perder
-     nada mientras no se le de Save de nuevo a este contrato. */
-  function buildInitialSelectedFrom(servicesJson) {
+function buildInitialSelectedFrom(servicesJson) {
     let services = [];
     try { services = JSON.parse(servicesJson || '[]'); } catch (e) { /* deja vacio */ }
     const selected = {};
@@ -4764,31 +4791,89 @@ function renderGalleryPanel() {
     return { selected, levels, qty, hasLegacy, firstType };
   }
 
-  /* ===== Cargar datos iniciales ===== */
-  async function loadInitialData() {
-    try {
-      const [clientsRes, catalogRes, employeesRes] = await Promise.all([
-        api('/admin-get-clients', { body: {} }),
-        api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }),
-        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
-      ]);
-      clientsCache = clientsRes.clients || [];
-      servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
-      employeesCache = employeesRes.employees || [];
+function isServiceDueToday(s) {
+    const dayMatch = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
+    if (!dayMatch) return false;
+    const freq = s.frequency || 'Weekly';
+    if (freq === 'Weekly') return true;
+    if (!s.anchorDate) return true;
+    const anchor = new Date(s.anchorDate + 'T00:00:00');
+    const today = new Date(todayISO() + 'T00:00:00');
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const weeksSince = Math.floor((today - anchor) / msPerWeek);
+    const interval = freq === 'Monthly' ? 4 : 2; // Biweekly = 2, Monthly = 4
+    return weeksSince >= 0 && weeksSince % interval === 0;
+  }
 
+async function loadClientOptions() {
+    try {
+      const clientsRes = await api('/admin-get-clients', { body: {} });
+      clientsCache = clientsRes.clients || [];
       document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
-
-      mountRcPicker();
-      mountRcDateTimeFields();
-      addAssignRow();
-      loadRecurringList();
     } catch (e) {
-      alert('Could not load initial data: ' + e.message);
+      document.getElementById('rc-client').innerHTML = '<option value="">Could not load clients</option>';
     }
   }
 
-  async function saveRecurring() {
+async function loadServicesPicker() {
+    try {
+      const catalogRes = await api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } });
+      servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
+      mountRcPicker();
+    } catch (e) {
+      document.getElementById('rc-svc-picker-mount').innerHTML = '<p class="empty-note">Could not load services: ' + esc(e.message) + '</p>';
+    }
+  }
+
+async function loadEmployeeOptions() {
+    try {
+      const employeesRes = await api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } });
+      employeesCache = employeesRes.employees || [];
+      refreshAssignRowOptions();
+    } catch (e) {
+      /* si falla, addAssignRow() ya monto el renglon con el select
+         vacio -- se puede seguir usando el resto del formulario */
+    }
+  }
+
+function loadInitialData() {
+    /* FIX REAL (20/09/2026): esta funcion se llama sin await desde
+       loadAll(), justo antes de init() -- si algo de aqui truena SIN
+       estar contenido, el throw corta loadAll() a la mitad y init()
+       (la que oculta el spinner y muestra la app) nunca se ejecuta:
+       la app entera se queda pegada en el spinner para cualquier
+       usuario, no solo quien entra a Recurring. La version vieja de
+       admin.html tenia justo este try/catch (por eso nunca se habia
+       notado un problema aqui); la version de recurring.html no lo
+       traia. Confirmado con una simulacion real: un tecnico con
+       Division vacio en addAssignRow() basta para tronar esto. */
+    try {
+    /* Antes las 4 cosas de aqui abajo (reloj/calendario, clientes,
+       servicios, empleados+lista de contratos) estaban encadenadas
+       en un solo try/Promise.all -- si UNA fallaba o se colgaba (una
+       sola llamada de red lenta o rota), NINGUNA de las 4 aparecia,
+       ni siquiera el reloj y el calendario, que ni falta les hace
+       ningun dato del servidor. El primer intento de separarlas (3
+       try/catch seguidos DENTRO de la misma funcion async) seguia
+       sin arreglarlo -- un await sigue bloqueando al siguiente aunque
+       tengan try/catch separados, solo cambiaba el mensaje de error,
+       no el bloqueo real. Ahora cada una es su propia funcion async,
+       llamada sin esperarla (sin await aqui) -- las 4 corren de
+       verdad al mismo tiempo, y una colgada o rota ya no le quita
+       nada a las demas. */
+    mountRcDateTimeFields();
+    addAssignRow();
+    loadClientOptions();
+    loadServicesPicker();
+    loadEmployeeOptions();
+    loadRecurringList();
+  } catch (e) {
+    console.error('Recurring: loadInitialData ->', e.message);
+  }
+}
+
+async function saveRecurring() {
     const errEl = document.getElementById('rc-error');
     errEl.textContent = '';
 
@@ -4835,6 +4920,446 @@ function renderGalleryPanel() {
       errEl.textContent = e.message;
     }
   }
+
+function todayISO() {
+    /* Hora LOCAL del navegador, no UTC -- toISOString() usa UTC, que
+       en la noche (Iowa esta 5-6 horas detras) ya habia rodado al dia
+       siguiente, dando manana en vez de hoy. Bug real corregido de
+       paso al agregar min=hoy a los calendarios de fecha nueva,
+       18/09/2026. */
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+async function loadRecurringList() {
+    const box = document.getElementById('rc-list');
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+      rcServicesCache = res.services || [];
+      renderRecurringList();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    }
+  }
+
+function renderRecurringList() {
+    const box = document.getElementById('rc-list');
+
+    const totalPending = rcServicesCache.reduce((sum, s) => sum + (s.pendingConfirmCount || 0), 0);
+    const summaryEl = document.getElementById('rc-pending-summary');
+    if (summaryEl) {
+      summaryEl.innerHTML = totalPending > 0
+        ? '<div style="background:#EEF4FF;border:1px solid #C7D8F5;color:#2A5AC9;font-size:12.5px;padding:10px 14px;border-radius:6px;margin-bottom:16px">' +
+          totalPending + ' visit' + (totalPending === 1 ? '' : 's') + ' marked done by the field, still waiting for the office to confirm and close.</div>'
+        : '';
+    }
+
+    if (!rcServicesCache.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
+
+    box.innerHTML = rcServicesCache.map(s => {
+      const client = clientsCache.find(c => c.clientId === s.clientId);
+      const clientName = client ? client.businessName : s.clientId;
+      const peopleStr = (s.assignments || []).map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
+      const isOpen = openCardId === s.id;
+
+      let expHtml = '';
+      if (s.expirationDate) {
+        const expDate = new Date(s.expirationDate + 'T12:00:00');
+        const today = new Date(); today.setHours(12,0,0,0);
+        const daysLeft = Math.round((expDate - today) / 86400000);
+        const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
+        const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
+                      (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
+        expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
+      }
+
+      const pendingHtml = s.pendingConfirmCount > 0
+        ? '<span class="rc-badge pending">' + s.pendingConfirmCount + ' pending confirmation</span>'
+        : '';
+
+      return '<div class="rc-card">' +
+        '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
+          '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
+          '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
+          '<div class="rc-right">' +
+            pendingHtml +
+            '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
+            '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
+          '</div>' +
+        '</div>' +
+        (isOpen ? '<div class="rc-body open" id="rc-body-' + s.id + '"><p class="empty-note">Loading…</p></div>' : '') +
+      '</div>';
+    }).join('');
+
+    if (openCardId) loadVisitsInto(openCardId);
+  }
+
+function toggleContractCard(id) {
+    openCardId = (openCardId === id) ? null : id;
+    loggingFor = null;
+    renderRecurringList();
+  }
+
+async function loadVisitsInto(id) {
+    const bodyEl = document.getElementById('rc-body-' + id);
+    if (!bodyEl) return;
+    try {
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-visits', email: adminUser.email, recurringServiceId: id } });
+      renderCardBody(id, res.visits || [], res.todayStatus || null, res.todaySentBackReason || '');
+    } catch (e) {
+      bodyEl.innerHTML = '<p class="empty-note">Could not load visits: ' + esc(e.message) + '</p>';
+    }
+  }
+
+function renderCardBody(id, visits, todayStatus, todaySentBackReason) {
+    const bodyEl = document.getElementById('rc-body-' + id);
+    if (!bodyEl) return;
+    const s = rcServicesCache.find(x => x.id === id);
+    if (!s) return;
+
+    const totalHours = visits.reduce((sum, v) => sum + v.people.reduce((n, p) => n + (Number(p.hours) || 0), 0), 0);
+    const deviatedCount = visits.filter(v => v.deviated).length;
+
+    /* Boton "Completed" -- solo si hoy es un dia programado de este
+       contrato Y todavia no quedo cerrado. Verde = nadie lo ha
+       confirmado; Azul = el campo ya lo marco (Field Confirmed),
+       nomas falta que oficina lo cierre. Mismo patron exacto que
+       markCompleted() en una orden normal.
+
+       Si hoy ya hay una desviacion esperando decision (Pending
+       Review), el boton simple NO se muestra -- antes se confundia
+       con "azul, confia y cierra" cuando en realidad hay algo que
+       la oficina todavia no ha decidido. Se avisa en vez de dejar
+       cerrar a ciegas.
+
+       "Send Back" -- solo aparece junto a Completed cuando el campo
+       ya marco Field Confirmed (azul). No tiene caso ofrecerlo si
+       nadie ha marcado nada (verde) -- no hay nada que devolver. */
+    let completeBtnHtml = '';
+    const scheduledToday = isServiceDueToday(s);
+    if (scheduledToday && todayStatus === 'pending-review') {
+      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
+    } else if (scheduledToday && todayStatus === 'sent-back') {
+      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">Sent back to the tech today: "' + esc(todaySentBackReason || '') + '" — waiting for them to redo it.</p>';
+    } else if (scheduledToday && todayStatus !== 'completed') {
+      const isFieldConfirmed = todayStatus === 'field-confirmed';
+      completeBtnHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
+          'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>' +
+        (isFieldConfirmed ? '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
+      '</div>' +
+      (isFieldConfirmed ? '<div id="sendback-box-' + id + '" style="display:none;margin-top:10px">' +
+        '<div class="field-group"><label>Reason (required)</label><input type="text" id="sendback-reason-' + id + '" placeholder="What still needs to be fixed?"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+          '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
+          '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
+        '</div>' +
+      '</div>' : '');
+    }
+
+    /* Opcion A (elegida por el usuario de las 3 que se le mostraron):
+       mismo layout que el detalle de una orden normal -- izquierda
+       datos + acciones, derecha el historial real (GSOrderHistory),
+       en vez de los numeros grandes inventados que habia antes. */
+    const historyEvents = visits.slice().reverse().map(v => {
+      const parts = [];
+      if (v.deviated) {
+        (v.services || []).forEach(sv => parts.push('Added ' + (sv.serviceName || '') + (sv.level ? ' — ' + sv.level : '')));
+        (v.removedNotes || []).forEach(rn => parts.push('Removed ' + (rn.serviceName || '') + (rn.note ? ': ' + rn.note : '')));
+      }
+      if (v.notes) parts.push(v.notes);
+      return { ChangeType: 'Completed', ChangeDate: v.visitDate + 'T12:00:00Z', ChangedBy: v.loggedBy || 'Staff', Notes: parts.join(' | ') };
+    });
+    const historyHtml = historyEvents.length
+      ? GSOrderHistory.html('RC-' + id, historyEvents, { mode: 'staff' })
+      : '<p class="empty-note">No visits logged yet.</p>';
+
+    bodyEl.innerHTML =
+      '<div class="detail-grid">' +
+        '<div>' +
+          '<p class="detail-label">Contract Details</p>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:16px">' +
+            '<div><div class="field-caption">Visits Logged</div><div class="field-value">' + visits.length + '</div></div>' +
+            '<div><div class="field-caption">Deviated Visits</div><div class="field-value">' + deviatedCount + '</div></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
+            completeBtnHtml +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
+            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+            (loggingFor === id ? '' : '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
+          '</div>' +
+          (loggingFor === id ? renderLogVisitPanel(s) : '') +
+        '</div>' +
+        '<div>' +
+          '<p class="detail-label">History</p>' +
+          (loggingFor === id ? '' : historyHtml) +
+        '</div>' +
+      '</div>';
+
+    if (loggingFor === id) mountLvPicker(s);
+  }
+
+async function markTodayComplete(id) {
+    try {
+      await api('/developer-admin', { body: { action: 'mark-recurring-visit-complete', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), source: 'Office' } });
+      /* BUG REAL encontrado en la revision final: esto cerraba la
+         visita pero nunca actualizaba pendingConfirmCount en
+         rcServicesCache -- el badge "N pending confirmation" del
+         header se quedaba con el numero viejo hasta recargar toda
+         la pagina. Se corrige aqui mismo, sin esperar otro fetch. */
+      const s = rcServicesCache.find(x => x.id === id);
+      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
+      renderRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+function toggleSendBack(id) {
+    const box = document.getElementById('sendback-box-' + id);
+    if (box) box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  }
+
+async function confirmSendBack(id) {
+    const input = document.getElementById('sendback-reason-' + id);
+    if (!input || !input.value.trim()) { if (input) input.focus(); return; }
+    try {
+      await api('/developer-admin', { body: { action: 'send-back-recurring-visit', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), reason: input.value.trim() } });
+      const s = rcServicesCache.find(x => x.id === id);
+      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
+      renderRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+function openLogVisit(id) {
+    loggingFor = id;
+    lvPeopleRows = [];
+    renderRecurringList();
+  }
+
+function closeLogVisit() {
+    loggingFor = null;
+    lvPicker = null;
+    renderRecurringList();
+  }
+
+function renderLogVisitPanel(s) {
+    if (!lvPeopleRows.length) {
+      lvPeopleRows = (s.assignments || []).length ? (s.assignments || []).map(a => ({ payrollNumber: a.payrollNumber, hours: a.hoursAllocated })) : [{ payrollNumber: '', hours: 8 }];
+    }
+
+    // allTechs (Techs), no employeesCache (FieldEmployees) -- mismo fix que addAssignRow arriba.
+    const empOptions = allTechs.filter(t => t.active !== false && t.payrollId && (t.division.toLowerCase() === 'janitorial' || t.division === 'Mixed'))
+      .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }));
+    const peopleRowsHtml = lvPeopleRows.map((p, i) =>
+      '<div class="assign-row">' +
+        '<div class="field-group"><label>' + (i === 0 ? 'Employee' : '') + '</label><select onchange="lvSetPerson(' + i + ', this.value)">' +
+          empOptions.map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === p.payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') +
+        '</select></div>' +
+        '<div class="field-group"><label>' + (i === 0 ? 'Hours' : '') + '</label><input type="number" step="0.5" value="' + p.hours + '" oninput="lvSetPersonHours(' + i + ', this.value)"></div>' +
+        '<button class="remove-assign" onclick="lvRemovePerson(' + i + ')">✕</button>' +
+      '</div>').join('');
+
+    return '<div class="logvisit-panel">' +
+      '<div class="logvisit-title">Log a Visit — ' + esc(clientsCache.find(c => c.clientId === s.clientId)?.businessName || s.clientId) + '</div>' +
+      '<div class="field-row"><div class="field-group"><label>Date</label>' + GSDateTimePicker.dateHtml('lv-date', todayISO()) + '</div><div></div></div>' +
+      '<div class="field-group" style="margin-bottom:8px"><label>Who worked this visit</label></div>' +
+      peopleRowsHtml +
+      '<div class="add-more-link" onclick="lvAddPerson()">+ Add person</div>' +
+      '<div class="field-group" style="margin-bottom:8px"><label>Services done this visit</label></div>' +
+      '<div id="lv-svc-picker-mount"></div>' +
+      '<div id="lv-diff-slot"></div>' +
+      '<div class="field-group" style="margin-top:14px"><label>General note (optional)</label><textarea id="lv-note"></textarea></div>' +
+      '<div class="logvisit-actions">' +
+        '<button class="gs-ofp-btn-primary" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
+        '<button class="gs-ofp-btn-secondary" onclick="closeLogVisit()">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+function mountLvPicker(s) {
+    const built = buildInitialSelectedFrom(s.servicesJson);
+    lvBaseSelectedKeys = [];
+    Object.values(built.selected).forEach(m => Object.keys(m).forEach(name => lvBaseSelectedKeys.push(name)));
+    lvPicker = GSServicePicker.mount('log-visit', 'lv-svc-picker-mount', {
+      catalog: servicesCache, division: 'Janitorial', mode: 'levels', showSelectAll: false,
+      groupByCategory: true, propertyType: built.firstType || 'Commercial',
+      initialSelected: built.selected, initialLevels: built.levels, initialQuantities: built.qty,
+      onChange: function () { renderLvDiff(); }
+    });
+    renderLvDiff();
+  }
+
+function lvAddPerson() { lvPeopleRows.push({ payrollNumber: '', hours: 8 }); renderRecurringList(); }
+
+function lvRemovePerson(i) { lvPeopleRows.splice(i, 1); renderRecurringList(); }
+
+function lvSetPerson(i, val) { lvPeopleRows[i].payrollNumber = val; }
+
+function lvSetPersonHours(i, val) { lvPeopleRows[i].hours = Number(val) || 0; }
+
+function renderLvDiff() {
+    const slot = document.getElementById('lv-diff-slot');
+    if (!slot || !lvPicker) return;
+    const selected = lvPicker.getSelected();
+    const nowNames = new Set();
+    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
+    const baseNames = new Set(lvBaseSelectedKeys);
+    const removed = [...baseNames].filter(n => !nowNames.has(n));
+    const added = [...nowNames].filter(n => !baseNames.has(n));
+
+    if (!removed.length && !added.length) {
+      slot.innerHTML = '<div class="diff-box"><span class="diff-empty">Matches the contract exactly — no changes to note.</span></div>';
+      return;
+    }
+    let html = '<div class="diff-box"><div class="field-group" style="margin-bottom:8px"><label>Difference vs. the contract</label></div>';
+    added.forEach(n => html += '<div class="diff-line added">+ ' + esc(n) + '</div>');
+    removed.forEach((n, i) => {
+      html += '<div class="diff-line removed">− ' + esc(n) + '</div>';
+      html += '<div class="um-note-box">' +
+        '<label>Why was "' + esc(n) + '" skipped this visit? (required)</label>' +
+        '<textarea id="lv-diffnote-' + i + '" data-name="' + escAttr(n) + '" placeholder="e.g. Client had an event, area was inaccessible"></textarea>' +
+        '<p class="um-note-error" id="lv-diffnote-error-' + i + '">Please add a note.</p>' +
+      '</div>';
+    });
+    html += '</div>';
+    slot.innerHTML = html;
+  }
+
+async function lvSave(id) {
+    if (!lvPicker) return;
+    const selected = lvPicker.getSelected();
+    const levels = lvPicker.getLevels();
+    const qtys = lvPicker.getQuantities();
+    const services = [];
+    Object.keys(selected).forEach(propType => {
+      Object.entries(selected[propType]).forEach(([name, sku]) => {
+        if (!lvBaseSelectedKeys.includes(name)) services.push({ sku, serviceName: name, level: levels[propType + '|' + name] || '', quantity: qtys[propType + '|' + name] || '' });
+      });
+    });
+    const nowNames = new Set();
+    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
+    const removedNotes = [];
+    let ok = true;
+    lvBaseSelectedKeys.filter(n => !nowNames.has(n)).forEach((n, i) => {
+      const input = document.getElementById('lv-diffnote-' + i);
+      if (!input || !input.value.trim()) {
+        const errEl = document.getElementById('lv-diffnote-error-' + i);
+        if (errEl) errEl.classList.add('show');
+        ok = false;
+        return;
+      }
+      removedNotes.push({ serviceName: n, note: input.value.trim() });
+    });
+    if (!ok) return;
+
+    const people = lvPeopleRows.filter(p => p.payrollNumber).map(p => ({ payrollNumber: p.payrollNumber, hours: p.hours }));
+    const visitDate = document.getElementById('lv-date').value;
+    if (!visitDate) { alert('Pick a date.'); return; }
+
+    try {
+      await api('/developer-admin', {
+        body: {
+          action: 'log-recurring-visit', email: adminUser.email, actorName: getActorName(),
+          recurringServiceId: id, visitDate, people, services, removedNotes,
+          notes: (document.getElementById('lv-note').value || '').trim()
+        }
+      });
+      closeLogVisit();
+      loadVisitsInto(id);
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+async function toggleActive(id, active) {
+    try {
+      await api('/developer-admin', { body: { action: 'toggle-recurring-active', email: adminUser.email, recurringServiceId: id, active } });
+      loadRecurringList();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+async function editRecurring(id) {
+    const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+    const svc = (res.services || []).find(s => s.id === id);
+    if (!svc) return;
+
+    editingServiceId = id;
+
+    document.getElementById('rc-client').value = svc.clientId;
+    document.getElementById('rc-building').value = svc.buildingNumber || '';
+
+    document.getElementById('svc-area').style.display = 'block';
+    document.getElementById('add-services-btn').style.display = 'none';
+    const built = buildInitialSelectedFrom(svc.servicesJson);
+    document.getElementById('rc-svc-legacy-note').style.display = built.hasLegacy ? 'block' : 'none';
+    mountRcPicker(built.selected, built.levels, built.firstType, built.qty);
+
+    const days = (svc.daysOfWeek || '').split(',');
+    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
+      p.classList.toggle('active', days.includes(p.dataset.day));
+    });
+    mountRcDateTimeFields(svc.time, svc.expirationDate);
+    document.getElementById('rc-total-hours').value = svc.totalHours || 8;
+
+    document.getElementById('assign-rows').innerHTML = '';
+    (svc.assignments.length ? svc.assignments : [{}]).forEach(a => addAssignRow(a.payrollNumber, a.hoursAllocated));
+
+    document.getElementById('save-recurring-btn').textContent = 'Save Changes';
+    document.getElementById('cancel-edit-btn').style.display = 'inline-block';
+    document.querySelector('.wrap').scrollIntoView({ behavior: 'smooth' });
+  }
+
+function cancelEdit() {
+    editingServiceId = null;
+    document.getElementById('rc-client').value = '';
+    document.getElementById('rc-building').value = '';
+    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
+    document.getElementById('assign-rows').innerHTML = '';
+    mountRcPicker();
+    mountRcDateTimeFields();
+    document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
+    document.getElementById('cancel-edit-btn').style.display = 'none';
+    addAssignRow();
+  }
+
+
+  /* ===== Assignment rows (1 o varias personas repartiendo horas) ===== */
+
+
+  /* ===== Services -- ahora usa el picker COMPARTIDO real
+     (GSServicePicker, mismo estandar que los otros 6 lugares donde
+     se pone/edita una orden), en vez de la implementacion propia de
+     antes. El picker ya trae su propia barra de busqueda, acordeon
+     por categoria, y toggle de Select All -- nada de eso se
+     reconstruye aqui. ===== */
+  let rcPicker = null;
+
+
+  /* Reloj y calendario real (gsocd-shared/date-time-picker) -- antes
+     esto eran <input type="time">/<input type="date"> nativos del
+     navegador, que no combinan con el estilo del resto de la app.
+     Se vuelve a llamar cada vez que se necesita un valor distinto
+     (crear/editar/limpiar) -- el componente mismo documenta que
+     regenerar con el mismo fieldId es seguro y limpia el estado
+     anterior correctamente. */
+
+
+
+  /* Convierte lo guardado (formato [{sku,serviceName,level}]) a la
+     forma que el picker espera para precargar (initialSelected /
+     initialLevels, agrupado por propertyType). Si el renglon
+     guardado es del formato viejo (por cuarto: category/name/sub,
+     sin sku), no se puede mapear -- se avisa con la nota, sin perder
+     nada mientras no se le de Save de nuevo a este contrato. */
+
+
+  /* ===== Cargar datos iniciales ===== */
 
   /* ===== Import Recurring Contracts (Developer > Services) =====
      Desde el 15/09/2026, sube el MISMO reporte que se descarga con
@@ -5488,218 +6013,15 @@ function renderGalleryPanel() {
   function todayDayAbbr() {
     return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
   }
-  function todayISO() {
-    /* Hora LOCAL del navegador, no UTC -- toISOString() usa UTC, que
-       en la noche (Iowa esta 5-6 horas detras) ya habia rodado al dia
-       siguiente, dando manana en vez de hoy. Bug real corregido de
-       paso al agregar min=hoy a los calendarios de fecha nueva,
-       18/09/2026. */
-    const d = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-  }
 
-  async function loadRecurringList() {
-    const box = document.getElementById('rc-list');
-    try {
-      const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
-      rcServicesCache = res.services || [];
-      renderRecurringList();
-    } catch (e) {
-      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
-    }
-  }
 
-  function renderRecurringList() {
-    const box = document.getElementById('rc-list');
 
-    const totalPending = rcServicesCache.reduce((sum, s) => sum + (s.pendingConfirmCount || 0), 0);
-    const summaryEl = document.getElementById('rc-pending-summary');
-    if (summaryEl) {
-      summaryEl.innerHTML = totalPending > 0
-        ? '<div style="background:#EEF4FF;border:1px solid #C7D8F5;color:#2A5AC9;font-size:12.5px;padding:10px 14px;border-radius:6px;margin-bottom:16px">' +
-          totalPending + ' visit' + (totalPending === 1 ? '' : 's') + ' marked done by the field, still waiting for the office to confirm and close.</div>'
-        : '';
-    }
 
-    if (!rcServicesCache.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
 
-    box.innerHTML = rcServicesCache.map(s => {
-      const client = clientsCache.find(c => c.clientId === s.clientId);
-      const clientName = client ? client.businessName : s.clientId;
-      const peopleStr = s.assignments.map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
-      const isOpen = openCardId === s.id;
 
-      let expHtml = '';
-      if (s.expirationDate) {
-        const expDate = new Date(s.expirationDate + 'T12:00:00');
-        const today = new Date(); today.setHours(12,0,0,0);
-        const daysLeft = Math.round((expDate - today) / 86400000);
-        const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
-        const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
-                      (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
-        expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
-      }
 
-      const pendingHtml = s.pendingConfirmCount > 0
-        ? '<span class="rc-badge pending">' + s.pendingConfirmCount + ' pending confirmation</span>'
-        : '';
 
-      return '<div class="rc-card">' +
-        '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
-          '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
-          '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
-          '<div class="rc-right">' +
-            pendingHtml +
-            '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
-            '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
-          '</div>' +
-        '</div>' +
-        (isOpen ? '<div class="rc-body open" id="rc-body-' + s.id + '"><p class="empty-note">Loading…</p></div>' : '') +
-      '</div>';
-    }).join('');
 
-    if (openCardId) loadVisitsInto(openCardId);
-  }
-
-  function toggleContractCard(id) {
-    openCardId = (openCardId === id) ? null : id;
-    loggingFor = null;
-    renderRecurringList();
-  }
-
-  async function loadVisitsInto(id) {
-    const bodyEl = document.getElementById('rc-body-' + id);
-    if (!bodyEl) return;
-    try {
-      const res = await api('/developer-admin', { body: { action: 'list-recurring-visits', email: adminUser.email, recurringServiceId: id } });
-      renderCardBody(id, res.visits || [], res.todayStatus || null, res.todaySentBackReason || '');
-    } catch (e) {
-      bodyEl.innerHTML = '<p class="empty-note">Could not load visits: ' + esc(e.message) + '</p>';
-    }
-  }
-
-  function renderCardBody(id, visits, todayStatus, todaySentBackReason) {
-    const bodyEl = document.getElementById('rc-body-' + id);
-    if (!bodyEl) return;
-    const s = rcServicesCache.find(x => x.id === id);
-    if (!s) return;
-
-    const totalHours = visits.reduce((sum, v) => sum + v.people.reduce((n, p) => n + (Number(p.hours) || 0), 0), 0);
-    const deviatedCount = visits.filter(v => v.deviated).length;
-
-    /* Boton "Completed" -- solo si hoy es un dia programado de este
-       contrato Y todavia no quedo cerrado. Verde = nadie lo ha
-       confirmado; Azul = el campo ya lo marco (Field Confirmed),
-       nomas falta que oficina lo cierre. Mismo patron exacto que
-       markCompleted() en una orden normal.
-
-       Si hoy ya hay una desviacion esperando decision (Pending
-       Review), el boton simple NO se muestra -- antes se confundia
-       con "azul, confia y cierra" cuando en realidad hay algo que
-       la oficina todavia no ha decidido. Se avisa en vez de dejar
-       cerrar a ciegas.
-
-       "Send Back" -- solo aparece junto a Completed cuando el campo
-       ya marco Field Confirmed (azul). No tiene caso ofrecerlo si
-       nadie ha marcado nada (verde) -- no hay nada que devolver. */
-    let completeBtnHtml = '';
-    const scheduledToday = (s.daysOfWeek || '').split(',').map(d => d.trim()).includes(todayDayAbbr());
-    if (scheduledToday && todayStatus === 'pending-review') {
-      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">A change for today is waiting in Review — decide there before this can close.</p>';
-    } else if (scheduledToday && todayStatus === 'sent-back') {
-      completeBtnHtml = '<p style="font-size:12px;color:var(--red);font-style:italic;margin-top:4px">Sent back to the tech today: "' + esc(todaySentBackReason || '') + '" — waiting for them to redo it.</p>';
-    } else if (scheduledToday && todayStatus !== 'completed') {
-      const isFieldConfirmed = todayStatus === 'field-confirmed';
-      completeBtnHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); markTodayComplete(\'' + id + '\')">' +
-          'Completed' + (isFieldConfirmed ? ' ✓ (tech marked done)' : '') + '</button>' +
-        (isFieldConfirmed ? '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Send Back</button>' : '') +
-      '</div>' +
-      (isFieldConfirmed ? '<div id="sendback-box-' + id + '" style="display:none;margin-top:10px">' +
-        '<div class="field-group"><label>Reason (required)</label><input type="text" id="sendback-reason-' + id + '" placeholder="What still needs to be fixed?"></div>' +
-        '<div style="display:flex;gap:8px;margin-top:8px">' +
-          '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation(); confirmSendBack(\'' + id + '\')">Confirm Send Back</button>' +
-          '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleSendBack(\'' + id + '\')">Cancel</button>' +
-        '</div>' +
-      '</div>' : '');
-    }
-
-    /* Opcion A (elegida por el usuario de las 3 que se le mostraron):
-       mismo layout que el detalle de una orden normal -- izquierda
-       datos + acciones, derecha el historial real (GSOrderHistory),
-       en vez de los numeros grandes inventados que habia antes. */
-    const historyEvents = visits.slice().reverse().map(v => {
-      const parts = [];
-      if (v.deviated) {
-        (v.services || []).forEach(sv => parts.push('Added ' + (sv.serviceName || '') + (sv.level ? ' — ' + sv.level : '')));
-        (v.removedNotes || []).forEach(rn => parts.push('Removed ' + (rn.serviceName || '') + (rn.note ? ': ' + rn.note : '')));
-      }
-      if (v.notes) parts.push(v.notes);
-      return { ChangeType: 'Completed', ChangeDate: v.visitDate + 'T12:00:00Z', ChangedBy: v.loggedBy || 'Staff', Notes: parts.join(' | ') };
-    });
-    const historyHtml = historyEvents.length
-      ? GSOrderHistory.html('RC-' + id, historyEvents, { mode: 'staff' })
-      : '<p class="empty-note">No visits logged yet.</p>';
-
-    bodyEl.innerHTML =
-      '<div class="detail-grid">' +
-        '<div>' +
-          '<p class="detail-label">Contract Details</p>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:16px">' +
-            '<div><div class="field-caption">Visits Logged</div><div class="field-value">' + visits.length + '</div></div>' +
-            '<div><div class="field-caption">Deviated Visits</div><div class="field-value">' + deviatedCount + '</div></div>' +
-          '</div>' +
-          '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
-            completeBtnHtml +
-            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); editRecurring(\'' + id + '\')">Edit Contract</button>' +
-            '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); toggleActive(\'' + id + '\', ' + !s.active + ')">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
-            (loggingFor === id ? '' : '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); openLogVisit(\'' + id + '\')">+ Log Visit</button>') +
-          '</div>' +
-          (loggingFor === id ? renderLogVisitPanel(s) : '') +
-        '</div>' +
-        '<div>' +
-          '<p class="detail-label">History</p>' +
-          (loggingFor === id ? '' : historyHtml) +
-        '</div>' +
-      '</div>';
-
-    if (loggingFor === id) mountLvPicker(s);
-  }
-
-  async function markTodayComplete(id) {
-    try {
-      await api('/developer-admin', { body: { action: 'mark-recurring-visit-complete', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), source: 'Office' } });
-      /* BUG REAL encontrado en la revision final: esto cerraba la
-         visita pero nunca actualizaba pendingConfirmCount en
-         rcServicesCache -- el badge "N pending confirmation" del
-         header se quedaba con el numero viejo hasta recargar toda
-         la pagina. Se corrige aqui mismo, sin esperar otro fetch. */
-      const s = rcServicesCache.find(x => x.id === id);
-      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
-      renderRecurringList();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
-  }
-
-  function toggleSendBack(id) {
-    const box = document.getElementById('sendback-box-' + id);
-    if (box) box.style.display = box.style.display === 'block' ? 'none' : 'block';
-  }
-
-  async function confirmSendBack(id) {
-    const input = document.getElementById('sendback-reason-' + id);
-    if (!input || !input.value.trim()) { if (input) input.focus(); return; }
-    try {
-      await api('/developer-admin', { body: { action: 'send-back-recurring-visit', email: adminUser.email, actorName: getActorName(), recurringServiceId: id, visitDate: todayISO(), reason: input.value.trim() } });
-      const s = rcServicesCache.find(x => x.id === id);
-      if (s && s.pendingConfirmCount > 0) s.pendingConfirmCount -= 1;
-      renderRecurringList();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
-  }
 
   /* ===== "+ Log Visit" -- la EXCEPCION (llamada por telefono, etc),
      no el camino normal. Usa el mismo picker compartido real que el
@@ -5707,202 +6029,28 @@ function renderGalleryPanel() {
      contrato; el diff contra ese base se calcula aparte (eso no vive
      en el picker, es logica propia de esta pantalla), y cada servicio
      que ya estaba y se quito pide nota obligatoria antes de guardar. */
-  function openLogVisit(id) {
-    loggingFor = id;
-    lvPeopleRows = [];
-    renderRecurringList();
-  }
-  function closeLogVisit() {
-    loggingFor = null;
-    lvPicker = null;
-    renderRecurringList();
-  }
 
-  function renderLogVisitPanel(s) {
-    if (!lvPeopleRows.length) {
-      lvPeopleRows = s.assignments.length ? s.assignments.map(a => ({ payrollNumber: a.payrollNumber, hours: a.hoursAllocated })) : [{ payrollNumber: '', hours: 8 }];
-    }
 
-    // allTechs (Techs), no employeesCache (FieldEmployees) -- mismo fix que addAssignRow arriba.
-    const empOptions = allTechs.filter(t => t.active !== false && t.payrollId && (t.division.toLowerCase() === 'janitorial' || t.division === 'Mixed'))
-      .map(t => ({ payrollNumber: t.payrollId, name: (t.firstName + ' ' + t.lastName).trim() }));
-    const peopleRowsHtml = lvPeopleRows.map((p, i) =>
-      '<div class="assign-row">' +
-        '<div class="field-group"><label>' + (i === 0 ? 'Employee' : '') + '</label><select onchange="lvSetPerson(' + i + ', this.value)">' +
-          empOptions.map(e => '<option value="' + escAttr(e.payrollNumber) + '"' + (e.payrollNumber === p.payrollNumber ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') +
-        '</select></div>' +
-        '<div class="field-group"><label>' + (i === 0 ? 'Hours' : '') + '</label><input type="number" step="0.5" value="' + p.hours + '" oninput="lvSetPersonHours(' + i + ', this.value)"></div>' +
-        '<button class="remove-assign" onclick="lvRemovePerson(' + i + ')">✕</button>' +
-      '</div>').join('');
 
-    return '<div class="logvisit-panel">' +
-      '<div class="logvisit-title">Log a Visit — ' + esc(clientsCache.find(c => c.clientId === s.clientId)?.businessName || s.clientId) + '</div>' +
-      '<div class="field-row"><div class="field-group"><label>Date</label>' + GSDateTimePicker.dateHtml('lv-date', todayISO()) + '</div><div></div></div>' +
-      '<div class="field-group" style="margin-bottom:8px"><label>Who worked this visit</label></div>' +
-      peopleRowsHtml +
-      '<div class="add-more-link" onclick="lvAddPerson()">+ Add person</div>' +
-      '<div class="field-group" style="margin-bottom:8px"><label>Services done this visit</label></div>' +
-      '<div id="lv-svc-picker-mount"></div>' +
-      '<div id="lv-diff-slot"></div>' +
-      '<div class="field-group" style="margin-top:14px"><label>General note (optional)</label><textarea id="lv-note"></textarea></div>' +
-      '<div class="logvisit-actions">' +
-        '<button class="gs-ofp-btn-primary" onclick="lvSave(\'' + s.id + '\')">Save Visit</button>' +
-        '<button class="gs-ofp-btn-secondary" onclick="closeLogVisit()">Cancel</button>' +
-      '</div>' +
-    '</div>';
-  }
 
   /* Se llama DESPUES de que el HTML de arriba ya este en el DOM real
      -- un <script> metido via innerHTML nunca se ejecuta en el
      navegador, por eso el mount del picker va aparte, no embebido. */
-  function mountLvPicker(s) {
-    const built = buildInitialSelectedFrom(s.servicesJson);
-    lvBaseSelectedKeys = [];
-    Object.values(built.selected).forEach(m => Object.keys(m).forEach(name => lvBaseSelectedKeys.push(name)));
-    lvPicker = GSServicePicker.mount('log-visit', 'lv-svc-picker-mount', {
-      catalog: servicesCache, division: 'Janitorial', mode: 'levels', showSelectAll: false,
-      groupByCategory: true, propertyType: built.firstType || 'Commercial',
-      initialSelected: built.selected, initialLevels: built.levels, initialQuantities: built.qty,
-      onChange: function () { renderLvDiff(); }
-    });
-    renderLvDiff();
-  }
 
-  function lvAddPerson() { lvPeopleRows.push({ payrollNumber: '', hours: 8 }); renderRecurringList(); }
-  function lvRemovePerson(i) { lvPeopleRows.splice(i, 1); renderRecurringList(); }
-  function lvSetPerson(i, val) { lvPeopleRows[i].payrollNumber = val; }
-  function lvSetPersonHours(i, val) { lvPeopleRows[i].hours = Number(val) || 0; }
 
-  function renderLvDiff() {
-    const slot = document.getElementById('lv-diff-slot');
-    if (!slot || !lvPicker) return;
-    const selected = lvPicker.getSelected();
-    const nowNames = new Set();
-    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
-    const baseNames = new Set(lvBaseSelectedKeys);
-    const removed = [...baseNames].filter(n => !nowNames.has(n));
-    const added = [...nowNames].filter(n => !baseNames.has(n));
 
-    if (!removed.length && !added.length) {
-      slot.innerHTML = '<div class="diff-box"><span class="diff-empty">Matches the contract exactly — no changes to note.</span></div>';
-      return;
-    }
-    let html = '<div class="diff-box"><div class="field-group" style="margin-bottom:8px"><label>Difference vs. the contract</label></div>';
-    added.forEach(n => html += '<div class="diff-line added">+ ' + esc(n) + '</div>');
-    removed.forEach((n, i) => {
-      html += '<div class="diff-line removed">− ' + esc(n) + '</div>';
-      html += '<div class="um-note-box">' +
-        '<label>Why was "' + esc(n) + '" skipped this visit? (required)</label>' +
-        '<textarea id="lv-diffnote-' + i + '" data-name="' + escAttr(n) + '" placeholder="e.g. Client had an event, area was inaccessible"></textarea>' +
-        '<p class="um-note-error" id="lv-diffnote-error-' + i + '">Please add a note.</p>' +
-      '</div>';
-    });
-    html += '</div>';
-    slot.innerHTML = html;
-  }
 
-  async function lvSave(id) {
-    if (!lvPicker) return;
-    const selected = lvPicker.getSelected();
-    const levels = lvPicker.getLevels();
-    const qtys = lvPicker.getQuantities();
-    const services = [];
-    Object.keys(selected).forEach(propType => {
-      Object.entries(selected[propType]).forEach(([name, sku]) => {
-        if (!lvBaseSelectedKeys.includes(name)) services.push({ sku, serviceName: name, level: levels[propType + '|' + name] || '', quantity: qtys[propType + '|' + name] || '' });
-      });
-    });
-    const nowNames = new Set();
-    Object.values(selected).forEach(m => Object.keys(m).forEach(n => nowNames.add(n)));
-    const removedNotes = [];
-    let ok = true;
-    lvBaseSelectedKeys.filter(n => !nowNames.has(n)).forEach((n, i) => {
-      const input = document.getElementById('lv-diffnote-' + i);
-      if (!input || !input.value.trim()) {
-        const errEl = document.getElementById('lv-diffnote-error-' + i);
-        if (errEl) errEl.classList.add('show');
-        ok = false;
-        return;
-      }
-      removedNotes.push({ serviceName: n, note: input.value.trim() });
-    });
-    if (!ok) return;
 
-    const people = lvPeopleRows.filter(p => p.payrollNumber).map(p => ({ payrollNumber: p.payrollNumber, hours: p.hours }));
-    const visitDate = document.getElementById('lv-date').value;
-    if (!visitDate) { alert('Pick a date.'); return; }
 
-    try {
-      await api('/developer-admin', {
-        body: {
-          action: 'log-recurring-visit', email: adminUser.email, actorName: getActorName(),
-          recurringServiceId: id, visitDate, people, services, removedNotes,
-          notes: (document.getElementById('lv-note').value || '').trim()
-        }
-      });
-      closeLogVisit();
-      loadVisitsInto(id);
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
-  }
 
-  async function toggleActive(id, active) {
-    try {
-      await api('/developer-admin', { body: { action: 'toggle-recurring-active', email: adminUser.email, recurringServiceId: id, active } });
-      loadRecurringList();
-    } catch (e) {
-      alert('Error: ' + e.message);
-    }
-  }
+
 
   /* Edit reusa el mismo formulario de arriba (cliente, edificio,
      SERVICIOS, dias, hora, horas totales, expiracion, empleados) --
      antes solo dejaba tocar empleado/horas, encontrado como bug
      real: los servicios tambien deben poder editarse. */
-  async function editRecurring(id) {
-    const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
-    const svc = (res.services || []).find(s => s.id === id);
-    if (!svc) return;
 
-    editingServiceId = id;
 
-    document.getElementById('rc-client').value = svc.clientId;
-    document.getElementById('rc-building').value = svc.buildingNumber || '';
-
-    document.getElementById('svc-area').style.display = 'block';
-    document.getElementById('add-services-btn').style.display = 'none';
-    const built = buildInitialSelectedFrom(svc.servicesJson);
-    document.getElementById('rc-svc-legacy-note').style.display = built.hasLegacy ? 'block' : 'none';
-    mountRcPicker(built.selected, built.levels, built.firstType, built.qty);
-
-    const days = (svc.daysOfWeek || '').split(',');
-    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
-      p.classList.toggle('active', days.includes(p.dataset.day));
-    });
-    mountRcDateTimeFields(svc.time, svc.expirationDate);
-    document.getElementById('rc-total-hours').value = svc.totalHours || 8;
-
-    document.getElementById('assign-rows').innerHTML = '';
-    (svc.assignments.length ? svc.assignments : [{}]).forEach(a => addAssignRow(a.payrollNumber, a.hoursAllocated));
-
-    document.getElementById('save-recurring-btn').textContent = 'Save Changes';
-    document.getElementById('cancel-edit-btn').style.display = 'inline-block';
-    document.querySelector('.wrap').scrollIntoView({ behavior: 'smooth' });
-  }
-
-  function cancelEdit() {
-    editingServiceId = null;
-    document.getElementById('rc-client').value = '';
-    document.getElementById('rc-building').value = '';
-    document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
-    document.getElementById('assign-rows').innerHTML = '';
-    mountRcPicker();
-    mountRcDateTimeFields();
-    document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
-    document.getElementById('cancel-edit-btn').style.display = 'none';
-    addAssignRow();
-  }
 
 
 /* ============================================================
@@ -10889,6 +11037,26 @@ let pendingDirectLinkOrderId = null;
     if (tab === 'calendar') loadCalendar();
     if (tab === 'review') loadReview();
     if (tab === 'routing') loadRouting();
+    if (tab === 'recurring') { loadInitialData(); loadGeneratedRecurringOrders(); }
+  }
+
+  /* "Generated Orders" -- las ordenes reales que el motor (Fase 1) ya
+     genero para cada contrato, dentro del colchon de 30 dias. Reusa
+     orderCard() (misma pieza que Active/History/QuickBooks) con el
+     contexto 'recurring-generated' -- editable de verdad, y una
+     edicion aqui manda por Review igual que cualquier otra orden
+     (confirmado: admin-update-order.js ya acepta 'Recurring
+     Scheduled' via requestOnly). Ordenadas por fecha, la mas proxima
+     primero. */
+  function loadGeneratedRecurringOrders() {
+    const box = document.getElementById('recurring-generated-list');
+    if (!box) return;
+    const list = (allOrders || [])
+      .filter(o => o.RecurringServiceID)
+      .sort((a, b) => String(a.DispatchDate || '').localeCompare(String(b.DispatchDate || '')));
+    box.innerHTML = list.length
+      ? list.map(o => orderCard(o, 'recurring-generated')).join('')
+      : '<p class="empty-note">No generated orders yet — create a contract above.</p>';
   }
 
   /* ===== Hours ===== */
