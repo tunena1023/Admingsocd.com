@@ -703,9 +703,23 @@ exports.handler = async (event) => {
        de la empresa, desaparecio del ultimo Employee Report) --
        nadie va a ir a hacer ese trabajo si nadie se da cuenta. */
     if (action === 'list-orphaned-assignments') {
-      const [scheduling, employees] = await Promise.all([
+      /* BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+         dueño: "hice pruebas de punta a punta y jamas aparece nada"):
+         antes esto SOLO revisaba FieldEmployees para saber quien esta
+         inactivo -- mismo patron de bug que ya se habia corregido en
+         otra parte de la app (el calendario viejo, borrado hoy):
+         Contractors y sobre todo Mixed casi siempre viven en Techs,
+         NO en FieldEmployees. Si el tecnico asignado a una orden se
+         daba de baja y su registro estaba en Techs, esta funcion
+         nunca lo detectaba como inactivo -- la orden se quedaba
+         huerfana de verdad, pero esta pantalla jamas la mostraba.
+         Ahora se revisan LAS 2 listas -- OJO: el campo del numero de
+         nomina se llama distinto en cada una (PayrollNumber en
+         FieldEmployees, PayrollID en Techs). */
+      const [scheduling, employees, techs] = await Promise.all([
         fetchAll(SCHEDULING_LIST),
-        fetchAll(FIELD_EMPLOYEES_LIST)
+        fetchAll(FIELD_EMPLOYEES_LIST),
+        fetchAll(TECHS_LIST)
       ]);
 
       const inactiveByPayroll = {};
@@ -714,6 +728,18 @@ exports.handler = async (event) => {
         const pn = String(it.fields.PayrollNumber || '').trim();
         if (!pn) return;
         if (!truthy(it.fields.Active)) {
+          inactiveByPayroll[pn] = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
+        }
+      });
+      techs.forEach(it => {
+        if (!it.fields) return;
+        const pn = String(it.fields.PayrollID || '').trim();
+        if (!pn || inactiveByPayroll[pn]) return; // ya lo tenemos de FieldEmployees, no pisar
+        /* Active en Techs viene undefined para los mas viejos (antes
+           de que el campo existiera) -- mismo criterio ya usado en
+           list-techs: undefined cuenta como activo, no inactivo. */
+        const isActive = it.fields.Active === undefined ? true : truthy(it.fields.Active);
+        if (!isActive) {
           inactiveByPayroll[pn] = (String(it.fields.FirstName || '').trim() + ' ' + String(it.fields.LastName || '').trim()).trim();
         }
       });
