@@ -2115,9 +2115,15 @@ async function renderQuickBooksPanel() {
       box.innerHTML = '<p class="empty-note">No orders to show.</p>';
       return;
     }
+    /* orderCard(o, 'quickbooks', {imported}) -- misma pieza que ya
+       usan Active/History, para que la tarjeta se pueda desplegar y
+       ver el detalle completo + imprimir, igual que en esos tabs (a
+       peticion del dueno, 19/09/2026). El 3er argumento le agrega el
+       checkbox de seleccion (o el badge "Imported" si ya se mando),
+       sin tocar el comportamiento de los demas usos de orderCard. */
     box.innerHTML =
-      '<div id="qb-order-list">' +
-      eligible.map(o => qbOrderCardHtml(o, imported[o.OrderID])).join('') +
+      '<div id="quickbooks-list">' +
+      eligible.map(o => orderCard(o, 'quickbooks', { imported: imported[o.OrderID] })).join('') +
       '</div>' +
       '<div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:14px 0;margin-top:16px;display:flex;justify-content:flex-end;gap:10px">' +
       '<span id="qb-selected-count" style="align-self:center;font-size:12px;color:var(--gray)">0 selected</span>' +
@@ -2126,27 +2132,6 @@ async function renderQuickBooksPanel() {
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
   }
-}
-
-function qbOrderCardHtml(o, importedInfo) {
-  const svcCount = (o.ServicesDetailed || []).length;
-  if (importedInfo) {
-    return '<div class="order-card" style="opacity:.7">' +
-      '<div class="order-card-header" style="cursor:default">' +
-      '<div><div class="order-num">' + esc(o.OrderID) + '<span class="order-pin"></span></div>' +
-      '<div class="order-date">' + esc(o.BusinessName) + ' · ' + svcCount + ' service' + (svcCount === 1 ? '' : 's') + '</div></div>' +
-      '<span class="badge" style="background:#EEF9F0;color:#2A7A4A">Imported' + (importedInfo.docNumber ? ' — ' + esc(importedInfo.docNumber) : '') + '</span>' +
-      '</div></div>';
-  }
-  return '<div class="order-card">' +
-    '<div class="order-card-header" style="cursor:default">' +
-    '<label style="display:flex;align-items:center;gap:12px;cursor:pointer;flex:1">' +
-    '<input type="checkbox" onchange="toggleQbOrder(\'' + escAttr(o.OrderID) + '\', this.checked)" style="width:18px;height:18px">' +
-    '<div><div class="order-num">' + esc(o.OrderID) + '</div>' +
-    '<div class="order-date">' + esc(o.BusinessName) + ' · ' + svcCount + ' service' + (svcCount === 1 ? '' : 's') + '</div></div>' +
-    '</label>' +
-    '<span class="badge">' + esc(o.Division) + '</span>' +
-    '</div></div>';
 }
 
 function toggleQbOrder(orderId, checked) {
@@ -7806,16 +7791,28 @@ function openGalleryForOrder(orderId) {
   renderGalleryPanel();
 }
 
-function orderCard(o, context) {
+function orderCard(o, context, qbInfo) {
   const id = 'order-' + context + '-' + o.OrderID.replace(/[^a-z0-9]/gi,'_');
-  return `
-    <div class="order-card" data-order-id="${esc(o.OrderID)}">
-      <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
-        <div>
+  /* qbInfo (opcional, solo lo manda el panel de QuickBooks): checkbox
+     de seleccion, o un badge "Imported" si esa orden ya se mando como
+     Estimate. Envuelto junto con el bloque de info en un sub-flex
+     para que siga contando como UN solo elemento del lado izquierdo
+     del header (que usa justify-content:space-between contra el
+     status-badge de la derecha) -- si se agrega el checkbox como
+     hermano suelto, el space-between lo separa raro. */
+  const qbSelector = !qbInfo ? '' :
+    qbInfo.imported
+      ? '<span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">Imported' + (qbInfo.imported.docNumber ? ' — ' + esc(qbInfo.imported.docNumber) : '') + '</span>'
+      : '<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleQbOrder(\'' + escAttr(o.OrderID) + '\', this.checked)" ' + (qbSelected.has(o.OrderID) ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0">';
+  const infoBlock = `<div>
           <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDateTime(o.createdDateTime)}</div>
           ${orderPhotoStripHtml(o.OrderID)}
-        </div>
+        </div>`;
+  return `
+    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+      <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
+        ${qbInfo ? `<div style="display:flex;align-items:center;gap:12px">${qbSelector}${infoBlock}</div>` : infoBlock}
         <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
       </div>
       <div class="order-body" id="${id}"></div>
