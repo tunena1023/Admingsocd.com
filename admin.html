@@ -8378,9 +8378,14 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
       </div>
       <div class="eo-status-actions">
         ${printOrderHtml}
-        ${displayStatus(o) === 'Working'
-          ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`
-          : ''}
+        <!-- TEMPORAL (19/09/2026, a peticion del dueno "para hacer pruebas"):
+             antes solo salia si displayStatus(o) === 'Working'. Se
+             quito ese condicionamiento para que el boton siempre se
+             vea, sin importar el estatus real -- avisar cuando el
+             dueno diga que ya termino de probar, para regresarlo a
+             la regla original (evita marcar Completed antes de que
+             arranque el servicio). -->
+        <button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>
         <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
       </div>
     </div>` : '';
