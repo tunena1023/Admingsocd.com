@@ -9504,9 +9504,22 @@ function toggleActiveEdit(id) {
 }
 
 /* Marcar Completed es directo, sin aprobacion: la orden puede terminar
-   antes de la fecha de despacho seleccionada. Pide el tecnico que
-   realizo el servicio y la fecha en que se completo -- se guardan en
-   las columnas Technician / CompletedDate de la lista Orders.
+   antes de la fecha de despacho seleccionada. Technician / CompletedDate
+   (columnas reales de Orders, las mismas que arma el encabezado
+   "Completed by / Completed on" del PDF) ya NO se preguntan con un
+   prompt -- se toman directo de lo que de verdad paso en el flujo: el
+   tecnico ya asignado (Supervisor) y la fecha real de hoy. CORREGIDO
+   (20/09/2026, reportado por el dueño): los 2 prompts, lejos de
+   ayudar, estorbaban -- dejaban escribir cualquier cosa a mano que
+   podia no coincidir con lo que de verdad paso (o de plano
+   sobreescribirlo). No hace falta cubrir el caso de Supervisor vacio:
+   el boton Completed solo aparece en el contexto Active
+   (ACTIVE_STATUSES = ['Assigned','Updated']), y el backend ya exige
+   Supervisor/ventana/fecha llenos antes de dejar pasar una orden a
+   'Assigned' (ver admin-approve-order.js, bloque isNew+decision
+   'approve') -- 'Updated' nunca se escribe como Status real en
+   ningun lado. No hay forma de llegar a este boton sin tecnico
+   asignado.
 
    Si el editor de Active estuvo abierto y el admin marco algun servicio
    como "no completado", eso se manda junto con el cierre, DIRECTO (sin
@@ -9515,23 +9528,12 @@ function toggleActiveEdit(id) {
    (como pasaba antes) dejaria a SharePoint pensando que todo se hizo. */
 async function markCompleted(orderId) {
   const o = allOrders.find(x => x.OrderID === orderId) || {};
-  const technician = window.prompt('Technician who completed the order:', o.Technician || '');
-  if (technician === null) return;
-  if (!technician.trim()) {
-    showToast('Technician name is required.');
-    return;
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  const completedDate = window.prompt('Completion date (YYYY-MM-DD):', today);
-  if (completedDate === null) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(completedDate.trim())) {
-    showToast('Enter the date as YYYY-MM-DD.');
-    return;
-  }
+  const technician = String(o.Supervisor || '').trim();
+  const completedDate = new Date().toISOString().slice(0, 10);
   const services = buildServicesPayload(orderId);
   const body = {
     orderId, status: 'Completed', changedBy: getActorName(),
-    technician: technician.trim(), completedDate: completedDate.trim()
+    technician: technician, completedDate: completedDate
   };
   if (services) body.services = services;
   try {
