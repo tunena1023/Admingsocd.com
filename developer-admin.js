@@ -1754,7 +1754,8 @@ exports.handler = async (event) => {
     }
 
     /* Historial de visitas de UN contrato -- usado por la tarjeta en
-       recurring.html al expandirla. Solo trae Status=Completed (el
+       Schedule > Recurring (admin.html) al expandirla. Solo trae
+       Status=Completed (el
        historial real); Pending Review vive en la cola de Review,
        Field Confirmed y Rejected no son historial todavia/nunca --
        se reflejan aparte via todayStatus, mas abajo. */
