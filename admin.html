@@ -955,7 +955,8 @@
 
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.29.8/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
@@ -3058,11 +3059,20 @@ function newOrderApprovalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
-          <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDateTime(o.createdDateTime)}</div>
+          ${GSOrderCardHeader.html({
+            name: o.BusinessName || o.ClientID,
+            orderId: o.OrderID,
+            division: o.Division,
+            unitNumber: o.UnitNumber,
+            bedrooms: o.Bedrooms,
+            bathrooms: o.Bathrooms,
+            extraLine: 'submitted ' + fmtDateTime(o.createdDateTime)
+          })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
+          <span class="order-pin"></span>
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password"></span>
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
@@ -3260,11 +3270,20 @@ function approvalCard(o) {
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
-          <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · submitted ${fmtDateTime(o.createdDateTime)}</div>
+          ${GSOrderCardHeader.html({
+            name: o.BusinessName || o.ClientID,
+            orderId: o.OrderID,
+            division: o.Division,
+            unitNumber: o.UnitNumber,
+            bedrooms: o.Bedrooms,
+            bathrooms: o.Bathrooms,
+            extraLine: 'submitted ' + fmtDateTime(o.createdDateTime)
+          })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
+          <span class="order-pin"></span>
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
