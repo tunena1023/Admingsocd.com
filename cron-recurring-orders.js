@@ -13,14 +13,22 @@
    que nadie mas pueda disparar esto solo conociendo la URL. Requiere
    la variable de entorno CRON_SECRET en Vercel (mismo valor que se le
    da de alta al proyecto).
+
+   Tambien acepta ?secret=<CRON_SECRET> como query param -- SOLO para
+   poder dispararlo a mano desde el navegador durante pruebas (un GET
+   normal no puede mandar el header de Authorization). Mismo secreto,
+   nada mas cambia por donde llega.
 ============================================================ */
 const { jsonResponse } = require('./lib/graph');
 const { ensureRecurringOrders, promoteDueRecurringOrders } = require('./lib/recurring-orders');
 
 exports.handler = async (event) => {
   const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
-  const expected = 'Bearer ' + (process.env.CRON_SECRET || '');
-  if (!process.env.CRON_SECRET || auth !== expected) {
+  const qsSecret = (event.queryStringParameters || {}).secret || '';
+  const expected = process.env.CRON_SECRET || '';
+  const authOk = !!expected && auth === 'Bearer ' + expected;
+  const qsOk = !!expected && qsSecret === expected;
+  if (!authOk && !qsOk) {
     return jsonResponse(401, { error: 'Unauthorized' });
   }
 
