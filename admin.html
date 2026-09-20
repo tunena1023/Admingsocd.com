@@ -163,6 +163,7 @@
     .status-cancel     { background: #f8d7da; color: #721c24; }
     .status-updated    { background: #efe3c4; color: #6b5518; }
     .status-delayed    { background: #ffe0cc; color: #8a4b0f; }
+    .status-recurring  { background: #EEF4FF; color: #2A5AC9; }
 
     /* APPROVALS */
     .tab-count {
@@ -2879,6 +2880,9 @@ function approvalKind(o) {
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
   if (s === 'Change Requested') return { label: 'Change Request', cls: 'status-updated' };
   if (s === 'Cancelled') return { label: 'Cancelled — pending archive', cls: 'status-cancel' };
+  /* Visita recurrente, ya asignada desde su contrato -- se distingue
+     de una orden nueva normal (Fase 3, 19/09/2026). */
+  if (o.RecurringServiceID) return { label: 'Recurring Visit', cls: 'status-recurring' };
   return { label: 'New Order', cls: 'status-pending' };
 }
 
@@ -3326,6 +3330,7 @@ async function loadApprovalDetail(o) {
     const data = await api('/get-order-detail', { body: { orderId: o.OrderID } });
     const history = data.history || [];
     box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
+    if ((data.order || {}).RecurringServiceID) mountRecurringApprovalPicker(o.OrderID);
     if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
     if (badgeBox) badgeBox.innerHTML = passwordNeeded(o, history) ? passwordBadgeHtml() : '';
   } catch (e) {
@@ -3364,6 +3369,13 @@ async function printRequestDocument(orderId, btnEl) {
 function decisionAreaHtmlInner(o, history) {
   const dom = apprDomId(o.OrderID);
   const status = o.Status || '';
+
+  if (o.RecurringServiceID) {
+    return `<div class="appr-bar">
+      <button class="gs-ofp-btn-primary" onclick="confirmRecurringVisit('${esc(o.OrderID)}')">Confirm &amp; Move to Active</button>
+    </div>
+    <p class="appr-hint">Confirming moves this visit to Active with whoever is selected above.</p>`;
+  }
 
   if (status === 'Cancelled') {
     return `<div class="appr-bar">
@@ -3587,7 +3599,141 @@ async function reactivateOrder(orderId) {
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
+/* Visita recurrente (Fase 3, 19/09/2026): ya nace con Supervisor/
+   Fecha/Ventana puestos del contrato -- no tiene sentido el
+   formulario completo de "New Order" (pediria llenar eso desde cero).
+   En su lugar: confirmar a la persona designada o reasignar, ver/
+   agregar servicios (mismo picker real que ya usa Approvals para
+   Janitorial), y el historial de siempre. */
+function recurringApprovalDetailHtml(o, services, history) {
+  const dom = apprDomId(o.OrderID);
+  /* Forma real de GSServicePicker.getSelected()/initialSelected:
+     { propertyType: { nombreServicio: sku } } -- PLANO, sin anidar
+     por categoria (a diferencia de buildServicesPayload(), que es el
+     formato local de admin.html para OTRO flujo). Todo aqui es
+     Janitorial de todos modos, asi que Category se pone fijo al
+     armar el payload de vuelta, no hace falta guardarlo aparte. */
+  const svcSel = {};
+  (services || []).forEach(s => { svcSel[s.ServiceName] = s.SubOption; });
+  const svcLevels = {};
+  (services || []).forEach(s => { if (s.Level) svcLevels[ncKey('Janitorial', s.ServiceName)] = s.Level; });
+  window['apprSvc_' + o.OrderID] = { Commercial: svcSel };
+  window['apprLevel_' + o.OrderID] = svcLevels;
+
+  const historyHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff' });
+
+  return `
+    <div class="appr-section" style="padding-top:18px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:20px">
+        <div><div class="field-caption">Service date</div><div class="field-value">${fmtDate(o.DispatchDate)}${o.ServiceWindow ? ' · ' + esc(o.ServiceWindow) : ''}</div></div>
+        <div><div class="field-caption">Building</div><div class="field-value">${o.BuildingNumber ? esc(o.BuildingNumber) : '—'}</div></div>
+      </div>
+
+      <p class="detail-label" style="margin-bottom:10px">Who's doing this visit?</p>
+      <div class="rc-appr-choice selected" id="rc-appr-keep-${dom}" onclick="rcApprPick('${esc(o.OrderID)}','keep')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--white);margin-bottom:10px">
+        <div class="rc-appr-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid var(--gold);flex-shrink:0;display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div></div>
+        <div style="font-size:13.5px">Keep ${esc(o.Supervisor || '(no one designated)')}, as scheduled</div>
+      </div>
+      <div class="rc-appr-choice" id="rc-appr-reassign-${dom}" onclick="rcApprPick('${esc(o.OrderID)}','reassign')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--white);margin-bottom:10px">
+        <div class="rc-appr-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid var(--gray);flex-shrink:0"></div>
+        <div style="font-size:13.5px">Reassign to someone else</div>
+      </div>
+      <div id="rc-appr-select-${dom}" style="display:none;margin-bottom:6px">
+        <select id="rc-appr-tech-${dom}">${bypassSupervisorOptionsHtml(o.Division || 'Janitorial')}</select>
+      </div>
+    </div>
+
+    <div class="appr-section">
+      <p class="detail-label">Services</p>
+      <p class="meta-line" style="margin:-4px 0 10px">Already includes what the contract covers. Search to add anything extra for this visit.</p>
+      <div id="rc-appr-picker-${dom}"></div>
+    </div>
+
+    <div class="appr-section">
+      <p class="detail-label">History</p>
+      ${historyHtml}
+    </div>`;
+}
+
+/* Junta lo elegido en el picker de vuelta a un arreglo plano -- todo
+   es Janitorial aqui, asi que Category se pone fijo (no hace falta
+   guardarlo aparte, ver nota en recurringApprovalDetailHtml). */
+function buildRecurringServicesPayload(orderId) {
+  const sel = (window['apprSvc_' + orderId] || {}).Commercial || {};
+  const levelState = window['apprLevel_' + orderId] || {};
+  return Object.entries(sel).map(([svcName, subOption]) => ({
+    Category: 'Janitorial',
+    ServiceName: svcName,
+    SubOption: subOption,
+    Division: 'Janitorial',
+    Level: levelState[ncKey('Janitorial', svcName)] || ''
+  }));
+}
+
+async function confirmRecurringVisit(orderId) {
+  const dom = apprDomId(orderId);
+  const choice = window['rcApprChoice_' + orderId] || 'keep';
+  let newSupervisor = '';
+  if (choice === 'reassign') {
+    const sel = document.getElementById('rc-appr-tech-' + dom);
+    newSupervisor = sel ? sel.value : '';
+    if (!newSupervisor) { showToast('Choose who this visit gets reassigned to.'); return; }
+  }
+  const services = buildRecurringServicesPayload(orderId);
+  try {
+    await api('/admin-approve-order', {
+      body: {
+        orderId, decision: 'confirm-recurring', approvedBy: getActorName(),
+        newSupervisor: newSupervisor || undefined,
+        services
+      }
+    });
+    showToast('Order ' + orderId + ' moved to Active.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+function rcApprPick(orderId, which) {
+  const dom = apprDomId(orderId);
+  const keepEl = document.getElementById('rc-appr-keep-' + dom);
+  const reassignEl = document.getElementById('rc-appr-reassign-' + dom);
+  const selectBox = document.getElementById('rc-appr-select-' + dom);
+  keepEl.classList.toggle('selected', which === 'keep');
+  reassignEl.classList.toggle('selected', which === 'reassign');
+  keepEl.querySelector('.rc-appr-dot').style.borderColor = which === 'keep' ? 'var(--gold)' : 'var(--gray)';
+  keepEl.querySelector('.rc-appr-dot').innerHTML = which === 'keep' ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div>' : '';
+  reassignEl.querySelector('.rc-appr-dot').style.borderColor = which === 'reassign' ? 'var(--gold)' : 'var(--gray)';
+  reassignEl.querySelector('.rc-appr-dot').innerHTML = which === 'reassign' ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div>' : '';
+  selectBox.style.display = which === 'reassign' ? 'block' : 'none';
+  window['rcApprChoice_' + orderId] = which;
+}
+
+/* Mismo montaje real que ya usa Approvals para Janitorial (linea
+   ~4025): activeCatalogCache, mode 'levels', groupByCategory true --
+   copiado tal cual, no una reconstruccion. */
+function mountRecurringApprovalPicker(orderId) {
+  const dom = apprDomId(orderId);
+  GSServicePicker.mount('rc-appr-' + orderId, 'rc-appr-picker-' + dom, {
+    catalog: activeCatalogCache || [],
+    division: 'Janitorial',
+    mode: 'levels',
+    showSelectAll: true,
+    groupByCategory: true,
+    propertyType: 'Commercial',
+    showPropertyToggle: false,
+    initialSelected: (window['apprSvc_' + orderId] || {}),
+    initialLevels: (window['apprLevel_' + orderId] || {}),
+    onChange: function (sel, lvl) {
+      window['apprSvc_' + orderId] = sel;
+      window['apprLevel_' + orderId] = lvl;
+    }
+  });
+}
+
 function approvalDetailHtml(card, o, services, history) {
+  if (o.RecurringServiceID) return recurringApprovalDetailHtml(o, services, history);
   const kind = approvalKind(card);
   const dom = apprDomId(card.OrderID);
   /* Los servicios solo se pueden editar/quitar aqui para una orden nueva
