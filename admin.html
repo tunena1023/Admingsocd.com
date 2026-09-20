@@ -2895,20 +2895,32 @@ function closeOtherApprCards(context, exceptOrderId) {
   });
 }
 
+/* BUG REAL arreglado (19/09/2026, reportado por el dueño: "una no
+   cerró, pero las otras sí"): un clic sencillo sobre una tarjeta
+   FIJADA (doble clic) se ignoraba por completo -- se sentia como que
+   la tarjeta se quedaba "trabada" sin cerrar, sobre todo si el dueño
+   no se fijaba en el candadito. Modelo correcto: doble clic FIJA y
+   abre (se queda abierta aunque se abran otras); un clic sencillo
+   SIEMPRE puede cerrar la que este abierta, fijada o no -- y de paso
+   la desfija (si ya esta cerrada, fijarla no tendria sentido). */
 function toggleApprCard(orderId, context, headerEl) {
   const body = headerEl.nextElementSibling;
   if (!body) return;
   const st = cardOpenState(context);
-  if (st.pinned[orderId]) return; // fijada: solo el doble clic la mueve
 
   const isOpen = body.style.display !== 'none';
   if (isOpen) {
     body.style.display = 'none';
     if (st.open === orderId) st.open = null;
+    if (st.pinned[orderId]) {
+      delete st.pinned[orderId];
+      const pinEl = headerEl.querySelector('.order-pin');
+      if (pinEl) pinEl.innerHTML = '';
+    }
     return;
   }
 
-  closeOtherApprCards(context, orderId);
+  if (!st.pinned[orderId]) closeOtherApprCards(context, orderId);
   body.style.display = '';
   st.open = orderId;
 }
@@ -4167,11 +4179,18 @@ function renderMaterialsReadyReview() {
       <div class="order-card">
         <div class="order-card-header" style="align-items:center">
           <div>
-            <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)}${o.EntryTime ? ' · Ready — ' + esc(o.EntryTime) : ' · Ready'}</div>
+            ${GSOrderCardHeader.html({
+              name: o.BusinessName || o.ClientID,
+              orderId: o.OrderID,
+              division: o.Division,
+              unitNumber: o.UnitNumber,
+              bedrooms: o.Bedrooms,
+              bathrooms: o.Bathrooms,
+              extraLine: o.EntryTime ? 'Ready — ' + o.EntryTime : 'Ready'
+            })}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
-          <button class="gs-ofp-btn-primary" style="border-radius:20px" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
+          <button class="gs-ofp-btn-primary" style="border-radius:20px;flex-shrink:0" onclick="markMaterialsSeen('${esc(o.OrderID)}')">Mark as Seen</button>
         </div>
       </div>`).join('')
     : '<p class="empty-note">Nothing pending.</p>';
@@ -4502,10 +4521,9 @@ function toggleBatchCard(groupOrderId, context) {
   const body = document.getElementById(id);
   if (!body) return;
   const st = cardOpenState(context);
-  if (st.pinned[groupOrderId]) return;
   const isOpen = body.classList.contains('open');
-  if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; return; }
-  closeOtherCards(context, groupOrderId);
+  if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; delete st.pinned[groupOrderId]; return; }
+  if (!st.pinned[groupOrderId]) closeOtherCards(context, groupOrderId);
   body.classList.add('open');
   st.open = groupOrderId;
 }
@@ -7843,15 +7861,28 @@ function orderCard(o, context, qbInfo) {
       ? '<span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">Imported' + (qbInfo.imported.docNumber ? ' — ' + esc(qbInfo.imported.docNumber) : '') + '</span>'
       : '<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleQbOrder(\'' + escAttr(o.OrderID) + '\', this.checked)" ' + (qbSelected.has(o.OrderID) ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0">';
   const infoBlock = `<div>
-          <div class="order-id">#${esc(o.OrderID)}${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}<span class="order-pin"></span></div>
-          <div class="order-meta">${esc(o.BusinessName||o.ClientID)} · ${esc(o.Division||'')} · ${fmtDateTime(o.createdDateTime)}</div>
+          ${GSOrderCardHeader.html({
+            name: o.BusinessName || o.ClientID,
+            orderId: o.OrderID,
+            division: o.Division,
+            unitNumber: o.UnitNumber,
+            bedrooms: o.Bedrooms,
+            bathrooms: o.Bathrooms,
+            supervisor: o.Supervisor,
+            completedDateText: o.CompletedDate ? fmtDateTime(o.CompletedDate) : '',
+            extraLine: 'Created ' + fmtDateTime(o.createdDateTime)
+          })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>`;
   return `
     <div class="order-card" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         ${qbInfo ? `<div style="display:flex;align-items:center;gap:12px">${qbSelector}${infoBlock}</div>` : infoBlock}
-        <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
+          <span class="order-pin"></span>
+          <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
+        </div>
       </div>
       <div class="order-body" id="${id}"></div>
     </div>`;
@@ -7905,21 +7936,29 @@ async function loadOrderBody(orderId, context, body) {
   }
 }
 
-async function toggleOrder(orderId, context) {
+/* BUG REAL arreglado (19/09/2026, mismo reporte del dueño que en
+   Approvals/Review): un clic sencillo se ignoraba por completo si la
+   tarjeta estaba fijada -- se sentia trabada. Un clic sencillo ahora
+   SIEMPRE puede cerrar (y desfijar) la que este abierta. */
+async function toggleOrder(orderId, context, headerEl) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
   if (!body) return;
   const st = cardOpenState(context);
-  if (st.pinned[orderId]) return; // fijada: solo el doble clic la mueve
 
   const isOpen = body.classList.contains('open');
   if (isOpen) {
     body.classList.remove('open');
     if (st.open === orderId) st.open = null;
+    if (st.pinned[orderId]) {
+      delete st.pinned[orderId];
+      const pinEl = headerEl && headerEl.querySelector('.order-pin');
+      if (pinEl) pinEl.innerHTML = '';
+    }
     return;
   }
 
-  closeOtherCards(context, orderId);
+  if (!st.pinned[orderId]) closeOtherCards(context, orderId);
   body.classList.add('open');
   st.open = orderId;
   await loadOrderBody(orderId, context, body);
@@ -9494,7 +9533,7 @@ function clientCard(c) {
   const cid = 'client-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');
   return `
     <div class="order-card" data-client-id="${esc(c.clientId)}">
-      <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}')" ondblclick="pinClientCard('${esc(c.clientId)}',this)">
+      <div class="order-card-header" onclick="toggleClientCard('${esc(c.clientId)}',this)" ondblclick="pinClientCard('${esc(c.clientId)}',this)">
         <div>
           <div class="order-id">${esc(c.businessName)}${GSOrderBadges.nowOpen({ NowOpenStatus: c.nowOpenStatus })}<span class="order-pin"></span></div>
           <div class="order-meta">${esc(c.clientId)} · ${esc(c.contactPerson||'—')}</div>
@@ -9533,21 +9572,27 @@ function closeOtherClientCards(exceptClientId) {
   });
 }
 
-function toggleClientCard(clientId) {
+/* Mismo fix (19/09/2026) que Approvals/Review/Active/History: un
+   clic sencillo siempre puede cerrar (y desfijar) la que este abierta. */
+function toggleClientCard(clientId, headerEl) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(cid + '-body');
   if (!body) return;
   const st = clientCardOpenState();
-  if (st.pinned[clientId]) return; // fijada: solo el doble clic la mueve
 
   const isOpen = body.classList.contains('open');
   if (isOpen) {
     body.classList.remove('open');
     if (st.open === clientId) st.open = null;
+    if (st.pinned[clientId]) {
+      delete st.pinned[clientId];
+      const pinEl = headerEl && headerEl.querySelector('.order-pin');
+      if (pinEl) pinEl.innerHTML = '';
+    }
     return;
   }
 
-  closeOtherClientCards(clientId);
+  if (!st.pinned[clientId]) closeOtherClientCards(clientId);
   body.classList.add('open');
   st.open = clientId;
   renderClientAddrList(clientId);
@@ -10286,12 +10331,11 @@ function toggleCreateCard(clientId) {
   const body = document.getElementById(cid + '-body');
   if (!body) return;
   const st = createCardOpenState();
-  if (st.pinned[clientId]) return;
 
   const isOpen = body.classList.contains('open');
-  if (isOpen) { body.classList.remove('open'); if (st.open === clientId) st.open = null; return; }
+  if (isOpen) { body.classList.remove('open'); if (st.open === clientId) st.open = null; delete st.pinned[clientId]; return; }
 
-  closeOtherCreateCards(clientId);
+  if (!st.pinned[clientId]) closeOtherCreateCards(clientId);
   body.classList.add('open');
   st.open = clientId;
 }
@@ -11040,11 +11084,18 @@ let pendingDirectLinkOrderId = null;
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
           <div>
-            <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · ${waitLabel}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
+            ${GSOrderCardHeader.html({
+              name: o.BusinessName || o.ClientID,
+              orderId: o.OrderID,
+              division: o.Division,
+              unitNumber: o.UnitNumber,
+              bedrooms: o.Bedrooms,
+              bathrooms: o.Bathrooms,
+              extraLine: waitLabel + (o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : '')
+            })}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
-          <span style="font-size:11px;color:var(--gray)">▾</span>
+          <span style="font-size:11px;color:var(--gray);flex-shrink:0">▾</span>
         </div>
         <div class="order-body" id="order-body-${escAttr(o.OrderID)}"></div>
       </div>`;
@@ -11055,11 +11106,19 @@ let pendingDirectLinkOrderId = null;
       <div class="order-card" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header">
           <div>
-            <div class="order-id">#${esc(o.OrderID)}</div>
-            <div class="order-meta">${esc(o.BusinessName || o.ClientID)} · ${esc(o.Division || '')} · assigned to: ${esc(o.Supervisor || '—')}${o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : ''}</div>
+            ${GSOrderCardHeader.html({
+              name: o.BusinessName || o.ClientID,
+              orderId: o.OrderID,
+              division: o.Division,
+              unitNumber: o.UnitNumber,
+              bedrooms: o.Bedrooms,
+              bathrooms: o.Bathrooms,
+              supervisor: o.Supervisor,
+              extraLine: o.createdDateTime ? 'Created ' + fmtDateTime(o.createdDateTime) : ''
+            })}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
-          <button class="gs-ofp-btn-secondary" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
+          <button class="gs-ofp-btn-secondary" style="flex-shrink:0" onclick="event.stopPropagation(); rescheduleOrder('${escAttr(o.OrderID)}')">Reschedule</button>
         </div>
       </div>`;
   }
@@ -11458,11 +11517,18 @@ let pendingDirectLinkOrderId = null;
           <div class="order-card">
             <div class="order-card-header">
               <div>
-                <div class="order-id">#${esc(r.orderId)}</div>
-                <div class="order-meta">${esc(o.BusinessName || o.ClientID || '')} · ${esc(r.division)} · assigned to <b>${esc(r.employeeName)}</b> (now inactive) · ${fmtDateShort(r.assignedDate)}</div>
+                ${GSOrderCardHeader.html({
+                  name: o.BusinessName || o.ClientID || '',
+                  orderId: r.orderId,
+                  division: r.division,
+                  unitNumber: o.UnitNumber,
+                  bedrooms: o.Bedrooms,
+                  bathrooms: o.Bathrooms,
+                  extraLine: 'Assigned to ' + r.employeeName + ' (now inactive) · ' + fmtDateShort(r.assignedDate)
+                })}
                 ${orderPhotoStripHtml(r.orderId)}
               </div>
-              <button class="gs-ofp-btn-secondary" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
+              <button class="gs-ofp-btn-secondary" style="flex-shrink:0" onclick="rescheduleOrder('${escAttr(r.orderId)}')">Reschedule</button>
             </div>
           </div>`;
       }).join('');
