@@ -188,6 +188,8 @@ exports.handler = async (event) => {
         bedrooms: f.Bedrooms || '',
         bathrooms: f.Bathrooms || '',
         supervisor: f.Supervisor || '',
+        unitNumber: f.UnitNumber || '',
+        completedDate: f.CompletedDate || '',
         photos: photos.map(p => {
           const info = captions[p.name];
           return {
