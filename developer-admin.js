@@ -34,6 +34,8 @@ const {
   jsonResponse
 } = require('./lib/graph');
 
+const { ensureRecurringOrders, propagateContractEdit } = require('./lib/recurring-orders');
+
 /* Mismo nombre de carpeta que get-admin-gallery.js / get-order-photos.js /
    upload-service-photo.js -- ninguna columna nueva en SharePoint, solo
    la convencion de carpetas ya usada en toda la app. */
@@ -1373,7 +1375,18 @@ exports.handler = async (event) => {
       if (expirationDate !== undefined) fields.ExpirationDate = expirationDate || null;
 
       let serviceId = recurringServiceId;
+      const isNewContract = !serviceId;
+      let oldDaysOfWeek = '';
       if (serviceId) {
+        /* Se guarda el DaysOfWeek de ANTES, para saber despues (una
+           vez guardado el cambio) si de verdad cambiaron los dias --
+           eso decide si propagar es un simple update en las ordenes
+           ya generadas, o si hay que borrar/regenerar
+           (propagateContractEdit ya trae esta logica). */
+        try {
+          const before = await graphFetch(siteListPath(RECURRING_SERVICES_LIST) + '/' + serviceId + '?$expand=fields');
+          oldDaysOfWeek = (before && before.fields && before.fields.DaysOfWeek) || '';
+        } catch (e) { /* si falla, se trata como si hubieran cambiado -- mas seguro que asumir que no */ oldDaysOfWeek = '__unknown__'; }
         await updateListItemByItemId(RECURRING_SERVICES_LIST, serviceId, fields);
         /* Se reemplazan las asignaciones viejas de este contrato por
            las nuevas -- mas simple que tratar de calcular cuales
@@ -1393,7 +1406,40 @@ exports.handler = async (event) => {
         HoursAllocated: Number(a.hoursAllocated) || 0
       })));
 
-      return jsonResponse(200, { success: true, recurringServiceId: serviceId });
+      /* Generar/propagar de inmediato -- antes esto solo pasaba una
+         vez al dia, con el cron. Un contrato recien creado se
+         quedaba sin ninguna orden generada hasta el dia siguiente
+         (confirmado real: "No generated orders yet" con un contrato
+         que si existia). Un contrato editado ahora propaga el
+         cambio a sus ordenes ya generadas en el mismo momento, sin
+         esperar nada (ver propagateContractEdit). */
+      let generationReport = null;
+      try {
+        generationReport = isNewContract
+          ? await ensureRecurringOrders()
+          : await propagateContractEdit(serviceId, oldDaysOfWeek);
+      } catch (e) {
+        /* Si esto falla, el contrato SI quedo guardado -- no tiene
+           caso regresar un error al usuario por algo que ya paso.
+           Se reporta aparte para que el frontend pueda avisar sin
+           tronar. */
+        generationReport = { error: e.message };
+      }
+
+      return jsonResponse(200, { success: true, recurringServiceId: serviceId, generationReport });
+    }
+
+    if (action === 'deactivate-recurring-service') {
+      /* Deactivate vive en la tarjeta del CONTRATO, no en cada orden
+         -- para de generar visitas nuevas hacia adelante. Las
+         ordenes que YA se generaron (Recurring Scheduled o mas
+         adelante) no se tocan aqui -- si tambien hay que cancelarlas,
+         eso se hace aparte, orden por orden, como cualquier
+         cancelacion. */
+      const { recurringServiceId } = body;
+      if (!recurringServiceId) return jsonResponse(400, { error: 'recurringServiceId is required' });
+      await updateListItemByItemId(RECURRING_SERVICES_LIST, recurringServiceId, { Active: false });
+      return jsonResponse(200, { success: true });
     }
 
     if (action === 'list-recurring-services') {
