@@ -697,6 +697,14 @@
   #panel-recurring .btn-blue { background:#2A5AC9; color:var(--white); }
   #panel-recurring .btn-green { background:#2E7D4F; color:var(--white); }
 
+  /* Active > Recurring -- el globito "+N" de una tarjeta que tiene
+     mas visitas en cola para el mismo cliente. */
+  #activesub-recurring .recurring-active-group { position: relative; margin-bottom: 16px; }
+  #activesub-recurring .recurring-more-badge {
+    display: inline-block; font-size: 11px; font-weight: 700; color: var(--white);
+    background: var(--gold); border-radius: 10px; padding: 3px 10px; margin-bottom: 6px;
+  }
+
   /* ============================================================
      PANEL DEVELOPER -- todas las reglas de aqui abajo vienen de
      developer.html (su propia pagina antes de unirla aqui).
@@ -1026,11 +1034,7 @@
   <div class="subtabs">
     <button class="subtab active-subtab active" data-activetab="all" onclick="showActiveSubTab('all')">All</button>
     <button class="subtab active-subtab" data-activetab="employee" onclick="showActiveSubTab('employee')">By Employee</button>
-    <!-- TEMPORAL (20/09/2026): deberia mostrar las ordenes REC reales
-         (la mas proxima por cliente), pendiente de construir -- por
-         ahora manda a Schedule > Recurring en vez de a
-         recurring.html, que se elimino. -->
-    <button class="subtab active-subtab" data-activetab="recurring" onclick="location.href='admin.html?tab=schedule&subtab=recurring'">Recurring</button>
+    <button class="subtab active-subtab" data-activetab="recurring" onclick="showActiveSubTab('recurring')">Recurring</button>
     <button class="subtab active-subtab" data-activetab="calendar" onclick="location.href='calendar.html'">Calendar</button>
   </div>
   <div class="subpanel active-subpanel active" id="activesub-all">
@@ -1059,6 +1063,11 @@
       <div class="search-bar"><input type="text" id="employee-gallery-search" placeholder="Search by order number or client…" oninput="renderEmployeeGallery()"></div>
       <div id="employee-gallery-list"><p class="empty-note">Loading…</p></div>
     </div>
+  </div>
+
+  <div class="subpanel active-subpanel" id="activesub-recurring">
+    <p class="section-sub">The next visit coming up for each recurring contract. Set up new contracts in Schedule &gt; Recurring.</p>
+    <div id="active-recurring-list"><p class="empty-note">Loading…</p></div>
   </div>
 </div>
 
@@ -2197,6 +2206,41 @@ function showActiveSubTab(tab) {
   document.querySelectorAll('.active-subpanel').forEach(p => p.classList.toggle('active', p.id === 'activesub-' + tab));
   if (tab === 'employee' && typeof loadAssigned === 'function') loadAssigned();
   if (tab === 'employee' && typeof loadEmployeeGallery === 'function') loadEmployeeGallery();
+  if (tab === 'recurring' && typeof loadActiveRecurring === 'function') loadActiveRecurring();
+}
+
+/* Active > Recurring -- una tarjeta por CLIENTE, mostrando la orden
+   REC real mas proxima a su fecha (no todas las que tenga en cola).
+   "Activa" usa el mismo criterio que el resto de Active (activeOf) --
+   una recurrente que aun no le toca su dia vive en 'Recurring
+   Scheduled', NO califica como activa todavia, y por eso solo
+   aparece aqui una vez que el motor la asciende de verdad. Si un
+   cliente tiene mas de una en cola (la oficina se atraso
+   confirmando algo, por ejemplo), se le pone un globito "+N" con
+   las demas -- pero la tarjeta que se ve siempre es la real, con
+   orderCard(), asi que se puede editar igual que cualquier otra. */
+function loadActiveRecurring() {
+  const box = document.getElementById('active-recurring-list');
+  if (!box) return;
+  const recurringActive = activeOf('').filter(o => o.RecurringServiceID);
+  if (!recurringActive.length) {
+    box.innerHTML = '<p class="empty-note">Nothing scheduled — recurring visits will show up here once they\'re due.</p>';
+    return;
+  }
+  const byClient = {};
+  recurringActive.forEach(o => {
+    const key = o.ClientID || o.BusinessName || o.OrderID;
+    (byClient[key] = byClient[key] || []).push(o);
+  });
+  box.innerHTML = Object.values(byClient).map(group => {
+    group.sort((a, b) => String(a.DispatchDate || '').localeCompare(String(b.DispatchDate || '')));
+    const nearest = group[0];
+    const moreCount = group.length - 1;
+    const badge = moreCount > 0
+      ? '<span class="recurring-more-badge">+' + moreCount + ' more scheduled</span>'
+      : '';
+    return '<div class="recurring-active-group">' + badge + orderCard(nearest, 'active') + '</div>';
+  }).join('');
 }
 
 /* Sub-tabs de History (Orders / Gallery) -- namespaced con sus
