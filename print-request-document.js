@@ -12,7 +12,7 @@
    GET /.netlify/functions/print-request-document?orderId=GS-6062-1010
 ============================================================ */
 const {
-  ORDERS_LIST, ORDER_HISTORY_LIST, graphFetch, siteListPath, jsonResponse
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { generateAndSaveRequestPdf } = require('./lib/orderpdf');
 
@@ -38,13 +38,15 @@ exports.handler = async (event) => {
   if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
   try {
-    const [orderRows, histRows] = await Promise.all([
+    const [orderRows, histRows, svcRows] = await Promise.all([
       fetchByField(ORDERS_LIST, 'OrderID', orderId),
-      fetchByField(ORDER_HISTORY_LIST, 'OrderID', orderId)
+      fetchByField(ORDER_HISTORY_LIST, 'OrderID', orderId),
+      fetchByField(ORDER_SERVICES_LIST, 'OrderID', orderId)
     ]);
     const orderItem = orderRows.find(it => it.fields);
     if (!orderItem) return jsonResponse(404, { error: 'Order not found.' });
     const order = Object.assign({}, orderItem.fields, { OrderID: orderId });
+    const services = svcRows.filter(it => it.fields).map(it => it.fields);
 
     const history = histRows.filter(it => it.fields).map(it => it.fields)
       .sort((a, b) => String(a.ChangeDate || '').localeCompare(String(b.ChangeDate || '')));
@@ -64,7 +66,7 @@ exports.handler = async (event) => {
       return jsonResponse(404, { error: 'No pending request found in this order\'s history.' });
     }
 
-    const result = await generateAndSaveRequestPdf({ order, request: req, history });
+    const result = await generateAndSaveRequestPdf({ order, request: req, history, services });
     if (!result.ok) return jsonResponse(500, { error: result.error });
 
     /* Sirve el PDF recien generado directo (ya lo tenemos en memoria,
