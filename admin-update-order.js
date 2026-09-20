@@ -44,19 +44,6 @@ const LIVE_STATUSES = ['Received', 'Assigned'];
    necesita resolveOrderDivision() para verificar la division real de
    cada servicio que se va a guardar. Separado de fetchByOrderId
    porque aqui no se filtra por orden, se trae la lista completa. */
-/* BUG REAL encontrado y arreglado (20/09/2026, ver el comentario
-   completo en admin-approve-order.js, misma revision): borrar un
-   renglon de servicio que ya no existe tiraba 'Item not found' y
-   tumbaba todo el guardado por un solo renglon que de por si ya no
-   estaba. */
-async function deleteListItemIfExists(listName, itemId) {
-  try {
-    await deleteListItem(listName, itemId);
-  } catch (e) {
-    if (!/item not found/i.test(e.message || '')) throw e;
-  }
-}
-
 async function fetchServicesCatalogForDivisionCheck() {
   let url = siteListPath(SERVICES_CATALOG_LIST) + '?$expand=fields($select=SKU,Division)&$top=500';
   const out = [];
@@ -551,7 +538,7 @@ exports.handler = async (event) => {
 
       /* Borrar viejos */
       if (svcRows.length) {
-        await Promise.all(svcRows.map(row => deleteListItemIfExists(ORDER_SERVICES_LIST, row.id)));
+        await Promise.all(svcRows.map(row => deleteListItem(ORDER_SERVICES_LIST, row.id)));
       }
 
       /* Crear nuevos */
