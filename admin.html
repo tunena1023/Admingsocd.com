@@ -965,9 +965,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
-<!-- Pendiente: gsocd-shared va en v1.12.0, el siguiente tag real seria v1.13.0
-     (order-history.js ahora acepta un timesCatalog opcional). Ajustar cuando se suba. -->
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.33.0/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.10/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
@@ -2924,6 +2922,37 @@ function supervisorUpdateActor(history) {
   return '';
 }
 
+/* El renglon completo de la sugerencia de supervisor (no solo quien
+   la mando) -- de aqui se leen los servicios viejos/nuevos para saber
+   que tan grande es el cambio. */
+function supervisorUpdateRow(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (String(h.ChangeType || '') === 'Change Requested' && String(h.FieldChanged || '') === 'Supervisor Update') {
+      return h;
+    }
+  }
+  return null;
+}
+
+/* 'level-only' | 'added-removed' | 'none' -- que tan grande es el
+   cambio que sugirio el supervisor, usando el mismo parser/clasificador
+   compartido que ya usa el historial visual (gsocd-shared/order-history
+   v1.33.0+). Decide si el bloque de Review muestra "Approve" (nomas
+   nivel, se aplica directo, nadie lo tiene que pensar) o "Reassign"
+   (servicio de verdad agregado/quitado, la oficina lo confirma a
+   proposito) -- confirmado con el dueño, 20/09/2026. */
+function supervisorUpdateDiffKind(history) {
+  const row = supervisorUpdateRow(history);
+  if (!row || !window.GSOrderHistory || !GSOrderHistory.parseServicesPayload) return 'added-removed';
+  const oldPay = GSOrderHistory.parseServicesPayload(row.OldValue);
+  const newPay = GSOrderHistory.parseServicesPayload(row.NewValue);
+  const oldSvcs = oldPay ? oldPay.services : null;
+  const newSvcs = newPay ? newPay.services : null;
+  if (!Array.isArray(oldSvcs) || !Array.isArray(newSvcs)) return 'added-removed';
+  return GSOrderHistory.servicesDiffKind(oldSvcs, newSvcs);
+}
+
 /* Lee el estatus al que va a regresar la orden si se aprueba la
    reactivacion -- calculado UNA SOLA VEZ por el backend al pedirla
    (request-reactivate), guardado en el marcador para que tanto esta
@@ -3456,21 +3485,42 @@ function decisionAreaHtmlInner(o, history) {
 
   if (isSupervisorUpdate(history)) {
     const actor = supervisorUpdateActor(history);
-    const notesId2 = dom + '-notes';
     const galleryId = dom + '-gallery';
+    /* CORREGIDO (20/09/2026, confirmado con el dueño): el boton
+       "Approve" de aqui mandaba decision:'approve', pero el backend
+       (admin-approve-order.js) SIEMPRE rechaza 'approve' para un
+       Change Requested -- pedia Reassign/Reschedule, nunca lo permitio.
+       Ahora:
+         - Cambio de nivel nomas (mismo servicio, otro Level) -> Approve,
+           un clic, aplica directo (mismo tecnico/dia/hora). Nadie lo
+           tiene que pensar dos veces.
+         - Servicio de verdad agregado/quitado (ej. se agrego lavada de
+           alfombra) -> Reassign, misma operacion, pero la oficina lo
+           confirma a proposito.
+       Los dos mandan la MISMA decision ('reassign') -- Approve es solo
+       un atajo con otra etiqueta para el caso trivial, no una decision
+       nueva. "Reject" desaparecio -- ahora es "Cancel Change Request"
+       (mismo boton/funcion que ya usa el bloque de cambio normal de
+       oficina/cliente, sin pedir nota): para cuando el tecnico dice
+       que hace falta algo y el cliente dice que no, se descarta y la
+       orden se queda como estaba. */
+    const diffKind = supervisorUpdateDiffKind(history);
+    const primaryBtn = diffKind === 'added-removed'
+      ? `<button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Reassign</button>`
+      : `<button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Approve</button>`;
+    const primaryHint = diffKind === 'added-removed'
+      ? 'Reassign applies the change with the same tech, day, and time as before.'
+      : 'Approve applies the level change with the same tech, day, and time as before.';
     return `<p class="meta-line" style="margin-bottom:14px">Service change suggested on-site by <b>${esc(actor)}</b>. The client hasn't seen this yet.</p>
     <p class="review-photo-note" id="${galleryId}-toggle" style="font-size:12px;color:var(--gold-dk);text-decoration:underline;cursor:pointer;margin-bottom:14px;display:inline-block" onclick="toggleSupervisorGallery('${esc(o.OrderID)}','${galleryId}')">📷 View Gallery</p>
     <div id="${galleryId}"></div>
-    <div class="field-group" style="margin-top:12px">
-      <label>Notes (required if rejecting, optional if approving)</label>
-      <input type="text" id="${notesId2}" placeholder="Reason…">
-    </div>
     <div class="appr-bar">
-      <button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','approve',false)">Approve</button>
-      <button class="gs-ofp-btn-danger" onclick="decideReview('${esc(o.OrderID)}','reject',false)">Reject</button>
+      ${primaryBtn}
+      <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
       <button class="gs-ofp-btn-primary" onclick="sendSupervisorUpdateToCustomer('${esc(o.OrderID)}')">Send to Customer</button>
+      <button class="gs-ofp-btn-secondary" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel Change Request</button>
     </div>
-    <p class="appr-hint">Approve applies the change internally without notifying the client. Send to Customer forwards it to them for confirmation — nothing reaches the client until you do this. Reject undoes it and restores the original services.</p>`;
+    <p class="appr-hint">${primaryHint} Reschedule sends it back to Scheduling to be assigned fresh (same tech or someone else). Send to Customer forwards it to the client for confirmation — nothing reaches them until you do this. Cancel Change Request discards the suggestion entirely, as if it never happened.</p>`;
   }
 
   const isCancel = status === 'Cancellation Requested';
@@ -3594,18 +3644,35 @@ async function cancelOfficeUpdate(orderId) {
 
 /* Forward de una sugerencia de supervisor al cliente -- reusa el
    mismo backend que ya usa 'Request Confirmation (send to client)'
-   desde Active. Los servicios ya se aplicaron cuando el supervisor
-   mando la sugerencia (submit-supervisor-update.js en tech.gsocd.com,
-   mismo patron que este mismo modo requestOnly) -- aqui solo hace
-   falta el marcador 'Client Confirmation' para que le llegue al
-   cliente, sin volver a tocar servicios ni fechas. */
+   desde Active.
+
+   BUG REAL encontrado y arreglado (20/09/2026, confirmado con el
+   dueño): esta funcion NO mandaba "services" en el body -- el
+   comentario viejo decia "los servicios ya se aplicaron cuando el
+   supervisor mando la sugerencia", pero eso ya no es cierto desde el
+   CAMBIO DE DISEÑO de submit-supervisor-update.js (los servicios
+   propuestos viven SOLO en el snapshot del historial hasta que se
+   aprueban, nunca se tocan los reales antes de eso). Sin "services",
+   admin-update-order.js (modo requestOnly) usaba los servicios REALES
+   actuales (los viejos, sin la sugerencia) como "NewValue" del
+   renglon 'Client Confirmation' -- el cliente terminaba confirmando
+   un cambio que, visualmente, no cambiaba nada. Ahora se lee el
+   renglon de la sugerencia del supervisor (mismo parser compartido
+   que ya usa el historial, gsocd-shared v1.33.0+) y se manda esa
+   propuesta de verdad. */
 async function sendSupervisorUpdateToCustomer(orderId) {
   if (!confirm('Send this update to the customer for confirmation?')) return;
   try {
     showLoadingOverlay('Sending to customer…');
-    await api('/admin-update-order', {
-      body: { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: true }
-    });
+    const data = await api('/get-order-detail', { body: { orderId } });
+    const row = supervisorUpdateRow(data.history || []);
+    const proposed = row && window.GSOrderHistory && GSOrderHistory.parseServicesPayload
+      ? GSOrderHistory.parseServicesPayload(row.NewValue) : null;
+    const body = { orderId, changedBy: getActorName(), requestOnly: true, sendToClient: true };
+    if (proposed && Array.isArray(proposed.services) && proposed.services.length) {
+      body.services = proposed.services;
+    }
+    await api('/admin-update-order', { body });
     showToast('Sent to the client for confirmation.');
     await loadAll();
   } catch (e) {
@@ -8720,7 +8787,6 @@ function activeFieldsChanged(orderId) {
   const val = id => document.getElementById(id + '-' + orderId)?.value || '';
   const orig = window['adminFieldsOriginal_' + orderId] || {};
   return val('edit-notes')      !== (orig.notes || '') ||
-    val('edit-due')             !== (orig.due || '') ||
     val('edit-window')          !== (orig.window || '') ||
     val('edit-delaytype')       !== (orig.delaytype || '') ||
     val('edit-delaynotes')      !== (orig.delaynotes || '');
@@ -8908,8 +8974,19 @@ function refreshActiveSvcUI(orderId) {
    izquierda) cambia a su version editable (X + buscador); a la
    derecha, History se oculta y aparece Reassign + Notes + Delay +
    "Selected for this order" (Note/foto de siempre, sin cambios).
-   Al cerrar (boton ya dice "Save"): se guarda de verdad -- Active
-   SIEMPRE manda a Review (requestOnly), nunca se aplica directo. */
+   Al cerrar (boton ya dice "Save"): se guarda de verdad -- se aplica
+   DIRECTO (mismo modo Directo que ya usa Approvals, sin requestOnly),
+   nunca manda a Review. CORREGIDO (20/09/2026, confirmado con el
+   dueño): este comentario decia lo contrario (que Active siempre
+   mandaba a Review) pero el codigo de mas abajo nunca hizo eso -- ya
+   guardaba directo desde antes, el comentario estaba desactualizado.
+
+   Due Date: NUNCA editable desde aqui (20/09/2026, confirmado con el
+   dueño) -- las unicas fechas que oficina puede tocar son Service
+   Window/Dispatch/Inspection (via Scheduling); Due/Entry Date son
+   exclusivas del cliente, se piden desde su portal con Request
+   Change. Se sigue MOSTRANDO aqui (de solo lectura) para que oficina
+   sepa que fecha tiene la orden al momento de editar otras cosas. */
 function toggleActiveSvcUpdate(orderId, division) {
   const editorBox = document.getElementById('active-svc-editor-' + orderId);
   const dueDisplay = document.getElementById('due-display-' + orderId);
@@ -8919,6 +8996,7 @@ function toggleActiveSvcUpdate(orderId, division) {
   const histDetail = document.getElementById('hist-detail-' + orderId);
   const svcDetailId = activeSvcDomId(orderId);
   const listBox = document.getElementById(svcDetailId);
+  const o = allOrders.find(x => x.OrderID === orderId) || {};
   if (!editorBox) return;
 
   if (editorBox.style.display === 'block') {
@@ -8935,7 +9013,7 @@ function toggleActiveSvcUpdate(orderId, division) {
       }
       const val = id => document.getElementById(id + '-' + orderId)?.value || '';
       const orig = window['adminFieldsOriginal_' + orderId] || {};
-      const notesVal = val('edit-notes'), dueVal = val('edit-due'), windowVal = val('edit-window'),
+      const notesVal = val('edit-notes'), windowVal = val('edit-window'),
             delayTypeVal = val('edit-delaytype'), delayNotesVal = val('edit-delaynotes');
       if (delayTypeVal === 'Other' && !delayNotesVal.trim()) {
         showToast('Delay reason "Other" needs a note explaining it.');
@@ -8945,7 +9023,6 @@ function toggleActiveSvcUpdate(orderId, division) {
       const svcChanged = svcSelectionChanged(orderId) || ncChanged(orderId);
       const fieldsBody = { orderId, changedBy: getActorName(), requestOnly: false };
       if (notesVal      !== (orig.notes || ''))      fieldsBody.notes            = notesVal;
-      if (dueVal        !== (orig.due || ''))        fieldsBody.dueDate          = dueVal;
       if (windowVal     !== (orig.window || ''))     fieldsBody.serviceWindow    = windowVal;
       if (delayTypeVal  !== (orig.delaytype || ''))  fieldsBody.delayReasonType  = delayTypeVal;
       if (delayNotesVal !== (orig.delaynotes || '')) fieldsBody.delayReasonNotes = delayNotesVal;
@@ -8977,7 +9054,7 @@ function toggleActiveSvcUpdate(orderId, division) {
         }
       })();
     }
-    if (dueDisplay) dueDisplay.textContent = document.getElementById('edit-due-' + orderId)?.value ? fmtDate(document.getElementById('edit-due-' + orderId).value) : '—';
+    if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
     if (winDisplay) winDisplay.textContent = document.getElementById('edit-window-' + orderId)?.value || '—';
     if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
     if (reassignLink) reassignLink.style.display = 'none';
@@ -8989,9 +9066,7 @@ function toggleActiveSvcUpdate(orderId, division) {
     return;
   }
 
-  const o = allOrders.find(x => x.OrderID === orderId) || {};
-
-  if (dueDisplay) dueDisplay.innerHTML = '<input type="date" id="edit-due-' + orderId + '" value="' + dateInputValue(o.DueDate) + '" oninput="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">';
+  if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
   if (winDisplay) winDisplay.innerHTML = '<select id="edit-window-' + orderId + '" onchange="activeSvcButtons(\'' + jsStr(orderId) + '\', true)">' + optionsHtml(SERVICE_WINDOWS, o.ServiceWindow || '') + '</select>';
   if (listBox) listBox.innerHTML = renderActiveSvcEditable(orderId);
   const notesInput = document.getElementById('edit-notes-' + orderId);
