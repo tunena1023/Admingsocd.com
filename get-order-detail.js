@@ -192,8 +192,9 @@ exports.handler = async (event) => {
         NewValue:   it.fields.NewValue   || ''
       }));
 
-    /* PDF guardado: Imprimir NUNCA genera, solo descarga el que ya existe.
-       Si no hay PDF, la orden todavia no ha sido aprobada. */
+    /* Solo para saber si mostrar el boton de Print habilitado -- la
+       generacion/regeneracion de verdad (si hace falta) vive en
+       get-order-document.js, no aqui. */
     let document = null;
     try {
       const found = await latestOrderPdf(order);
