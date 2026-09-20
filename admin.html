@@ -9529,7 +9529,10 @@ function toggleActiveEdit(id) {
 async function markCompleted(orderId) {
   const o = allOrders.find(x => x.OrderID === orderId) || {};
   const technician = String(o.Supervisor || '').trim();
-  const completedDate = new Date().toISOString().slice(0, 10);
+  /* Fecha+hora real completa -- el backend (admin-update-order.js,
+     campo CompletedDate tipo 'datetime') ya la guarda tal cual, sin
+     truncar a solo el dia ni reemplazar la hora por una fija. */
+  const completedDate = new Date().toISOString();
   const services = buildServicesPayload(orderId);
   const body = {
     orderId, status: 'Completed', changedBy: getActorName(),
