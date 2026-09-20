@@ -135,6 +135,10 @@ exports.handler = async (event) => {
       Supervisor:       f.Supervisor || '',
       ServiceWindow:    f.ServiceWindow || '',
       DispatchDate:     f.DispatchDate || '',
+      /* Columna nueva (19/09/2026): liga la orden a su contrato
+         recurrente de origen, para la pantalla simplificada de
+         Approvals (Fase 3, pendiente). */
+      RecurringServiceID: f.RecurringServiceID || '',
       InspectionDate:   f.InspectionDate || '',
       DelayReasonType:  f.DelayReasonType || '',
       DelayReasonNotes: f.DelayReasonNotes || '',

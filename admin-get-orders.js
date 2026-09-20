@@ -221,6 +221,11 @@ exports.handler = async (event) => {
              del admin las necesitan en la lista, no solo en el detalle. */
           ServiceWindow: f.ServiceWindow || '',
           DispatchDate: f.DispatchDate || '',
+          /* Columna nueva (19/09/2026): liga la orden a su contrato
+             recurrente de origen -- isFullyScheduled() la necesita en
+             la LISTA (no solo en el detalle) para decidir en que tab
+             vive cada orden. */
+          RecurringServiceID: f.RecurringServiceID || '',
           InspectionDate: f.InspectionDate || '',
           Archived: f.Archived === true || f.Archived === 'true',
           DelayReasonType: f.DelayReasonType || '',

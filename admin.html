@@ -2658,6 +2658,16 @@ const NEW_ORDER_STATUSES = ['Received'];
    -- se mueve de Approvals a Active (con Mark as Seen esperando),
    segun lo acordado con el usuario. */
 function isFullyScheduled(o) {
+  /* Una visita recurrente SIEMPRE nace con Supervisor/ServiceWindow/
+     DispatchDate ya puestos (vienen del contrato) -- pero a
+     diferencia de una orden normal agendada desde Scheduling, esta
+     SI debe quedarse en Approvals (con su propia pantalla de
+     confirmar/reasignar), no irse a Active con el "Mark as Seen"
+     generico. Por eso se trata como "no completamente agendada" aqui
+     a proposito -- sus datos SI estan completos, solo que esta regla
+     de ruteo en particular no le aplica. A peticion del dueno,
+     19/09/2026. */
+  if (o.RecurringServiceID) return false;
   return !!(o.Supervisor && String(o.Supervisor).trim()
     && o.ServiceWindow && String(o.ServiceWindow).trim()
     && o.DispatchDate && String(o.DispatchDate).trim());

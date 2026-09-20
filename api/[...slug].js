@@ -27,7 +27,8 @@ const handlers = {
   'quickbooks-connect':  require('../quickbooks-connect').handler,
   'quickbooks-callback': require('../quickbooks-callback').handler,
   'quickbooks-status':   require('../quickbooks-status').handler,
-  'quickbooks-import-estimates': require('../quickbooks-import-estimates').handler
+  'quickbooks-import-estimates': require('../quickbooks-import-estimates').handler,
+  'cron-recurring-orders': require('../cron-recurring-orders').handler
 };
 
 module.exports = async (req, res) => {
