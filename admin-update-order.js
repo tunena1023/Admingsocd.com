@@ -26,7 +26,7 @@ const {
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
-const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf } = require('./lib/orderpdf');
+const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
@@ -273,7 +273,19 @@ exports.handler = async (event) => {
       { key: 'DelayReasonType', incoming: delayReasonType,  label: 'Delay Reason',      type: 'text' },
       { key: 'DelayReasonNotes', incoming: delayReasonNotes, label: 'Delay Reason Notes', type: 'text' },
       { key: 'Technician',      incoming: technician,       label: 'Technician',        type: 'text' },
-      { key: 'CompletedDate',   incoming: completedDate,    label: 'Completed Date',    type: 'date' }
+      /* BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+         dueño): CompletedDate era type:'date' -- ese tipo trunca a
+         solo el dia y lo vuelve a armar con toIsoDate() a las
+         T12:00:00Z FIJAS (mediodia UTC), sin importar la hora real en
+         que se dio clic en "Completed". Si se completaba a las 6pm,
+         el PDF y el historial igual decian una hora fija generica (7am
+         hora local, por la conversion de UTC), nunca la hora real.
+         Ahora es su propio tipo 'datetime' -- ver el manejo especial
+         mas abajo -- que guarda el ISO completo tal cual llega (ya
+         armado con la hora real de "ahora" del lado del cliente, ver
+         markCompleted() en admin.html), sin truncar ni reemplazar la
+         hora. */
+      { key: 'CompletedDate',   incoming: completedDate,    label: 'Completed Date',    type: 'datetime' }
     ];
 
     const patch = {};
@@ -290,6 +302,21 @@ exports.handler = async (event) => {
         if (oldDay === newDay) continue;
         patch[fld.key] = newDay ? toIsoDate(newDay) : null;
         changes.push({ label: fld.label, old: oldDay, next: newDay, control: true });
+      } else if (fld.type === 'datetime') {
+        /* A diferencia de 'date', aqui SI importa la hora -- se guarda
+           el ISO tal cual llega, nunca se re-arma a una hora fija.
+           old/next en 'changes' (lo que se ve en el historial) se
+           formatean con fecha+hora real para que se lea bien, aunque
+           lo que se guarda en SharePoint sea el ISO completo. */
+        const next = fld.incoming || null;
+        if (sameValue(oldRaw, next)) continue;
+        patch[fld.key] = next;
+        changes.push({
+          label: fld.label,
+          old: oldRaw ? fmtDateTime(oldRaw) : '',
+          next: next ? fmtDateTime(next) : '',
+          control: true
+        });
       } else {
         const next = fld.incoming == null ? '' : String(fld.incoming);
         if (sameValue(oldRaw, next)) continue;
@@ -516,7 +543,13 @@ exports.handler = async (event) => {
           history: freshHist.filter(r => r.fields).map(r => r.fields)
             .sort((a, b) => new Date(a.ChangeDate || 0) - new Date(b.ChangeDate || 0)),
           completedBy: (technician && String(technician).trim()) || actor,
-          completedAt: completedDate ? toIsoDate(completedDate) : new Date().toISOString()
+          /* BUG REAL (20/09/2026, ver el comentario junto al campo
+             CompletedDate mas arriba): toIsoDate() truncaba esto a
+             mediodia UTC fijo, perdiendo la hora real en que se dio
+             clic en "Completed". completedDate ya llega como ISO
+             completo (ver markCompleted() en admin.html) -- se usa
+             tal cual. */
+          completedAt: completedDate || new Date().toISOString()
         });
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
