@@ -8436,14 +8436,20 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       </div>
     </div>` : '';
 
+  /* UN SOLO boton "Print" (a peticion del dueño, 19/09/2026) -- antes
+     eran 2 botones separados ("Print Order"/"Print Completion").
+     Ahora decide solo: si la orden ya esta Completed, abre el
+     documento de completion (generateAndSaveCompletionPdf ya maneja
+     0 fotos sin problema -- "Photos" sale sin fotos, nomas eso); si
+     no esta completada, abre el documento normal de la orden. */
+  const isCompletedForPrint = o.Status === 'Completed';
+  const printDoc = isCompletedForPrint ? storedCompletionDoc : storedDoc;
+  const printUnavailableHint = isCompletedForPrint ? 'Not generated yet' : 'Available once the order is approved';
   const printOrderHtml = `<span class="print-wrap">
-        <button class="gs-ofp-btn-secondary" ${storedDoc ? '' : 'disabled'}
-          title="${storedDoc ? 'Open ' + esc(storedDoc.name) : 'Available once the order is approved'}"
-          onclick="openOrderDocument('${esc(o.OrderID)}')">Print Order</button>
-        ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
-        ${o.Status === 'Completed' ? `<button class="gs-ofp-btn-secondary" ${storedCompletionDoc ? '' : 'disabled'}
-          title="${storedCompletionDoc ? 'Open ' + esc(storedCompletionDoc.name) : 'Not generated yet'}"
-          onclick="openOrderDocument('${esc(o.OrderID)}','completion')">Print Completion</button>` : ''}
+        <button class="gs-ofp-btn-secondary" ${printDoc ? '' : 'disabled'}
+          title="${printDoc ? 'Open ' + esc(printDoc.name) : printUnavailableHint}"
+          onclick="openOrderDocument('${esc(o.OrderID)}'${isCompletedForPrint ? ",'completion'" : ''})">Print</button>
+        ${printDoc ? '' : '<span class="print-hint">' + printUnavailableHint + '</span>'}
       </span>`;
 
   const statusBar = contextCan(context, 'edit') ? `
