@@ -103,7 +103,7 @@ async function buildServiceCaptions(orderId, photoNames) {
     const f = it.fields || {};
     const name = f.ServiceName || '';
     if (!name) return;
-    bySafeName[safeName(name)] = { name, reason: f.NotCompletedReason || '' };
+    bySafeName[safeName(name)] = { name, level: f.Level || '', reason: f.NotCompletedReason || '' };
   });
 
   const captions = {};
@@ -123,9 +123,15 @@ async function buildServiceCaptions(orderId, photoNames) {
       parseInt(m[2], 10), parseInt(m[3], 10) - 1, parseInt(m[4], 10),
       parseInt(m[5], 10), parseInt(m[6], 10), parseInt(m[7] || '0', 10)
     )).toISOString();
+    /* level/reason ahora van SEPARADOS del caption (antes iban
+       mezclados como texto) -- Gallery los muestra como sus propios
+       renglones, mismo patron que las tarjetas .svc-row del resto de
+       la app (nombre + nivel + nota), a peticion del dueño. */
     captions[fileName] = {
       serviceName: svc.name,
-      caption: (svc.reason ? svc.reason + ' · ' : '') + dateStr,
+      level: svc.level || '',
+      reason: svc.reason || '',
+      caption: dateStr,
       sortKey
     };
   });
@@ -185,6 +191,8 @@ exports.handler = async (event) => {
             name: p.name,
             downloadUrl: p.downloadUrl,
             serviceName: info ? info.serviceName : null,
+            level: (info && info.level) || '',
+            reason: (info && info.reason) || '',
             caption: (info && info.caption) || formatIsoDate(p.createdDateTime) || undefined,
             sortKey: (info && info.sortKey) || p.createdDateTime || ''
           };
