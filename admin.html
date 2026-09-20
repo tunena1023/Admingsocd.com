@@ -7875,7 +7875,11 @@ function orderCard(o, context, qbInfo) {
             bathrooms: o.Bathrooms,
             supervisor: o.Supervisor,
             completedDateText: o.CompletedDate ? fmtDateTime(o.CompletedDate) : '',
-            extraLine: 'Created ' + fmtDateTime(o.createdDateTime)
+            /* Una recurrente muestra CUANDO es el servicio (lo que de
+               verdad importa en Active > Recurring y en Generated
+               Orders), no cuando se creo la orden -- "created" es
+               ruido aqui, nadie pregunto eso. */
+            extraLine: o.RecurringServiceID ? 'Scheduled for ' + fmtDate(o.DispatchDate) : 'Created ' + fmtDateTime(o.createdDateTime)
           })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>`;
