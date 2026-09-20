@@ -1008,18 +1008,6 @@
   </div>
   <div id="review-toolbar"></div>
   <div id="review-list"><p class="empty-note">Loading…</p></div>
-
-  <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
-    <h2 class="section-title">Recurring Changes</h2>
-    <p class="section-sub">Deviations reported on-site for a recurring contract.</p>
-    <div id="recurring-change-list"><p class="empty-note">Nothing pending.</p></div>
-  </div>
-
-  <div style="margin-top:36px;padding-top:24px;border-top:1px solid var(--border)">
-    <h2 class="section-title">Materials Ready</h2>
-    <p class="section-sub">Renovations clients letting us know their materials are on site and we're clear to enter. Nothing to decide here — just acknowledge it.</p>
-    <div id="materials-ready-list"><p class="empty-note">Nothing pending.</p></div>
-  </div>
 </div>
 
 <!-- ACTIVE -->
@@ -1946,7 +1934,7 @@ async function initAuth() {
   const initialAdminTab = new URLSearchParams(location.search).get('tab') || 'approvals';
   GSNavPremium.init('gsNav', [
     { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: initialAdminTab === 'approvals', badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
-    { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span>' },
+    { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span>' },
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
     { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
@@ -1976,7 +1964,7 @@ async function initAuth() {
   const initialAdminTab = new URLSearchParams(location.search).get('tab') || 'approvals';
   GSNavPremium.init('gsNav', [
     { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: initialAdminTab === 'approvals', badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
-    { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span><span class="tab-count zero" id="review-recurring-count" style="background:#2A5AC9">0</span><span class="tab-count zero" id="review-materials-count" style="background:#8C6F2A">0</span>' },
+    { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span>' },
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
     { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
@@ -4058,8 +4046,12 @@ function renderReview() {
   }
   renderSortFilterToolbar('review', all, 'filterReview');
   filterReview();
-  renderRecurringChangeReview();
-  renderMaterialsReadyReview();
+  /* Recurring Changes y Materials Ready se quitaron de esta pantalla
+     a peticion del dueno (19/09/2026) -- no aplican a como usan la
+     app ahorita. Las funciones que las alimentan (renderRecurringChangeReview,
+     renderMaterialsReadyReview, decideRecurringReview, markMaterialsSeen)
+     se dejan intactas por si el flujo de Renovations/Recurring Services
+     se vuelve a necesitar despues -- solo se dejo de llamarlas aqui. */
 }
 
 /* Recurring: desviaciones reportadas en campo (Supervisor, desde
