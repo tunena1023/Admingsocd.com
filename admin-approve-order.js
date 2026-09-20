@@ -98,6 +98,24 @@ async function fetchServicesCatalogForDivisionCheck() {
   return out.filter(it => it.fields).map(it => ({ sku: it.fields.SKU || '', division: it.fields.Division || '' }));
 }
 
+/* BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+   dueño con una orden real): borrar un renglon de servicio que YA NO
+   EXISTE (por ejemplo, sobrevivio de un intento de guardado anterior
+   que fallo a medias -- ver el bug de Quantity arreglado hoy mismo en
+   admin.html) tiraba 'Item not found' de Graph API -- y como esto
+   corre dentro de un Promise.all junto con los demas borrados,
+   TODA la aprobacion se caia por un solo renglon que de por si ya no
+   estaba. El objetivo de borrarlo (que no exista) ya se habia
+   cumplido -- no es un error real, no debe tumbar nada. Cualquier
+   OTRO error (permisos, red, etc.) si se deja pasar tal cual. */
+async function deleteListItemIfExists(listName, itemId) {
+  try {
+    await deleteListItem(listName, itemId);
+  } catch (e) {
+    if (!/item not found/i.test(e.message || '')) throw e;
+  }
+}
+
 function sortHistory(rows) {
   return rows
     .filter(r => r.fields)
@@ -525,7 +543,7 @@ exports.handler = async (event) => {
         }
 
         if (svcRows.length) {
-          await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
+          await Promise.all(svcRows.map(r => deleteListItemIfExists(ORDER_SERVICES_LIST, r.id)));
         }
         await Promise.all(proposed.services.map(s =>
           createListItem(ORDER_SERVICES_LIST, {
