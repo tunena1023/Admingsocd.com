@@ -113,7 +113,21 @@ async function buildServiceCaptions(orderId, photoNames) {
     const svc = bySafeName[m[1]];
     if (!svc) return;
     const dateStr = formatSvcPhotoDate(m[2], m[3], m[4], m[5], m[6]);
-    captions[fileName] = svc.name + (svc.reason ? ' — ' + svc.reason : '') + ' · ' + dateStr;
+    /* sortKey: ISO real (no el caption formateado) para que Gallery
+       pueda ordenar "Por fecha" de verdad -- ver gsocd-shared/
+       gallery-groups NOTES.md (rediseño 19/09/2026). Mismos
+       componentes del nombre de archivo que ya usa formatSvcPhotoDate,
+       reconstruidos aqui como Date.UTC (m[7] son los segundos, antes
+       no se usaban para nada). */
+    const sortKey = new Date(Date.UTC(
+      parseInt(m[2], 10), parseInt(m[3], 10) - 1, parseInt(m[4], 10),
+      parseInt(m[5], 10), parseInt(m[6], 10), parseInt(m[7] || '0', 10)
+    )).toISOString();
+    captions[fileName] = {
+      serviceName: svc.name,
+      caption: (svc.reason ? svc.reason + ' · ' : '') + dateStr,
+      sortKey
+    };
   });
   return captions;
 }
@@ -165,7 +179,16 @@ exports.handler = async (event) => {
         division: f.Division || '',
         status: f.Status || '',
         date: f.EntryDate || f.DispatchDate || f.createdDateTime || '',
-        photos: photos.map(p => ({ name: p.name, downloadUrl: p.downloadUrl, caption: captions[p.name] || formatIsoDate(p.createdDateTime) || undefined }))
+        photos: photos.map(p => {
+          const info = captions[p.name];
+          return {
+            name: p.name,
+            downloadUrl: p.downloadUrl,
+            serviceName: info ? info.serviceName : null,
+            caption: (info && info.caption) || formatIsoDate(p.createdDateTime) || undefined,
+            sortKey: (info && info.sortKey) || p.createdDateTime || ''
+          };
+        })
       };
     }));
 
