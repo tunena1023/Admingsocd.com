@@ -64,7 +64,7 @@ exports.handler = async (event) => {
       return jsonResponse(404, { error: 'No pending request found in this order\'s history.' });
     }
 
-    const result = await generateAndSaveRequestPdf({ order, request: req });
+    const result = await generateAndSaveRequestPdf({ order, request: req, history });
     if (!result.ok) return jsonResponse(500, { error: result.error });
 
     /* Sirve el PDF recien generado directo (ya lo tenemos en memoria,
