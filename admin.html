@@ -2236,7 +2236,17 @@ function showActiveSubTab(tab) {
 function loadActiveRecurring() {
   const box = document.getElementById('active-recurring-list');
   if (!box) return;
-  const recurringActive = activeOf('').filter(o => o.RecurringServiceID);
+  /* BUG REAL corregido (20/09/2026): usaba activeOf(''), que solo
+     deja pasar Status Assigned/Updated -- una recurrente que
+     todavia no le toca su dia vive en 'Recurring Scheduled' a
+     proposito, y por eso NUNCA aparecia aqui. Esta vista es "lo
+     proximo a procesar", no "lo que ya es activo de verdad" (eso es
+     Active > All) -- confirmado con el dueno: si hoy es el 16 y la
+     siguiente de un cliente es el 23, esa debe aparecer aqui de
+     todos modos. Se excluyen solo Cancelled/Completed (ya no son
+     "lo proximo", son historia). */
+  const recurringActive = (allOrders || [])
+    .filter(o => o.RecurringServiceID && o.Status !== 'Cancelled' && o.Status !== 'Completed');
   if (!recurringActive.length) {
     box.innerHTML = '<p class="empty-note">Nothing scheduled — recurring visits will show up here once they\'re due.</p>';
     return;
