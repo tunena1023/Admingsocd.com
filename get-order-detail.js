@@ -203,7 +203,24 @@ exports.handler = async (event) => {
       }
     } catch (e) { document = null; }
 
-    return jsonResponse(200, { order, services, history, document });
+    /* Documento de Completacion (con fotos) -- solo tiene caso
+       buscarlo si la orden ya esta Completed. */
+    let completionDocument = null;
+    if (order.Status === 'Completed') {
+      try {
+        const foundCompletion = await latestOrderPdf(order, 'completion');
+        if (foundCompletion) {
+          completionDocument = {
+            name: foundCompletion.name,
+            revision: foundCompletion.revision,
+            webUrl: foundCompletion.webUrl,
+            driveItemId: foundCompletion.id
+          };
+        }
+      } catch (e) { completionDocument = null; }
+    }
+
+    return jsonResponse(200, { order, services, history, document, completionDocument });
 
   } catch (err) {
     return jsonResponse(500, { error: err.message });

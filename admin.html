@@ -7885,7 +7885,7 @@ async function loadOrderBody(orderId, context, body) {
     const o = data.order || {};
     const services = data.services || [];
     const history = data.history || [];
-    const html = renderOrderDetail(o, services, history, context, data.document || null);
+    const html = renderOrderDetail(o, services, history, context, data.document || null, data.completionDocument || null);
     orderDetailCache[orderId] = html;
     orderDetailCacheData[orderId] = o;
     body.innerHTML = html;
@@ -8298,7 +8298,7 @@ async function markSeen(orderId) {
   }
 }
 
-function renderOrderDetail(o, services, history, context, storedDoc) {
+function renderOrderDetail(o, services, history, context, storedDoc, storedCompletionDoc) {
   if (context === 'active' && o.Status === 'Received') {
     return unseenActiveCardHtml(o, services, history);
   }
@@ -8391,6 +8391,9 @@ function renderOrderDetail(o, services, history, context, storedDoc) {
           title="${storedDoc ? 'Open ' + esc(storedDoc.name) : 'Available once the order is approved'}"
           onclick="openOrderDocument('${esc(o.OrderID)}')">Print Order</button>
         ${storedDoc ? '' : '<span class="print-hint">Available once the order is approved</span>'}
+        ${o.Status === 'Completed' ? `<button class="gs-ofp-btn-secondary" ${storedCompletionDoc ? '' : 'disabled'}
+          title="${storedCompletionDoc ? 'Open ' + esc(storedCompletionDoc.name) : 'Not generated yet'}"
+          onclick="openOrderDocument('${esc(o.OrderID)}','completion')">Print Completion</button>` : ''}
       </span>`;
 
   const statusBar = contextCan(context, 'edit') ? `
@@ -9246,8 +9249,10 @@ function startServicePhoto(orderId, cat, svc) {
 
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
-function openOrderDocument(orderId) {
-  window.open('/api/get-order-document?orderId=' + encodeURIComponent(orderId), '_blank');
+function openOrderDocument(orderId, kind) {
+  let url = '/api/get-order-document?orderId=' + encodeURIComponent(orderId);
+  if (kind) url += '&kind=' + encodeURIComponent(kind);
+  window.open(url, '_blank');
 }
 
 /* Arma el arreglo de servicios (con su estado de "Not completed") a
