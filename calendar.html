@@ -295,7 +295,7 @@
     <span id="nav-logo-text" class="nav-logo-text" style="display:none">GS Solutions</span>
   </div>
   <div class="nav-right">
-    <a class="nav-back" href="admin.html">&larr; Back to Admin</a>
+    <a class="nav-back" href="admin.html?tab=schedule">&larr; Back to Admin</a>
     <span class="nav-user" id="nav-user"></span>
     <button class="btn-signout" onclick="signOut()">Sign out</button>
   </div>
@@ -304,13 +304,13 @@
 <div id="gsNav"></div>
 
 <div class="wrap">
-  <p class="section-title">Active Orders</p>
-  <p class="section-sub">Approved orders in progress. Click an order to move it forward, or to edit supervisor, notes or services.</p>
   <div class="subtabs">
-    <a class="subtab" href="admin.html?tab=active">All</a>
-    <a class="subtab" href="admin.html?tab=assigned">By Employee</a>
-    <a class="subtab" href="admin.html?tab=active&subtab=recurring">Recurring</a>
+    <a class="subtab" href="admin.html?tab=schedule&subtab=orders">Orders</a>
     <a class="subtab active" href="calendar.html">Calendar</a>
+    <a class="subtab" href="admin.html?tab=schedule&subtab=hours">Hours</a>
+    <a class="subtab" href="admin.html?tab=schedule&subtab=routing">Routing</a>
+    <a class="subtab" href="admin.html?tab=schedule&subtab=review">Review</a>
+    <a class="subtab" href="admin.html?tab=schedule&subtab=recurring">Recurring</a>
   </div>
 
   <div class="order-card">

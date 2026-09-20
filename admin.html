@@ -401,7 +401,6 @@
       .routing-split-wrap { flex-direction: column; height: auto; }
       .routing-map-half { height: 260px; }
       .routing-right-half { height: 480px; }
-      .calendar-table-wrap { overflow-x: auto; }
 
       /* Piezas de hoy (tiempo estimado, candidatos de Scheduling) --
          ninguna tenia regla movil todavia. Sin esto, 3 renglones en
@@ -554,13 +553,6 @@
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
 
-    table.calendar-table { border: 1px solid var(--border); background: var(--white); width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-    .calendar-table th, .calendar-table td { border: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: top; }
-    .calendar-table th { background: var(--bg); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); }
-    .calendar-table th.emp-col { width: 140px; }
-    .cal-order-chip { background: var(--gold); color: var(--black); font-size: 10px; padding: 3px 6px; margin-bottom: 3px; display: block; word-break: break-word; }
-    .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .week-nav b { font-size: 13px; }
 
     .emp-card { border: 1px solid var(--border); background: var(--white); padding: 16px 20px; margin-bottom: 12px; }
     .emp-name { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
@@ -1036,7 +1028,10 @@
     <button class="subtab active-subtab active" data-activetab="all" onclick="showActiveSubTab('all')">All</button>
     <button class="subtab active-subtab" data-activetab="employee" onclick="showActiveSubTab('employee')">By Employee</button>
     <button class="subtab active-subtab" data-activetab="recurring" onclick="showActiveSubTab('recurring')">Recurring</button>
-    <button class="subtab active-subtab" data-activetab="calendar" onclick="location.href='calendar.html'">Calendar</button>
+    <button class="subtab active-subtab" data-activetab="calendar" onclick="showActiveSubTab('calendar')">Calendar</button>
+  </div>
+  <div class="subpanel active-subpanel" id="activesub-calendar">
+    <p class="empty-note">Under construction.</p>
   </div>
   <div class="subpanel active-subpanel active" id="activesub-all">
     <div class="search-bar">
@@ -1768,7 +1763,7 @@
 
   <div class="subtabs">
     <button class="subtab active" data-tab="orders" onclick="showSubTab('orders')">Orders</button>
-    <button class="subtab" data-tab="calendar" onclick="showSubTab('calendar')">Calendar</button>
+    <button class="subtab" data-tab="calendar" onclick="location.href='calendar.html'">Calendar</button>
     <button class="subtab" data-tab="hours" onclick="showSubTab('hours')">Hours</button>
     <button class="subtab" data-tab="routing" onclick="showSubTab('routing')">Routing</button>
     <button class="subtab" data-tab="review" onclick="showSubTab('review')">Review</button>
@@ -1784,20 +1779,6 @@
       <div class="pill" data-division="Exteriors">Exteriors</div>
     </div>
     <div id="orders-queue-list"><p class="empty-note">Loading…</p></div>
-  </div>
-  <div class="subpanel" id="subpanel-calendar">
-    <div class="pill-row" id="calendar-division-pills">
-      <div class="pill active" data-division="">All</div>
-      <div class="pill" data-division="janitorial">Janitorial</div>
-      <div class="pill" data-division="renovations">Renovations</div>
-      <div class="pill" data-division="exteriors">Exteriors</div>
-    </div>
-    <div class="week-nav">
-      <button class="gs-ofp-btn-secondary" onclick="moveCalendarWeek(-1)">◀ Previous week</button>
-      <b id="calendar-week-label"></b>
-      <button class="gs-ofp-btn-secondary" onclick="moveCalendarWeek(1)">Next week ▶</button>
-    </div>
-    <div id="calendar-grid"><p class="empty-note">Loading…</p></div>
   </div>
   <div class="subpanel" id="subpanel-hours">
     <div class="pill-row" id="hours-division-pills">
@@ -10891,7 +10872,6 @@ let pendingDirectLinkOrderId = null;
     document.querySelectorAll('#panel-schedule .subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + tab));
     if (tab === 'hours') loadHoursOverview();
     if (tab === 'orders') loadOrdersQueue();
-    if (tab === 'calendar') loadCalendar();
     if (tab === 'review') loadReview();
     if (tab === 'routing') loadRouting();
     if (tab === 'recurring') { loadInitialData(); loadGeneratedRecurringOrders(); }
@@ -11410,132 +11390,6 @@ let pendingDirectLinkOrderId = null;
       p.classList.add('active');
       ordersDivisionFilter = p.dataset.division;
       renderOrdersQueue();
-    });
-  });
-
-  /* ===== Calendar ===== */
-  let calendarWeekOffset = 0;
-  let calendarDivisionFilter = '';
-  let schedulingCache = [];
-  let ordersCacheForCalendar = [];
-
-  function calendarWeekBounds(offset) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    /* Domingo-Sabado, igual que uAttend y que get-hours-overview --
-       mismo corte de semana en todo el sistema. */
-    const sunday = new Date(today);
-    sunday.setDate(sunday.getDate() - sunday.getDay() + offset * 7);
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(sunday);
-      d.setDate(d.getDate() + i);
-      days.push(d);
-    }
-    return days;
-  }
-
-  async function loadCalendar() {
-    const box = document.getElementById('calendar-grid');
-    box.innerHTML = '<p class="empty-note">Loading…</p>';
-    try {
-      const [schedRes, ordersRes, hoursRes] = await Promise.all([
-        api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
-        api('/admin-get-orders', { method: 'POST', body: {} }),
-        api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
-      ]);
-      schedulingCache = schedRes.items || [];
-      ordersCacheForCalendar = ordersRes.orders || [];
-      hoursOverviewCache = hoursRes.employees || [];
-      renderCalendar();
-    } catch (e) {
-      box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
-    }
-  }
-
-  function renderCalendar() {
-    const box = document.getElementById('calendar-grid');
-    const days = calendarWeekBounds(calendarWeekOffset);
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    document.getElementById('calendar-week-label').textContent =
-      days[0].toLocaleDateString() + ' – ' + days[6].toLocaleDateString();
-
-    let employees = hoursOverviewCache.slice();
-    /* BUG REAL encontrado y arreglado (18/09/2026, reportado por el
-       dueño): get-hours-overview solo trae de FIELD_EMPLOYEES_LIST --
-       tiene sentido para las horas (esa lista es la que uAttend
-       reporta), pero este calendario reusa esa misma lista para
-       decidir QUE FILAS mostrar. Cualquiera asignado via Scheduling
-       que venga de Techs en vez de FieldEmployees (Contractors, y
-       sobre todo Mixed -- ese candidato casi siempre vive en Techs,
-       no en FieldEmployees, desde que se agrego esa division) nunca
-       aparecia como fila -- sus lugares programados quedaban
-       invisibles aunque la asignacion SI existiera en Scheduling.
-       Mismo criterio de dedup ya usado en el candidato de Scheduling:
-       agregar de allTechs solo a quien no este ya en
-       hoursOverviewCache (por payrollNumber), y solo si de verdad
-       tiene algo asignado esta semana (a diferencia de FieldEmployees,
-       que siempre se listan todos activos, tengan o no trabajo --
-       Techs es una lista mucho mas grande y variada, listarlos TODOS
-       aqui inundaria el calendario con gente sin nada que mostrar). */
-    const existingPayrolls = new Set(employees.map(e => e.payrollNumber));
-    const weekDayStrs = new Set(days.map(d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')));
-    const scheduledPayrollsThisWeek = new Set(
-      schedulingCache.filter(s => weekDayStrs.has(String(s.AssignedDate).slice(0, 10))).map(s => String(s.PayrollNumber || '').trim())
-    );
-    (allTechs || []).forEach(t => {
-      const pn = String(t.payrollId || '').trim();
-      if (!pn || !t.active || existingPayrolls.has(pn) || !scheduledPayrollsThisWeek.has(pn)) return;
-      employees.push({
-        payrollNumber: pn,
-        name: (t.firstName + ' ' + t.lastName).trim(),
-        janitorial: String(t.division).toLowerCase() === 'janitorial' || String(t.division).toLowerCase() === 'mixed',
-        renovations: String(t.division).toLowerCase() === 'renovations' || String(t.division).toLowerCase() === 'mixed',
-        exteriors: String(t.division).toLowerCase() === 'exteriors' || String(t.division).toLowerCase() === 'mixed'
-      });
-      existingPayrolls.add(pn);
-    });
-    if (calendarDivisionFilter) employees = employees.filter(e => e[calendarDivisionFilter]);
-    employees.sort((a, b) => a.name.localeCompare(b.name));
-
-    if (!employees.length) { box.innerHTML = '<p class="empty-note">No active employees in this division.</p>'; return; }
-
-    const orderById = {};
-    ordersCacheForCalendar.forEach(o => { orderById[o.OrderID] = o; });
-
-    let html = '<div class="calendar-table-wrap"><table class="calendar-table"><tr><th class="emp-col">Employee</th>' +
-      days.map((d, i) => '<th>' + dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>').join('') + '</tr>';
-
-    employees.forEach(emp => {
-      html += '<tr><td><b>' + esc(emp.name) + '</b></td>';
-      days.forEach(d => {
-        const dayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        const entries = schedulingCache.filter(s => s.PayrollNumber === emp.payrollNumber && String(s.AssignedDate).slice(0, 10) === dayStr);
-        const cell = entries.map(s => {
-          const o = orderById[s.OrderID];
-          const label = o ? (o.BusinessName || o.ClientID) : s.OrderID;
-          return '<span class="cal-order-chip" title="' + esc(s.OrderID) + '">' + esc(label) + '</span>';
-        }).join('');
-        html += '<td>' + cell + '</td>';
-      });
-      html += '</tr>';
-    });
-    html += '</table></div>';
-    box.innerHTML = html;
-  }
-
-  function moveCalendarWeek(delta) {
-    calendarWeekOffset += delta;
-    renderCalendar();
-  }
-
-  document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(p => {
-    p.addEventListener('click', () => {
-      document.getElementById('calendar-division-pills').querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-      p.classList.add('active');
-      calendarDivisionFilter = p.dataset.division;
-      renderCalendar();
     });
   });
 
