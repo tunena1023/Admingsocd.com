@@ -1154,11 +1154,10 @@
 
 <!-- QUICKBOOKS -->
 <div class="panel" id="panel-quickbooks">
-  <div style="max-width:640px;margin:60px auto;padding:0 24px;text-align:center">
-    <div style="font-size:40px;margin-bottom:20px">&#128179;</div>
-    <h1 style="font-family:'Cormorant Garamond', serif; font-size:30px; font-weight:600; margin-bottom:10px">QuickBooks</h1>
-    <p style="font-size:14px;color:var(--gray);line-height:1.7">This section is not built yet. It will connect GS Solutions orders and billing<br>
-       to QuickBooks. Check back soon.</p>
+  <div style="max-width:960px;margin:0 auto;padding:32px 24px">
+    <h1 style="font-family:'Cormorant Garamond', serif; font-size:30px; font-weight:600; margin-bottom:4px">QuickBooks</h1>
+    <p class="section-sub" style="margin-bottom:20px">Selecciona las órdenes que quieres mandar a QuickBooks como Estimate.</p>
+    <div id="qb-panel-body">Loading…</div>
   </div>
 </div>
 
@@ -2085,6 +2084,101 @@ function showTab(tab) {
      cliente recien desactivado desde Developer sin tener que recargar
      toda la pagina. */
   if (tab === 'clients' && typeof refreshAllClients === 'function') refreshAllClients();
+  if (tab === 'quickbooks' && typeof renderQuickBooksPanel === 'function') renderQuickBooksPanel();
+}
+
+/* ============================================================
+   PANEL DE QUICKBOOKS -- a peticion del dueno (19/09/2026): las
+   ordenes salen como tarjetas (mismo estilo que Active/Approvals),
+   con un checkbox por tarjeta; las seleccionadas se mandan como
+   Estimate a QuickBooks. Una orden ya importada muestra un badge en
+   vez del checkbox -- no se puede volver a seleccionar (evita
+   duplicar el mismo Estimate sin querer). Ver quickbooks-status.js
+   / quickbooks-import-estimates.js. */
+let qbSelected = new Set();
+
+async function renderQuickBooksPanel() {
+  const box = document.getElementById('qb-panel-body');
+  box.innerHTML = '<p class="empty-note">Loading…</p>';
+  qbSelected = new Set();
+  try {
+    const status = await api('/quickbooks-status', { method: 'GET' });
+    if (!status.connected) {
+      box.innerHTML =
+        '<div style="text-align:center;padding:40px 20px;border:1px solid var(--border);border-radius:8px;background:var(--off)">' +
+        '<p style="font-size:14px;color:var(--gray);margin-bottom:16px">QuickBooks is not connected yet.</p>' +
+        '<a href="/api/quickbooks-connect" class="gs-ofp-btn-primary" style="text-decoration:none;display:inline-block;padding:14px 28px">Connect to QuickBooks</a>' +
+        '</div>';
+      return;
+    }
+    const imported = status.imported || {};
+    const eligible = (allOrders || []).filter(o => o.Status !== 'Cancelled' && o.Status !== 'Incomplete');
+    if (!eligible.length) {
+      box.innerHTML = '<p class="empty-note">No orders to show.</p>';
+      return;
+    }
+    box.innerHTML =
+      '<div id="qb-order-list">' +
+      eligible.map(o => qbOrderCardHtml(o, imported[o.OrderID])).join('') +
+      '</div>' +
+      '<div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:14px 0;margin-top:16px;display:flex;justify-content:flex-end;gap:10px">' +
+      '<span id="qb-selected-count" style="align-self:center;font-size:12px;color:var(--gray)">0 selected</span>' +
+      '<button type="button" class="gs-ofp-btn-primary" id="qb-import-btn" disabled onclick="importSelectedEstimates()">Import Selected as Estimate</button>' +
+      '</div>';
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+  }
+}
+
+function qbOrderCardHtml(o, importedInfo) {
+  const svcCount = (o.ServicesDetailed || []).length;
+  if (importedInfo) {
+    return '<div class="order-card" style="opacity:.7">' +
+      '<div class="order-card-header" style="cursor:default">' +
+      '<div><div class="order-num">' + esc(o.OrderID) + '<span class="order-pin"></span></div>' +
+      '<div class="order-date">' + esc(o.BusinessName) + ' · ' + svcCount + ' service' + (svcCount === 1 ? '' : 's') + '</div></div>' +
+      '<span class="badge" style="background:#EEF9F0;color:#2A7A4A">Imported' + (importedInfo.docNumber ? ' — ' + esc(importedInfo.docNumber) : '') + '</span>' +
+      '</div></div>';
+  }
+  return '<div class="order-card">' +
+    '<div class="order-card-header" style="cursor:default">' +
+    '<label style="display:flex;align-items:center;gap:12px;cursor:pointer;flex:1">' +
+    '<input type="checkbox" onchange="toggleQbOrder(\'' + escAttr(o.OrderID) + '\', this.checked)" style="width:18px;height:18px">' +
+    '<div><div class="order-num">' + esc(o.OrderID) + '</div>' +
+    '<div class="order-date">' + esc(o.BusinessName) + ' · ' + svcCount + ' service' + (svcCount === 1 ? '' : 's') + '</div></div>' +
+    '</label>' +
+    '<span class="badge">' + esc(o.Division) + '</span>' +
+    '</div></div>';
+}
+
+function toggleQbOrder(orderId, checked) {
+  if (checked) qbSelected.add(orderId); else qbSelected.delete(orderId);
+  const countEl = document.getElementById('qb-selected-count');
+  const btn = document.getElementById('qb-import-btn');
+  if (countEl) countEl.textContent = qbSelected.size + ' selected';
+  if (btn) btn.disabled = qbSelected.size === 0;
+}
+
+async function importSelectedEstimates() {
+  const btn = document.getElementById('qb-import-btn');
+  const orders = (allOrders || []).filter(o => qbSelected.has(o.OrderID));
+  if (!orders.length) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Importing…';
+  try {
+    const res = await api('/quickbooks-import-estimates', { method: 'POST', body: { orders } });
+    const results = res.results || [];
+    const okCount = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success);
+    if (okCount) showToast(okCount + ' order' + (okCount === 1 ? '' : 's') + ' imported to QuickBooks.');
+    failed.forEach(r => showToast(r.orderId + ': ' + r.error));
+    await renderQuickBooksPanel();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 /* Sub-tabs de Clients (Clients / Create Order) -- namespaced con sus
