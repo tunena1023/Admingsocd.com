@@ -2422,6 +2422,20 @@ function findTechPhoneByName(name) {
    HELPERS
 ============================================================ */
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* BUG REAL encontrado y arreglado (20/09/2026): escAttr nunca existio
+   en scope global -- solo estaba copiada 2 veces adentro de otras 2
+   funciones (Developer, Scheduling), cada una en su propio closure.
+   renderActiveSvcEditable() (Active, YA en produccion) llama
+   escAttr(curQty) para el input de cantidad de un servicio con
+   requiresQuantity -- eso es un ReferenceError esperando a pasar en
+   cuanto alguien abriera Update en Active con un servicio de esos
+   (requiresQuantity SI es un campo real, editable desde Developer >
+   Service Catalog). Se agrega aqui, junto a esc(), para que exista de
+   verdad en cualquier parte del archivo. Las 2 copias locales se
+   dejan tal cual -- no estorban (una declaracion local nomas tapa a
+   esta con el mismo resultado), no hacia falta tocar esos 2 closures
+   para este arreglo. */
+function escAttr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
 const DAY_FIELDS = ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen', 'satOpen', 'sunOpen'];
 const DAY_LABELS = { monOpen: 'Mon', tueOpen: 'Tue', wedOpen: 'Wed', thuOpen: 'Thu', friOpen: 'Fri', satOpen: 'Sat', sunOpen: 'Sun' };
@@ -4050,7 +4064,6 @@ async function toggleApprSvcUpdate(orderId, division) {
   }
   editorBox.innerHTML = apprServiceEditorHtml(orderId, division);
   editorBox.style.display = 'block';
-  mountApprServicePicker(orderId, division);
   if (readonlyBox) readonlyBox.style.display = 'none';
   apprSvcButtons(orderId, true);
 }
@@ -4119,18 +4132,6 @@ function cancelApprSvcUpdate(orderId) {
   apprSvcButtons(orderId, false);
 }
 
-function apprInferPropType(orderId, division) {
-  const sel = window['apprSvc_' + orderId] || {};
-  for (const c of Object.keys(sel)) {
-    for (const svcName in (sel[c] || {})) {
-      const sku = sel[c][svcName];
-      const found = (activeCatalogCache || []).find(s => String(s.sku) === String(sku) && s.division.toLowerCase() === String(division).toLowerCase());
-      if (found) return found.propertyType;
-    }
-  }
-  return 'Commercial';
-}
-
 /* Mismo diff informativo que en Active, contra apprSvcOriginal_ */
 function apprSvcDiffHtml(orderId) {
   if (!window.GSServiceChangePanel) return '';
@@ -4140,53 +4141,152 @@ function apprSvcDiffHtml(orderId) {
     { emptyText: 'No changes to services yet.' });
 }
 
-function apprServiceEditorHtml(orderId, division) {
-  if (window['apprPropType_' + orderId] === undefined) {
-    window['apprPropType_' + orderId] = apprInferPropType(orderId, division);
-  }
-  return `<div id="appr-svc-picker-${orderId}"></div>
-    <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
-    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}))}</div>`;
+/* REDISEÑO (20/09/2026, a peticion del dueño): el editor de Approvals
+   usaba el picker compartido completo (acordeon por categoria +
+   toggle Residential/Commercial) -- se veia y se sentia distinto al
+   editor de Active (lista simple con X + buscador abajo), aunque los
+   2 arman el mismo tipo de datos. Se reemplaza por el MISMO patron de
+   Active (renderActiveSvcEditable y companeras), con su propio juego
+   de funciones con prefijo 'appr' -- mismo criterio de "cada tab
+   tiene su propio estado" que ya usa este archivo entre Active y
+   Approvals para todo lo demas (adminSvc_ vs apprSvc_, etc.).
+
+   Diferencia real con Active (no es un copy-paste ciego): aqui el
+   "quitar" es un DELETE de verdad, no un toggle de NotCompleted -- la
+   orden todavia no ha arrancado, no existe el concepto de "no se
+   completo" antes de la primera aprobacion. El buscador tampoco
+   filtra por division (mismo comportamiento que ya tenia Active) --
+   antes esto lo bloqueaba el picker (crossDivision:false) como unica
+   proteccion contra mezclar divisiones; ya no hace falta: la orden
+   pasa sola a Mixed si hace falta (ver gsocd-shared/lib/division-
+   rules.js, admin-update-order.js), asi que agregar un servicio de
+   otra division aqui es seguro, no un descuido. apprInferPropType()
+   y apprPropType_ quedaron sin uso (solo los necesitaba el picker que
+   se quita) -- se borran en vez de dejarlos huerfanos. */
+function apprSvcSearchDomId(orderId) { return apprDomId(orderId) + '-svc-search'; }
+
+function renderApprSvcEditable(orderId) {
+  const sel = window['apprSvc_' + orderId] || {};
+  const levelState = window['apprLevel_' + orderId] || {};
+  const qtyState = window['apprQty_' + orderId] || {};
+  const rows = [];
+  Object.entries(sel).forEach(([cat, svcs]) => {
+    Object.entries(svcs).forEach(([svcName, sku]) => rows.push({ cat, svcName, sku }));
+  });
+  const listHtml = rows.length ? rows.map(r => {
+    const catalogEntry = (activeCatalogCache || []).find(s => s.serviceName === r.svcName);
+    const isJan = String((catalogEntry || {}).division || '').toLowerCase() === 'janitorial';
+    const isQty = !!(catalogEntry || {}).requiresQuantity;
+    const curLevel = levelState[ncKey(r.cat, r.svcName)];
+    const curQty = qtyState[ncKey(r.cat, r.svcName)] || '';
+    const mins = svcMinutesLabel(r.sku, curLevel, curQty);
+    const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px">' +
+      ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setApprSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
+      '</div>' : '';
+    const qtyHtml = isQty ? '<span style="margin-right:14px">' +
+      '<span style="font-size:10px;color:var(--gray);text-transform:uppercase;margin-right:4px">Qty</span>' +
+      '<input type="number" min="1" step="1" inputmode="numeric" value="' + escAttr(curQty) + '" style="width:48px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;font-family:inherit" ' +
+      'onchange="setApprSvcQty(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',this.value)"></span>' : '';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+      '<span>' + esc(r.svcName) + '</span>' +
+      '<span style="display:flex;align-items:center">' + lvlHtml + qtyHtml + (mins ? '<span style="color:var(--gold-dk);font-weight:600;margin-right:14px">' + esc(mins) + '</span>' : '') +
+      '<button type="button" class="svc-remove-btn" title="Remove" onclick="removeApprSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\')">&#10005;</button></span>' +
+      '</div>';
+  }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
+
+  return listHtml +
+    '<div style="padding:12px 0 4px">' +
+      '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="Search the catalog to add a service…" ' +
+        'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
+        'oninput="filterApprCatalog(\'' + jsStr(orderId) + '\', this.value)">' +
+      '<div id="' + apprSvcSearchDomId(orderId) + '-results" style="margin-top:8px"></div>' +
+    '</div>';
 }
 
-function mountApprServicePicker(orderId, division) {
-  const isJan = String(division).toLowerCase() === 'janitorial';
-  /* BUG REAL encontrado y arreglado (18/09/2026, reportado por el
-     dueño): a este picker nunca se le paso crossDivision -- a
-     diferencia de los otros 5 lugares que YA lo tenian (Create Order,
-     Templates en Orders, Templates en Admin), este era el UNICO que
-     se quedo sin el fix cuando se agrego la division Mixed. division
-     llega literal como 'Mixed', y GSServicePicker compara
-     s.division.toLowerCase() === inst.division.toLowerCase() para
-     CADA servicio del catalogo -- ninguno tiene division='mixed' de
-     verdad (esa palabra no existe como categoria real, es una
-     combinacion de Janitorial+Renovations+Exteriors), asi que la
-     barra de busqueda de Approvals > Update nunca encontraba nada
-     para una orden Mixed, sin importar que escribieras. */
-  const isMixed = String(division).toLowerCase() === 'mixed';
-  GSServicePicker.mount('appr-' + orderId, 'appr-svc-picker-' + orderId, {
-    catalog: activeCatalogCache || [],
-    division: division,
-    crossDivision: isMixed,
-    mode: (isJan || isMixed) ? 'levels' : 'toggle',
-    showSelectAll: isJan,
-    groupByCategory: true,
-    propertyType: window['apprPropType_' + orderId] || 'Commercial',
-    initialSelected: window['apprSvc_' + orderId] || {},
-    initialLevels: window['apprLevel_' + orderId] || {},
-    initialQuantities: window['apprQty_' + orderId] || {},
-    onChange: function (sel, lvl, propType, qty) {
-      window['apprSvc_' + orderId] = sel;
-      window['apprLevel_' + orderId] = lvl;
-      window['apprQty_' + orderId] = qty;
-      window['apprPropType_' + orderId] = propType;
-      const diffBox = document.getElementById('appr-svc-diff-' + orderId);
-      if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
-      const estBox = document.getElementById('appr-est-time-' + orderId);
-      if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(sel, lvl, qty));
-      apprSvcButtons(orderId, true);
-    }
-  });
+function setApprSvcLevel(orderId, cat, svcName, level) {
+  if (!window['apprLevel_' + orderId]) window['apprLevel_' + orderId] = {};
+  window['apprLevel_' + orderId][ncKey(cat, svcName)] = level;
+  refreshApprSvcUI(orderId);
+}
+
+function setApprSvcQty(orderId, cat, svcName, rawValue) {
+  if (!window['apprQty_' + orderId]) window['apprQty_' + orderId] = {};
+  const n = parseInt(rawValue, 10);
+  const k = ncKey(cat, svcName);
+  if (!n || n < 1) delete window['apprQty_' + orderId][k];
+  else window['apprQty_' + orderId][k] = n;
+  refreshApprSvcUI(orderId);
+}
+
+/* A diferencia de toggleActiveSvcRemoved (marca NotCompleted): aqui
+   se borra de verdad -- la orden todavia no arranca, no hay nada que
+   "no se completo" todavia. */
+function removeApprSvc(orderId, cat, svcName) {
+  const sel = window['apprSvc_' + orderId];
+  if (sel && sel[cat]) {
+    delete sel[cat][svcName];
+    if (!Object.keys(sel[cat]).length) delete sel[cat];
+  }
+  const lvl = window['apprLevel_' + orderId];
+  if (lvl) delete lvl[ncKey(cat, svcName)];
+  const qty = window['apprQty_' + orderId];
+  if (qty) delete qty[ncKey(cat, svcName)];
+  refreshApprSvcUI(orderId);
+}
+
+/* Mismo buscador que Active: arranca vacio, sin filtrar por division
+   (ver el comentario grande de arriba sobre por que ya es seguro). */
+function filterApprCatalog(orderId, q) {
+  const box = document.getElementById(apprSvcSearchDomId(orderId) + '-results');
+  if (!box) return;
+  q = q.trim().toLowerCase();
+  if (!q) { box.innerHTML = ''; return; }
+  const sel = window['apprSvc_' + orderId] || {};
+  const already = new Set();
+  Object.values(sel).forEach(svcs => Object.keys(svcs).forEach(n => already.add(n)));
+  const matches = (activeCatalogCache || []).filter(s =>
+    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName)
+  ).slice(0, 15);
+  box.innerHTML = matches.length
+    ? matches.map(s => '<div style="padding:7px 10px;font-size:12.5px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between" ' +
+        'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'" ' +
+        'onclick="addApprSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(s.category || '') + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + jsStr(s.division || '') + '\')">' +
+        '<span>' + esc(s.serviceName) + '</span><span style="color:var(--green);font-weight:700;font-size:11px">+ add</span></div>').join('')
+    : '<div style="font-size:12px;color:#C9C5BA;font-style:italic;padding:4px 10px">No matches.</div>';
+}
+
+function addApprSvc(orderId, category, serviceName, sku, division) {
+  if (!window['apprSvc_' + orderId]) window['apprSvc_' + orderId] = {};
+  if (!window['apprSvc_' + orderId][category]) window['apprSvc_' + orderId][category] = {};
+  window['apprSvc_' + orderId][category][serviceName] = sku;
+  if (String(division).toLowerCase() === 'janitorial') {
+    if (!window['apprLevel_' + orderId]) window['apprLevel_' + orderId] = {};
+    window['apprLevel_' + orderId][ncKey(category, serviceName)] = 'Level 1';
+  }
+  const searchEl = document.getElementById(apprSvcSearchDomId(orderId));
+  if (searchEl) searchEl.value = '';
+  const resultsEl = document.getElementById(apprSvcSearchDomId(orderId) + '-results');
+  if (resultsEl) resultsEl.innerHTML = '';
+  refreshApprSvcUI(orderId);
+}
+
+/* Repinta todo lo que depende de la seleccion -- mismo patron que
+   refreshActiveSvcUI. */
+function refreshApprSvcUI(orderId) {
+  const listBox = document.getElementById(apprDomId(orderId) + '-svc-list');
+  if (listBox) listBox.innerHTML = renderApprSvcEditable(orderId);
+  const diffBox = document.getElementById('appr-svc-diff-' + orderId);
+  if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
+  const estBox = document.getElementById('appr-est-time-' + orderId);
+  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}));
+  apprSvcButtons(orderId, true);
+}
+
+function apprServiceEditorHtml(orderId, division) {
+  const dom = apprDomId(orderId);
+  return `<div id="${dom}-svc-list">${renderApprSvcEditable(orderId)}</div>
+    <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
+    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}))}</div>`;
 }
 
 /* ============================================================
