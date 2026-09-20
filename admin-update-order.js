@@ -490,11 +490,24 @@ exports.handler = async (event) => {
           Notes:        svcChangeSummary || notes || '',
           OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '' }),
           NewValue:     'SERVICES:' + JSON.stringify({ services: services, dirtLevel: f.DirtLevel || '' }),
-          /* El tracker del cliente muestra la fecha de ESTE evento; si se
-             marco Completed con una fecha de completado distinta a "hoy"
-             (el tecnico termino un dia y se captura despues en el
-             sistema), se usa esa fecha real en vez de "ahora". */
-          ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
+          /* BUG REAL encontrado y arreglado (20/09/2026, reportado por
+             el dueño con una orden real): esto ponia ChangeDate con
+             toIsoDate(completedDate), que trunca a mediodia UTC FIJO
+             -- exactamente el mismo bug que ya se habia arreglado para
+             el campo CompletedDate de la orden (ver admin-update-
+             order.js mas arriba), pero se quedo sin arreglar aqui, en
+             el renglon de historial 'Completed' que alimenta el
+             Order Tracker del cliente -- por eso ese punto seguia
+             saliendo con una hora fija rara. completedDate ya llega
+             como ISO completo con la hora real (markCompleted() en
+             admin.html manda new Date().toISOString()) -- se usa tal
+             cual, sin volver a truncarlo. El tracker del cliente
+             muestra la fecha de ESTE evento -- se deja explicito en
+             vez de la default de historyBase() (tambien "ahora") por
+             si en el futuro se vuelve a permitir capturar una fecha
+             de completado distinta a "ahora" (el tecnico termino un
+             dia y se captura despues en el sistema). */
+          ...(status === 'Completed' && completedDate ? { ChangeDate: completedDate } : {})
         }));
       } else if (statusChanged) {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
@@ -504,7 +517,7 @@ exports.handler = async (event) => {
           Notes:        svcChangeSummary || notes || '',
           OldValue:     oldStatus,
           NewValue:     status,
-          ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
+          ...(status === 'Completed' && completedDate ? { ChangeDate: completedDate } : {})
         }));
       }
     } else if (statusChanged) {
@@ -515,7 +528,7 @@ exports.handler = async (event) => {
         Notes:        svcChangeSummary || notes || '',
         OldValue:     oldStatus,
         NewValue:     status,
-        ...(status === 'Completed' && completedDate ? { ChangeDate: toIsoDate(completedDate) } : {})
+        ...(status === 'Completed' && completedDate ? { ChangeDate: completedDate } : {})
       }));
     }
 
