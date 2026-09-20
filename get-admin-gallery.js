@@ -89,53 +89,58 @@ async function fetchByOrderId(listName, orderId) {
 
 /* Arma la descripcion de cada foto svc-* de una orden, cruzando el
    nombre de servicio codificado en el archivo contra los servicios
-   reales de esa orden. Solo se llama si la orden de verdad tiene al
-   menos una foto de este tipo -- evita pedir OrderServices de mas. */
-async function buildServiceCaptions(orderId, photoNames) {
+   reales de esa orden -- Y AHORA TAMBIEN la lista completa de
+   servicios programados (columna "Scheduled Services" de Gallery,
+   rediseño 19/09/2026: cada foto trae su servicio pegado abajo de
+   ELLA, y aparte, independiente, la lista de TODOS los servicios de
+   la orden tengan foto o no). Antes esto se saltaba por completo si
+   ninguna foto traia el prefijo svc- (evitaba pedir OrderServices de
+   mas) -- ya no se puede saltar, la lista de servicios se necesita
+   aunque la orden no tenga ninguna foto svc-. */
+async function buildServiceCaptionsAndList(orderId, photoNames) {
   const svcNamesInPhotos = photoNames
     .map(n => (n.match(SVC_PHOTO_PREFIX) || [])[1])
     .filter(Boolean);
-  if (!svcNamesInPhotos.length) return {};
 
   const rows = await fetchByOrderId(ORDER_SERVICES_LIST, orderId);
   const bySafeName = {};
+  const services = [];
   rows.forEach(it => {
     const f = it.fields || {};
     const name = f.ServiceName || '';
     if (!name) return;
-    bySafeName[safeName(name)] = { name, level: f.Level || '', reason: f.NotCompletedReason || '' };
+    const level = f.Level || '';
+    bySafeName[safeName(name)] = { name, level, reason: f.NotCompletedReason || '' };
+    services.push({ name, level });
   });
 
   const captions = {};
-  photoNames.forEach(fileName => {
-    const m = fileName.match(SVC_PHOTO_PREFIX);
-    if (!m) return;
-    const svc = bySafeName[m[1]];
-    if (!svc) return;
-    const dateStr = formatSvcPhotoDate(m[2], m[3], m[4], m[5], m[6]);
-    /* sortKey: ISO real (no el caption formateado) para que Gallery
-       pueda ordenar "Por fecha" de verdad -- ver gsocd-shared/
-       gallery-groups NOTES.md (rediseño 19/09/2026). Mismos
-       componentes del nombre de archivo que ya usa formatSvcPhotoDate,
-       reconstruidos aqui como Date.UTC (m[7] son los segundos, antes
-       no se usaban para nada). */
-    const sortKey = new Date(Date.UTC(
-      parseInt(m[2], 10), parseInt(m[3], 10) - 1, parseInt(m[4], 10),
-      parseInt(m[5], 10), parseInt(m[6], 10), parseInt(m[7] || '0', 10)
-    )).toISOString();
-    /* level/reason ahora van SEPARADOS del caption (antes iban
-       mezclados como texto) -- Gallery los muestra como sus propios
-       renglones, mismo patron que las tarjetas .svc-row del resto de
-       la app (nombre + nivel + nota), a peticion del dueño. */
-    captions[fileName] = {
-      serviceName: svc.name,
-      level: svc.level || '',
-      reason: svc.reason || '',
-      caption: dateStr,
-      sortKey
-    };
-  });
-  return captions;
+  if (svcNamesInPhotos.length) {
+    photoNames.forEach(fileName => {
+      const m = fileName.match(SVC_PHOTO_PREFIX);
+      if (!m) return;
+      const svc = bySafeName[m[1]];
+      if (!svc) return;
+      const dateStr = formatSvcPhotoDate(m[2], m[3], m[4], m[5], m[6]);
+      /* sortKey: ISO real (no el caption formateado) para que Gallery
+         pueda ordenar de verdad por fecha el orden inicial. Mismos
+         componentes del nombre de archivo que ya usa
+         formatSvcPhotoDate, reconstruidos aqui como Date.UTC (m[7]
+         son los segundos, antes no se usaban para nada). */
+      const sortKey = new Date(Date.UTC(
+        parseInt(m[2], 10), parseInt(m[3], 10) - 1, parseInt(m[4], 10),
+        parseInt(m[5], 10), parseInt(m[6], 10), parseInt(m[7] || '0', 10)
+      )).toISOString();
+      captions[fileName] = {
+        serviceName: svc.name,
+        level: svc.level || '',
+        reason: svc.reason || '',
+        caption: dateStr,
+        sortKey
+      };
+    });
+  }
+  return { captions, services };
 }
 
 async function fetchAll(listName) {
@@ -178,7 +183,7 @@ exports.handler = async (event) => {
       const kids = await listChildren(folderPath);
       const photos = kids.filter(k => k.isFile).sort((a, b) => a.name.localeCompare(b.name));
       if (!photos.length) return null;
-      const captions = await buildServiceCaptions(orderId, photos.map(p => p.name));
+      const { captions, services } = await buildServiceCaptionsAndList(orderId, photos.map(p => p.name));
       return {
         orderId,
         clientLabel: f.BusinessName || f.ClientID || '',
@@ -190,6 +195,7 @@ exports.handler = async (event) => {
         supervisor: f.Supervisor || '',
         unitNumber: f.UnitNumber || '',
         completedDate: f.CompletedDate || '',
+        services,
         photos: photos.map(p => {
           const info = captions[p.name];
           return {
