@@ -199,10 +199,10 @@ function toIsoDate(v) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const { orderId, decision, approvedBy, notes, newSupervisor, services: recServices } = JSON.parse(event.body || '{}');
+    const { orderId, decision, approvedBy, notes } = JSON.parse(event.body || '{}');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
 
-    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update', 'reassign', 'reschedule', 'request-reactivate', 'reactivate-confirm', 'confirm-recurring'];
+    const validDecisions = ['approve', 'reject', 'request-cancel', 'archive', 'reactivate', 'cancel-update', 'reassign', 'reschedule', 'request-reactivate', 'reactivate-confirm'];
     if (validDecisions.indexOf(decision) === -1) {
       return jsonResponse(400, { error: "decision must be one of: " + validDecisions.join(', ') });
     }
@@ -237,80 +237,6 @@ exports.handler = async (event) => {
       ChangedBy:  actor,
       ChangeDate: new Date().toISOString()
     });
-
-    /* ================================================================
-       CONFIRM-RECURRING — Fase 3 (19/09/2026): visita recurrente que
-       ya le tocaba su dia (RECURRING_INITIAL_STATUS -> 'Received' via
-       promoteDueRecurringOrders()). Rama propia, separada del resto --
-       no es "isNew" (ya nace con Supervisor/Fecha/Ventana), no es un
-       cambio pedido por cliente/oficina despues del hecho. Confirmar
-       simplemente la mueve a Active, con quien haya quedado
-       seleccionado (el designado del contrato, o alguien reasignado).
-    ================================================================ */
-    if (decision === 'confirm-recurring') {
-      if (!f.RecurringServiceID) {
-        return jsonResponse(400, { error: 'This order is not a recurring visit.' });
-      }
-      const patch = { Status: 'Assigned' };
-      if (newSupervisor && String(newSupervisor).trim() && String(newSupervisor).trim() !== String(f.Supervisor || '').trim()) {
-        patch.Supervisor = String(newSupervisor).trim();
-      }
-      await updateListItemByItemId(ORDERS_LIST, item.id, patch);
-
-      /* Servicios: mismo patron de borrar+recrear que ya usa
-         reassign/reschedule mas abajo -- solo si de verdad cambiaron
-         (evita un swap innecesario si la oficina no toco nada). */
-      const oldServicesForDiff = svcRows.filter(r => r.fields).map(r => r.fields);
-      const newServicesList = Array.isArray(recServices) ? recServices : [];
-      const oldKey = s => (s.Category || '') + '|' + (s.ServiceName || '');
-      const oldKeys = new Set(oldServicesForDiff.map(oldKey));
-      const newKeys = new Set(newServicesList.map(oldKey));
-      const servicesChanged = oldKeys.size !== newKeys.size || [...newKeys].some(k => !oldKeys.has(k));
-      if (servicesChanged && newServicesList.length) {
-        if (svcRows.length) {
-          await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
-        }
-        await Promise.all(newServicesList.map(s =>
-          createListItem(ORDER_SERVICES_LIST, {
-            Title: s.ServiceName || '', OrderID: orderId,
-            Category: s.Category || 'Janitorial', ServiceName: s.ServiceName || '',
-            SubOption: s.SubOption || '', Division: 'Janitorial', Level: s.Level || ''
-          })
-        ));
-      }
-
-      /* Historial: un evento si se reasigno, otro si cambiaron
-         servicios -- nunca los dos fusionados (a diferencia de la
-         creacion, que si va junta con la asignacion original: aqui ya
-         paso el nacimiento, cada cosa que cambia ahora es su propio
-         momento real). Si no cambio nada de esto, no se escribe nada
-         extra -- "Confirmar tal cual" no es un evento en si mismo. */
-      const historyWrites = [];
-      if (patch.Supervisor) {
-        historyWrites.push(createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
-          Title: nextAdminLabel(), ChangeType: 'Order Assigned', FieldChanged: 'Supervisor',
-          OldValue: f.Supervisor || '', NewValue: JSON.stringify({ supervisor: patch.Supervisor })
-        })));
-      }
-      if (servicesChanged && newServicesList.length) {
-        historyWrites.push(createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
-          Title: nextAdminLabel(), ChangeType: 'Services Updated', FieldChanged: 'Services',
-          OldValue: 'SERVICES:' + JSON.stringify(oldServicesForDiff),
-          NewValue: 'SERVICES:' + JSON.stringify(newServicesList)
-        })));
-      }
-      if (historyWrites.length) await Promise.all(historyWrites);
-
-      /* PDF oficial -- mismo criterio que aprobar una orden nueva. */
-      let pdf = null;
-      try {
-        const merged = Object.assign({}, f, patch, { OrderID: orderId });
-        const freshSvc = servicesChanged && newServicesList.length ? newServicesList : oldServicesForDiff;
-        pdf = await generateAndSaveOrderPdf({ order: merged, services: freshSvc, history: history });
-      } catch (e) { /* nunca tumbar la confirmacion por esto */ }
-
-      return jsonResponse(200, { success: true, status: 'Assigned', pdf });
-    }
 
     /* ================================================================
        ARCHIVE / REACTIVATE — solo aplican a una orden ya Cancelled que
