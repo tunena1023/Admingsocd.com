@@ -8599,7 +8599,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           <div class="hist-head" style="padding:10px 14px;background:var(--bg);cursor:pointer;margin:0" onclick="toggleHistDetail('${svcDetailId}')">
             <div class="hist-head-main"><p class="detail-label" style="margin:0">Services Requested</p></div>
             <div style="display:flex;align-items:center;gap:10px">
-              ${context === 'quickbooks' ? '' : `
+              ${(context === 'quickbooks' || o.Status === 'Completed' || (o.Status === 'Cancelled' && o.Archived)) ? '' : `
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-btn-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px" onclick="event.stopPropagation();toggleActiveSvcUpdate('${esc(o.OrderID)}','${esc(o.Division||'')}')">Update</button>
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-cancel-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px;display:none" onclick="event.stopPropagation();cancelActiveSvcUpdate('${esc(o.OrderID)}')">Cancel</button>
               `}
