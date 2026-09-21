@@ -1,7 +1,7 @@
 /* admin-get-orders.js — todas las órdenes (sin filtro de cliente) */
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, CLIENTS_LIST, CLIENT_ADDRESSES_LIST,
-  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, SERVICE_ASSIGNMENTS_LIST,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 
@@ -106,13 +106,21 @@ function computeNowOpenStatus(place, holidayToday, now) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const [rows, svcRows, clientRows, buildingRows, holidayRows, choiceRows] = await Promise.all([
+    const [rows, svcRows, clientRows, buildingRows, holidayRows, choiceRows, assignmentRows] = await Promise.all([
       fetchAll(ORDERS_LIST),
       fetchAll(ORDER_SERVICES_LIST),
       fetchAll(CLIENTS_LIST),
       fetchAll(CLIENT_ADDRESSES_LIST),
       fetchAll(HOLIDAYS_LIST),
-      fetchAll(CLIENT_HOLIDAYS_LIST)
+      fetchAll(CLIENT_HOLIDAYS_LIST),
+      /* "Assign by service" (21/09/2026) -- para que Scheduling sepa
+         cuales ordenes YA se fueron a Active (Status: 'Assigned')
+         pero TODAVIA tienen algun servicio sin programar, y las siga
+         mostrando ahi -- a peticion explicita del dueño, confirmado
+         varias veces durante el mini: la cola de Scheduling nunca
+         deja de mostrar una orden solo porque su primer servicio ya
+         la mando a Active, mientras le falte algo por programar. */
+      fetchAll(SERVICE_ASSIGNMENTS_LIST).catch(err => { console.error('admin-get-orders: fetch de ServiceAssignments fallo (no fatal):', err); return []; })
     ]);
 
     /* Resumen de servicios por orden, para poder filtrar por servicio
@@ -130,12 +138,37 @@ exports.handler = async (event) => {
       if (!oid || !name) return;
       (servicesByOrder[oid] = servicesByOrder[oid] || []).push(name);
       (servicesDetailedByOrder[oid] = servicesDetailedByOrder[oid] || []).push({
+        /* BUG REAL encontrado en produccion (21/09/2026): Category
+           nunca se incluia aqui -- "Assign by service" lo necesita
+           para ligar cada servicio con su renglon de
+           ServiceAssignments (mismo par Category+ServiceName que ya
+           usa el resto del sistema para identificar un servicio
+           dentro de una orden). Sin esto, todo se agrupaba bajo
+           "General" en renderOrderDetail (byCat usa s.Category||
+           'General') y el emparejamiento con ServiceAssignments
+           comparaba contra undefined. */
+        Category: it.fields.Category || '',
         ServiceName: name,
         SubOption: it.fields.SubOption || '',
         Division: it.fields.Division || '',
         Level: it.fields.Level || '',
         Quantity: it.fields.Quantity || ''
       });
+    });
+
+    /* "Assign by service" -- por orden, cuantos servicios YA tienen
+       persona+fecha (AssignedTo+ScheduledDate) contra el total real
+       de OrderServices. Scheduling lo usa para decidir si una orden
+       que YA se fue a Active (Status ya no es 'Received') se sigue
+       mostrando ahi -- a peticion explicita del dueño: mientras falte
+       AL MENOS un servicio por programar, la orden se sigue viendo en
+       Scheduling, sin importar su Status. */
+    const scheduledCountByOrder = {};
+    assignmentRows.forEach(it => {
+      if (!it.fields || !it.fields.AssignedTo || !it.fields.ScheduledDate) return;
+      const oid = it.fields.OrderID;
+      if (!oid) return;
+      scheduledCountByOrder[oid] = (scheduledCountByOrder[oid] || 0) + 1;
     });
 
     /* Lugares (cliente principal + cada building) por clave "clientId|buildingId"
@@ -262,6 +295,9 @@ exports.handler = async (event) => {
              (en vez de un solo bloque para toda la orden) y Active
              usa el modelo por servicio en lugar del de siempre. */
           AssignByService: f.AssignByService === true || f.AssignByService === 'true',
+          /* "Assign by service" -- ver comentario junto a scheduledCountByOrder
+             arriba. true = todavia falta programar al menos un servicio. */
+          AssignByServiceHasUnscheduled: (scheduledCountByOrder[f.OrderID || f.Title] || 0) < (servicesByOrder[f.OrderID || f.Title] || []).length,
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
           Services: servicesByOrder[f.OrderID || f.Title] || [],
           ServicesDetailed: servicesDetailedByOrder[f.OrderID || f.Title] || []
