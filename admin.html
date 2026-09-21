@@ -11910,7 +11910,30 @@ let pendingDirectLinkOrderId = null;
     }
     svcOpenKey = null;
     delete svcDraftCache[key];
-    await Promise.all([loadServiceAssignmentQueue(orderId), loadOrdersQueue()]);
+    /* BUG REAL encontrado en produccion (21/09/2026, reportado por el
+       dueño -- "el servicio se va a Active pero no se pone como
+       asignado, y si me regreso a Scheduling no se guardo"): estos 2
+       corrian en PARALELO. loadOrdersQueue() vuelve a pedir TODAS las
+       ordenes y reconstruye la lista completa (orderQueueCardHtml
+       siempre nace con order-body VACIO/cerrado) -- si terminaba
+       DESPUES de que loadServiceAssignmentQueue ya habia pintado la
+       cola actualizada adentro de esa tarjeta, el rebuild completo la
+       cerraba de un jalon, borrando lo que se acababa de pintar. El
+       dato SI se guardaba en SharePoint -- esto era pura carrera de
+       UI, pero se veia exactamente como "no se guardo". Ahora corren
+       en orden, y si la tarjeta seguia abierta, se vuelve a abrir con
+       los datos ya frescos despues del refresh completo. */
+    await loadOrdersQueue();
+    if (openOrderCard === orderId) {
+      const body = document.getElementById('order-body-' + orderId);
+      const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+        (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+      if (body && order) {
+        body.innerHTML = assignFormHtml(order);
+        body.classList.add('open');
+        if (order.AssignByService) await loadServiceAssignmentQueue(orderId);
+      }
+    }
   };
 
   /* "Assign by service" -- boton dinamico de Completed en Active,
