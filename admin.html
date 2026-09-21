@@ -8577,6 +8577,15 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
   if (context === 'active' && o.Status === 'Received') {
     return unseenActiveCardHtml(o, services, history);
   }
+  /* BUG REAL encontrado en produccion (21/09/2026, "Active sigue
+     roto" -- captura real: "Cannot access 'isAssignByService' before
+     initialization"): esta constante se usaba en el bloque de
+     statusBar/completedBtnHtml (mas arriba en el codigo de la
+     funcion) pero se declaraba hasta mas abajo, junto a la tabla de
+     servicios -- temporal dead zone de un const usado antes de su
+     propia declaracion. Movida aqui arriba, antes de cualquier lugar
+     que la necesite. */
+  const isAssignByService = o.AssignByService === true || o.AssignByService === 'true';
   const byCat = {};
   services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
@@ -8745,7 +8754,6 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      grupo; si no hay sub-opcion, se ve un guion gris en vez de quedar
      vacio. */
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
-  const isAssignByService = o.AssignByService === true || o.AssignByService === 'true';
   /* "Assign by service": columna de estatus extra por renglon -- el
      resto de la tabla (agrupada por Categoria, con Nivel/Cantidad/
      tiempo estimado) se queda exactamente igual, esto solo le
