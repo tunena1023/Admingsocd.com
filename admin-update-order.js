@@ -44,6 +44,15 @@ const LIVE_STATUSES = ['Received', 'Assigned'];
    necesita resolveOrderDivision() para verificar la division real de
    cada servicio que se va a guardar. Separado de fetchByOrderId
    porque aqui no se filtra por orden, se trae la lista completa. */
+/* BUG REAL encontrado y arreglado (20/09/2026, ver el comentario
+   completo en admin-approve-order.js, misma revision): Quantity en
+   OrderServices paso de Texto a Numero -- '' ya no es un respaldo
+   valido para "sin cantidad", ahora hace falta null. */
+function numOrNull(v) {
+  const n = parseInt(v, 10);
+  return (n && n > 0) ? n : null;
+}
+
 async function fetchServicesCatalogForDivisionCheck() {
   let url = siteListPath(SERVICES_CATALOG_LIST) + '?$expand=fields($select=SKU,Division)&$top=500';
   const out = [];
@@ -551,7 +560,7 @@ exports.handler = async (event) => {
           SubOption:          s.SubOption   || '',
           Division:           s.Division    || division,
           Level:              s.Level       || '',
-          Quantity:           s.Quantity    || '',
+          Quantity:           numOrNull(s.Quantity),
           NotCompleted:       truthy(s.NotCompleted),
           NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
         })

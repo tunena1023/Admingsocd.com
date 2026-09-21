@@ -113,6 +113,23 @@ async function withStepLabel(label, fn) {
   }
 }
 
+/* BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+   dueño con una orden real): Quantity en OrderServices paso de Texto
+   a Numero (columna arreglada por el dueño directo en SharePoint,
+   20/09/2026). Mandar '' (cadena vacia) como respaldo para "sin
+   cantidad" -- lo normal para Texto -- ahora SharePoint lo rechaza
+   con "One of the provided arguments is not acceptable" para
+   cualquier servicio que de plano no necesita cantidad. null es el
+   respaldo correcto para un campo Numero opcional. Sirve para
+   cualquier servicio, sin importar si "requiere cantidad" o no en el
+   catalogo (ese flag se puede prender/apagar desde Developer en
+   cualquier momento -- no hay que asumir nada del catalogo aqui,
+   solo limpiar el dato real que llegue). */
+function numOrNull(v) {
+  const n = parseInt(v, 10);
+  return (n && n > 0) ? n : null;
+}
+
 function sortHistory(rows) {
   return rows
     .filter(r => r.fields)
@@ -555,7 +572,7 @@ exports.handler = async (event) => {
               SubOption:          s.SubOption   || s.subOption || '',
               Division:           s.Division    || division,
               Level:              s.Level       || s.level || '',
-              Quantity:           s.Quantity    || s.qty   || '',
+              Quantity:           numOrNull(s.Quantity != null ? s.Quantity : s.qty),
               NotCompleted:       truthy(s.NotCompleted),
               NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
             })
