@@ -8993,14 +8993,31 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       svcStatusByKey[(r.svc.Category || '') + '|' + (r.svc.ServiceName || '')] = r;
     });
   }
+  /* BUG REAL reportado por el dueño en vivo ("el que es el #4 en
+     Scheduling se ve como el #3 en Active"): confirmado y reproducido
+     -- agrupar por Categoria (cat: solo en la primera fila del grupo,
+     para no repetir la etiqueta) REVOLVIA el orden real en cuanto
+     habia 2+ categorias intercaladas por Sequence (A,B,A,B se
+     reagrupaba visualmente en A,A,B,B). Para una orden por-servicio,
+     el orden real ES el Sequence -- nunca se debe reagrupar por
+     Categoria (aunque se repita en cada fila), a diferencia del
+     modelo de toda-la-orden, donde esto siempre fue solo cosmetico. */
   const svcRows = [];
-  Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({
-      cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
+  if (isAssignByService) {
+    orderedServices.forEach(s => svcRows.push({
+      cat: s.Category || 'General', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
       sku: s.SubOption, lvl: s.Level, qty: s.Quantity,
       statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
     }));
-  });
+  } else {
+    Object.entries(byCat).forEach(([cat, list]) => {
+      list.forEach((s, i) => svcRows.push({
+        cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
+        sku: s.SubOption, lvl: s.Level, qty: s.Quantity,
+        statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
+      }));
+    });
+  }
   /* A peticion del dueño (21/09/2026, en vivo -- cambio confirmado
      sobre lo ya aprobado en el mini): "Completed" ya NO es un solo
      boton compartido que opera sobre el que le toca su turno -- cada
@@ -12189,6 +12206,20 @@ let pendingDirectLinkOrderId = null;
       showToast('Could not reorder: ' + e.message);
       return;
     }
+    /* BUG REAL reportado por el dueño en vivo ("el servicio que es el
+       #4 en Scheduling se ve como el #3 en Active"): reordenar solo
+       refrescaba la cola de Scheduling (loadServiceAssignmentQueue) --
+       nunca invalidaba orderDetailCache, que es de donde sale la
+       tarjeta de Active/History/Review. Si esa orden ya se habia
+       abierto ahi antes del reordenamiento (comun, si se esta
+       probando en las 2 pantallas), se seguia viendo la version
+       vieja hasta recargar toda la pagina -- loadAll() SI resetea
+       este cache entero, pero aqui a proposito NO se llama a loadAll
+       (mismo motivo que saveServiceSchedule: evitar la carrera que ya
+       se arreglo antes, que cerraba la tarjeta de Scheduling de un
+       jalon). Se invalida SOLO esta orden, no todo el cache. */
+    delete orderDetailCache[orderId];
+    delete orderDetailCacheData[orderId];
     await loadServiceAssignmentQueue(orderId);
   }
 
