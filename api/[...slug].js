@@ -32,7 +32,8 @@ const handlers = {
   'toggle-assign-by-service': require('../toggle-assign-by-service').handler,
   'get-service-assignments': require('../get-service-assignments').handler,
   'save-service-assignment': require('../save-service-assignment').handler,
-  'complete-service-assignment': require('../complete-service-assignment').handler
+  'complete-service-assignment': require('../complete-service-assignment').handler,
+  'resolve-service-change-request': require('../resolve-service-change-request').handler
 };
 
 module.exports = async (req, res) => {

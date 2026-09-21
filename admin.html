@@ -2976,6 +2976,134 @@ function supervisorUpdateRow(history) {
   return null;
 }
 
+/* "Assign by service" -- solicitudes de cambio pendientes, UNA por
+   servicio (confirmado con el dueño: nunca agrupadas). Recorre el
+   historial completo hacia adelante (viene en orden cronologico) y
+   se queda con el ULTIMO estado real de cada servicio -- un
+   'Service Change Requested' sin su 'Service Change Resolved'
+   correspondiente DESPUES sigue pendiente; si ya tiene uno despues,
+   ya se resolvio (aprobado o cancelado), aunque haya llegado una
+   solicitud nueva mas vieja para el mismo servicio antes. */
+function pendingServiceChangeRequests(history) {
+  const byKey = {};
+  (history || []).forEach(h => {
+    const type = String(h.ChangeType || '');
+    if (type !== 'Service Change Requested' && type !== 'Service Change Resolved') return;
+    let payload = null;
+    try { payload = JSON.parse(h.NewValue || 'null'); } catch (e) {}
+    if (!payload || !payload.serviceName) return;
+    const k = (payload.category || '') + '|' + payload.serviceName;
+    if (type === 'Service Change Requested') {
+      byKey[k] = { subType: h.FieldChanged, category: payload.category, serviceName: payload.serviceName, detail: payload.detail, historyRow: h, resolved: false };
+    } else if (byKey[k]) {
+      byKey[k].resolved = true;
+    }
+  });
+  return Object.keys(byKey).map(k => byKey[k]).filter(r => !r.resolved);
+}
+
+/* "Assign by service" -- borrador del picker de reasignar para el
+   caso 'Modify' (persona+fecha, igual que Scheduling) -- key:
+   'orderId|category|serviceName'. Se llena la primera vez que se
+   pinta esa tarjeta, precargado con quien ya estaba (mismo criterio
+   que Scheduling: nombres de AssignedTo convertidos a sus ids reales
+   contra richCandidatesFor(), para que salga resaltado quien ya
+   estaba asignado). */
+let reviewChangeDraftCache = {};
+
+function serviceChangeRequestCardHtml(o, req) {
+  const key = o.OrderID + '|' + req.category + '|' + req.serviceName;
+  let bodyHtml = '';
+
+  if (req.subType === 'Add') {
+    const s = req.detail || {};
+    bodyHtml = `
+      <p class="meta-line" style="margin-bottom:14px">Client requested a new service on this order. This doesn't touch anything already scheduled or completed.</p>
+      <div class="detail-grid" style="grid-template-columns:1fr;margin:0 0 14px">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--gold-dk);font-weight:700;text-transform:uppercase;margin-bottom:2px">${esc(req.category)}</div>
+          <div style="font-weight:600">${esc(req.serviceName)}</div>
+        </div>
+      </div>
+      <div class="appr-bar">
+        <button class="gs-ofp-btn-primary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')">Approve</button>
+        <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
+      </div>
+      <p class="appr-hint">Approve adds it straight to this order's queue in Scheduling, ready to be scheduled like any other service. Cancel Change Request discards the request entirely, as if it never happened.</p>`;
+  } else if (req.subType === 'Remove') {
+    const s = req.detail || {};
+    bodyHtml = `
+      <p class="meta-line" style="margin-bottom:14px">Client requested to remove <b>${esc(req.serviceName)}</b> from this order. It hasn't been completed, so this is allowed.</p>
+      <div class="detail-grid" style="grid-template-columns:1fr;margin:0 0 14px">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--gold-dk);font-weight:700;text-transform:uppercase;margin-bottom:2px">${esc(req.category)}</div>
+          <div style="font-weight:600">${esc(req.serviceName)}</div>
+        </div>
+      </div>
+      <div class="appr-bar">
+        <button class="gs-ofp-btn-danger" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')">Approve</button>
+        <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
+      </div>
+      <p class="appr-hint">Approve removes it from the order for good. Cancel Change Request keeps it exactly as it is.</p>`;
+  } else if (req.subType === 'Modify') {
+    if (!reviewChangeDraftCache[key]) {
+      const oldSvc = (req.detail || {}).old || {};
+      const assignedTo = String(oldSvc.AssignedTo || '').trim();
+      const { candidates: rc, techCandidates: rtc } = richCandidatesFor(o.Division);
+      const allRc = rc.concat(rtc);
+      const preIds = assignedTo ? assignedTo.split(',').map(n => n.trim()).filter(Boolean).map(n => {
+        const found = allRc.find(c => (c.name || (c.firstName + ' ' + c.lastName).trim()) === n);
+        return found ? (found.payrollNumber || ('tech:' + found.id)) : null;
+      }).filter(Boolean) : [];
+      reviewChangeDraftCache[key] = { ids: preIds, date: oldSvc.ScheduledDate || '' };
+    }
+    const draft = reviewChangeDraftCache[key];
+    const { candidates, techCandidates } = richCandidatesFor(o.Division);
+    const idOf = c => c.payrollNumber || ('tech:' + c.id);
+    const nameOf = c => c.name || (c.firstName + ' ' + c.lastName).trim();
+    const allCands = candidates.concat(techCandidates);
+    const candRowsHtml = !allCands.length
+      ? '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now.</p>'
+      : allCands.map(c => {
+          const id = idOf(c);
+          const picked = draft.ids.includes(id);
+          const statLine = c.hoursThisWeek != null
+            ? `<span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span><span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>`
+            : `<span class="candidate-stat">${esc(c.role || '')}${c.division === 'Mixed' ? ' — Mixed' : ''}</span>`;
+          return `<div class="candidate-row${picked ? ' selected' : ''}" onclick="toggleReviewChangeCandidate('${jsStr(key)}','${jsStr(id)}')">
+            <span class="candidate-name">${esc(nameOf(c))}</span>
+            ${statLine}
+          </div>`;
+        }).join('');
+    const canApprove = draft.ids.length && draft.date;
+    bodyHtml = `
+      <p class="meta-line" style="margin-bottom:14px">Client requested a change to <b>${esc(req.serviceName)}</b>, which already has people/date scheduled.</p>
+      <p class="detail-label" style="margin-bottom:8px">Who does this now? (pick — doesn't have to be the same person)</p>
+      <div style="max-height:260px;overflow-y:auto;margin-bottom:14px">${candRowsHtml}</div>
+      <div class="field-group" style="max-width:220px;margin-bottom:14px">
+        <label>Date</label>
+        ${GSDateTimePicker.dateHtml('review-change-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}
+      </div>
+      <div class="appr-bar">
+        <button class="gs-ofp-btn-primary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')" ${canApprove ? '' : 'disabled'}>Approve</button>
+        <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
+      </div>
+      <p class="appr-hint">Approve applies the change with whoever's picked above. Cancel Change Request discards the request entirely, as if it never happened.</p>`;
+  }
+
+  return `<div style="border:1px solid var(--border);border-radius:8px;padding:16px"><p class="detail-label">Pending Change Request — ${esc(req.subType)}</p>${bodyHtml}</div>`;
+}
+
+window.toggleReviewChangeCandidate = function(key, id) {
+  const d = reviewChangeDraftCache[key];
+  if (!d) return;
+  const i = d.ids.indexOf(id);
+  if (i === -1) d.ids.push(id); else d.ids.splice(i, 1);
+  const orderId = key.split('|')[0];
+  const order = allOrders.find(o => o.OrderID === orderId);
+  if (order) loadApprovalDetail(order);
+};
+
 /* 'level-only' | 'added-removed' | 'none' -- que tan grande es el
    cambio que sugirio el supervisor, usando el mismo parser/clasificador
    compartido que ya usa el historial visual (gsocd-shared/order-history
@@ -3524,6 +3652,19 @@ function decisionAreaHtmlInner(o, history) {
     <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to <b>${esc(restoreTo)}</b> immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
   }
 
+  /* "Assign by service" -- 3 casos ya definidos y probados en el mini
+     (agregar/modificar/quitar), cada uno su PROPIA solicitud
+     pendiente (confirmado con el dueño: nunca agrupadas). Antes de
+     isSupervisorUpdate a proposito -- una orden por-servicio nunca
+     entra por ese camino (el suyo es distinto, servicio por
+     servicio), asi que se revisa primero. */
+  if ((o.AssignByService === true || o.AssignByService === 'true')) {
+    const pending = pendingServiceChangeRequests(history);
+    if (pending.length) {
+      return pending.map(req => serviceChangeRequestCardHtml(o, req)).join('<div style="height:14px"></div>');
+    }
+  }
+
   if (isSupervisorUpdate(history)) {
     const actor = supervisorUpdateActor(history);
     const galleryId = dom + '-gallery';
@@ -3607,6 +3748,34 @@ function decisionAreaHtmlInner(o, history) {
     </div>
     <p class="appr-hint">Reassign keeps the same tech, day, and time as before. Reschedule sends it back to Scheduling to be assigned fresh. Cancel Change Request discards the request entirely, as if it never happened.</p>`;
 }
+
+/* "Assign by service" -- resuelve UNA solicitud pendiente (nunca
+   agrupadas, cada quien su propia decision). Sin password -- mismo
+   criterio ya confirmado desde el mini para estos 3 casos. Para
+   'Modify' manda tambien quien quedo elegido en el picker. */
+window.resolveServiceChangeRequest = async function(orderId, cat, name, decision) {
+  const key = orderId + '|' + cat + '|' + name;
+  const draft = reviewChangeDraftCache[key];
+  let assignedTo;
+  if (draft && draft.ids.length) {
+    const order = allOrders.find(o => o.OrderID === orderId) || {};
+    const { candidates, techCandidates } = richCandidatesFor(order.Division);
+    const allCands = candidates.concat(techCandidates);
+    const nameOf = c => c.name || (c.firstName + ' ' + c.lastName).trim();
+    const idOf = c => c.payrollNumber || ('tech:' + c.id);
+    assignedTo = draft.ids.map(id => { const c = allCands.find(x => idOf(x) === id); return c ? nameOf(c) : null; }).filter(Boolean).join(', ');
+  }
+  try {
+    await api('/resolve-service-change-request', {
+      body: { orderId, category: cat, serviceName: name, decision, assignedTo, scheduledDate: draft ? draft.date : undefined, changedBy: getActorName() }
+    });
+    delete reviewChangeDraftCache[key];
+    showToast('Change request ' + (decision === 'approve' ? 'approved' : 'cancelled') + '.');
+    await loadAll();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+};
 
 async function decideReview(orderId, decision, needsPassword) {
   const dom = apprDomId(orderId);
@@ -11900,6 +12069,21 @@ let pendingDirectLinkOrderId = null;
      'svc-date-'. */
   document.addEventListener('change', e => {
     const id = e.target.id || '';
+    if (id.startsWith('review-change-date-')) {
+      /* "Assign by service" -- picker de fecha del caso 'Modify' en
+         Review. No hay una sola key abierta como en Scheduling (aqui
+         puede haber varias tarjetas pendientes visibles a la vez), asi
+         que la key real se reconstruye del propio id del input --
+         mismo reemplazo de caracteres que se uso para crearlo. */
+      const allKeys = Object.keys(reviewChangeDraftCache);
+      const key = allKeys.find(k => 'review-change-date-' + k.replace(/[^a-z0-9]/gi, '_') === id);
+      if (!key) return;
+      reviewChangeDraftCache[key].date = GSDateTimePicker.getDate(id) || '';
+      const orderId = key.split('|')[0];
+      const order = allOrders.find(o => o.OrderID === orderId);
+      if (order) loadApprovalDetail(order);
+      return;
+    }
     if (!id.startsWith('svc-date-') || !svcOpenKey) return;
     const d = svcDraftCache[svcOpenKey] || { ids: [], date: '' };
     d.date = GSDateTimePicker.getDate(id) || '';
