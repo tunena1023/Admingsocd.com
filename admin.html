@@ -8908,26 +8908,21 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      sentido poder marcar como completada o cancelada una visita que
      ni siquiera ha pasado. Aparecen solo una vez que el motor la
      asciende de verdad a 'Assigned', igual que cualquier otra orden. */
-  /* "Assign by service": el boton de Completed YA NO cierra toda la
-     orden de un jalon -- opera sobre el servicio que es SU TURNO
-     ahorita (mismo lugar visual de siempre, logica distinta debajo).
-     Se pone azul si el tecnico ya dijo "ya acabe" y falta que
-     oficina lo confirme -- mismo lenguaje visual aprobado en el mini.
-     Una vez que TODOS los servicios estan Completed, regresa el
-     boton normal de toda-la-orden (markCompleted) para cerrar la
-     orden formalmente, igual que hoy. */
+  /* "Assign by service" (corregido 21/09/2026 en vivo -- cambio
+     confirmado sobre lo aprobado en el mini): completar cada
+     servicio YA NO pasa por este boton compartido -- cada servicio
+     que ya tiene tecnico+fecha trae su PROPIO boton junto a el en la
+     tabla de "Services Requested" (mas abajo, svcTableHtml), sin
+     importar cual sea "su turno". Este boton de aqui se queda SOLO
+     para cerrar la orden formalmente una vez que TODOS los servicios
+     ya estan Completed -- mientras falte alguno, no aparece nada
+     aqui (nada que hacer en este boton todavia). */
   let completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`;
   if (isAssignByService) {
-    const curRow = currentSvcAssignmentRow(o.OrderID, services);
     const allDone = svcAssignmentStatusRows(o.OrderID, services).every(r => r.workStatus === 'Completed');
-    if (allDone) {
-      completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>`;
-    } else if (curRow && curRow.scheduled) {
-      const isPending = curRow.workStatus === 'Pending Review';
-      completedBtnHtml = `<button class="${isPending ? 'gs-ofp-btn-primary' : 'gs-ofp-btn-primary'}" style="${isPending ? 'background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${esc(o.OrderID)}','${jsStr(curRow.svc.Category || '')}','${jsStr(curRow.svc.ServiceName || '')}')">Completed${isPending ? ' ✓ (tech marked done)' : ''}</button>`;
-    } else {
-      completedBtnHtml = '';
-    }
+    completedBtnHtml = allDone
+      ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>`
+      : '';
   }
 
   const statusBar = (contextCan(context, 'edit') && o.Status !== 'Recurring Scheduled') ? `
@@ -8991,16 +8986,31 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
     }));
   });
+  /* A peticion del dueño (21/09/2026, en vivo -- cambio confirmado
+     sobre lo ya aprobado en el mini): "Completed" ya NO es un solo
+     boton compartido que opera sobre el que le toca su turno -- cada
+     servicio que YA tiene tecnico+fecha trae su PROPIO boton aqui
+     mismo, sin importar el orden (se puede completar cualquiera,
+     no solo el que esta "activo"). Sigue sin poder completarse uno
+     que todavia no tiene gente+fecha (nada que confirmar). */
   const svcTableHtml = svcRows.length
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-      svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
+      svcRows.map((r, i) => {
+        const sr = r.statusRow;
+        const canComplete = isAssignByService && sr && sr.scheduled && sr.workStatus !== 'Completed';
+        const isPendingReview = sr && sr.workStatus === 'Pending Review';
+        const completeBtnHtml = canComplete
+          ? `<button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:4px 12px;font-size:11px;margin-left:8px${isPendingReview ? ';background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${jsStr(o.OrderID)}','${jsStr((sr.svc && sr.svc.Category) || '')}','${jsStr(r.name)}')">${isPendingReview ? '✓ Confirm' : 'Mark completed'}</button>`
+          : '';
+        return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
-          ? '<td style="padding:9px 0 9px 10px;white-space:nowrap;text-align:right">' + (r.statusRow ? '<span class="status-badge ' + r.statusRow.cls + '">' + esc(r.statusRow.label) + '</span>' : '') + '</td>'
+          ? '<td style="padding:9px 0 9px 10px;white-space:nowrap;text-align:right">' + (sr ? '<span class="status-badge ' + sr.cls + '">' + esc(sr.label) + '</span>' : '') + completeBtnHtml + '</td>'
           : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
-        '</tr>').join('') +
+        '</tr>';
+      }).join('') +
       '</table>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
