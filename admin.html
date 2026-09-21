@@ -577,6 +577,18 @@
     .svc-assign-line.can-open { cursor: pointer; }
     .svc-assign-line.active .svc-assign-name { color: var(--gold-dk); }
     .svc-assign-line .status-badge { margin-left: auto; }
+    /* Reordenar (21/09/2026, aprobado desde el mini) -- mismo patron
+       real de arrastrar y soltar que ya usa Routing
+       (routingDragStart/Over/Drop/DragEnd), mismas clases de estado
+       (.dragging/.drag-over-top/.drag-over-bottom), aqui escaladas a
+       .svc-assign-line en vez de .routing-stop-row. */
+    .svc-assign-line.dragging { opacity: .4; }
+    .svc-assign-line.drag-over-top { box-shadow: inset 0 2px 0 var(--gold); }
+    .svc-assign-line.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--gold); }
+    .svc-drag-handle { cursor: grab; color: var(--gray); font-size: 12px; padding: 0 2px; flex-shrink: 0; }
+    .svc-move-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+    .svc-move-btns button { width: 20px; height: 16px; border: 1px solid var(--border); background: var(--white); color: var(--gray); font-size: 9px; cursor: pointer; border-radius: 2px; padding: 0; }
+    .svc-move-btns button:disabled { opacity: .3; cursor: default; }
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
 
@@ -11980,8 +11992,27 @@ let pendingDirectLinkOrderId = null;
         ? `<div class="svc-assign-assigned">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
         : '';
 
+      /* Reordenar (aprobado desde el mini): lo ya Completed nunca se
+         puede arrastrar, ni nada se puede meter antes de su
+         posicion -- es historia. Mismo patron real de Routing en
+         desktop (arrastrar), botones subir/bajar en mobile (el
+         arrastre nativo no es confiable con el dedo, mismo criterio
+         que ya usa el Recurring Services Scheduler). */
+      const isMobileWidth = window.innerWidth <= 768;
+      const dragAttrs = (!isDone && !isMobileWidth)
+        ? `draggable="true" ondragstart="svcQueueDragStart(event,'${jsStr(orderId)}',${i})" ondragover="svcQueueDragOver(event)" ondrop="svcQueueDrop(event,'${jsStr(orderId)}',${i})" ondragend="svcQueueDragEnd(event)"`
+        : '';
+      const completedCount = rows.filter(r => r.a && r.a.WorkStatus === 'Completed').length;
+      const reorderHtml = isDone ? '' : (isMobileWidth
+        ? `<span class="svc-move-btns" onclick="event.stopPropagation()">
+             <button type="button" title="Move up" onclick="svcQueueMove('${jsStr(orderId)}',${i},-1)" ${i <= completedCount ? 'disabled' : ''}>▲</button>
+             <button type="button" title="Move down" onclick="svcQueueMove('${jsStr(orderId)}',${i},1)" ${i === rows.length - 1 ? 'disabled' : ''}>▼</button>
+           </span>`
+        : `<span class="svc-drag-handle" title="Drag to reorder">⠿⠿</span>`);
+
       return `
-        <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+        <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${dragAttrs} ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+          ${reorderHtml}
           <span class="svc-assign-num">${i + 1}</span>
           <span class="svc-assign-name">${esc(svc.ServiceName)}</span>
           <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -12046,6 +12077,94 @@ let pendingDirectLinkOrderId = null;
       const anyCompleted = assignments.some(a => a.WorkStatus === 'Completed');
       toggleCheckbox.disabled = anyCompleted;
     }
+  }
+
+  /* Reordenar (aprobado desde el mini) -- mismo patron real de
+     Routing (routingDragStart/Over/Drop/DragEnd), aqui escalado a la
+     cola por servicio + persistido de verdad contra
+     ServiceAssignments (Sequence), que el mini nunca tuvo que hacer
+     (todo era en memoria ahi). */
+  let svcQueueDragFromIndex = null;
+
+  /* Mismo orden real que ya calcula renderServiceAssignmentQueue,
+     factorizado aqui para que los manejadores de arrastrar/mover lo
+     puedan leer sin duplicar la logica. */
+  function currentServiceQueueOrder(orderId) {
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+    if (!order) return [];
+    const services = (order.ServicesDetailed || []).filter(s => !s.NotCompleted);
+    const assignments = svcAssignCache[orderId] || [];
+    const byKey = {};
+    assignments.forEach(a => { byKey[a.Category + '|' + a.ServiceName] = a; });
+    return services.map((s, i) => {
+      const a = byKey[s.Category + '|' + s.ServiceName] || null;
+      return { category: s.Category, serviceName: s.ServiceName, seq: (a && a.Sequence) || (i + 1), isDone: a && a.WorkStatus === 'Completed' };
+    }).sort((x, y) => x.seq - y.seq);
+  }
+
+  window.svcQueueDragStart = function(ev, orderId, index) {
+    svcQueueDragFromIndex = index;
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.currentTarget.classList.add('dragging');
+  };
+
+  window.svcQueueDragOver = function(ev) {
+    ev.preventDefault();
+    const row = ev.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const before = (ev.clientY - rect.top) < rect.height / 2;
+    row.classList.toggle('drag-over-top', before);
+    row.classList.toggle('drag-over-bottom', !before);
+  };
+
+  window.svcQueueDrop = async function(ev, orderId, dropIndex) {
+    ev.preventDefault();
+    const row = ev.currentTarget;
+    const before = row.classList.contains('drag-over-top');
+    row.classList.remove('drag-over-top', 'drag-over-bottom');
+    if (svcQueueDragFromIndex === null || svcQueueDragFromIndex === dropIndex) return;
+
+    const list = currentServiceQueueOrder(orderId);
+    const minInsertAt = list.filter(s => s.isDone).length;
+    const moved = list.splice(svcQueueDragFromIndex, 1)[0];
+    let insertAt = dropIndex;
+    if (svcQueueDragFromIndex < dropIndex) insertAt -= 1;
+    if (!before) insertAt += 1;
+    insertAt = Math.max(minInsertAt, Math.min(insertAt, list.length));
+    list.splice(insertAt, 0, moved);
+
+    await persistServiceQueueOrder(orderId, list);
+  };
+
+  window.svcQueueDragEnd = function(ev) {
+    svcQueueDragFromIndex = null;
+    document.querySelectorAll('.svc-assign-line').forEach(el => el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+  };
+
+  /* Version mobile del mismo reordenamiento -- toca subir/bajar,
+     nunca arrastre (poco confiable con el dedo, mismo criterio que
+     ya usa el Recurring Services Scheduler). */
+  window.svcQueueMove = async function(orderId, idx, dir) {
+    const list = currentServiceQueueOrder(orderId);
+    const swapWith = idx + dir;
+    if (swapWith < 0 || swapWith >= list.length) return;
+    const minInsertAt = list.filter(s => s.isDone).length;
+    if (swapWith < minInsertAt) return;
+    const tmp = list[idx]; list[idx] = list[swapWith]; list[swapWith] = tmp;
+    await persistServiceQueueOrder(orderId, list);
+  };
+
+  async function persistServiceQueueOrder(orderId, list) {
+    try {
+      await api('/reorder-service-queue', {
+        body: { orderId, order: list.map(s => ({ category: s.category, serviceName: s.serviceName })), changedBy: getActorName() }
+      });
+    } catch (e) {
+      showToast('Could not reorder: ' + e.message);
+      return;
+    }
+    await loadServiceAssignmentQueue(orderId);
   }
 
   window.toggleSvcPickerOpen = function(orderId, cat, name) {
