@@ -15,9 +15,25 @@
 
 const {
   ORDERS_FOLDER, ensureFolder, uploadFile, listChildren,
-  findFolderByPrefix, driveItemByPath
+  findFolderByPrefix, driveItemByPath, SERVICE_ASSIGNMENTS_LIST,
+  graphFetch, siteListPath
 } = require('./graph');
 const { PdfDoc } = require('./pdf');
+
+/* "Assign by service" -- mismo arreglo puente ya usado en el resto
+   del sistema para ServiceAssignments (su columna OrderID todavia no
+   esta indexada en SharePoint). */
+async function fetchServiceAssignments(orderId) {
+  try {
+    const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
+    const url = siteListPath(SERVICE_ASSIGNMENTS_LIST) + `?$expand=fields&$top=200&$filter=${filter}`;
+    const data = await graphFetch(url, { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
+    return (data.value || []).filter(it => it.fields).map(it => ({
+      Category: it.fields.Category || '', ServiceName: it.fields.ServiceName || '',
+      WorkStatus: it.fields.WorkStatus || 'Not Started'
+    }));
+  } catch (e) { return []; }
+}
 
 /* ===== Utilidades de formato (todo en INGLES: es texto de la app) ===== */
 
@@ -133,6 +149,13 @@ function buildOrderPdf(data) {
   const history = data.history || [];
   const revision = data.revision || 1;
   const orderId = clean(order.OrderID) || 'ORDER';
+  /* "Assign by service" -- estatus real por servicio (Not Started/
+     Pending Review/Completed), en vez de solo NotCompleted+Status de
+     toda-la-orden (que en este modelo siempre dice lo mismo para
+     todos, sin importar en que va cada uno de verdad). */
+  const isAssignByService = order.AssignByService === true || order.AssignByService === 'true';
+  const svcAssignByKey = {};
+  (data.serviceAssignments || []).forEach(a => { svcAssignByKey[a.Category + '|' + a.ServiceName] = a; });
 
   const doc = new PdfDoc();
   const GRAY = [0.42, 0.42, 0.42];
@@ -184,6 +207,16 @@ function buildOrderPdf(data) {
         status = 'NOT COMPLETED';
         const why = clean(s.NotCompletedReason);
         if (why) status += ' - ' + why;
+      } else if (isAssignByService) {
+        /* Estatus real de ESTE servicio en particular -- antes decia
+           'Scheduled' para todos por igual, sin importar si de verdad
+           ya tenia gente+fecha, estaba pendiente de confirmar oficina,
+           o ya estaba Completed. */
+        const a = svcAssignByKey[clean(s.Category) + '|' + clean(s.ServiceName)];
+        if (a && a.WorkStatus === 'Completed') status = 'Completed';
+        else if (a && a.WorkStatus === 'Pending Review') status = 'Pending office confirmation';
+        else if (a) status = 'Scheduled';
+        else status = 'Not started';
       } else if (clean(order.Status) === 'Completed') {
         status = 'Completed';
       }
@@ -234,12 +267,51 @@ function buildOrderPdf(data) {
 
 /* Resume un renglon del historial en una linea legible.
    Misma logica que el panel del admin, pero en texto plano. */
+/* "Assign by service" -- el PDF muestra el historial COMPLETO, sin
+   filtrar nada (a diferencia de lo que ve el cliente) -- "nada se
+   pierde, todo queda en el documento", ver comentario arriba en
+   buildOrderPdf. Mismos 9+ ChangeType reales que ya sabe resumir
+   order-history.js (gsocd-shared), aqui repetidos en texto plano
+   porque este archivo no puede cargar ese componente (es Node
+   puro, sin navegador). */
+const PER_SERVICE_TYPES = ['Service Scheduled', 'Order Moved To Active', 'Service Marked Done By Tech',
+  'Service Completed', 'Service Now Active', 'Service Needs Scheduling', 'Service Order Changed',
+  'Service Added', 'Service Removed', 'Service Change Requested', 'Service Change Resolved'];
+function perServiceDetailLine(h) {
+  let p = null;
+  try { p = JSON.parse(h.NewValue || 'null'); } catch (e) { return ''; }
+  if (!p) return '';
+  const type = clean(h.ChangeType);
+  if (type === 'Service Scheduled') return clean(p.serviceName) + ' scheduled with ' + clean(p.assigned) + ' on ' + fmtDate(p.date);
+  if (type === 'Order Moved To Active') return 'Order moved to Active (first service scheduled)';
+  if (type === 'Service Marked Done By Tech') return clean(p.serviceName) + ' marked done by the technician, waiting on office to confirm';
+  if (type === 'Service Completed') {
+    let line = clean(p.serviceName) + ' completed by ' + clean(p.completedBy) + ' on ' + fmtDateTime(p.finishedText);
+    if (p.confirmedNote) line += ' (' + clean(p.confirmedNote) + ')';
+    return line;
+  }
+  if (type === 'Service Now Active') return clean(p.serviceName) + ' is now the active service (already scheduled: ' + clean(p.assigned) + ', ' + fmtDate(p.date) + ')';
+  if (type === 'Service Needs Scheduling') return clean(p.serviceName) + ' needs to be scheduled before work can continue';
+  if (type === 'Service Order Changed') return 'Queue reordered: ' + (p.order || []).map(clean).join(' -> ');
+  if (type === 'Service Added') return clean(p.serviceName) + ' added to the order';
+  if (type === 'Service Removed') return clean(p.serviceName) + ' removed from the order';
+  if (type === 'Service Change Requested') {
+    const sub = clean(h.FieldChanged);
+    return 'Client requested to ' + (sub === 'Add' ? 'add' : sub === 'Remove' ? 'remove' : 'modify') + ' ' + clean(p.serviceName);
+  }
+  if (type === 'Service Change Resolved') return 'Change request resolved for ' + clean(p.serviceName);
+  return '';
+}
+
 function historyDetailLine(h) {
   const notes = clean(h.Notes);
   const field = clean(h.FieldChanged);
   const oldV = clean(h.OldValue);
   const newV = clean(h.NewValue);
 
+  if (PER_SERVICE_TYPES.indexOf(clean(h.ChangeType)) !== -1) {
+    return perServiceDetailLine(h) || notes || '';
+  }
   if (oldV.indexOf('SERVICES:') === 0 || newV.indexOf('SERVICES:') === 0) {
     const diff = serviceDiffText(oldV, newV);
     return [notes, diff].filter(Boolean).join(' | ') || 'Services updated';
@@ -319,7 +391,13 @@ async function generateAndSaveOrderPdf(data) {
     const revs = await existingRevisions(folderPath, orderId);
     const revision = (revs.length ? revs[revs.length - 1].revision : 0) + 1;
     const fileName = orderId + '-r' + revision + '.pdf';
-    const buffer = buildOrderPdf(Object.assign({}, data, { revision: revision }));
+    /* "Assign by service" -- estatus real por servicio para la tabla
+       de Services del PDF (ver buildOrderPdf). Solo se pide si la
+       orden de verdad es de este tipo -- no vale la pena el viaje de
+       red extra para las demas ordenes, que son la mayoria. */
+    const isAssignByService = order.AssignByService === true || order.AssignByService === 'true';
+    const serviceAssignments = isAssignByService ? await fetchServiceAssignments(orderId) : [];
+    const buffer = buildOrderPdf(Object.assign({}, data, { revision: revision, serviceAssignments: serviceAssignments }));
     const uploaded = await uploadFile(folderPath, fileName, buffer, 'application/pdf');
     return {
       ok: true,
