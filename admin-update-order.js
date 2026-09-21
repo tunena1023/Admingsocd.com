@@ -106,12 +106,22 @@ function truthy(v) {
 /* Comparison key must match the customer portal (Category|ServiceName) so both
    sides report identical change detail. El valor incluye tambien el estado
    "no completado" para que marcarlo tambien quede en el historial. */
+/* BUG REAL encontrado y arreglado (20/09/2026, reportado por el
+   dueño con una orden real): esta comparacion nunca incluia
+   Quantity -- cambiar SOLO la cantidad de un servicio ya existente
+   (misma Category/ServiceName/SubOption/Level, ej. de 4 puertas a 6)
+   producia el mismo hash antes y despues, asi que servicesDiffer()
+   regresaba false y NUNCA se creaba el renglon de historial
+   "Services Updated" -- el cambio SI se guardaba de verdad (el
+   borrar-y-crear de mas abajo no depende de esto), solo quedaba sin
+   registrar, invisible en Orders y en el propio historial de Admin. */
 function serviceMap(list) {
   const m = {};
   (list || []).forEach(s => {
     m[(s.Category || '') + '|' + (s.ServiceName || '')] = JSON.stringify({
       o: s.SubOption || '',
       l: s.Level || '',
+      q: s.Quantity || '',
       n: truthy(s.NotCompleted),
       r: s.NotCompletedReason || ''
     });
