@@ -8805,8 +8805,23 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      propia declaracion. Movida aqui arriba, antes de cualquier lugar
      que la necesite. */
   const isAssignByService = o.AssignByService === true || o.AssignByService === 'true';
+  /* BUG REAL reportado por el dueño en vivo: "si los servicios se
+     reorganizan, tambien se deben reorganizar en Active" -- antes
+     esta tabla mostraba los servicios en el orden que vinieran de
+     OrderServices (Graph API), sin revisar Sequence para nada, asi
+     que reordenar en Scheduling nunca se reflejaba aqui. Se
+     reordenan primero (mismo Sequence real de ServiceAssignments,
+     mismo criterio de siempre: si todavia no tiene renglon, se queda
+     en su posicion de llegada) antes de agrupar por Categoria. */
+  const orderedServices = isAssignByService ? (() => {
+    const assignments = svcAssignCache[o.OrderID] || [];
+    const seqByKey = {};
+    assignments.forEach(a => { seqByKey[a.Category + '|' + a.ServiceName] = a.Sequence; });
+    return services.map((s, i) => ({ s, seq: seqByKey[(s.Category||'') + '|' + (s.ServiceName||'')] || (i + 1) }))
+      .sort((a, b) => a.seq - b.seq).map(x => x.s);
+  })() : services;
   const byCat = {};
-  services.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
+  orderedServices.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
   const histHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
 
