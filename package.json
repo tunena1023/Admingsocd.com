@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "xlsx": "0.18.5",
-    "web-push": "3.6.7",
+    "gsocd-shared": "github:tunena1023/gsocd-shared#v1.45.0",
     "heic-convert": "2.1.0",
-    "gsocd-shared": "github:tunena1023/gsocd-shared#v1.35.0"
+    "web-push": "3.6.7",
+    "xlsx": "0.18.5"
   }
 }
