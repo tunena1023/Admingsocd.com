@@ -19,12 +19,25 @@ const {
   graphFetch, siteListPath, updateListItemByItemId, createListItem, jsonResponse
 } = require('./lib/graph');
 
+/* BUG REAL encontrado en produccion (21/09/2026, con captura real del
+   dueño): Graph API rechaza filtrar por OrderID en ServiceAssignments
+   -- 'Field OrderID cannot be referenced in filter... as it is not
+   indexed'. Las listas viejas (OrderServices/OrderHistory/Orders) ya
+   tenian su columna OrderID indexada de antes; esta lista es nueva y
+   nunca se indexo. Arreglo INMEDIATO aqui (el header que el mismo
+   error de Graph sugiere, HonorNonIndexedQueriesWarningMayFailRandomly)
+   para no depender de que alguien entre a SharePoint ahorita mismo --
+   el arreglo de FONDO sigue siendo indexar la columna OrderID en
+   ServiceAssignments (List Settings > Indexed columns), que el dueño
+   ya sabe que hace falta. Sin indice, Graph mismo avisa que estas
+   consultas pueden fallar si la lista crece mucho -- aceptable por
+   ahora, no para siempre. */
 async function fetchByOrderId(listName, orderId) {
   const filter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
   let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
   const out = [];
   while (url) {
-    const data = await graphFetch(url);
+    const data = await graphFetch(url, { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
     out.push(...(data.value || []));
     url = data['@odata.nextLink'] || null;
   }

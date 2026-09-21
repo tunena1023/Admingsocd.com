@@ -11,12 +11,21 @@ const {
 } = require('./lib/graph');
 const { latestOrderPdf } = require('./lib/orderpdf');
 
-async function fetchByField(listName, fieldName, value) {
+/* honorNonIndexed (opcional): BUG REAL encontrado en produccion
+   (21/09/2026) -- ServiceAssignments (lista nueva de "Assign by
+   service") nunca se indexo por OrderID, a diferencia de las listas
+   viejas que ya usan esta misma funcion (esas SI estan indexadas,
+   nunca necesitaron esto). Arreglo inmediato con el header que el
+   propio error de Graph sugiere -- el arreglo de fondo sigue siendo
+   indexar la columna en SharePoint. Solo se pasa true para esa
+   lista especifica, las demas llamadas se quedan igual que siempre. */
+async function fetchByField(listName, fieldName, value, honorNonIndexed) {
   const filter = encodeURIComponent(`fields/${fieldName} eq '${value}'`);
   let url = siteListPath(listName) + `?$expand=fields&$top=200&$filter=${filter}`;
   const out = [];
+  const opts = honorNonIndexed ? { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } } : {};
   while (url) {
-    const data = await graphFetch(url);
+    const data = await graphFetch(url, opts);
     out.push(...(data.value || []));
     url = data['@odata.nextLink'] || null;
   }
@@ -110,7 +119,7 @@ exports.handler = async (event) => {
        no deja de verse. */
     let assignmentRows = [];
     try {
-      assignmentRows = await fetchByField(SERVICE_ASSIGNMENTS_LIST, 'OrderID', wanted);
+      assignmentRows = await fetchByField(SERVICE_ASSIGNMENTS_LIST, 'OrderID', wanted, true);
     } catch (svcAssignErr) {
       console.error('get-order-detail: fetch de ServiceAssignments fallo (no fatal):', svcAssignErr);
     }
