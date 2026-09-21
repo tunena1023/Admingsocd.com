@@ -98,6 +98,21 @@ async function fetchServicesCatalogForDivisionCheck() {
   return out.filter(it => it.fields).map(it => ({ sku: it.fields.SKU || '', division: it.fields.Division || '' }));
 }
 
+/* DIAGNOSTICO TEMPORAL (20/09/2026, a peticion del dueño): 'General
+   exception while processing' es el mensaje generico que manda Graph
+   API tal cual -- no dice en que paso especifico truena. No cambia
+   NINGUN comportamiento (no atrapa ni ignora nada, solo le pega una
+   etiqueta al error y lo vuelve a lanzar) -- la proxima vez que esto
+   pase, el mensaje real le va a decir exactamente cual paso (y, para
+   servicios, cual servicio especifico) fue. */
+async function withStepLabel(label, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    throw new Error('[' + label + '] ' + e.message);
+  }
+}
+
 function sortHistory(rows) {
   return rows
     .filter(r => r.fields)
@@ -505,41 +520,46 @@ exports.handler = async (event) => {
            supervisor o del cliente puede traer un servicio de otra
            division -- aqui es donde se aplica de verdad por primera
            vez, asi que aqui es donde hay que revisarlo. */
-        const divisionCatalog = await fetchServicesCatalogForDivisionCheck();
+        const divisionCatalog = await withStepLabel('fetch division catalog', () => fetchServicesCatalogForDivisionCheck());
         const divisionResult = resolveOrderDivision(division, proposed.services, divisionCatalog);
         if (divisionResult) {
-          await updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision });
+          await withStepLabel('update order Division', () =>
+            updateListItemByItemId(ORDERS_LIST, item.id, { Division: divisionResult.newDivision }));
           /* BUG REAL arreglado (20/09/2026, ver el comentario completo
              en admin-update-order.js): Notes vacio, el/los servicios
              que causaron el cambio van en NewValue como payload
              estructurado -- order-history.js v1.35.0+ lo dibuja en el
              mismo detalle que "Division: X -> Y". */
-          await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
-            Title:        nextAdminLabel(),
-            ChangeType:   'Division Changed',
-            FieldChanged: 'Division',
-            Notes:        '',
-            OldValue:     divisionResult.previousDivision,
-            NewValue:     JSON.stringify(divisionChangeHistoryPayload(divisionResult))
-          }));
+          await withStepLabel('create Division Changed history row', () =>
+            createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+              Title:        nextAdminLabel(),
+              ChangeType:   'Division Changed',
+              FieldChanged: 'Division',
+              Notes:        '',
+              OldValue:     divisionResult.previousDivision,
+              NewValue:     JSON.stringify(divisionChangeHistoryPayload(divisionResult))
+            })));
         }
 
         if (svcRows.length) {
-          await Promise.all(svcRows.map(r => deleteListItem(ORDER_SERVICES_LIST, r.id)));
+          await Promise.all(svcRows.map(r =>
+            withStepLabel('delete old service row ' + r.id, () => deleteListItem(ORDER_SERVICES_LIST, r.id))));
         }
         await Promise.all(proposed.services.map(s =>
-          createListItem(ORDER_SERVICES_LIST, {
-            Title:              s.ServiceName || s.service || '',
-            OrderID:            orderId,
-            Category:           s.Category    || s.category || '',
-            ServiceName:        s.ServiceName || s.service  || '',
-            SubOption:          s.SubOption   || s.subOption || '',
-            Division:           s.Division    || division,
-            Level:              s.Level       || s.level || '',
-            Quantity:           s.Quantity    || s.qty   || '',
-            NotCompleted:       truthy(s.NotCompleted),
-            NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
-          })
+          withStepLabel('create service: ' + (s.ServiceName || s.service || '(sin nombre)') + ' / SubOption=' + (s.SubOption || s.subOption || '') + ' / Quantity=' + JSON.stringify(s.Quantity !== undefined ? s.Quantity : s.qty), () =>
+            createListItem(ORDER_SERVICES_LIST, {
+              Title:              s.ServiceName || s.service || '',
+              OrderID:            orderId,
+              Category:           s.Category    || s.category || '',
+              ServiceName:        s.ServiceName || s.service  || '',
+              SubOption:          s.SubOption   || s.subOption || '',
+              Division:           s.Division    || division,
+              Level:              s.Level       || s.level || '',
+              Quantity:           s.Quantity    || s.qty   || '',
+              NotCompleted:       truthy(s.NotCompleted),
+              NotCompletedReason: truthy(s.NotCompleted) ? (s.NotCompletedReason || '') : ''
+            })
+          )
         ));
         restored = proposed.services.length;
       }
