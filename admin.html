@@ -562,10 +562,21 @@
     .svc-assign-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
     .svc-assign-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--black); color: var(--white); font-size: 11px; font-weight: 700; flex-shrink: 0; }
     .svc-assign-name { font-weight: 600; font-size: 13px; flex: 1; }
-    .svc-assign-assigned { font-size: 12px; color: var(--gray); padding: 0 16px 14px; margin-top: -6px; }
+    .svc-assign-assigned { font-size: 12px; color: var(--gray); flex-basis: 100%; }
     .svc-assign-editor { padding: 14px 16px 16px; border-top: 1px solid var(--border); background: var(--bg); }
     .svc-assign-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px; margin: 0 6px 6px 0; cursor: pointer; font-size: 12px; background: var(--white); }
     .svc-assign-chip.picked { border-color: var(--gold); background: rgba(201,168,76,.12); font-weight: 600; }
+    /* Rediseño 2 columnas (21/09/2026, "se ve todo largo" -- captura
+       real): izquierda pasa de tarjeta-por-servicio a lineas
+       compactas (mismo espiritu que la tabla de Services Requested
+       en Active) -- el editor completo (candidatos + fecha) se movio
+       a la columna derecha, un solo panel que reacciona a cual
+       servicio este abierto. */
+    .svc-assign-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
+    .svc-assign-line:last-child { border-bottom: none; }
+    .svc-assign-line.can-open { cursor: pointer; }
+    .svc-assign-line.active .svc-assign-name { color: var(--gold-dk); }
+    .svc-assign-line .status-badge { margin-left: auto; }
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
 
@@ -11519,30 +11530,29 @@ let pendingDirectLinkOrderId = null;
     return fromHours.concat(fromTechs);
   }
 
-  function assignFormHtml(o) {
-    const key = (o.Division || '').toLowerCase();
+  /* Factorizado de assignFormHtml (era codigo inline ahi) para poder
+     reusar la MISMA lista rica de candidatos (con horas/ordenes de la
+     semana) en el panel derecho de "Assign by service" -- a peticion
+     del dueño, esa es la lista con la que SI se elige a la persona,
+     no una version reducida aparte. Devuelve {candidates,
+     techCandidates} tal cual assignFormHtml ya los calculaba. */
+  function richCandidatesFor(division) {
+    const key = (division || '').toLowerCase();
     const candidates = hoursOverviewCache.filter(e => {
       return (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors);
     }).sort((a, b) => a.hoursThisWeek - b.hoursThisWeek);
-
-    /* A peticion del dueno (16/09/2026): CUALQUIER persona de
-       Developer > Techs & Roles cuya Division coincida aparece aqui
-       como candidato, sin importar su Role (Employee/Supervisor/
-       Developer/Contractor) -- no solo Contractors. hoursOverviewCache
-       (arriba) sigue siendo la fuente principal para quien SI esta en
-       FieldEmployees, con sus horas/ordenes de la semana; esto es
-       ADEMAS, para cualquiera que Techs & Roles diga que califica por
-       Division y que hoursOverviewCache no haya encontrado (Contractors,
-       que nunca estan en FieldEmployees por diseño; o alguien real
-       cuyo ultimo Employee Report subido todavia no lo refleja). Se
-       excluye explicitamente a quien YA salio arriba por PayrollID,
-       para no duplicar a la misma persona dos veces en la lista. */
     const alreadyListedPayrolls = new Set(candidates.map(c => c.payrollNumber));
     const techCandidates = allTechs.filter(t =>
       t.active !== false &&
       (t.division.toLowerCase() === key || t.division === 'Mixed') &&
       !(t.payrollId && alreadyListedPayrolls.has(t.payrollId))
     );
+    return { candidates, techCandidates };
+  }
+
+  function assignFormHtml(o) {
+    const key = (o.Division || '').toLowerCase();
+    const { candidates, techCandidates } = richCandidatesFor(o.Division);
 
     const candidatesHtml = (!candidates.length && !techCandidates.length)
       ? '<p class="empty-note">No active employees in ' + esc(o.Division) + ' right now. Check FieldEmployees or upload a more recent Employee Report.</p>'
@@ -11708,6 +11718,17 @@ let pendingDirectLinkOrderId = null;
      ServiceAssignments en vez de estado local. */
   function svcHasSchedule(a) { return !!(a && a.AssignedTo && a.ScheduledDate); }
 
+  /* A peticion del dueño (21/09/2026, con captura real -- "se ve todo
+     largo"): 2 columnas, mismo detail-grid que ya usa el resto de la
+     app. Izquierda: servicios compactos, en lineas (como en las
+     demas ordenes). Derecha: la MISMA lista rica de candidatos (con
+     horas/ordenes de la semana) que ya usa el formulario de toda-la-
+     orden -- clic ahi ES como se elige a la persona para el servicio
+     abierto a la izquierda, no una lista aparte solo para consultar.
+     Un servicio YA asignado (pero no completado) se puede volver a
+     abrir y reasignar desde aqui mismo -- confirmado con el dueño,
+     eso nunca debio dejar de funcionar solo porque ya se fue a
+     Active. */
   function renderServiceAssignmentQueue(orderId) {
     const box = document.getElementById('assign-by-svc-body-' + orderId);
     if (!box) return;
@@ -11728,58 +11749,101 @@ let pendingDirectLinkOrderId = null;
     }).sort((x, y) => x.seq - y.seq);
 
     let prevScheduled = true; // el #1 siempre puede programarse
-    const candidates = simpleCandidateNamesFor(order.Division);
+    let openRow = null; // la fila cuyo picker esta abierto (si hay una)
 
-    const rowsHtml = rows.map((row, i) => {
+    const leftRowsHtml = rows.map((row, i) => {
       const { svc, a } = row;
       const key = svcKeyOf(orderId, svc.Category, svc.ServiceName);
       const scheduled = svcHasSchedule(a);
       const isDone = a && a.WorkStatus === 'Completed';
       const canSchedule = prevScheduled;
-      /* BUG REAL encontrado en produccion: nunca revisaba
-         WorkStatus==='Completed' aqui -- un servicio ya completado se
-         seguia viendo "Scheduled" (y encima se podia reabrir para
-         reprogramarlo, contradiciendo "lo completado no se toca" ya
-         acordado). */
       const statusLabel = isDone ? 'Completed' : (scheduled ? 'Scheduled' : (canSchedule ? 'Needs scheduling' : 'Not started'));
       const statusClass = isDone ? 'status-completed' : (scheduled ? 'status-assigned' : (canSchedule ? 'status-pending' : ''));
+      const canOpen = canSchedule && !isDone;
       prevScheduled = scheduled; // el siguiente solo se puede programar si ESTE ya tiene gente+fecha
 
-      const draft = svcOpenKey === key ? (svcDraftCache[key] || { ids: a ? String(a.AssignedTo || '').split(',').map(s2=>s2.trim()).filter(Boolean) : [], date: a ? a.ScheduledDate : '' }) : null;
-      if (svcOpenKey === key && !svcDraftCache[key]) svcDraftCache[key] = draft;
+      const isOpen = svcOpenKey === key;
+      if (isOpen && canOpen) {
+        openRow = { svc, a, key, scheduled };
+        if (!svcDraftCache[key]) {
+          /* BUG REAL encontrado con Puppeteer antes de subir: AssignedTo
+             guarda NOMBRES (texto), pero los candidatos se identifican
+             por payrollNumber/'tech:id' -- al reabrir un servicio YA
+             asignado para reasignar, comparar el nombre contra el id
+             nunca hacia match, asi que nadie salia resaltado como ya
+             elegido. Se convierten los nombres a sus ids reales aqui,
+             buscando contra la misma lista rica de candidatos. */
+          let preIds = [];
+          if (a && a.AssignedTo) {
+            const names = String(a.AssignedTo).split(',').map(s2 => s2.trim()).filter(Boolean);
+            const { candidates: rc, techCandidates: rtc } = richCandidatesFor(order.Division);
+            const allRc = rc.concat(rtc);
+            preIds = names.map(n => {
+              const found = allRc.find(c => (c.name || (c.firstName + ' ' + c.lastName).trim()) === n);
+              return found ? (found.payrollNumber || ('tech:' + found.id)) : null;
+            }).filter(Boolean);
+          }
+          svcDraftCache[key] = { ids: preIds, date: a ? a.ScheduledDate : '' };
+        }
+      }
 
       const assignedLineHtml = a && a.AssignedTo
         ? `<div class="svc-assign-assigned">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
         : '';
 
-      const editorHtml = (svcOpenKey === key && canSchedule && !isDone) ? `
-        <div class="svc-assign-editor">
-          ${candidates.length ? candidates.map(c => `
-            <label class="svc-assign-chip${draft.ids.includes(c.id) ? ' picked' : ''}">
-              <input type="checkbox" style="width:auto" ${draft.ids.includes(c.id) ? 'checked' : ''} onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(c.id)}')">
-              ${esc(c.name)}
-            </label>`).join('') : '<p class="empty-note">No active employees in ' + esc(order.Division) + ' right now.</p>'}
-          <div class="field-group" style="margin-top:10px;max-width:220px">
-            <label>Date</label>
-            ${GSDateTimePicker.dateHtml('svc-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(order.EntryDate), max: dateInputValue(order.DueDate) })}
-          </div>
-          <button class="gs-ofp-btn-primary" style="width:auto;margin-top:10px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')">${scheduled ? 'Update schedule' : 'Save schedule'}</button>
-        </div>` : '';
-
-      const canOpen = canSchedule && !isDone;
       return `
-        <div class="svc-assign-card${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}">
-          <div class="svc-assign-header" style="cursor:${canOpen ? 'pointer' : 'default'}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
-            <span class="svc-assign-num">${i + 1}</span>
-            <span class="svc-assign-name">${esc(svc.ServiceName)}</span>
-            <span class="status-badge ${statusClass}">${statusLabel}</span>
-          </div>
+        <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+          <span class="svc-assign-num">${i + 1}</span>
+          <span class="svc-assign-name">${esc(svc.ServiceName)}</span>
+          <span class="status-badge ${statusClass}">${statusLabel}</span>
           ${assignedLineHtml}
-          ${editorHtml}
         </div>`;
     }).join('');
 
-    box.innerHTML = `<p class="detail-label">Services — assign one at a time</p>${rowsHtml}`;
+    let rightHtml;
+    if (!openRow) {
+      rightHtml = `<p class="empty-note" style="padding:20px 0">Click a service on the left to assign it.</p>`;
+    } else {
+      const { svc, key, scheduled } = openRow;
+      const draft = svcDraftCache[key];
+      const { candidates, techCandidates } = richCandidatesFor(order.Division);
+      const idOf = c => c.payrollNumber || ('tech:' + c.id);
+      const nameOf = c => c.name || (c.firstName + ' ' + c.lastName).trim();
+      const allCands = candidates.concat(techCandidates);
+      const candRowsHtml = !allCands.length
+        ? '<p class="empty-note">No active employees in ' + esc(order.Division) + ' right now.</p>'
+        : allCands.map(c => {
+            const id = idOf(c);
+            const picked = draft.ids.includes(id);
+            const statLine = c.hoursThisWeek != null
+              ? `<span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span><span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>`
+              : `<span class="candidate-stat">${esc(c.role || '')}${c.division === 'Mixed' ? ' — Mixed' : ''}</span>`;
+            return `<div class="candidate-row${picked ? ' selected' : ''}" onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(id)}')">
+              <span class="candidate-name">${esc(nameOf(c))}</span>
+              ${statLine}
+            </div>`;
+          }).join('');
+
+      rightHtml = `
+        <p class="detail-label">Assign — ${esc(svc.ServiceName)}</p>
+        <div style="max-height:280px;overflow-y:auto;margin-bottom:14px">${candRowsHtml}</div>
+        <div class="field-group" style="max-width:220px">
+          <label>Date</label>
+          ${GSDateTimePicker.dateHtml('svc-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(order.EntryDate), max: dateInputValue(order.DueDate) })}
+        </div>
+        <button class="gs-ofp-btn-primary" style="width:auto;margin-top:12px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')">${scheduled ? 'Update schedule' : 'Save schedule'}</button>`;
+    }
+
+    box.innerHTML = `
+      <div class="detail-grid" style="margin:0">
+        <div>
+          <p class="detail-label">Services</p>
+          ${leftRowsHtml}
+        </div>
+        <div>
+          ${rightHtml}
+        </div>
+      </div>`;
 
     /* Candado del toggle: SOLO se deshabilita si de verdad hay un
        servicio Completed -- se recalcula aqui, con datos reales,
