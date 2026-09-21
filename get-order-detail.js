@@ -159,7 +159,10 @@ exports.handler = async (event) => {
       ExpectedReadyDate: f.ExpectedReadyDate || '',
       MaterialsReady: f.MaterialsReady === true || f.MaterialsReady === 'true',
       MaterialsReadySeen: f.MaterialsReadySeen === undefined ? true : (f.MaterialsReadySeen === true || f.MaterialsReadySeen === 'true'),
-      EntryTime: f.EntryTime || ''
+      EntryTime: f.EntryTime || '',
+      /* Columna nueva (21/09/2026): "Assign by service" -- ver mismo
+         comentario en admin-get-orders.js. */
+      AssignByService: f.AssignByService === true || f.AssignByService === 'true'
     };
 
     const services = svcRows

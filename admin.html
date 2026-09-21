@@ -11362,6 +11362,24 @@ let pendingDirectLinkOrderId = null;
     openOrderCard = orderId;
   }
 
+  /* Misma lista de candidatos que assignFormHtml calcula abajo (para
+     el bloque de toda-la-orden), pero aplanada a solo {id, name} --
+     el picker por servicio (mas chico, un checkbox por persona) no
+     necesita horas/conflictos, solo quien calificaria. Factorizado
+     para no repetir la logica de deduplicacion dos veces. */
+  function simpleCandidateNamesFor(division) {
+    const key = (division || '').toLowerCase();
+    const fromHours = hoursOverviewCache.filter(e =>
+      (key === 'janitorial' && e.janitorial) || (key === 'renovations' && e.renovations) || (key === 'exteriors' && e.exteriors)
+    ).map(e => ({ id: e.payrollNumber, name: e.name }));
+    const already = new Set(fromHours.map(c => c.id));
+    const fromTechs = allTechs.filter(t =>
+      t.active !== false && (t.division.toLowerCase() === key || t.division === 'Mixed') &&
+      !(t.payrollId && already.has(t.payrollId))
+    ).map(t => ({ id: 'tech:' + t.id, name: (t.firstName + ' ' + t.lastName).trim() }));
+    return fromHours.concat(fromTechs);
+  }
+
   function assignFormHtml(o) {
     const key = (o.Division || '').toLowerCase();
     const candidates = hoursOverviewCache.filter(e => {
@@ -11416,17 +11434,23 @@ let pendingDirectLinkOrderId = null;
           '</tr>').join('') +
         '</table>';
 
-    return `
-      <div class="detail-grid" style="margin:0 0 14px">
-        <div>
-          <p class="detail-label">Order Details</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px">
-            <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber || '—')} / ${esc(o.UnitNumber || '—')}</div></div>
-            <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms || '—')} / ${esc(o.Bathrooms || '—')}</div></div>
-            <div><div class="field-caption">Entry / Due</div><div class="field-value">${fmtDate(o.EntryDate)} / ${fmtDate(o.DueDate)}</div></div>
-          </div>
-        </div>
-      </div>
+    const assignByService = o.AssignByService === true || o.AssignByService === 'true';
+    /* A peticion del dueno (21/09/2026, aprobado con mini interactivo):
+       toggle "Assign by service" -- prendido, cada servicio se asigna
+       por separado (fecha/persona propias, cola visible abajo) en vez
+       de un solo bloque de candidatos para toda la orden. El
+       formulario de siempre (candidatos + fecha/ventana unica) se
+       queda IGUAL cuando esta apagado -- nada cambio ahi. */
+    const toggleHtml = `
+      <div class="toggle-row" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+        <label class="svc-toggle">
+          <input type="checkbox" id="assign-by-svc-${escAttr(o.OrderID)}" ${assignByService ? 'checked' : ''} ${assignByService ? 'disabled' : ''} onchange="toggleAssignByServiceUI('${escAttr(o.OrderID)}', this.checked)">
+          <span class="svc-toggle-track"></span>
+        </label>
+        <label for="assign-by-svc-${escAttr(o.OrderID)}"><b>Assign by service</b> — <span id="assign-by-svc-note-${escAttr(o.OrderID)}">${assignByService ? 'on, each service assigned on its own' : 'off, whole team together'}</span></label>
+      </div>`;
+
+    const wholeOrderFormHtml = `
       <div class="detail-grid" style="margin:0 0 20px">
         <div>
           <p class="detail-label">Services</p>
@@ -11457,7 +11481,190 @@ let pendingDirectLinkOrderId = null;
       </div>
       <button class="gs-ofp-btn-primary" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
+
+    return `
+      <div class="detail-grid" style="margin:0 0 14px">
+        <div>
+          <p class="detail-label">Order Details</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px">
+            <div><div class="field-caption">Building / Unit</div><div class="field-value">${esc(o.BuildingNumber || '—')} / ${esc(o.UnitNumber || '—')}</div></div>
+            <div><div class="field-caption">Bed / Bath</div><div class="field-value">${esc(o.Bedrooms || '—')} / ${esc(o.Bathrooms || '—')}</div></div>
+            <div><div class="field-caption">Entry / Due</div><div class="field-value">${fmtDate(o.EntryDate)} / ${fmtDate(o.DueDate)}</div></div>
+          </div>
+        </div>
+      </div>
+      ${toggleHtml}
+      <div id="assign-by-svc-body-${escAttr(o.OrderID)}">
+        ${assignByService ? '<p class="empty-note">Loading per-service queue…</p>' : wholeOrderFormHtml}
+      </div>`;
   }
+
+  /* Clic en el toggle -- prender es instantaneo (no hay nada que
+     proteger); apagar se valida contra el servidor (no se puede si ya
+     hay un servicio completado, mismo candado que el mini). */
+  async function toggleAssignByServiceUI(orderId, checked) {
+    const noteEl = document.getElementById('assign-by-svc-note-' + orderId);
+    const checkboxEl = document.getElementById('assign-by-svc-' + orderId);
+    try {
+      await api('/toggle-assign-by-service', { body: { orderId, on: checked } });
+    } catch (e) {
+      checkboxEl.checked = !checked;
+      showToast('Could not change this: ' + e.message);
+      return;
+    }
+    if (checked) {
+      checkboxEl.disabled = true;
+      if (noteEl) noteEl.textContent = 'on, each service assigned on its own';
+      const order = ordersQueueCache.find(o => o.OrderID === orderId);
+      if (order) order.AssignByService = true;
+      await loadServiceAssignmentQueue(orderId);
+    } else {
+      if (noteEl) noteEl.textContent = 'off, whole team together';
+    }
+  }
+
+  /* ============================================================
+     "Assign by service" -- cola por servicio (21/09/2026, aprobado
+     con mini interactivo). svcAssignCache: orderId -> arreglo de
+     renglones de ServiceAssignments, ultima vez que se cargo.
+     svcDraftCache: 'orderId|category|serviceName' -> {ids:[], date}
+     -- borrador de lo que se esta marcando en el picker ANTES de
+     Save, igual que ya se aprobo en el mini (nada cuenta hasta el
+     clic real). ============================================== */
+  let svcAssignCache = {};
+  let svcDraftCache = {};
+  let svcOpenKey = null;
+
+  function svcKeyOf(orderId, cat, name) { return orderId + '|' + cat + '|' + name; }
+
+  async function loadServiceAssignmentQueue(orderId) {
+    const box = document.getElementById('assign-by-svc-body-' + orderId);
+    if (!box) return;
+    try {
+      const res = await api('/get-service-assignments', { body: { orderId } });
+      svcAssignCache[orderId] = res.assignments || [];
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">Could not load the service queue: ' + esc(e.message) + '</p>';
+      return;
+    }
+    renderServiceAssignmentQueue(orderId);
+  }
+
+  /* hasSchedule/canBeScheduled/isCurrentTurn -- MISMA logica ya
+     aprobada en el mini interactivo, aqui contra datos reales de
+     ServiceAssignments en vez de estado local. */
+  function svcHasSchedule(a) { return !!(a && a.AssignedTo && a.ScheduledDate); }
+
+  function renderServiceAssignmentQueue(orderId) {
+    const box = document.getElementById('assign-by-svc-body-' + orderId);
+    if (!box) return;
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+    if (!order) return;
+    const services = (order.ServicesDetailed || []).slice();
+    const assignments = svcAssignCache[orderId] || [];
+    const byKey = {};
+    assignments.forEach(a => { byKey[a.Category + '|' + a.ServiceName] = a; });
+
+    /* Orden real: Sequence si ya existe, si no el orden en que vienen
+       en OrderServices (mismo criterio que el mini: primera vez que
+       se ve una orden, la secuencia es la de llegada). */
+    const rows = services.map((s, i) => {
+      const a = byKey[s.Category + '|' + s.ServiceName] || null;
+      return { svc: s, a, seq: (a && a.Sequence) || (i + 1) };
+    }).sort((x, y) => x.seq - y.seq);
+
+    let prevScheduled = true; // el #1 siempre puede programarse
+    const candidates = simpleCandidateNamesFor(order.Division);
+
+    const rowsHtml = rows.map((row, i) => {
+      const { svc, a } = row;
+      const key = svcKeyOf(orderId, svc.Category, svc.ServiceName);
+      const scheduled = svcHasSchedule(a);
+      const canSchedule = prevScheduled;
+      const statusLabel = scheduled ? 'Scheduled' : (canSchedule ? 'Needs scheduling' : 'Not started');
+      const statusClass = scheduled ? 'status-assigned' : (canSchedule ? 'status-pending' : '');
+      prevScheduled = scheduled; // el siguiente solo se puede programar si ESTE ya tiene gente+fecha
+
+      const draft = svcOpenKey === key ? (svcDraftCache[key] || { ids: a ? String(a.AssignedTo || '').split(',').map(s2=>s2.trim()).filter(Boolean) : [], date: a ? a.ScheduledDate : '' }) : null;
+      if (svcOpenKey === key && !svcDraftCache[key]) svcDraftCache[key] = draft;
+
+      const assignedLineHtml = a && a.AssignedTo
+        ? `<div class="candidate-stat" style="margin-top:4px">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
+        : '';
+
+      const editorHtml = (svcOpenKey === key && canSchedule) ? `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          ${candidates.length ? candidates.map(c => `
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${draft.ids.includes(c.id) ? 'var(--gold)' : 'var(--border)'};border-radius:20px;margin:0 6px 6px 0;cursor:pointer;font-size:12px${draft.ids.includes(c.id) ? ';background:rgba(201,168,76,.12)' : ''}">
+              <input type="checkbox" style="width:auto" ${draft.ids.includes(c.id) ? 'checked' : ''} onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(c.id)}')">
+              ${esc(c.name)}
+            </label>`).join('') : '<p class="empty-note">No active employees in ' + esc(order.Division) + ' right now.</p>'}
+          <div class="field-group" style="margin-top:10px;max-width:220px">
+            <label>Date</label>
+            ${GSDateTimePicker.dateHtml('svc-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(order.EntryDate), max: dateInputValue(order.DueDate) })}
+          </div>
+          <button class="gs-ofp-btn-primary" style="width:auto;margin-top:10px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')">${scheduled ? 'Update schedule' : 'Save schedule'}</button>
+        </div>` : '';
+
+      return `
+        <div class="candidate-row" style="cursor:${canSchedule ? 'pointer' : 'default'};opacity:${canSchedule ? 1 : .55}" ${canSchedule ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+          <span class="candidate-name">${i + 1}. ${esc(svc.ServiceName)}</span>
+          <span class="status-badge ${statusClass}" style="margin-left:auto">${statusLabel}</span>
+          ${assignedLineHtml}
+          ${editorHtml}
+        </div>`;
+    }).join('');
+
+    box.innerHTML = `<p class="detail-label">Services — assign one at a time</p>${rowsHtml}`;
+  }
+
+  window.toggleSvcPickerOpen = function(orderId, cat, name) {
+    const key = svcKeyOf(orderId, cat, name);
+    svcOpenKey = (svcOpenKey === key) ? null : key;
+    if (svcOpenKey) delete svcDraftCache[key]; // arranca fresco cada vez que se abre
+    renderServiceAssignmentQueue(orderId);
+  };
+
+  window.toggleSvcDraftCandidate = function(key, id) {
+    const d = svcDraftCache[key] || { ids: [], date: '' };
+    const i = d.ids.indexOf(id);
+    if (i === -1) d.ids.push(id); else d.ids.splice(i, 1);
+    svcDraftCache[key] = d;
+    const orderId = key.split('|')[0];
+    renderServiceAssignmentQueue(orderId);
+  };
+
+  /* GSDateTimePicker dispara 'change' nativo -- delegado global,
+     mismo patron que el mini. Los ids de estos pickers empiezan con
+     'svc-date-'. */
+  document.addEventListener('change', e => {
+    const id = e.target.id || '';
+    if (!id.startsWith('svc-date-') || !svcOpenKey) return;
+    const d = svcDraftCache[svcOpenKey] || { ids: [], date: '' };
+    d.date = GSDateTimePicker.getDate(id) || '';
+    svcDraftCache[svcOpenKey] = d;
+    renderServiceAssignmentQueue(svcOpenKey.split('|')[0]);
+  });
+
+  window.saveServiceSchedule = async function(orderId, cat, name) {
+    const key = svcKeyOf(orderId, cat, name);
+    const draft = svcDraftCache[key];
+    if (!draft || !draft.ids.length || !draft.date) return;
+    const candidates = simpleCandidateNamesFor((ordersQueueCache.find(o => o.OrderID === orderId) || {}).Division);
+    const names = draft.ids.map(id => (candidates.find(c => c.id === id) || {}).name).filter(Boolean).join(', ');
+    try {
+      await api('/save-service-assignment', {
+        body: { orderId, category: cat, serviceName: name, assignedTo: names, scheduledDate: draft.date, changedBy: adminUser.name || adminUser.email }
+      });
+    } catch (e) {
+      showToast('Could not save this: ' + e.message);
+      return;
+    }
+    svcOpenKey = null;
+    delete svcDraftCache[key];
+    await Promise.all([loadServiceAssignmentQueue(orderId), loadOrdersQueue()]);
+  };
 
   /* Clic en cualquier parte del renglon lo prende/apaga -- sigue
      siendo multi-seleccion (se puede asignar mas de una persona a la
