@@ -257,6 +257,11 @@ exports.handler = async (event) => {
              de poder entrar (llaves, codigo de acceso, etc.). */
           NeedsOfficeAccess: f.NeedsOfficeAccess === true || f.NeedsOfficeAccess === 'true',
           OfficeNeedNotes: f.OfficeNeedNotes || '',
+          /* Columna nueva (21/09/2026): "Assign by service" -- si esta
+             prendido, Scheduling asigna cada servicio por separado
+             (en vez de un solo bloque para toda la orden) y Active
+             usa el modelo por servicio en lugar del de siempre. */
+          AssignByService: f.AssignByService === true || f.AssignByService === 'true',
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
           Services: servicesByOrder[f.OrderID || f.Title] || [],
           ServicesDetailed: servicesDetailedByOrder[f.OrderID || f.Title] || []
