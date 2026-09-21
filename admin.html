@@ -550,6 +550,22 @@
     .candidate-stat { color: var(--gray); font-size: 11px; }
     .candidate-conflict { color: #B06A2A; font-size: 11px; font-weight: 600; }
     .candidate-stat b { color: var(--black); }
+    /* "Assign by service" -- tarjeta por servicio en Scheduling
+       (21/09/2026). BUG REAL encontrado en produccion: antes esto
+       vivia adentro de .candidate-row (pensada para una sola linea,
+       display:flex) -- el panel de asignar (chips + fecha + boton)
+       quedaba flotando como otro elemento del mismo flex en vez de
+       ir abajo. Ahora es su propio bloque: header en flex (numero +
+       nombre + estatus), el editor es una seccion aparte debajo. */
+    .svc-assign-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; background: var(--white); transition: border-color .12s; }
+    .svc-assign-card.can-open:hover { border-color: var(--gold); }
+    .svc-assign-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+    .svc-assign-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--black); color: var(--white); font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .svc-assign-name { font-weight: 600; font-size: 13px; flex: 1; }
+    .svc-assign-assigned { font-size: 12px; color: var(--gray); padding: 0 16px 14px; margin-top: -6px; }
+    .svc-assign-editor { padding: 14px 16px 16px; border-top: 1px solid var(--border); background: var(--bg); }
+    .svc-assign-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px; margin: 0 6px 6px 0; cursor: pointer; font-size: 12px; background: var(--white); }
+    .svc-assign-chip.picked { border-color: var(--gold); background: rgba(201,168,76,.12); font-weight: 600; }
     .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 14px; }
     .dialog-error { color: #B33A3A; font-size: 12px; margin-top: 8px; }
 
@@ -11619,8 +11635,17 @@ let pendingDirectLinkOrderId = null;
      vive en refreshAssignByServiceLock(), llamado con datos reales
      cada vez que la cola se vuelve a dibujar (aqui abajo, y tambien
      al reabrir una tarjeta despues). */
+  /* BUG REAL encontrado en produccion (21/09/2026, reportado por el
+     dueño -- "cuando desactivo el toggle no regresa a como estaba"):
+     apagar solo cambiaba el texto de la notita, nunca volvia a pintar
+     el formulario normal de toda-la-orden (candidatos + fecha unica)
+     -- se quedaba viendo la cola por servicio (vacia/rota) aunque el
+     toggle ya dijera "off". Arreglado: los 2 casos (prender y apagar)
+     ahora vuelven a pintar la tarjeta completa con assignFormHtml(),
+     que ya sabe elegir cual de los 2 formularios mostrar segun
+     order.AssignByService -- un solo camino, no 2 mitades sueltas
+     que se puedan desincronizar. */
   async function toggleAssignByServiceUI(orderId, checked) {
-    const noteEl = document.getElementById('assign-by-svc-note-' + orderId);
     const checkboxEl = document.getElementById('assign-by-svc-' + orderId);
     try {
       await api('/toggle-assign-by-service', { body: { orderId, on: checked } });
@@ -11629,15 +11654,13 @@ let pendingDirectLinkOrderId = null;
       showToast('Could not change this: ' + e.message);
       return;
     }
-    if (checked) {
-      if (noteEl) noteEl.textContent = 'on, each service assigned on its own';
-      const order = ordersQueueCache.find(o => o.OrderID === orderId);
-      if (order) order.AssignByService = true;
-      await loadServiceAssignmentQueue(orderId);
-    } else {
-      checkboxEl.disabled = false;
-      if (noteEl) noteEl.textContent = 'off, whole team together';
-    }
+    const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
+      (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
+    if (!order) return;
+    order.AssignByService = checked;
+    const body = document.getElementById('order-body-' + orderId);
+    if (body) body.innerHTML = assignFormHtml(order);
+    if (checked) await loadServiceAssignmentQueue(orderId);
   }
 
   /* ============================================================
@@ -11713,13 +11736,13 @@ let pendingDirectLinkOrderId = null;
       if (svcOpenKey === key && !svcDraftCache[key]) svcDraftCache[key] = draft;
 
       const assignedLineHtml = a && a.AssignedTo
-        ? `<div class="candidate-stat" style="margin-top:4px">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
+        ? `<div class="svc-assign-assigned">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
         : '';
 
       const editorHtml = (svcOpenKey === key && canSchedule && !isDone) ? `
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="svc-assign-editor">
           ${candidates.length ? candidates.map(c => `
-            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${draft.ids.includes(c.id) ? 'var(--gold)' : 'var(--border)'};border-radius:20px;margin:0 6px 6px 0;cursor:pointer;font-size:12px${draft.ids.includes(c.id) ? ';background:rgba(201,168,76,.12)' : ''}">
+            <label class="svc-assign-chip${draft.ids.includes(c.id) ? ' picked' : ''}">
               <input type="checkbox" style="width:auto" ${draft.ids.includes(c.id) ? 'checked' : ''} onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(c.id)}')">
               ${esc(c.name)}
             </label>`).join('') : '<p class="empty-note">No active employees in ' + esc(order.Division) + ' right now.</p>'}
@@ -11732,9 +11755,12 @@ let pendingDirectLinkOrderId = null;
 
       const canOpen = canSchedule && !isDone;
       return `
-        <div class="candidate-row" style="cursor:${canOpen ? 'pointer' : 'default'};opacity:${canOpen ? 1 : .55}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
-          <span class="candidate-name">${i + 1}. ${esc(svc.ServiceName)}</span>
-          <span class="status-badge ${statusClass}" style="margin-left:auto">${statusLabel}</span>
+        <div class="svc-assign-card${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}">
+          <div class="svc-assign-header" style="cursor:${canOpen ? 'pointer' : 'default'}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+            <span class="svc-assign-num">${i + 1}</span>
+            <span class="svc-assign-name">${esc(svc.ServiceName)}</span>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+          </div>
           ${assignedLineHtml}
           ${editorHtml}
         </div>`;
