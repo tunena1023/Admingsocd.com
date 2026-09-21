@@ -8099,6 +8099,10 @@ async function loadOrderBody(orderId, context, body) {
     const o = data.order || {};
     const services = data.services || [];
     const history = data.history || [];
+    /* "Assign by service" -- mismo svcAssignCache que ya usa Scheduling
+       (renderServiceAssignmentQueue etc.), sembrado aqui para que Active
+       tambien lo pueda leer sin pedirlo aparte. */
+    svcAssignCache[orderId] = data.serviceAssignments || [];
     const html = renderOrderDetail(o, services, history, context, data.document || null, data.completionDocument || null);
     orderDetailCache[orderId] = html;
     orderDetailCacheData[orderId] = o;
@@ -8520,6 +8524,55 @@ async function markSeen(orderId) {
   }
 }
 
+/* "Assign by service" (21/09/2026) -- calcula el estatus de cada
+   servicio de una orden contra svcAssignCache[orderId] (sembrado por
+   loadOrderBody o loadServiceAssignmentQueue, el que haya corrido
+   ultimo). Misma logica ya aprobada en el mini interactivo:
+     - canSchedule: el anterior YA tiene gente+fecha (no que este
+       completado) -- deja planear varios servicios por adelantado.
+     - current: el anterior YA esta Completed -- este es "su turno",
+       el unico que se maneja de verdad en Active.
+   Reusa el vocabulario de status-badge YA existente (status-pending/
+   status-assigned/status-working/status-completed), nada nuevo. */
+function svcAssignmentStatusRows(orderId, services) {
+  const assignments = svcAssignCache[orderId] || [];
+  const byKey = {};
+  assignments.forEach(a => { byKey[a.Category + '|' + a.ServiceName] = a; });
+  const rows = services.map((s, i) => {
+    const a = byKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null;
+    return { svc: s, a, seq: (a && a.Sequence) || (i + 1) };
+  }).sort((x, y) => x.seq - y.seq);
+
+  let prevScheduled = true;
+  let prevCompleted = true;
+  return rows.map(row => {
+    const { svc, a } = row;
+    const scheduled = !!(a && a.AssignedTo && a.ScheduledDate);
+    const workStatus = (a && a.WorkStatus) || 'Not Started';
+    const isDone = workStatus === 'Completed';
+    const canSchedule = prevScheduled;
+    const current = prevCompleted && !isDone;
+    prevScheduled = scheduled;
+    prevCompleted = isDone;
+    let label, cls;
+    if (isDone) { label = 'Completed'; cls = 'status-completed'; }
+    else if (current && scheduled) { label = 'In Active'; cls = 'status-working'; }
+    else if (scheduled) { label = 'Scheduled'; cls = 'status-assigned'; }
+    else if (canSchedule) { label = 'Needs scheduling'; cls = 'status-pending'; }
+    else { label = 'Not started'; cls = ''; }
+    return { svc, a, label, cls, current, scheduled, workStatus };
+  });
+}
+
+/* El servicio que de verdad se maneja ahorita en Active -- el
+   primero cuyo turno ya llego (current=true) y que no este completado
+   todavia. Si ninguno califica y nada esta Not Started, la orden ya
+   termino todos sus servicios. */
+function currentSvcAssignmentRow(orderId, services) {
+  const rows = svcAssignmentStatusRows(orderId, services);
+  return rows.find(r => r.current) || null;
+}
+
 function renderOrderDetail(o, services, history, context, storedDoc, storedCompletionDoc) {
   if (context === 'active' && o.Status === 'Received') {
     return unseenActiveCardHtml(o, services, history);
@@ -8627,6 +8680,28 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      sentido poder marcar como completada o cancelada una visita que
      ni siquiera ha pasado. Aparecen solo una vez que el motor la
      asciende de verdad a 'Assigned', igual que cualquier otra orden. */
+  /* "Assign by service": el boton de Completed YA NO cierra toda la
+     orden de un jalon -- opera sobre el servicio que es SU TURNO
+     ahorita (mismo lugar visual de siempre, logica distinta debajo).
+     Se pone azul si el tecnico ya dijo "ya acabe" y falta que
+     oficina lo confirme -- mismo lenguaje visual aprobado en el mini.
+     Una vez que TODOS los servicios estan Completed, regresa el
+     boton normal de toda-la-orden (markCompleted) para cerrar la
+     orden formalmente, igual que hoy. */
+  let completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`;
+  if (isAssignByService) {
+    const curRow = currentSvcAssignmentRow(o.OrderID, services);
+    const allDone = svcAssignmentStatusRows(o.OrderID, services).every(r => r.workStatus === 'Completed');
+    if (allDone) {
+      completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>`;
+    } else if (curRow && curRow.scheduled) {
+      const isPending = curRow.workStatus === 'Pending Review';
+      completedBtnHtml = `<button class="${isPending ? 'gs-ofp-btn-primary' : 'gs-ofp-btn-primary'}" style="${isPending ? 'background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${esc(o.OrderID)}','${jsStr(curRow.svc.Category || '')}','${jsStr(curRow.svc.ServiceName || '')}')">Completed${isPending ? ' ✓ (tech marked done)' : ''}</button>`;
+    } else {
+      completedBtnHtml = '';
+    }
+  }
+
   const statusBar = (contextCan(context, 'edit') && o.Status !== 'Recurring Scheduled') ? `
     <div class="eo-status-bar">
       <div class="eo-status-info">
@@ -8642,7 +8717,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
              dueno diga que ya termino de probar, para regresarlo a
              la regla original (evita marcar Completed antes de que
              arranque el servicio). -->
-        <button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>
+        ${completedBtnHtml}
         <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
       </div>
     </div>` : '';
@@ -8670,9 +8745,24 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      grupo; si no hay sub-opcion, se ve un guion gris en vez de quedar
      vacio. */
   const svcDetailId = 'ro-svc-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_');
+  const isAssignByService = o.AssignByService === true || o.AssignByService === 'true';
+  /* "Assign by service": columna de estatus extra por renglon -- el
+     resto de la tabla (agrupada por Categoria, con Nivel/Cantidad/
+     tiempo estimado) se queda exactamente igual, esto solo le
+     agrega el pedazo nuevo que de verdad importa aqui. */
+  const svcStatusByKey = {};
+  if (isAssignByService) {
+    svcAssignmentStatusRows(o.OrderID, services).forEach(r => {
+      svcStatusByKey[(r.svc.Category || '') + '|' + (r.svc.ServiceName || '')] = r;
+    });
+  }
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), sku: s.SubOption, lvl: s.Level, qty: s.Quantity }));
+    list.forEach((s, i) => svcRows.push({
+      cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
+      sku: s.SubOption, lvl: s.Level, qty: s.Quantity,
+      statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
+    }));
   });
   const svcTableHtml = svcRows.length
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -8680,7 +8770,9 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
-        '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
+        (isAssignByService
+          ? '<td style="padding:9px 0 9px 10px;white-space:nowrap;text-align:right">' + (r.statusRow ? '<span class="status-badge ' + r.statusRow.cls + '">' + esc(r.statusRow.label) + '</span>' : '') + '</td>'
+          : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
         '</tr>').join('') +
       '</table>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
@@ -11664,6 +11756,22 @@ let pendingDirectLinkOrderId = null;
     svcOpenKey = null;
     delete svcDraftCache[key];
     await Promise.all([loadServiceAssignmentQueue(orderId), loadOrdersQueue()]);
+  };
+
+  /* "Assign by service" -- boton dinamico de Completed en Active,
+     opera sobre el servicio que es su turno ahorita. Mismo patron de
+     refresco que markCompleted/requestCancelActive (loadAll, que ya
+     limpia orderDetailCache por completo). */
+  window.completeServiceAssignment = async function(orderId, cat, name) {
+    try {
+      await api('/complete-service-assignment', {
+        body: { orderId, category: cat, serviceName: name, changedBy: getActorName() }
+      });
+      showToast(name + ' marked as completed.');
+      await loadAll();
+    } catch (e) {
+      showToast('Error: ' + e.message);
+    }
   };
 
   /* Clic en cualquier parte del renglon lo prende/apaga -- sigue

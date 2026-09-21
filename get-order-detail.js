@@ -6,7 +6,7 @@
 ============================================================ */
 
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, SERVICE_ASSIGNMENTS_LIST,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
 const { latestOrderPdf } = require('./lib/orderpdf');
@@ -92,11 +92,16 @@ exports.handler = async (event) => {
       return jsonResponse(200, { order, services, history: [] });
     }
 
-    /* ===== ORDEN NORMAL — las tres listas en paralelo ===== */
-    const [orderRows, svcRows, histRows] = await Promise.all([
+    /* ===== ORDEN NORMAL — las listas en paralelo ===== */
+    const [orderRows, svcRows, histRows, assignmentRows] = await Promise.all([
       fetchByField(ORDERS_LIST,        'OrderID', wanted),
       fetchByField(ORDER_SERVICES_LIST, 'OrderID', wanted),
-      fetchByField(ORDER_HISTORY_LIST,  'OrderID', wanted)
+      fetchByField(ORDER_HISTORY_LIST,  'OrderID', wanted),
+      /* "Assign by service" (21/09/2026) -- solo tiene contenido real
+         cuando la orden trae AssignByService=true, pero se trae
+         siempre (barato, un query mas) para no tener que checar el
+         flag antes de decidir si pedirla. */
+      fetchByField(SERVICE_ASSIGNMENTS_LIST, 'OrderID', wanted)
     ]);
 
     const orderItem = orderRows.find(it => it.fields);
@@ -228,7 +233,24 @@ exports.handler = async (event) => {
       } catch (e) { completionDocument = null; }
     }
 
-    return jsonResponse(200, { order, services, history, document, completionDocument });
+    /* "Assign by service" -- mismo mapeo que get-service-assignments.js,
+       para que Active pueda pintar el estatus por servicio sin pedirlo
+       aparte. */
+    const serviceAssignments = assignmentRows
+      .filter(it => it.fields)
+      .map(it => ({
+        itemId: it.id,
+        Category: it.fields.Category || '',
+        ServiceName: it.fields.ServiceName || '',
+        Sequence: it.fields.Sequence != null ? Number(it.fields.Sequence) : null,
+        AssignedTo: it.fields.AssignedTo || '',
+        ScheduledDate: it.fields.ScheduledDate || '',
+        WorkStatus: it.fields.WorkStatus || 'Not Started',
+        CompletedDate: it.fields.CompletedDate || ''
+      }))
+      .sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0));
+
+    return jsonResponse(200, { order, services, history, document, completionDocument, serviceAssignments });
 
   } catch (err) {
     return jsonResponse(500, { error: err.message });

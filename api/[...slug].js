@@ -31,7 +31,8 @@ const handlers = {
   'cron-recurring-orders': require('../cron-recurring-orders').handler,
   'toggle-assign-by-service': require('../toggle-assign-by-service').handler,
   'get-service-assignments': require('../get-service-assignments').handler,
-  'save-service-assignment': require('../save-service-assignment').handler
+  'save-service-assignment': require('../save-service-assignment').handler,
+  'complete-service-assignment': require('../complete-service-assignment').handler
 };
 
 module.exports = async (req, res) => {
