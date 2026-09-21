@@ -11452,6 +11452,16 @@ let pendingDirectLinkOrderId = null;
     body.innerHTML = assignFormHtml(order);
     body.classList.add('open');
     openOrderCard = orderId;
+
+    /* BUG REAL encontrado en produccion (21/09/2026): si la orden YA
+       tenia "Assign by service" prendido de antes, assignFormHtml
+       solo pintaba "Loading per-service queue..." sin que nada
+       disparara la carga real -- se quedaba pegado ahi para siempre
+       al reabrir la tarjeta (el fetch solo se llamaba justo despues
+       de prender el toggle, nunca al simplemente reabrir). */
+    if (order && (order.AssignByService === true || order.AssignByService === 'true')) {
+      loadServiceAssignmentQueue(orderId);
+    }
   }
 
   /* Misma lista de candidatos que assignFormHtml calcula abajo (para
@@ -11536,7 +11546,7 @@ let pendingDirectLinkOrderId = null;
     const toggleHtml = `
       <div class="toggle-row" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
         <label class="svc-toggle">
-          <input type="checkbox" id="assign-by-svc-${escAttr(o.OrderID)}" ${assignByService ? 'checked' : ''} ${assignByService ? 'disabled' : ''} onchange="toggleAssignByServiceUI('${escAttr(o.OrderID)}', this.checked)">
+          <input type="checkbox" id="assign-by-svc-${escAttr(o.OrderID)}" ${assignByService ? 'checked' : ''} onchange="toggleAssignByServiceUI('${escAttr(o.OrderID)}', this.checked)">
           <span class="svc-toggle-track"></span>
         </label>
         <label for="assign-by-svc-${escAttr(o.OrderID)}"><b>Assign by service</b> — <span id="assign-by-svc-note-${escAttr(o.OrderID)}">${assignByService ? 'on, each service assigned on its own' : 'off, whole team together'}</span></label>
@@ -11591,9 +11601,16 @@ let pendingDirectLinkOrderId = null;
       </div>`;
   }
 
-  /* Clic en el toggle -- prender es instantaneo (no hay nada que
-     proteger); apagar se valida contra el servidor (no se puede si ya
-     hay un servicio completado, mismo candado que el mini). */
+  /* BUG REAL encontrado en produccion (21/09/2026, reportado por el
+     dueño -- "todos se quedaron prendidos y ya no los puedo apagar"):
+     esto deshabilitaba el checkbox EN CUANTO se prendia, sin
+     importar si algo estaba completado o no -- no es lo que se
+     acordo ("el toggle se deberia bloquear UNICAMENTE despues de que
+     se marco completado el primer trabajo, mientras tanto se deberian
+     poder hacer cambios"). Ya no se deshabilita aqui -- eso ahora
+     vive en refreshAssignByServiceLock(), llamado con datos reales
+     cada vez que la cola se vuelve a dibujar (aqui abajo, y tambien
+     al reabrir una tarjeta despues). */
   async function toggleAssignByServiceUI(orderId, checked) {
     const noteEl = document.getElementById('assign-by-svc-note-' + orderId);
     const checkboxEl = document.getElementById('assign-by-svc-' + orderId);
@@ -11605,12 +11622,12 @@ let pendingDirectLinkOrderId = null;
       return;
     }
     if (checked) {
-      checkboxEl.disabled = true;
       if (noteEl) noteEl.textContent = 'on, each service assigned on its own';
       const order = ordersQueueCache.find(o => o.OrderID === orderId);
       if (order) order.AssignByService = true;
       await loadServiceAssignmentQueue(orderId);
     } else {
+      checkboxEl.disabled = false;
       if (noteEl) noteEl.textContent = 'off, whole team together';
     }
   }
@@ -11673,9 +11690,15 @@ let pendingDirectLinkOrderId = null;
       const { svc, a } = row;
       const key = svcKeyOf(orderId, svc.Category, svc.ServiceName);
       const scheduled = svcHasSchedule(a);
+      const isDone = a && a.WorkStatus === 'Completed';
       const canSchedule = prevScheduled;
-      const statusLabel = scheduled ? 'Scheduled' : (canSchedule ? 'Needs scheduling' : 'Not started');
-      const statusClass = scheduled ? 'status-assigned' : (canSchedule ? 'status-pending' : '');
+      /* BUG REAL encontrado en produccion: nunca revisaba
+         WorkStatus==='Completed' aqui -- un servicio ya completado se
+         seguia viendo "Scheduled" (y encima se podia reabrir para
+         reprogramarlo, contradiciendo "lo completado no se toca" ya
+         acordado). */
+      const statusLabel = isDone ? 'Completed' : (scheduled ? 'Scheduled' : (canSchedule ? 'Needs scheduling' : 'Not started'));
+      const statusClass = isDone ? 'status-completed' : (scheduled ? 'status-assigned' : (canSchedule ? 'status-pending' : ''));
       prevScheduled = scheduled; // el siguiente solo se puede programar si ESTE ya tiene gente+fecha
 
       const draft = svcOpenKey === key ? (svcDraftCache[key] || { ids: a ? String(a.AssignedTo || '').split(',').map(s2=>s2.trim()).filter(Boolean) : [], date: a ? a.ScheduledDate : '' }) : null;
@@ -11685,7 +11708,7 @@ let pendingDirectLinkOrderId = null;
         ? `<div class="candidate-stat" style="margin-top:4px">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
         : '';
 
-      const editorHtml = (svcOpenKey === key && canSchedule) ? `
+      const editorHtml = (svcOpenKey === key && canSchedule && !isDone) ? `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           ${candidates.length ? candidates.map(c => `
             <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${draft.ids.includes(c.id) ? 'var(--gold)' : 'var(--border)'};border-radius:20px;margin:0 6px 6px 0;cursor:pointer;font-size:12px${draft.ids.includes(c.id) ? ';background:rgba(201,168,76,.12)' : ''}">
@@ -11699,8 +11722,9 @@ let pendingDirectLinkOrderId = null;
           <button class="gs-ofp-btn-primary" style="width:auto;margin-top:10px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')">${scheduled ? 'Update schedule' : 'Save schedule'}</button>
         </div>` : '';
 
+      const canOpen = canSchedule && !isDone;
       return `
-        <div class="candidate-row" style="cursor:${canSchedule ? 'pointer' : 'default'};opacity:${canSchedule ? 1 : .55}" ${canSchedule ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+        <div class="candidate-row" style="cursor:${canOpen ? 'pointer' : 'default'};opacity:${canOpen ? 1 : .55}" ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
           <span class="candidate-name">${i + 1}. ${esc(svc.ServiceName)}</span>
           <span class="status-badge ${statusClass}" style="margin-left:auto">${statusLabel}</span>
           ${assignedLineHtml}
@@ -11709,6 +11733,19 @@ let pendingDirectLinkOrderId = null;
     }).join('');
 
     box.innerHTML = `<p class="detail-label">Services — assign one at a time</p>${rowsHtml}`;
+
+    /* Candado del toggle: SOLO se deshabilita si de verdad hay un
+       servicio Completed -- se recalcula aqui, con datos reales,
+       cada vez que la cola se vuelve a dibujar (recien prendido, o
+       al reabrir la tarjeta despues). Antes se deshabilitaba apenas
+       se prendia, sin importar si algo estaba completado -- ese era
+       el bug real que dejaba a las ordenes atoradas sin poder
+       apagarse. */
+    const toggleCheckbox = document.getElementById('assign-by-svc-' + orderId);
+    if (toggleCheckbox) {
+      const anyCompleted = assignments.some(a => a.WorkStatus === 'Completed');
+      toggleCheckbox.disabled = anyCompleted;
+    }
   }
 
   window.toggleSvcPickerOpen = function(orderId, cat, name) {

@@ -92,17 +92,28 @@ exports.handler = async (event) => {
       return jsonResponse(200, { order, services, history: [] });
     }
 
-    /* ===== ORDEN NORMAL — las listas en paralelo ===== */
-    const [orderRows, svcRows, histRows, assignmentRows] = await Promise.all([
+    /* ===== ORDEN NORMAL — las 3 listas de siempre, en paralelo ===== */
+    const [orderRows, svcRows, histRows] = await Promise.all([
       fetchByField(ORDERS_LIST,        'OrderID', wanted),
       fetchByField(ORDER_SERVICES_LIST, 'OrderID', wanted),
-      fetchByField(ORDER_HISTORY_LIST,  'OrderID', wanted),
-      /* "Assign by service" (21/09/2026) -- solo tiene contenido real
-         cuando la orden trae AssignByService=true, pero se trae
-         siempre (barato, un query mas) para no tener que checar el
-         flag antes de decidir si pedirla. */
-      fetchByField(SERVICE_ASSIGNMENTS_LIST, 'OrderID', wanted)
+      fetchByField(ORDER_HISTORY_LIST,  'OrderID', wanted)
     ]);
+
+    /* "Assign by service" (21/09/2026) -- APARTE y con su propio
+       try/catch a proposito: BUG REAL encontrado en produccion
+       (21/09/2026) -- estaba adentro del Promise.all de arriba, asi
+       que un fallo aqui (lista/columna nueva, todavia sin confirmar
+       la causa exacta) tumbaba TODO get-order-detail -- Approvals,
+       Active, History, todo lo que ya funcionaba antes de "Assign by
+       service" siquiera existir. Nunca debe poder romper el resto de
+       la orden -- si falla, la orden se ve sin su cola por servicio,
+       no deja de verse. */
+    let assignmentRows = [];
+    try {
+      assignmentRows = await fetchByField(SERVICE_ASSIGNMENTS_LIST, 'OrderID', wanted);
+    } catch (svcAssignErr) {
+      console.error('get-order-detail: fetch de ServiceAssignments fallo (no fatal):', svcAssignErr);
+    }
 
     const orderItem = orderRows.find(it => it.fields);
     if (!orderItem) return jsonResponse(404, { error: 'Order not found.' });
