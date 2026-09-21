@@ -98,6 +98,7 @@ exports.handler = async (event) => {
 
     return jsonResponse(200, { success: true, itemId, wasFirstEverScheduled });
   } catch (err) {
+    console.error('save-service-assignment.js error:', err);
     return jsonResponse(500, { error: err.message });
   }
 };

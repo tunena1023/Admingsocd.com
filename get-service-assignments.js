@@ -39,6 +39,7 @@ exports.handler = async (event) => {
 
     return jsonResponse(200, { success: true, assignments });
   } catch (err) {
+    console.error('get-service-assignments.js error:', err);
     return jsonResponse(500, { error: err.message });
   }
 };

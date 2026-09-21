@@ -53,6 +53,7 @@ exports.handler = async (event) => {
     await updateListItemByItemId(ORDERS_LIST, orderItem.id, { AssignByService: b.on });
     return jsonResponse(200, { success: true, orderId: b.orderId, on: b.on });
   } catch (err) {
+    console.error('toggle-assign-by-service.js error:', err);
     return jsonResponse(500, { error: err.message });
   }
 };
