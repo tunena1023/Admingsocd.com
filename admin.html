@@ -11443,9 +11443,9 @@ let pendingDirectLinkOrderId = null;
        queda IGUAL cuando esta apagado -- nada cambio ahi. */
     const toggleHtml = `
       <div class="toggle-row" style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-        <label class="toggle-switch">
+        <label class="svc-toggle">
           <input type="checkbox" id="assign-by-svc-${escAttr(o.OrderID)}" ${assignByService ? 'checked' : ''} ${assignByService ? 'disabled' : ''} onchange="toggleAssignByServiceUI('${escAttr(o.OrderID)}', this.checked)">
-          <span class="toggle-track"></span>
+          <span class="svc-toggle-track"></span>
         </label>
         <label for="assign-by-svc-${escAttr(o.OrderID)}"><b>Assign by service</b> — <span id="assign-by-svc-note-${escAttr(o.OrderID)}">${assignByService ? 'on, each service assigned on its own' : 'off, whole team together'}</span></label>
       </div>`;
@@ -11596,7 +11596,7 @@ let pendingDirectLinkOrderId = null;
       const editorHtml = (svcOpenKey === key && canSchedule) ? `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           ${candidates.length ? candidates.map(c => `
-            <label class="staff-chip${draft.ids.includes(c.id) ? ' picked' : ''}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;margin:0 6px 6px 0;cursor:pointer;font-size:12px">
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${draft.ids.includes(c.id) ? 'var(--gold)' : 'var(--border)'};border-radius:20px;margin:0 6px 6px 0;cursor:pointer;font-size:12px${draft.ids.includes(c.id) ? ';background:rgba(201,168,76,.12)' : ''}">
               <input type="checkbox" style="width:auto" ${draft.ids.includes(c.id) ? 'checked' : ''} onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(c.id)}')">
               ${esc(c.name)}
             </label>`).join('') : '<p class="empty-note">No active employees in ' + esc(order.Division) + ' right now.</p>'}
