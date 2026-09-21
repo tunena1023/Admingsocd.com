@@ -152,7 +152,12 @@ exports.handler = async (event) => {
         SubOption: it.fields.SubOption || '',
         Division: it.fields.Division || '',
         Level: it.fields.Level || '',
-        Quantity: it.fields.Quantity || ''
+        Quantity: it.fields.Quantity || '',
+        /* "Assign by service" -- sin esto, un servicio marcado como
+           quitado/no completado desde el editor de Active (Update)
+           se seguia viendo "Needs scheduling" en la cola de
+           Scheduling para siempre, como si nunca se hubiera tocado. */
+        NotCompleted: it.fields.NotCompleted === true || it.fields.NotCompleted === 'true'
       });
     });
 
@@ -297,7 +302,12 @@ exports.handler = async (event) => {
           AssignByService: f.AssignByService === true || f.AssignByService === 'true',
           /* "Assign by service" -- ver comentario junto a scheduledCountByOrder
              arriba. true = todavia falta programar al menos un servicio. */
-          AssignByServiceHasUnscheduled: (scheduledCountByOrder[f.OrderID || f.Title] || 0) < (servicesByOrder[f.OrderID || f.Title] || []).length,
+          /* Cuenta contra servicios REALES (sin los quitados/no
+             completados via Active) -- si no, una orden con un
+             servicio removido que nunca se llego a programar se
+             quedaba atorada en Scheduling para siempre. */
+          AssignByServiceHasUnscheduled: (scheduledCountByOrder[f.OrderID || f.Title] || 0) <
+            (servicesDetailedByOrder[f.OrderID || f.Title] || []).filter(s => !s.NotCompleted).length,
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
           Services: servicesByOrder[f.OrderID || f.Title] || [],
           ServicesDetailed: servicesDetailedByOrder[f.OrderID || f.Title] || []

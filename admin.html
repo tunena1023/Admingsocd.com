@@ -8565,7 +8565,11 @@ function svcAssignmentStatusRows(orderId, services) {
   const assignments = svcAssignCache[orderId] || [];
   const byKey = {};
   assignments.forEach(a => { byKey[a.Category + '|' + a.ServiceName] = a; });
-  const rows = services.map((s, i) => {
+  /* "Assign by service" -- un servicio marcado como quitado/no
+     completado desde el editor de Active (Update) nunca debe seguir
+     ocupando un lugar en la cola por servicio, en ningun lado que
+     use esta funcion (Scheduling, el boton Completed de Active). */
+  const rows = services.filter(s => !s.NotCompleted).map((s, i) => {
     const a = byKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null;
     return { svc: s, a, seq: (a && a.Sequence) || (i + 1) };
   }).sort((x, y) => x.seq - y.seq);
@@ -11735,7 +11739,10 @@ let pendingDirectLinkOrderId = null;
     const order = ordersQueueCache.find(o => o.OrderID === orderId) ||
       (directLinkOrder && directLinkOrder.OrderID === orderId ? directLinkOrder : null);
     if (!order) return;
-    const services = (order.ServicesDetailed || []).slice();
+    /* Un servicio quitado/no completado desde Active nunca ocupa
+       lugar en la cola de Scheduling -- ver mismo comentario en
+       svcAssignmentStatusRows(). */
+    const services = (order.ServicesDetailed || []).filter(s => !s.NotCompleted);
     const assignments = svcAssignCache[orderId] || [];
     const byKey = {};
     assignments.forEach(a => { byKey[a.Category + '|' + a.ServiceName] = a; });
