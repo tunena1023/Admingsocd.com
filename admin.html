@@ -8586,8 +8586,15 @@ function svcAssignmentStatusRows(orderId, services) {
     prevScheduled = scheduled;
     prevCompleted = isDone;
     let label, cls;
+    /* A peticion del dueño (confirmado antes, y otra vez ahora en
+       vivo): "In Active" solo tiene sentido como referencia DESDE
+       Scheduling ("ya se fue para alla") -- decirlo DENTRO de la
+       propia pantalla de Active es redundante, ahi debe leerse
+       "Assigned" a secas. Esta funcion la usa el detalle de la orden
+       (Active/History), asi que el servicio que es su turno ahorita
+       se ve "Assigned", igual que como ya lo ve el cliente. */
     if (isDone) { label = 'Completed'; cls = 'status-completed'; }
-    else if (current && scheduled) { label = 'In Active'; cls = 'status-working'; }
+    else if (current && scheduled) { label = 'Assigned'; cls = 'status-assigned'; }
     else if (scheduled) { label = 'Scheduled'; cls = 'status-assigned'; }
     else if (canSchedule) { label = 'Needs scheduling'; cls = 'status-pending'; }
     else { label = 'Not started'; cls = ''; }
@@ -11341,18 +11348,24 @@ let pendingDirectLinkOrderId = null;
 
       const scheduledOrderIds = new Set((schedulingRes.items || []).map(s => s.OrderID));
       /* BUG REAL encontrado en produccion (21/09/2026, reportado por
-         el dueño -- "todo se fue a Active y no quedo nada en
-         Schedule"): antes solo entraban aqui ordenes con
-         Status==='Received' -- en cuanto el primer servicio de una
-         orden por-servicio la mandaba a 'Assigned' (Active), la orden
-         desaparecia de Scheduling de un jalon, aunque le siguieran
-         faltando servicios por programar. Ya acordado varias veces
-         durante el mini: la cola de Scheduling nunca deja de mostrar
-         una orden solo porque ya se fue a Active, mientras le falte
-         algo por programar -- AssignByServiceHasUnscheduled (real,
-         calculado en admin-get-orders.js) es esa señal. */
+         el dueño -- dos veces: "todo se fue a Active y no quedo nada
+         en Schedule", y despues "se me quito de Schedule sin que
+         todo estuviera completado, y al agregar un servicio no hay
+         cola a donde irse"): antes solo entraban aqui ordenes con
+         Status==='Received'. Un primer intento de arreglo (mismo dia)
+         uso "todavia falta programar algo" como condicion -- todavia
+         mal: una orden con TODO ya asignado (pero nada completado
+         todavia) desaparecia de Scheduling de un jalon, y si despues
+         se le agregaba un servicio nuevo desde el Update de Active,
+         no habia tarjeta en Scheduling donde ese servicio nuevo
+         pudiera aparecer, ni forma de aprobar cambios sobre esa
+         orden. Ya aprobado en el mini desde el principio: Scheduling
+         y Active conviven durante TODA la vida de la orden -- la
+         condicion real es "todavia falta AL MENOS un servicio por
+         COMPLETAR", no por asignar -- AssignByServiceHasIncomplete
+         (real, calculado en admin-get-orders.js) es esa señal. */
       const pending = (ordersRes.orders || []).filter(o =>
-        o.Status === 'Received' || (o.AssignByService && o.AssignByServiceHasUnscheduled)
+        o.Status === 'Received' || (o.AssignByService && o.AssignByServiceHasIncomplete)
       );
 
       ordersQueueCache = pending.filter(o => !scheduledOrderIds.has(o.OrderID));

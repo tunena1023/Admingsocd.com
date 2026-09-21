@@ -161,19 +161,26 @@ exports.handler = async (event) => {
       });
     });
 
-    /* "Assign by service" -- por orden, cuantos servicios YA tienen
-       persona+fecha (AssignedTo+ScheduledDate) contra el total real
-       de OrderServices. Scheduling lo usa para decidir si una orden
-       que YA se fue a Active (Status ya no es 'Received') se sigue
-       mostrando ahi -- a peticion explicita del dueño: mientras falte
-       AL MENOS un servicio por programar, la orden se sigue viendo en
-       Scheduling, sin importar su Status. */
-    const scheduledCountByOrder = {};
+    /* "Assign by service" -- por orden, cuantos servicios YA estan
+       Completed contra el total real de OrderServices (sin los
+       quitados/no completados via Active). BUG REAL corregido
+       (21/09/2026, reportado por el dueño en vivo -- "no se debe
+       mover de Schedule mientras no esten TODOS Completed"): esto
+       antes contaba servicios ya ASIGNADOS (persona+fecha), no
+       COMPLETADOS -- una orden con todo asignado pero nada trabajado
+       todavia desaparecia de Scheduling de un jalon, y si despues se
+       le agregaba un servicio nuevo desde Active, no habia tarjeta
+       en Scheduling a donde ese servicio nuevo pudiera aparecer. Ya
+       aprobado en el mini interactivo desde el principio: Scheduling
+       y Active conviven durante TODA la vida de la orden -- la orden
+       solo sale de Scheduling cuando el ULTIMO servicio queda
+       Completed, no cuando el ultimo queda asignado. */
+    const completedCountByOrder = {};
     assignmentRows.forEach(it => {
-      if (!it.fields || !it.fields.AssignedTo || !it.fields.ScheduledDate) return;
+      if (!it.fields || it.fields.WorkStatus !== 'Completed') return;
       const oid = it.fields.OrderID;
       if (!oid) return;
-      scheduledCountByOrder[oid] = (scheduledCountByOrder[oid] || 0) + 1;
+      completedCountByOrder[oid] = (completedCountByOrder[oid] || 0) + 1;
     });
 
     /* Lugares (cliente principal + cada building) por clave "clientId|buildingId"
@@ -300,13 +307,12 @@ exports.handler = async (event) => {
              (en vez de un solo bloque para toda la orden) y Active
              usa el modelo por servicio en lugar del de siempre. */
           AssignByService: f.AssignByService === true || f.AssignByService === 'true',
-          /* "Assign by service" -- ver comentario junto a scheduledCountByOrder
-             arriba. true = todavia falta programar al menos un servicio. */
-          /* Cuenta contra servicios REALES (sin los quitados/no
-             completados via Active) -- si no, una orden con un
-             servicio removido que nunca se llego a programar se
-             quedaba atorada en Scheduling para siempre. */
-          AssignByServiceHasUnscheduled: (scheduledCountByOrder[f.OrderID || f.Title] || 0) <
+          /* "Assign by service" -- ver comentario junto a completedCountByOrder
+             arriba. true = todavia falta AL MENOS un servicio por
+             completar (sin contar los quitados/no completados via
+             Active) -- Scheduling usa esto para decidir si la orden
+             se sigue mostrando ahi, sin importar su Status. */
+          AssignByServiceHasIncomplete: (completedCountByOrder[f.OrderID || f.Title] || 0) <
             (servicesDetailedByOrder[f.OrderID || f.Title] || []).filter(s => !s.NotCompleted).length,
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
           Services: servicesByOrder[f.OrderID || f.Title] || [],
