@@ -599,3 +599,38 @@ estaba bien.
 **Pendiente:** el mismo repaso todavía no se ha hecho en los otros 2
 repos (`ordersgsocd.com` y `tech.gsocd.com`) — quedó ofrecido, no
 empezado.
+
+## Regla nueva (21/09/2026): los Previews de Vercel NO le sirven al dueño para probar -- login de Azure lo rechaza
+
+El login de MSAL (Azure AD) solo tiene registradas las redirect URIs de
+producción (`admin.gsocd.com` y las alias fijas de Vercel) -- una URL de
+Preview de una rama nueva (`<proyecto>-git-<rama>-gs-solutions1.vercel.app`)
+siempre da `AADSTS50011: redirect URI ... does not match`, porque Azure no
+tiene wildcard para ramas dinámicas. Agregar cada URL de rama una por una en
+Azure (como se hizo alguna vez para probar QuickBooks) no es práctico como
+flujo normal -- son demasiadas ramas.
+
+**Consecuencia real para el flujo de trabajo:** la regla de "Preview antes de
+pedir el dale" (19/09/2026, más arriba en este archivo) asume que el dueño
+puede abrir el link y loguearse -- en Admin, hoy, NO puede. Cuando el dueño
+diga "no puedo ver Previews" o pida saltarse ese paso, es por esto -- no hay
+que ofrecer un link de Preview esperando que funcione.
+
+**Qué hacer en su lugar cuando el dueño lo pida:** revisar el cambio de punta
+a punta uno mismo (sintaxis real con Node, no solo `node --check` -- cargar
+el router `api/[...slug].js` con `require()` de verdad es el chequeo más
+importante, ver el bug real de abajo), fusionar directo a main con cuidado
+extra, y verificar el deployment de producción (`Vercel:get_deployment` hasta
+`READY`, más `Vercel:get_runtime_logs` con `statusCode: 5xx` los minutos
+después de subir) antes de avisar que ya quedó.
+
+**BUG REAL encontrado en este flujo (21/09/2026, antes de que llegara a
+producción):** 2 endpoints nuevos (`toggle-assign-by-service.js`,
+`get-service-assignments.js`, `save-service-assignment.js`, de "Assign by
+service") nunca se registraron en el mapa estático de `api/[...slug].js` --
+sin esto hubieran regresado 404 (no hubieran roto nada más, pero la función
+nueva ni hubiera funcionado). Se atrapó con un `require('./api/[...slug].js')`
+real en Node antes de fusionar, no solo revisando sintaxis. Lección: cualquier
+archivo backend nuevo SIEMPRE tiene que agregarse a ese mapa, y la forma de
+confirmarlo es cargar el router de verdad, no solo `node --check` sobre el
+archivo nuevo por separado.
