@@ -9031,15 +9031,27 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         const sr = r.statusRow;
         const canComplete = isAssignByService && sr && sr.scheduled && sr.workStatus !== 'Completed';
         const isPendingReview = sr && sr.workStatus === 'Pending Review';
+        /* BUG REAL reportado por el dueño en vivo, con captura real de
+           mobile: esta ultima columna tenia white-space:nowrap, y en
+           cuanto el badge de estatus Y el boton nuevo ("Mark
+           completed"/"Confirm") tenian que caber juntos en una
+           pantalla angosta, el nowrap forzaba TODA la tabla (y la
+           pagina) a ensancharse mas alla del viewport -- se veia
+           cortado por la derecha, sin poder arreglarse con scroll ni
+           zoom (nada dentro tenia a donde envolverse). Se quita el
+           nowrap de esta columna especificamente y el boton se
+           mueve a su propio renglon (block, no inline) cuando existe
+           -- en vez de pelear por espacio junto al badge en la misma
+           linea, en mobile se acomodan uno debajo del otro solos. */
         const completeBtnHtml = canComplete
-          ? `<button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:4px 12px;font-size:11px;margin-left:8px${isPendingReview ? ';background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${jsStr(o.OrderID)}','${jsStr((sr.svc && sr.svc.Category) || '')}','${jsStr(r.name)}')">${isPendingReview ? '✓ Confirm' : 'Mark completed'}</button>`
+          ? `<div style="margin-top:4px"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:4px 12px;font-size:11px${isPendingReview ? ';background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${jsStr(o.OrderID)}','${jsStr((sr.svc && sr.svc.Category) || '')}','${jsStr(r.name)}')">${isPendingReview ? '✓ Confirm' : 'Mark completed'}</button></div>`
           : '';
         return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
-          ? '<td style="padding:9px 0 9px 10px;white-space:nowrap;text-align:right">' + (sr ? '<span class="status-badge ' + sr.cls + '">' + esc(sr.label) + '</span>' : '') + completeBtnHtml + '</td>'
+          ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap">' + esc(sr.label) + '</span>' : '') + completeBtnHtml + '</td>'
           : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
         '</tr>';
       }).join('') +
