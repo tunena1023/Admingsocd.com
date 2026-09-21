@@ -384,37 +384,48 @@ exports.handler = async (event) => {
         });
       } catch (e) { console.error('Draft header update failed:', e.message); }
 
+      /* DIAGNOSTICO (20/09/2026, ver el comentario completo en
+         ordersgsocd.com/submit-order.js, misma revision): antes un
+         solo servicio que fallaba se tragaba en silencio. Ahora cada
+         fallo queda etiquetado con el servicio exacto y visible en
+         la respuesta. */
+      const svcResults = await Promise.allSettled(
+        svcSource.map(s =>
+          createListItem(ORDER_SERVICES_LIST, {
+            Title:       s.ServiceName || '',
+            OrderID:     orderId,
+            Category:    s.Category    || '',
+            ServiceName: s.ServiceName || '',
+            SubOption:   s.SubOption   || '',
+            Division:    s.Division    || b.Division,
+            Quantity:    numOrNull(s.Quantity)
+          }).catch(e => { throw new Error('[' + (s.ServiceName || '?') + '] ' + e.message); })
+        )
+      );
+      let svcWarning = null;
+      const svcFailures = svcResults.filter(r => r.status === 'rejected');
+      if (svcFailures.length) {
+        svcWarning = 'Some services could not be saved: ' + svcFailures.map(r => r.reason.message).join(' | ');
+        console.error('Post-order services write failed:', svcWarning);
+      }
       try {
-        await Promise.all([
-          ...svcSource.map(s =>
-            createListItem(ORDER_SERVICES_LIST, {
-              Title:       s.ServiceName || '',
-              OrderID:     orderId,
-              Category:    s.Category    || '',
-              ServiceName: s.ServiceName || '',
-              SubOption:   s.SubOption   || '',
-              Division:    s.Division    || b.Division,
-              Quantity:    numOrNull(s.Quantity)
-            })
-          ),
-          createListItem(ORDER_HISTORY_LIST, {
-            Title:      orderId,
-            OrderID:    orderId,
-            ChangeType: 'Created',
-            ChangedBy:  b.ClientID,
-            ChangeDate: new Date().toISOString(),
-            Notes:      'Submitted from draft.',
-            OldValue:   'Draft',
-            NewValue:   'SERVICES:' + JSON.stringify({ services: svcSource, dirtLevel: b.DirtLevel || '', entryDate: orderFields.EntryDate || '', dueDate: orderFields.DueDate || '' })
-          })
-        ]);
-      } catch (e) { console.error('Post-order write failed:', e.message); }
+        await createListItem(ORDER_HISTORY_LIST, {
+          Title:      orderId,
+          OrderID:    orderId,
+          ChangeType: 'Created',
+          ChangedBy:  b.ClientID,
+          ChangeDate: new Date().toISOString(),
+          Notes:      'Submitted from draft.',
+          OldValue:   'Draft',
+          NewValue:   'SERVICES:' + JSON.stringify({ services: svcSource, dirtLevel: b.DirtLevel || '', entryDate: orderFields.EntryDate || '', dueDate: orderFields.DueDate || '' })
+        });
+      } catch (e) { console.error('Post-order history write failed:', e.message); }
 
       try {
         await Promise.all(draftServiceRows.map(row => deleteListItem(DRAFTS_LIST, row.id)));
       } catch (e) { console.error('Draft cleanup failed:', e.message); }
 
-      return jsonResponse(200, { success: true, orderId, id: result.id });
+      return jsonResponse(200, { success: true, orderId, id: result.id, warning: svcWarning });
     }
 
     /* ===== FLUJO B: Orden existente → edicion ===== */
@@ -651,9 +662,12 @@ exports.handler = async (event) => {
        SI se alcanzaba a crear bien antes de este error -- el bug
        era solo en la respuesta final, no en el guardado real. */
     let historyWarning = null;
+    let svcWarning = null;
     try {
     const parsedServices = resolveServices(b.Services, b.Division);
-    await Promise.all(parsedServices.map(s =>
+    /* DIAGNOSTICO (20/09/2026, ver el comentario completo en
+       ordersgsocd.com/submit-order.js, misma revision). */
+    const svcResults = await Promise.allSettled(parsedServices.map(s =>
       createListItem(ORDER_SERVICES_LIST, {
         Title:       s.ServiceName || '',
         OrderID:     orderId,
@@ -663,8 +677,13 @@ exports.handler = async (event) => {
         Division:    s.Division,
         Level:       s.Level || '',
         Quantity:    numOrNull(s.Quantity)
-      })
+      }).catch(e => { throw new Error('[' + (s.ServiceName || '?') + '] ' + e.message); })
     ));
+    const svcFailures = svcResults.filter(r => r.status === 'rejected');
+    if (svcFailures.length) {
+      svcWarning = 'Some services could not be saved: ' + svcFailures.map(r => r.reason.message).join(' | ');
+      console.error('Post-order services write failed:', svcWarning);
+    }
 
     const createdHistoryFields = {
       Title:      orderId,
@@ -712,7 +731,7 @@ exports.handler = async (event) => {
       }
     }
 } catch (e) { console.error('Post-order write failed:', e.message); }
-    return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning });
+    return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning, warning: svcWarning });
 
   } catch (err) {
     return jsonResponse(500, { error: err.message });

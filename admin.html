@@ -11018,6 +11018,12 @@ async function submitCreateOrder() {
   try {
     const res = await api('/submit-order', { body });
     showToast('Order ' + res.orderId + ' created successfully.');
+    /* DIAGNOSTICO (20/09/2026, a peticion del dueño): si un servicio
+       (o el primer renglon de historial) no se pudo guardar, el
+       backend ahora lo manda de vuelta en vez de tragarselo en
+       silencio -- se avisa aqui encima de la confirmacion normal. */
+    if (res.warning) showToast(res.warning);
+    if (res.historyWarning) showToast(res.historyWarning);
     cancelCreate();
     await loadAll();
   } catch(e) {
