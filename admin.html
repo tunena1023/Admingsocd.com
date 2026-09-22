@@ -2034,7 +2034,7 @@ async function initAuth() {
     { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: initialAdminTab === 'approvals', badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
     { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span>' },
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
-    { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
+    { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history', badgeHtml: '<span class="tab-count zero" id="history-count">0</span>' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
     { label: 'Gallery', dataView: 'gallery', onclick: "showTab('gallery')", active: initialAdminTab === 'gallery' },
     { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
@@ -2064,7 +2064,7 @@ async function initAuth() {
     { label: 'Approvals', dataView: 'approvals', onclick: "showTab('approvals')", active: initialAdminTab === 'approvals', badgeHtml: '<span class="tab-count zero" id="appr-count">0</span>' },
     { label: 'Review', dataView: 'review', onclick: "showTab('review')", active: initialAdminTab === 'review', badgeHtml: '<span class="tab-count zero" id="review-count">0</span>' },
     { label: 'Active', dataView: 'active', onclick: "showTab('active')", active: initialAdminTab === 'active' || initialAdminTab === 'assigned', badgeHtml: '<span class="tab-count zero" id="active-count">0</span>' },
-    { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history' },
+    { label: 'History', dataView: 'history', onclick: "showTab('history')", active: initialAdminTab === 'history', badgeHtml: '<span class="tab-count zero" id="history-count">0</span>' },
     { label: 'Clients', dataView: 'clients', onclick: "showTab('clients')", active: initialAdminTab === 'clients' || initialAdminTab === 'create' },
     { label: 'Gallery', dataView: 'gallery', onclick: "showTab('gallery')", active: initialAdminTab === 'gallery' },
     { label: 'QuickBooks', dataView: 'quickbooks', onclick: "showTab('quickbooks')", active: initialAdminTab === 'quickbooks' },
@@ -2484,7 +2484,35 @@ async function applyLiveApprCardUpdate(freshOrder, context) {
   const listEl = document.getElementById(context + '-list');
   if (!listEl) return false;
   const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
-  if (!card) return false;
+  const listFn = context === 'approvals' ? approvalsOf : reviewOf;
+  const belongsHere = listFn('').some(o => o.OrderID === freshOrder.OrderID);
+
+  /* Ya no pertenece a esta lista (alguien mas la aprobo/rechazo desde
+     otro lado) -- se quita la tarjeta, nada mas. (22/09/2026, a
+     peticion del dueño.) */
+  if (card && !belongsHere) { card.remove(); return true; }
+
+  /* Orden nueva de verdad -- nunca ha existido una tarjeta para
+     ella (22/09/2026, a peticion del dueño: "si el cliente manda una
+     orden nueva... se debe popular cerrada, con el brillo... sin
+     cerrar lo que ya este abierto"). Si ya pertenece a un grupo de PO
+     que YA esta en pantalla, insertarla suelta quedaria mal (deberia
+     unirse al grupo, no aparecer aparte) -- ese caso puntual cae al
+     repintado completo (return false), todo lo demas se inserta
+     directo arriba de la lista. */
+  if (!card && belongsHere) {
+    if (freshOrder.BatchId && listEl.querySelector('.order-card[data-order-id="batch-' + CSS.escape(freshOrder.BatchId) + '"]')) {
+      return false;
+    }
+    const builder = context === 'approvals' ? newOrderApprovalCard : approvalCard;
+    listEl.insertAdjacentHTML('afterbegin', builder(freshOrder));
+    await loadApprovalDetail(freshOrder);
+    const inserted = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
+    if (inserted) GSLiveRefresh.flashElement(inserted);
+    return true;
+  }
+
+  if (!card) return true; // no pertenece aqui y no hay tarjeta -- nada que hacer
   const st = cardOpenState(context);
   const wasOpen = st.open === freshOrder.OrderID;
   const wasPinned = !!st.pinned[freshOrder.OrderID];
@@ -2556,6 +2584,11 @@ function startOrderActivityPolling() {
       for (const [id, val] of newSnap.sig) {
         if (!prevSnap.sig.has(id) || prevSnap.sig.get(id) !== val) changedIds.push(id);
       }
+      /* Los 4 contadores de tabs, siempre, sin importar cual tab este
+         visible ahorita -- para que "si estas en approvals y se
+         completa algo en active, se vea el aviso en el contador de
+         history" funcione de verdad. */
+      updateAllTabBadges();
       /* GSNavPremium (gsocd-shared) es quien decide como se oculta un
          panel no activo -- en vez de adivinar su mecanismo interno,
          se checa si el contenedor de cada tab de verdad esta visible
@@ -5381,8 +5414,52 @@ function paintHistory(list) {
 
 function renderHistory() {
   const all = historyOf('');
+  updateHistoryBadge();
   renderSortFilterToolbar('history', all, 'filterHistory');
   filterHistory();
+}
+
+/* History no cuenta el total (podria ser miles, un numero asi no
+   dice nada util) -- cuenta cuantas tiene sin ver, como un aviso de
+   "algo nuevo paso aqui", no como un total de la lista. */
+function updateHistoryBadge() {
+  const badge = document.getElementById('history-count');
+  if (!badge) return;
+  const n = historyOf('').filter(o => o.Unseen).length;
+  badge.textContent = n;
+  badge.classList.toggle('zero', n === 0);
+}
+
+/* Los 4 contadores de las tabs (Approvals/Review/Active/History), en
+   un solo lugar -- para que el revisor de fondo pueda mantenerlos al
+   dia SIN importar cual tab este viendo el usuario ahorita mismo
+   (22/09/2026, a peticion del dueño: "si estas en approvals y se
+   marca desde active algo como completado... se pone el marcador en
+   history"). Los repintados completos de cada tab (renderApprovals/
+   renderReview/paintActive/renderHistory) ya actualizan su propio
+   contador por su cuenta -- esta funcion es para el caso en que NO
+   hay repintado completo, solo hace falta que el numero no se quede
+   viejo. */
+function updateAllTabBadges() {
+  const applBadge = document.getElementById('appr-count');
+  if (applBadge) {
+    const n = approvalsOf('').length;
+    applBadge.textContent = n;
+    applBadge.classList.toggle('zero', n === 0);
+  }
+  const reviewBadge = document.getElementById('review-count');
+  if (reviewBadge) {
+    const n = reviewOf('').length;
+    reviewBadge.textContent = n;
+    reviewBadge.classList.toggle('zero', n === 0);
+  }
+  const activeBadge = document.getElementById('active-count');
+  if (activeBadge) {
+    const n = activeOf('').length;
+    activeBadge.textContent = n;
+    activeBadge.classList.toggle('zero', n === 0);
+  }
+  updateHistoryBadge();
 }
 
 function filterHistory() {
