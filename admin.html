@@ -994,6 +994,8 @@
 <body>
 
 
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.46.0/live-refresh/live-refresh.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.46.0/loading-splash/loading-splash.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.31.0/gallery-groups/gallery-groups.js"></script>
@@ -1021,11 +1023,6 @@
 </nav>
 
 <div id="gsNav"></div>
-<div id="gs-update-banner" style="display:none;align-items:center;justify-content:center;gap:14px;background:#FDF3E0;border-bottom:2px solid #8C6F2A;color:#8C6F2A;font-size:13px;font-weight:600;padding:10px 16px;position:sticky;top:0;z-index:500">
-  <span>🔔 New activity came in — this view may be out of date.</span>
-  <button type="button" class="gs-ofp-btn-secondary" style="padding:5px 14px;font-size:12px" onclick="refreshFromUpdateBanner()">Update</button>
-</div>
-
 <div id="camera-queue-banner" style="display:none;background:#3a2f18;color:#E2C97E;font-size:12px;padding:8px 16px;text-align:center"></div>
 
 <!-- APPROVALS -->
@@ -2320,15 +2317,10 @@ async function loadAll() {
       api('/get-admin-gallery', { body: { statusFilter: 'all' } }).catch(() => ({ groups: [] }))
     ]);
     allOrders = ordersRes.orders || [];
-    /* "Nueva actividad" (aviso arriba, ver checkForNewActivity abajo):
-       cada loadAll() de verdad (login inicial, o cualquier accion que
-       ya recargaba todo antes de esto) es la fuente de verdad mas
-       reciente -- se recalcula la firma aqui y se esconde el aviso,
-       para no dejarlo prendido despues de que el usuario ya vio los
-       datos frescos por cualquier via (no solo dandole "Update" en
-       la barra). */
-    orderActivitySignature = buildOrderActivitySignature(allOrders);
-    hideUpdateBanner();
+    /* Ya no hace falta recalcular ninguna firma aqui a mano --
+       GSLiveRefresh.watch() (startOrderActivityPolling) establece su
+       propia base sola en su primera revision, la primera vez que se
+       llama. */
     allClients = clientsRes.clients || [];
     /* Catalogo (ServicesCatalog) -- precargado en loadAll(),
        para que Active/Approvals lo tengan listo sin esperar un fetch
@@ -2373,8 +2365,18 @@ async function loadAll() {
    pestana no esta visible (Page Visibility API), y revisa de
    inmediato al volver a ella en vez de esperar al siguiente tick --
    asi no se siente atrasado si estuvo minutos en otra pestana. */
-let orderActivitySignature = null;
-let orderPollIntervalId = null;
+/* Reemplaza el patron viejo de "barra + boton Update" (banner
+   gs-update-banner, checkForNewActivity con setInterval,
+   refreshFromUpdateBanner -> loadAll() completo) por
+   gsocd-shared/live-refresh: revisa cada 30s, y si algo cambio,
+   actualiza SOLO la(s) tarjeta(s) de Active afectadas (repinta esa
+   .order-card puntual con orderCard() y la destella con
+   flashElement) -- nunca recarga toda la pantalla para un cambio
+   puntual. Los casos donde no alcanza con reemplazar una tarjeta
+   sola (una orden nueva entra a Active, una sale, cambia de grupo
+   por lote) caen a paintActive(activeOf('')) -- repinta solo la
+   lista de Active, no toda la pagina. */
+let liveRefreshWatcher = null;
 
 function buildOrderActivitySignature(orders) {
   const sig = new Map();
@@ -2382,47 +2384,59 @@ function buildOrderActivitySignature(orders) {
   return sig;
 }
 
-function hasNewActivity(oldSig, newSig) {
-  for (const [id, val] of newSig) {
-    if (!oldSig.has(id) || oldSig.get(id) !== val) return true;
-  }
-  return false;
-}
-
-async function checkForNewActivity() {
-  if (document.visibilityState !== 'visible') return;
-  if (!orderActivitySignature) return; // todavia no hay una carga base con que comparar
-  try {
-    const res = await api('/admin-get-orders', { body: {} });
-    const freshSig = buildOrderActivitySignature(res.orders || []);
-    if (hasNewActivity(orderActivitySignature, freshSig)) showUpdateBanner();
-  } catch (e) {
-    /* Silencioso a proposito -- es una revision de fondo, no debe
-       molestar con un toast de error cada vez que la red falla un
-       segundo. Si de verdad hay un problema, el usuario lo va a ver
-       en cuanto intente hacer algo real. */
-  }
-}
-
-function showUpdateBanner() {
-  const el = document.getElementById('gs-update-banner');
-  if (el) el.style.display = 'flex';
-}
-
-function hideUpdateBanner() {
-  const el = document.getElementById('gs-update-banner');
-  if (el) el.style.display = 'none';
-}
-
-async function refreshFromUpdateBanner() {
-  await loadAll(); // ya esconde el aviso solo y recalcula la firma
+function applyLiveOrderUpdate(freshOrder) {
+  const card = document.querySelector('.order-card[data-order="' + CSS.escape(freshOrder.OrderID) + '"]');
+  const stillActive = ACTIVE_STATUSES.includes(freshOrder.Status)
+    || (NEW_ORDER_STATUSES.includes(freshOrder.Status) && isFullyScheduled(freshOrder));
+  /* Solo el camino rapido si la tarjeta ya existe COMO STANDALONE en
+     Active y sigue perteneciendo ahi -- una orden agrupada en lote
+     (batch) o que entra/sale de Active es un cambio estructural,
+     ese cae al fallback de abajo. */
+  if (!card || !stillActive || card.closest('.batch-order-group')) return false;
+  const wasOpen = card.querySelector('.order-body')?.classList.contains('open');
+  const wrap = document.createElement('div');
+  wrap.innerHTML = orderCard(freshOrder, 'active');
+  const fresh = wrap.firstElementChild;
+  if (wasOpen) fresh.querySelector('.order-body')?.classList.add('open');
+  card.replaceWith(fresh);
+  GSLiveRefresh.flashElement(fresh);
+  return true;
 }
 
 function startOrderActivityPolling() {
-  if (orderPollIntervalId) return; // ya esta corriendo, no duplicar
-  orderPollIntervalId = setInterval(checkForNewActivity, 30000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForNewActivity();
+  if (liveRefreshWatcher) return; // ya esta corriendo, no duplicar
+  liveRefreshWatcher = GSLiveRefresh.watch({
+    intervalMs: 30000,
+    checkFn: async () => {
+      const res = await api('/admin-get-orders', { body: {} });
+      return { sig: buildOrderActivitySignature(res.orders || []), orders: res.orders || [] };
+    },
+    hasChanged: (oldSnap, newSnap) => {
+      for (const [id, val] of newSnap.sig) {
+        if (!oldSnap.sig.has(id) || oldSnap.sig.get(id) !== val) return true;
+      }
+      return false;
+    },
+    onChange: async (newSnap, prevSnap) => {
+      allOrders = newSnap.orders; // los datos en memoria siempre se actualizan, cambie o no la pantalla
+      const changedIds = [];
+      for (const [id, val] of newSnap.sig) {
+        if (!prevSnap.sig.has(id) || prevSnap.sig.get(id) !== val) changedIds.push(id);
+      }
+      /* GSNavPremium (gsocd-shared) es quien decide como se oculta un
+         panel no activo -- en vez de adivinar su mecanismo interno,
+         se checa si #active-list de verdad esta visible en pantalla
+         ahorita (offsetParent es null en cualquier ancestro con
+         display:none). */
+      const activeListEl = document.getElementById('active-list');
+      if (!activeListEl || activeListEl.offsetParent === null) return;
+      let needsFullRepaint = false;
+      for (const id of changedIds) {
+        const freshOrder = newSnap.orders.find(o => o.OrderID === id);
+        if (!freshOrder || !applyLiveOrderUpdate(freshOrder)) needsFullRepaint = true;
+      }
+      if (needsFullRepaint) paintActive(activeOf(''));
+    }
   });
 }
 
@@ -2687,24 +2701,25 @@ function statusClass(s) {
 }
 
 /* Se llama justo antes de empezar una accion que guarda/cambia algo
-   (aprobar, guardar edicion, asignar en Scheduling, etc) -- oscurece
-   la pantalla completa con el logo y "Loading…" mientras se espera
-   la respuesta del servidor. showToast() reusa este mismo overlay
-   para mostrar el resultado final, sin parpadeo entre los dos. */
+   (aprobar, guardar edicion, asignar en Scheduling, etc) --
+   gsocd-shared/loading-splash (GSLoadingSplash) cubre la pantalla
+   con el logo real mientras se espera la respuesta del servidor.
+   Sin duracion propia -- dura exactamente lo que tarde la llamada
+   real. Los 6 lugares que ya llamaban a esta funcion no cambiaron,
+   solo lo que hace por dentro. showToast() SIEMPRE se llama despues
+   (exito o error, ver los catch de cada flujo), asi que ahi mismo
+   se apaga el splash -- nunca se quedan los dos encimados. */
 function showLoadingOverlay(text) {
-  const el = document.getElementById('action-overlay');
-  const msg = document.getElementById('action-overlay-msg');
-  clearTimeout(window.__overlayTimer);
-  el.classList.add('loading');
-  msg.textContent = text || 'Loading…';
-  el.classList.add('show');
+  GSLoadingSplash.show({ text: text || 'Loading…' });
 }
 
 function hideActionOverlay() {
+  GSLoadingSplash.hide();
   document.getElementById('action-overlay').classList.remove('show', 'loading');
 }
 
 function showToast(msg) {
+  GSLoadingSplash.hide();
   const el = document.getElementById('action-overlay');
   const msgEl = document.getElementById('action-overlay-msg');
   el.classList.remove('loading');
@@ -3520,8 +3535,6 @@ async function decideNewOrder(orderId, action) {
       body: { orderId, decision: 'approve', approvedBy: actor }
     });
     let msg = 'Order ' + orderId + ' approved. Status: ' + res.status + '.';
-    if (res.document) msg += ' Document ' + res.document.name + ' saved.';
-    if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
     showToast(msg);
     delete window['__bypassActor_' + orderId];
     await loadAll();
@@ -3817,8 +3830,6 @@ async function decideReview(orderId, decision, needsPassword) {
     const verbByDecision = { approve: 'approved', reject: 'rejected', reassign: 'reassigned', reschedule: 'sent to Scheduling' };
     let msg = 'Order ' + orderId + ' ' + (verbByDecision[decision] || decision)
       + ' by ' + actor + '. Status: ' + res.status + '.';
-    if (res.document) msg += ' Document ' + res.document.name + ' saved.';
-    if (res.documentError) msg += ' The document could NOT be created: ' + res.documentError;
     showToast(msg);
     await loadAll();
   } catch (e) {

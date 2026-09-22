@@ -35,16 +35,9 @@ function fileTimestamp(d) {
     + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
 }
 
-/* BUG REAL encontrado y arreglado (18/09/2026): fileTimestamp() solo
-   tiene precision de SEGUNDOS -- 2+ fotos tomadas dentro del mismo
-   segundo (facil al tomar varias seguidas, mas facil todavia con la
-   camarita nueva por servicio) generaban el MISMO nombre de archivo.
-   uploadFile() hace un PUT a una ruta exacta -- en SharePoint eso
-   REEMPLAZA cualquier archivo que ya exista con ese nombre, sin
-   avisar. El resultado real: "tome 3 fotos, nomas se subieron 2" --
-   no fallaba nada, la 2a simplemente borraba a la 1a en silencio.
-   randomSuffix() se pega al nombre para que nunca puedan coincidir 2,
-   sin importar que tan rapido se tomen. */
+/* randomSuffix(): fileTimestamp() solo tiene precision de segundos --
+   sin esto, 2 fotos en el mismo segundo se pisarian entre si en
+   SharePoint (el PUT reemplaza silenciosamente, no avisa). */
 function randomSuffix() {
   return Math.random().toString(36).slice(2, 6);
 }
