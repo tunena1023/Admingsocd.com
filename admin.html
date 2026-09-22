@@ -2454,6 +2454,70 @@ async function applyLiveOrderUpdate(freshOrder) {
   return true;
 }
 
+/* Mismo patron que applyLiveOrderUpdate, para Approvals/Review --
+   ambas comparten sistema de tarjetas (apprDomId/.appr-body), solo
+   cambia cual funcion arma el HTML de cada una. Si la unidad vive
+   dentro de un grupo de PO, el swap la encuentra igual (closest no
+   hace falta excluirla -- ver comentario de arriba, el mismo caso ya
+   funcionaba asi en Active sin que nadie lo hubiera notado) -- solo
+   hay que recalcular el destello del GRUPO despues, porque ese sale
+   de "alguna unidad de adentro esta sin ver" y el swap solo toco una. */
+async function applyLiveApprCardUpdate(freshOrder, context) {
+  const listEl = document.getElementById(context + '-list');
+  if (!listEl) return false;
+  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
+  if (!card) return false;
+  const st = cardOpenState(context);
+  const wasOpen = st.open === freshOrder.OrderID;
+  const wasPinned = !!st.pinned[freshOrder.OrderID];
+  const builder = context === 'approvals' ? newOrderApprovalCard : approvalCard;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = builder(freshOrder);
+  const fresh = wrap.firstElementChild;
+  card.replaceWith(fresh);
+  if (wasOpen) fresh.querySelector('.appr-body').style.display = '';
+  if (wasPinned) {
+    const pinEl = fresh.querySelector('.order-pin');
+    if (pinEl) pinEl.innerHTML = ' &#128274;';
+  }
+  /* El detalle SIEMPRE se recarga, este abierta o no -- paintApprovals/
+     paintReview ya hacen lo mismo para cada tarjeta sin excepcion (se
+     precarga de una vez, para que abrir despues sea instantaneo). */
+  await loadApprovalDetail(freshOrder);
+  const groupCard = fresh.closest('.order-card[data-order-id^="batch-"]');
+  if (groupCard && groupCard !== fresh) {
+    const anyUnseen = Array.from(groupCard.querySelectorAll('.order-card[data-order-id]'))
+      .some(u => u !== groupCard && u.classList.contains('unseen'));
+    groupCard.classList.toggle('unseen', anyUnseen);
+  }
+  GSLiveRefresh.flashElement(fresh);
+  return true;
+}
+
+/* Mismo patron, para la cola de Scheduling -- data-order (no
+   data-order-id, atributo distinto en este sistema) y las 2 cachés
+   que alimentan #orders-queue-list (ordersQueueCache/
+   ordersScheduledCache) se refrescan primero, para que si se
+   reabre no muestre los datos de antes del cambio. */
+function applyLiveQueueCardUpdate(freshOrder) {
+  const listEl = document.getElementById('orders-queue-list');
+  if (!listEl) return false;
+  const card = listEl.querySelector('.order-card[data-order="' + CSS.escape(freshOrder.OrderID) + '"]');
+  if (!card) return false;
+  const wasOpen = card.querySelector('.order-body')?.classList.contains('open');
+  const idxQ = ordersQueueCache.findIndex(o => o.OrderID === freshOrder.OrderID);
+  if (idxQ !== -1) ordersQueueCache[idxQ] = freshOrder;
+  const idxS = ordersScheduledCache.findIndex(o => o.OrderID === freshOrder.OrderID);
+  if (idxS !== -1) ordersScheduledCache[idxS] = freshOrder;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = orderQueueCardHtml(freshOrder);
+  const fresh = wrap.firstElementChild;
+  card.replaceWith(fresh);
+  if (wasOpen) toggleOrderCard(freshOrder.OrderID); // reabre y llena de verdad, mismo camino que un clic
+  GSLiveRefresh.flashElement(fresh);
+  return true;
+}
+
 function startOrderActivityPolling() {
   if (liveRefreshWatcher) return; // ya esta corriendo, no duplicar
   liveRefreshWatcher = GSLiveRefresh.watch({
@@ -2476,17 +2540,101 @@ function startOrderActivityPolling() {
       }
       /* GSNavPremium (gsocd-shared) es quien decide como se oculta un
          panel no activo -- en vez de adivinar su mecanismo interno,
-         se checa si #active-list de verdad esta visible en pantalla
-         ahorita (offsetParent es null en cualquier ancestro con
-         display:none). */
-      const activeListEl = document.getElementById('active-list');
-      if (!activeListEl || activeListEl.offsetParent === null) return;
+         se checa si el contenedor de cada tab de verdad esta visible
+         en pantalla ahorita (offsetParent es null en cualquier
+         ancestro con display:none). */
+      const isVisible = (elId) => {
+        const el = document.getElementById(elId);
+        return !!(el && el.offsetParent !== null);
+      };
+
+      if (isVisible('active-list')) {
+        let needsFullRepaint = false;
+        for (const id of changedIds) {
+          const freshOrder = newSnap.orders.find(o => o.OrderID === id);
+          if (!freshOrder || !(await applyLiveOrderUpdate(freshOrder))) needsFullRepaint = true;
+        }
+        if (needsFullRepaint) paintActive(activeOf(''));
+        return;
+      }
+      /* Approvals/Review/Scheduling (22/09/2026, a peticion del dueño:
+         solo se actualiza la tarjeta que de verdad cambio, igual que
+         Active -- nada de repintar toda la lista ni de saltarse el
+         ciclo si algo esta abierto. Si la que cambio es justo la que
+         alguien tiene abierta, se refresca abierta (no se cierra) --
+         y si es otra distinta, esa ni se entera, se queda exactamente
+         como estaba. */
+      if (isVisible('approvals-list')) {
+        let needsFullRepaint = false;
+        for (const id of changedIds) {
+          const freshOrder = newSnap.orders.find(o => o.OrderID === id);
+          if (!freshOrder || !(await applyLiveApprCardUpdate(freshOrder, 'approvals'))) needsFullRepaint = true;
+        }
+        if (needsFullRepaint) renderApprovals();
+        return;
+      }
+      if (isVisible('review-list')) {
+        let needsFullRepaint = false;
+        for (const id of changedIds) {
+          const freshOrder = newSnap.orders.find(o => o.OrderID === id);
+          if (!freshOrder || !(await applyLiveApprCardUpdate(freshOrder, 'review'))) needsFullRepaint = true;
+        }
+        if (needsFullRepaint) renderReview();
+        return;
+      }
+      if (isVisible('orders-queue-list')) {
+        let needsFullRepaint = false;
+        for (const id of changedIds) {
+          const freshOrder = newSnap.orders.find(o => o.OrderID === id);
+          if (!freshOrder || !applyLiveQueueCardUpdate(freshOrder)) needsFullRepaint = true;
+        }
+        if (needsFullRepaint) await loadOrdersQueue();
+        return;
+      }
+    }
+  });
+  startRecurringActivityPolling();
+}
+
+/* Recurring vive en un endpoint totalmente distinto
+   (developer-admin.js, no admin-get-orders.js), asi que necesita su
+   propio watcher -- confirmado que GSLiveRefresh.watch() no comparte
+   nada de estado entre instancias (cada .watch() es su propio cierre
+   aparte), asi que correr los 2 a la vez es seguro. */
+let recurringActivityWatcher = null;
+function startRecurringActivityPolling() {
+  if (recurringActivityWatcher) return;
+  recurringActivityWatcher = GSLiveRefresh.watch({
+    intervalMs: 30000,
+    checkFn: async () => {
+      const res = await api('/developer-admin', { body: { action: 'list-recurring-services', email: adminUser.email } });
+      const services = res.services || [];
+      const sig = new Map();
+      services.forEach(s => sig.set(s.id, s.lastModifiedDateTime || ''));
+      return { sig, services };
+    },
+    hasChanged: (oldSnap, newSnap) => {
+      for (const [id, val] of newSnap.sig) {
+        if (!oldSnap.sig.has(id) || oldSnap.sig.get(id) !== val) return true;
+      }
+      return false;
+    },
+    onChange: async (newSnap, prevSnap) => {
+      const rcListEl = document.getElementById('rc-list');
+      if (!rcListEl || rcListEl.offsetParent === null) return;
+      const changedIds = [];
+      for (const [id, val] of newSnap.sig) {
+        if (!prevSnap.sig.has(id) || prevSnap.sig.get(id) !== val) changedIds.push(id);
+      }
+      /* Mismo patron que Active/Approvals/Review/Scheduling: solo se
+         actualiza el contrato que de verdad cambio -- si otro esta
+         abierto a medio editar, ni se entera. */
       let needsFullRepaint = false;
       for (const id of changedIds) {
-        const freshOrder = newSnap.orders.find(o => o.OrderID === id);
-        if (!freshOrder || !(await applyLiveOrderUpdate(freshOrder))) needsFullRepaint = true;
+        const freshContract = newSnap.services.find(s => s.id === id);
+        if (!freshContract || !applyLiveContractUpdate(freshContract)) needsFullRepaint = true;
       }
-      if (needsFullRepaint) paintActive(activeOf(''));
+      if (needsFullRepaint) { rcServicesCache = newSnap.services; renderRecurringList(); }
     }
   });
 }
@@ -5570,41 +5718,64 @@ function contractCardBodyHtml(s) {
     '</div>';
   }
 
+/* Una sola tarjeta -- separada de renderRecurringList() (22/09/2026)
+   para poder reusarla tambien en el swap puntual de la revision de
+   fondo (applyLiveContractUpdate), sin duplicar esta logica en 2
+   lugares que se puedan desincronizar. */
+function contractCardHtml(s) {
+    const client = clientsCache.find(c => c.clientId === s.clientId);
+    const clientName = client ? client.businessName : s.clientId;
+    const peopleStr = (s.assignments || []).map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
+    const isOpen = openCardId === s.id;
+
+    let expHtml = '';
+    if (s.expirationDate) {
+      const expDate = new Date(s.expirationDate + 'T12:00:00');
+      const today = new Date(); today.setHours(12,0,0,0);
+      const daysLeft = Math.round((expDate - today) / 86400000);
+      const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
+      const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
+                    (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
+      expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
+    }
+
+    return '<div class="rc-card' + (s.unseen ? ' unseen' : '') + '" data-id="' + esc(s.id) + '">' +
+      '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
+        '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
+        '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
+        '<div class="rc-right">' +
+          '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
+          '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
+        '</div>' +
+      '</div>' +
+      (isOpen ? '<div class="rc-body open" id="rc-body-' + s.id + '">' + contractCardBodyHtml(s) + '</div>' : '') +
+    '</div>';
+  }
+
 function renderRecurringList() {
     const box = document.getElementById('rc-list');
-
     if (!rcServicesCache.length) { box.innerHTML = '<p class="empty-note">No recurring contracts yet.</p>'; return; }
-
-    box.innerHTML = rcServicesCache.map(s => {
-      const client = clientsCache.find(c => c.clientId === s.clientId);
-      const clientName = client ? client.businessName : s.clientId;
-      const peopleStr = (s.assignments || []).map(a => a.name + ' (' + a.hoursAllocated + 'h)').join(', ');
-      const isOpen = openCardId === s.id;
-
-      let expHtml = '';
-      if (s.expirationDate) {
-        const expDate = new Date(s.expirationDate + 'T12:00:00');
-        const today = new Date(); today.setHours(12,0,0,0);
-        const daysLeft = Math.round((expDate - today) / 86400000);
-        const color = daysLeft < 0 ? '#B33A3A' : (daysLeft <= 14 ? '#B8862E' : 'var(--gray)');
-        const label = daysLeft < 0 ? 'Expired ' + Math.abs(daysLeft) + ' day(s) ago' :
-                      (daysLeft === 0 ? 'Expires today' : 'Expires in ' + daysLeft + ' day(s)');
-        expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
-      }
-
-      return '<div class="rc-card' + (s.unseen ? ' unseen' : '') + '">' +
-        '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
-          '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
-          '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
-          '<div class="rc-right">' +
-            '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
-            '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
-          '</div>' +
-        '</div>' +
-        (isOpen ? '<div class="rc-body open" id="rc-body-' + s.id + '">' + contractCardBodyHtml(s) + '</div>' : '') +
-      '</div>';
-    }).join('');
+    box.innerHTML = rcServicesCache.map(s => contractCardHtml(s)).join('');
   }
+
+/* Mismo patron que applyLiveOrderUpdate/applyLiveApprCardUpdate,
+   para Recurring -- reusa contractCardHtml() de arriba, la MISMA
+   funcion que ya usa el repintado completo, asi que nunca se puede
+   desincronizar entre los 2 caminos. */
+function applyLiveContractUpdate(freshContract) {
+  const box = document.getElementById('rc-list');
+  if (!box) return false;
+  const card = box.querySelector('.rc-card[data-id="' + CSS.escape(freshContract.id) + '"]');
+  if (!card) return false;
+  const idx = rcServicesCache.findIndex(s => s.id === freshContract.id);
+  if (idx !== -1) rcServicesCache[idx] = freshContract; // fresco antes de re-pintar, si no contractCardBodyHtml usaria datos viejos
+  const wrap = document.createElement('div');
+  wrap.innerHTML = contractCardHtml(freshContract);
+  const fresh = wrap.firstElementChild;
+  card.replaceWith(fresh);
+  GSLiveRefresh.flashElement(fresh);
+  return true;
+}
 
 function toggleContractCard(id) {
     const opening = openCardId !== id;

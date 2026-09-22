@@ -1671,7 +1671,13 @@ exports.handler = async (event) => {
           active: truthy(f.Active),
           assignments: myAssignments,
           pendingConfirmCount: pendingByService[String(it.id)] || 0,
-          unseen: unseenSet.has(it.id)
+          unseen: unseenSet.has(it.id),
+          /* Nuevo (22/09/2026) -- para que el frontend pueda armar una
+             firma de "algo cambio" igual a como ya hace con ordenes
+             (buildOrderActivitySignature), y asi Recurring tambien
+             pueda actualizarse solo en vivo. Campo aditivo, no toca
+             nada de lo que ya se regresaba. */
+          lastModifiedDateTime: it.lastModifiedDateTime || ''
         };
       });
 
