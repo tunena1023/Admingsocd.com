@@ -2441,19 +2441,35 @@ function buildOrderActivitySignature(orders) {
 }
 
 async function applyLiveOrderUpdate(freshOrder) {
-  /* BUG REAL (encontrado 21/09/2026 revisando por que nunca reabria
-     nada): el selector decia data-order, el atributo real que pinta
-     orderCard() es data-order-id -- nunca coincidia con nada, esta
-     funcion SIEMPRE caia al fallback de repintar toda la lista, en
-     silencio, sin que nadie se diera cuenta. */
-  const card = document.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
-  const stillActive = ACTIVE_STATUSES.includes(freshOrder.Status)
-    || (NEW_ORDER_STATUSES.includes(freshOrder.Status) && isFullyScheduled(freshOrder));
-  /* Solo el camino rapido si la tarjeta ya existe COMO STANDALONE en
-     Active y sigue perteneciendo ahi -- una orden agrupada en lote
-     (batch) o que entra/sale de Active es un cambio estructural,
-     ese cae al fallback de abajo. */
-  if (!card || !stillActive || card.closest('.batch-order-group')) return false;
+  const listEl = document.getElementById('active-list');
+  if (!listEl) return false;
+  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
+  const belongsHere = activeOf('').some(o => o.OrderID === freshOrder.OrderID);
+
+  /* Ya no pertenece a Active (se movio a otro lado, ej. se marco
+     Completed desde otra sesion) -- se quita la tarjeta. (22/09/2026,
+     mismo patron que Approvals/Review, a peticion del dueño: "tiene
+     que ser en todos los tabs para que sea uniforme".) */
+  if (card && !belongsHere) { card.remove(); return true; }
+
+  /* Orden nueva de verdad -- nunca ha existido tarjeta para ella
+     (ej. una que termina de agendarse del todo y pasa a Active desde
+     otro lado). Si pertenece a un grupo de PO que ya esta en
+     pantalla, insertarla suelta quedaria mal unida -- ese caso cae
+     al repintado completo. orderCard() ya pinta el body vacio/cerrado
+     por defecto (carga perezosa al abrir), no hace falta precargar
+     nada aqui. */
+  if (!card && belongsHere) {
+    if (freshOrder.BatchId && listEl.querySelector('.order-card[data-order-id="batch-' + CSS.escape(freshOrder.BatchId) + '"]')) {
+      return false;
+    }
+    listEl.insertAdjacentHTML('afterbegin', orderCard(freshOrder, 'active'));
+    const inserted = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
+    if (inserted) GSLiveRefresh.flashElement(inserted);
+    return true;
+  }
+
+  if (!card) return true; // no pertenece aqui y no hay tarjeta -- nada que hacer
   const wasOpen = card.querySelector('.order-body')?.classList.contains('open');
   const wrap = document.createElement('div');
   wrap.innerHTML = orderCard(freshOrder, 'active');
@@ -2549,11 +2565,34 @@ function applyLiveQueueCardUpdate(freshOrder) {
   const listEl = document.getElementById('orders-queue-list');
   if (!listEl) return false;
   const card = listEl.querySelector('.order-card[data-order="' + CSS.escape(freshOrder.OrderID) + '"]');
-  if (!card) return false;
-  const wasOpen = card.querySelector('.order-body')?.classList.contains('open');
+  /* Mismo criterio que loadOrdersQueue() usa para decidir que orden
+     entra a esta cola -- ver el comentario largo ahi (22/09/2026:
+     "todavia falta AL MENOS un servicio por COMPLETAR"). */
+  const belongsHere = freshOrder.Status === 'Received' || (freshOrder.AssignByService && freshOrder.AssignByServiceHasIncomplete);
   const idxQ = ordersQueueCache.findIndex(o => o.OrderID === freshOrder.OrderID);
-  if (idxQ !== -1) ordersQueueCache[idxQ] = freshOrder;
   const idxS = ordersScheduledCache.findIndex(o => o.OrderID === freshOrder.OrderID);
+
+  if (card && !belongsHere) {
+    card.remove();
+    if (idxQ !== -1) ordersQueueCache.splice(idxQ, 1);
+    if (idxS !== -1) ordersScheduledCache.splice(idxS, 1);
+    return true;
+  }
+
+  if (!card && belongsHere) {
+    /* Nueva de verdad -- nunca ha tenido tarjeta aqui. Entra a
+       ordersQueueCache (sin agendar todavia); si ya estuviera
+       agendada de entrada, el siguiente ciclo la reclasifica sola. */
+    ordersQueueCache.push(freshOrder);
+    listEl.insertAdjacentHTML('afterbegin', orderQueueCardHtml(freshOrder));
+    const inserted = listEl.querySelector('.order-card[data-order="' + CSS.escape(freshOrder.OrderID) + '"]');
+    if (inserted) GSLiveRefresh.flashElement(inserted);
+    return true;
+  }
+
+  if (!card) return true; // no pertenece aqui y no hay tarjeta -- nada que hacer
+  const wasOpen = card.querySelector('.order-body')?.classList.contains('open');
+  if (idxQ !== -1) ordersQueueCache[idxQ] = freshOrder;
   if (idxS !== -1) ordersScheduledCache[idxS] = freshOrder;
   const wrap = document.createElement('div');
   wrap.innerHTML = orderQueueCardHtml(freshOrder);
@@ -5887,7 +5926,17 @@ function applyLiveContractUpdate(freshContract) {
   const box = document.getElementById('rc-list');
   if (!box) return false;
   const card = box.querySelector('.rc-card[data-id="' + CSS.escape(freshContract.id) + '"]');
-  if (!card) return false;
+  /* Contrato nuevo de verdad -- Recurring no tiene concepto de "ya no
+     pertenece aqui" (Activos e Inactivos se quedan todos a la vista),
+     asi que solo hace falta el caso de insertar. (22/09/2026, mismo
+     patron que las demas tabs, a peticion del dueño.) */
+  if (!card) {
+    rcServicesCache.push(freshContract);
+    box.insertAdjacentHTML('afterbegin', contractCardHtml(freshContract));
+    const inserted = box.querySelector('.rc-card[data-id="' + CSS.escape(freshContract.id) + '"]');
+    if (inserted) GSLiveRefresh.flashElement(inserted);
+    return true;
+  }
   const idx = rcServicesCache.findIndex(s => s.id === freshContract.id);
   if (idx !== -1) rcServicesCache[idx] = freshContract; // fresco antes de re-pintar, si no contractCardBodyHtml usaria datos viejos
   const wrap = document.createElement('div');
