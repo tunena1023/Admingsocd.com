@@ -2198,10 +2198,12 @@ async function importSelectedEstimates() {
     const results = res.results || [];
     const okCount = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
+    GSLoadingSplash.hide(); // no llama loadAll(), no se apaga sola
     if (okCount) showToast(okCount + ' order' + (okCount === 1 ? '' : 's') + ' imported to QuickBooks.');
     failed.forEach(r => showToast(r.orderId + ': ' + r.error));
     await renderQuickBooksPanel();
   } catch (e) {
+    GSLoadingSplash.hide();
     showToast('Error: ' + e.message);
     btn.disabled = false;
     btn.textContent = originalText;
@@ -2671,7 +2673,9 @@ async function saveHolidayChoice(safe, holidayName) {
       closeTime: h.closeTime || ''
     } });
     h.choiceId = res.id;
+    GSLoadingSplash.hide(); // no llama loadAll() ni showToast en exito, no se apaga sola
   } catch (e) {
+    GSLoadingSplash.hide();
     showToast('Could not save that holiday: ' + e.message);
   }
 }
@@ -4671,7 +4675,9 @@ async function decideRecurringReview(logId, decision) {
     recurringPendingCache = recurringPendingCache.filter(p => p.id !== logId);
     renderRecurringChangeReview();
     showToast(decision === 'approve' ? 'Visit logged.' : 'Discarded.');
+    GSLoadingSplash.hide(); // no llama loadAll(), no se apaga sola
   } catch (e) {
+    GSLoadingSplash.hide();
     showToast('Error: ' + e.message);
   }
 }
@@ -6272,8 +6278,10 @@ function cancelEdit() {
       r.everSaved = true; // permanente -- a diferencia de justSaved, no se resetea al seguir editando
       showToast(existing ? 'Saved — updated in Active Recurring Contracts.' : 'Created — now in Active Recurring Contracts.');
       renderImportRecurringPreview();
-      loadRecurringList();
+      reopenAndFlashContract(existing ? existing.id : res.recurringServiceId);
+      GSLoadingSplash.hide(); // no llama loadAll(), no se apaga sola
     } catch (e) {
+      GSLoadingSplash.hide();
       showToast('Could not save: ' + e.message);
     }
   }
@@ -11598,6 +11606,7 @@ async function submitCreateOrder() {
     showToast('Order ' + res.orderId + ' created successfully.');
     cancelCreate();
     await loadAll();
+    await showOrderWherever(res.orderId);
     GSLoadingSplash.hide();
   } catch(e) {
     showToast('Error: ' + e.message);
