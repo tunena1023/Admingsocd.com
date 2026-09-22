@@ -9819,7 +9819,20 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
-          ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap">' + esc(sr.label) + '</span>' : '') + completeBtnHtml + '</td>'
+          ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? (
+              /* A peticion del dueño (22/09/2026): el badge "Needs
+                 scheduling" ahora es clickeable -- manda directo a
+                 Scheduling con ESTA orden ya abierta y lista para
+                 elegir tecnico, reusando goToScheduleForOrder()
+                 (la misma funcion que ya existia para este fin,
+                 nunca hacia falta construir nada nuevo). Los demas
+                 estatus (Completed/Scheduled/Not started) se quedan
+                 como span de solo lectura, no tiene sentido navegar
+                 desde esos. */
+              sr.label === 'Needs scheduling'
+                ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap;cursor:pointer;text-decoration:underline" onclick="goToScheduleForOrder(\'' + jsStr(o.OrderID) + '\')" title="Go to Scheduling">' + esc(sr.label) + '</span>'
+                : '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap">' + esc(sr.label) + '</span>'
+            ) : '') + completeBtnHtml + '</td>'
           : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
         '</tr>';
       }).join('') +
