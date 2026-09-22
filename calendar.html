@@ -14,22 +14,12 @@
   ::view-transition-new(root) { animation: gs-fade-in .25s ease-out both; }
   @keyframes gs-fade-in { from { opacity: 0; } }
   @keyframes gs-fade-out { to { opacity: 0; } }
-  /* El <nav> (logo/usuario) y #gsNav (la barra dorada) se sacan del
-     fundido general (22/09/2026, reportado por el dueño: "la forma en
-     que se mueve" al navegar de Calendar -- que tiene una fila extra
-     de sub-tabs de Schedule -- hacia otra tab sin esa fila). Al ser 2
-     paginas de alturas distintas, el fundido de TODA la pagina de un
-     jalon mezclaba las 2 alturas por los 0.25s que dura -- se veia
-     como un doble layout montado. Nombrando estas 2 regiones aparte,
-     quedan fuera del grupo "root" automaticamente; con animation:none
-     no hacen ningun fundido propio, solo cambian al instante -- el
-     contenido de abajo (.wrap, donde SI esta la fila extra de
-     sub-tabs) sigue con su mismo fundido de siempre, pero ya no
-     arrastra a la barra de navegacion con el. */
-  nav { view-transition-name: gs-header; }
-  #gsNav { view-transition-name: gs-navbar; }
-  ::view-transition-old(gs-header), ::view-transition-new(gs-header),
-  ::view-transition-old(gs-navbar), ::view-transition-new(gs-navbar) { animation: none; mix-blend-mode: normal; }
+  /* REVERTIDO (22/09/2026, mismo dia que se agrego -- ver el mismo
+     comentario largo en admin.html): probado con video real, cuadro
+     por cuadro -- causaba algo peor, la barra cambiaba al instante
+     mientras el contenido de abajo seguia fundiendose, desincronizados
+     por un instante. nav/#gsNav miden lo mismo en todas las paginas;
+     el fundido puro de arriba (solo opacidad) ya alcanza solo. */
   :root { --black:#111111; --gold:#C9A84C; --gold-dk:#8C6F2A; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#4E9A5D; --blue:#7FA8D9; --red:#C97B72; --orange:#D9922E; --purple:#9B7EBD; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { margin:0; font-family: 'Inter', sans-serif; background:var(--bg); color:var(--black); }
@@ -446,12 +436,17 @@ function initPage() {
   GSNavPremium.init('gsNav', [
     { label: 'Approvals', href: 'admin.html?tab=approvals', badgeHtml: GSAdminCounts.badgeHtml(0, 'appr-count') },
     { label: 'Review', href: 'admin.html?tab=review', badgeHtml: GSAdminCounts.badgeHtml(0, 'review-count') },
-    { label: 'Active', href: 'admin.html?tab=active', active: true, badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
+    { label: 'Active', href: 'admin.html?tab=active', badgeHtml: GSAdminCounts.badgeHtml(0, 'active-count') },
     { label: 'History', href: 'admin.html?tab=history' },
     { label: 'Clients', href: 'admin.html?tab=clients' },
     { label: 'Gallery', href: 'admin.html?tab=gallery' },
     { label: 'QuickBooks', href: 'admin.html?tab=quickbooks' },
-    { label: 'Schedule', href: 'admin.html?tab=schedule' },
+    /* Bug real arreglado (22/09/2026, reportado por el dueño con
+       video real): antes era 'Active' quien tenia active:true aqui,
+       sin importar que esta pagina (Calendar) vive DENTRO de
+       Schedule -- resaltaba una seccion que ni siquiera es la que
+       se esta viendo. */
+    { label: 'Schedule', href: 'admin.html?tab=schedule', active: true },
     { label: 'Developer', href: 'admin.html?tab=developer' }
   ]);
   loadNavCounts();
