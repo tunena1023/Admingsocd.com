@@ -9021,6 +9021,25 @@ async function reopenAndFlashOrder(orderId, context) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
   if (!body) return;
+  /* En History, a peticion del dueño (22/09/2026), NO se abre sola --
+     solo se destella cerrada. Motivo real: abrirla aqui no la marca
+     como vista (eso solo pasa cuando el usuario mismo le da clic para
+     abrir) -- como ya llegaba "abierta" sin que markOrderSeen hubiera
+     corrido, el primer clic del usuario la CERRABA (ya estaba
+     "abierta" por dentro) sin quitarle el destello, y hacia falta un
+     SEGUNDO clic para que de verdad se marcara vista. Dejandola
+     cerrada, el primer clic real del usuario abre Y marca vista en
+     un solo paso, como en cualquier otra tarjeta. Active/Approvals
+     siguen abriendo solas como siempre -- el dueño confirmo que ahi
+     se queda igual. */
+  if (context === 'history') {
+    const card = body.closest('.order-card');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      GSLiveRefresh.flashElement(card);
+    }
+    return;
+  }
   const st = cardOpenState(context);
   closeOtherCards(context, orderId);
   body.classList.add('open');
@@ -9028,10 +9047,12 @@ async function reopenAndFlashOrder(orderId, context) {
   await loadOrderBody(orderId, context, body);
   const card = body.closest('.order-card');
   if (card) {
-    /* BUG REAL encontrado en produccion (22/09/2026, reportado por el
-       dueño: "en History los PO no abren cuando son nuevos"): si esta
-       orden vive DENTRO de un grupo de PO, esto solo abria la unidad
-       de adentro -- el grupo que la contiene se quedaba cerrado
+    /* BUG REAL encontrado en produccion (22/09/2026, originalmente en
+       History -- ahi ya no aplica, History regresa antes de llegar
+       aqui, ver arriba; se queda vigente para Active, que sigue
+       abriendo sola): si esta orden vive DENTRO de un grupo de PO,
+       esto solo abria la unidad de adentro -- el grupo que la
+       contiene se quedaba cerrado
        (su propio .order-body nunca recibia la clase 'open'), asi
        que visualmente no se veia nada abierto, aunque por dentro la
        unidad si tuviera la clase. Se busca un ancestro MAS ALLA de
