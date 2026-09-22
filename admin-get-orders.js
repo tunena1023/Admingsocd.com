@@ -4,7 +4,33 @@ const {
   HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, SERVICE_ASSIGNMENTS_LIST, ORDER_SEEN_BY_LIST,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
-const { unseenIds } = require('gsocd-shared/lib/seen-tracking');
+/* HOTFIX 22/09/2026: se copia la funcion aqui en vez de traerla de
+   gsocd-shared/lib/seen-tracking -- esa dependencia via npm/git
+   tumbo TODO el backend de Admin en produccion ("Cannot find module",
+   probablemente cache vieja de node_modules en el build de Vercel,
+   sin lockfile de por medio que lo detecte). Es la MISMA logica
+   exacta, solo que sin el riesgo de que un modulo externo no
+   resuelva en build y tire abajo funciones que ni siquiera la usan
+   (comparten el mismo proceso api/[...slug].js). Confirmado con el
+   dueño: prioridad total a la estabilidad, estamos por entrar a
+   pruebas. */
+function isUnseen(seenAt, lastModifiedDateTime) {
+  if (!lastModifiedDateTime) return false;
+  if (!seenAt) return true;
+  const seenMs = new Date(seenAt).getTime();
+  const modMs = new Date(lastModifiedDateTime).getTime();
+  if (isNaN(seenMs) || isNaN(modMs)) return false;
+  return seenMs < modMs;
+}
+function unseenIds(entities, seenMap, idField) {
+  const field = idField || 'OrderID';
+  const out = new Set();
+  (entities || []).forEach(function (e) {
+    const id = e && e[field];
+    if (id && isUnseen((seenMap || {})[id], e.lastModifiedDateTime)) out.add(id);
+  });
+  return out;
+}
 
 /* Todos los renglones de OrderSeenBy de ESTE viewer -- no esta
    indexada por columna (lista nueva), mismo header que ya usa

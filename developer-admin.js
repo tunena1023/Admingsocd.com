@@ -36,7 +36,26 @@ const {
 } = require('./lib/graph');
 
 const { ensureRecurringOrders, propagateContractEdit } = require('./lib/recurring-orders');
-const { unseenIds } = require('gsocd-shared/lib/seen-tracking');
+/* HOTFIX 22/09/2026 -- ver el mismo comentario en admin-get-orders.js:
+   se copia aqui en vez de depender de gsocd-shared/lib/seen-tracking,
+   que tumbo todo el backend de Admin en produccion. */
+function isUnseen(seenAt, lastModifiedDateTime) {
+  if (!lastModifiedDateTime) return false;
+  if (!seenAt) return true;
+  const seenMs = new Date(seenAt).getTime();
+  const modMs = new Date(lastModifiedDateTime).getTime();
+  if (isNaN(seenMs) || isNaN(modMs)) return false;
+  return seenMs < modMs;
+}
+function unseenIds(entities, seenMap, idField) {
+  const field = idField || 'OrderID';
+  const out = new Set();
+  (entities || []).forEach(function (e) {
+    const id = e && e[field];
+    if (id && isUnseen((seenMap || {})[id], e.lastModifiedDateTime)) out.add(id);
+  });
+  return out;
+}
 
 /* Mismo criterio que admin-get-orders.js -- OrderSeenBy no esta
    indexada por columna (lista nueva), mismo header que ya usa
