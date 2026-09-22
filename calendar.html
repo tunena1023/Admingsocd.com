@@ -14,6 +14,22 @@
   ::view-transition-new(root) { animation: gs-fade-in .25s ease-out both; }
   @keyframes gs-fade-in { from { opacity: 0; } }
   @keyframes gs-fade-out { to { opacity: 0; } }
+  /* El <nav> (logo/usuario) y #gsNav (la barra dorada) se sacan del
+     fundido general (22/09/2026, reportado por el dueño: "la forma en
+     que se mueve" al navegar de Calendar -- que tiene una fila extra
+     de sub-tabs de Schedule -- hacia otra tab sin esa fila). Al ser 2
+     paginas de alturas distintas, el fundido de TODA la pagina de un
+     jalon mezclaba las 2 alturas por los 0.25s que dura -- se veia
+     como un doble layout montado. Nombrando estas 2 regiones aparte,
+     quedan fuera del grupo "root" automaticamente; con animation:none
+     no hacen ningun fundido propio, solo cambian al instante -- el
+     contenido de abajo (.wrap, donde SI esta la fila extra de
+     sub-tabs) sigue con su mismo fundido de siempre, pero ya no
+     arrastra a la barra de navegacion con el. */
+  nav { view-transition-name: gs-header; }
+  #gsNav { view-transition-name: gs-navbar; }
+  ::view-transition-old(gs-header), ::view-transition-new(gs-header),
+  ::view-transition-old(gs-navbar), ::view-transition-new(gs-navbar) { animation: none; mix-blend-mode: normal; }
   :root { --black:#111111; --gold:#C9A84C; --gold-dk:#8C6F2A; --white:#FFFFFF; --bg:#F8F7F4; --gray:#6B6B6B; --border:#E0DDD6; --green:#4E9A5D; --blue:#7FA8D9; --red:#C97B72; --orange:#D9922E; --purple:#9B7EBD; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { margin:0; font-family: 'Inter', sans-serif; background:var(--bg); color:var(--black); }

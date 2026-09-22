@@ -23,6 +23,22 @@
     ::view-transition-new(root) { animation: gs-fade-in .25s ease-out both; }
     @keyframes gs-fade-in { from { opacity: 0; } }
     @keyframes gs-fade-out { to { opacity: 0; } }
+    /* El <nav> y #gsNav se sacan del fundido general (22/09/2026,
+       reportado por el dueño navegando Calendar -> otra tab: esa
+       pagina tiene una fila extra de sub-tabs de Schedule que las
+       demas no tienen, asi que el fundido de TODA la pagina de un
+       jalon mezclaba 2 alturas distintas por los 0.25s que dura --
+       se veia como un doble layout montado, el mismo problema que el
+       comentario de arriba ya explica, solo que mas notorio en este
+       par especifico por esa fila extra). Nombrando estas 2 regiones
+       aparte, quedan fuera del grupo "root"; con animation:none no
+       hacen ningun fundido propio, solo cambian al instante -- el
+       contenido de abajo sigue con su mismo fundido de siempre, ya
+       no arrastra a la barra de navegacion con el. */
+    nav { view-transition-name: gs-header; }
+    #gsNav { view-transition-name: gs-navbar; }
+    ::view-transition-old(gs-header), ::view-transition-new(gs-header),
+    ::view-transition-old(gs-navbar), ::view-transition-new(gs-navbar) { animation: none; mix-blend-mode: normal; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --black: #111111; --gold: #C9A84C; --gold-dk: #8C6F2A; --white: #FFFFFF;
