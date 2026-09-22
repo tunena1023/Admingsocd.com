@@ -325,25 +325,24 @@
        reemplaza el toast chiquito de la esquina que pasaba
        desapercibido. showLoadingOverlay() lo prende con "Loading…",
        showToast() lo reusa para mostrar el resultado final. */
+    /* Toast chico, no pantalla completa -- la carga ya la cubre
+       GSLoadingSplash por separado (loading-splash, conectado
+       21/09/2026); esto SOLO muestra el resultado (exito o error)
+       un momento, sin taparle toda la pantalla ni volver a mostrar
+       el logo viejo detras. */
     .action-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(17,17,17,.85);
-      z-index: 9999; align-items: center; justify-content: center;
-      cursor: pointer;
+      display: none; position: fixed; left: 50%; bottom: 28px;
+      transform: translateX(-50%); z-index: 9999; cursor: pointer;
+      max-width: min(420px, calc(100vw - 32px));
     }
-    .action-overlay.show { display: flex; }
-    .action-overlay-box { text-align: center; }
-    .action-overlay-logo { height: 56px; object-fit: contain; margin-bottom: 20px; }
-    .action-overlay-spinner {
-      width: 28px; height: 28px; margin: 0 auto 20px; border-radius: 50%;
-      border: 3px solid rgba(255,255,255,.25); border-top-color: var(--gold);
-      animation: overlay-spin .8s linear infinite; display: none;
+    .action-overlay.show { display: block; }
+    .action-overlay-box {
+      background: var(--black); color: var(--white); border-radius: 8px;
+      padding: 12px 18px; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+      border-left: 3px solid var(--gold);
     }
-    .action-overlay.loading .action-overlay-spinner { display: block; }
-    .action-overlay.loading .action-overlay-logo { display: none; }
-    @keyframes overlay-spin { to { transform: rotate(360deg); } }
     .action-overlay-msg {
-      color: var(--white); font-size: 16px; font-family: 'Inter', sans-serif;
-      max-width: 420px; padding: 0 24px; line-height: 1.5;
+      font-size: 13px; font-family: 'Inter', sans-serif; line-height: 1.5;
     }
 
     /* EMPTY */
@@ -1942,8 +1941,6 @@
 
 <div class="action-overlay" id="action-overlay" onclick="hideActionOverlay()">
   <div class="action-overlay-box">
-    <div class="action-overlay-spinner"></div>
-    <img src="/api/site-image?name=Logo.jpg" alt="GS Solutions" class="action-overlay-logo" onerror="this.style.display='none'">
     <div class="action-overlay-msg" id="action-overlay-msg"></div>
   </div>
 </div>
@@ -2717,14 +2714,13 @@ function showLoadingOverlay(text) {
 
 function hideActionOverlay() {
   GSLoadingSplash.hide();
-  document.getElementById('action-overlay').classList.remove('show', 'loading');
+  document.getElementById('action-overlay').classList.remove('show');
 }
 
 function showToast(msg) {
   GSLoadingSplash.hide();
   const el = document.getElementById('action-overlay');
   const msgEl = document.getElementById('action-overlay-msg');
-  el.classList.remove('loading');
   msgEl.textContent = msg;
   el.classList.add('show');
   clearTimeout(window.__overlayTimer);
