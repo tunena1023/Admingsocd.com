@@ -3940,6 +3940,7 @@ async function sendSupervisorUpdateToCustomer(orderId) {
     await api('/admin-update-order', { body });
     showToast('Sent to the client for confirmation.');
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
@@ -3979,6 +3980,7 @@ async function archiveOrder(orderId) {
     await api('/admin-approve-order', { body: { orderId, decision: 'archive', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' archived.');
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch (e) { showToast('Error: ' + e.message); }
 }
@@ -4327,6 +4329,7 @@ async function toggleApprSvcUpdate(orderId, division) {
        'Services Updated' recien creado aparezca ya en el historial de
        la tarjeta. */
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
     return;
   }
@@ -10125,6 +10128,7 @@ async function saveOrderUpdate(orderId, sendToClient, context) {
       ? 'Change sent to the client for confirmation.'
       : (requestOnly ? 'Change sent to Review — waiting for approval before it takes effect.' : 'Saved.'));
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch(e) {
     showToast('Error: ' + e.message);
@@ -10201,6 +10205,7 @@ async function requestCancelActive(orderId) {
     });
     showToast('Order ' + orderId + ' sent to Review for cancellation.');
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
@@ -10220,6 +10225,7 @@ async function requestReactivate(orderId) {
     });
     showToast('Order ' + orderId + ' sent for reactivation — waiting for the Director or the client.');
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
