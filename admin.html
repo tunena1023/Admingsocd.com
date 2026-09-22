@@ -2194,6 +2194,15 @@ function showTab(tab) {
      toda la pagina. */
   if (tab === 'clients' && typeof refreshAllClients === 'function') refreshAllClients();
   if (tab === 'quickbooks' && typeof renderQuickBooksPanel === 'function') renderQuickBooksPanel();
+  /* Reconciliar contra los datos ya en memoria (allOrders) cada vez
+     que se entra a una de estas tabs -- ver el comentario largo junto
+     a reconcileApprCardsView/reconcileActiveView. Scheduling no
+     necesita esto: su propio sub-tab Orders ya llama a
+     loadOrdersQueue() (trae datos frescos de verdad) cada vez que se
+     abre. */
+  if (tab === 'approvals') reconcileApprCardsView('approvals');
+  if (tab === 'review') reconcileApprCardsView('review');
+  if (tab === 'active') reconcileActiveView();
 }
 
 /* ============================================================
@@ -2617,6 +2626,68 @@ function applyLiveQueueCardUpdate(freshOrder) {
   if (wasOpen) toggleOrderCard(freshOrder.OrderID); // reabre y llena de verdad, mismo camino que un clic
   GSLiveRefresh.flashElement(fresh);
   return true;
+}
+
+/* BUG REAL encontrado 22/09/2026 (reportado por el dueño: "el
+   contador si se actualiza, pero la orden no se popula hasta
+   refrescar"): el revisor de fondo solo detecta "algo cambio" UNA
+   VEZ por cambio real -- si esa vez coincide con un momento en que
+   la tab en cuestion NO estaba visible, la insercion se salta, pero
+   la firma interna de GSLiveRefresh.watch() de todos modos avanza
+   (queda "ya visto" para siempre) -- ningun ciclo futuro lo vuelve a
+   intentar, aunque el usuario se quede ahi horas. Solo un
+   loadAll()/recarga completa lo arreglaba, porque esos repintan todo
+   desde cero sin depender de esa firma.
+
+   Arreglo real: en vez de depender solo del diff efimero del
+   revisor de fondo, CUALQUIER VEZ que el usuario cambia HACIA una de
+   estas tabs, se reconcilia de verdad -- se compara que IDs deberian
+   estar (approvalsOf()/reviewOf()/activeOf()) contra que IDs estan
+   REALMENTE pintados ahorita mismo, y solo se toca la diferencia
+   (insertar lo que falta, quitar lo que ya no pertenece) -- reusando
+   las mismas funciones de insertar/quitar que ya existen, asi que
+   las tarjetas que YA estaban bien (abiertas o no) ni se enteran. */
+function reconcileApprCardsView(context) {
+  const listEl = document.getElementById(context + '-list');
+  if (!listEl) return;
+  const listFn = context === 'approvals' ? approvalsOf : reviewOf;
+  const correctIds = new Set(listFn('').map(o => o.OrderID));
+  const renderedIds = new Set(
+    Array.from(listEl.querySelectorAll('.order-card[data-order-id]'))
+      .map(el => el.getAttribute('data-order-id'))
+      .filter(id => !id.startsWith('batch-'))
+  );
+  renderedIds.forEach(id => {
+    if (correctIds.has(id)) return;
+    const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(id) + '"]');
+    if (card) card.remove();
+  });
+  correctIds.forEach(id => {
+    if (renderedIds.has(id)) return;
+    const freshOrder = allOrders.find(o => o.OrderID === id);
+    if (freshOrder) applyLiveApprCardUpdate(freshOrder, context);
+  });
+}
+
+function reconcileActiveView() {
+  const listEl = document.getElementById('active-list');
+  if (!listEl) return;
+  const correctIds = new Set(activeOf('').map(o => o.OrderID));
+  const renderedIds = new Set(
+    Array.from(listEl.querySelectorAll('.order-card[data-order-id]'))
+      .map(el => el.getAttribute('data-order-id'))
+      .filter(id => !id.startsWith('batch-'))
+  );
+  renderedIds.forEach(id => {
+    if (correctIds.has(id)) return;
+    const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(id) + '"]');
+    if (card) card.remove();
+  });
+  correctIds.forEach(id => {
+    if (renderedIds.has(id)) return;
+    const freshOrder = allOrders.find(o => o.OrderID === id);
+    if (freshOrder) applyLiveOrderUpdate(freshOrder);
+  });
 }
 
 function startOrderActivityPolling() {
