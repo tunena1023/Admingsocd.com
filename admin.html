@@ -5116,10 +5116,17 @@ function toggleBatchCard(groupOrderId, context) {
   if (!st.pinned[groupOrderId]) closeOtherCards(context, groupOrderId);
   body.classList.add('open');
   st.open = groupOrderId;
-  /* El grupo no tiene su propio OrderID real -- su punto sale de si
-     ALGUNA unidad de adentro esta sin ver (ver batchOrderGroupCard),
-     asi que aqui se marcan las unidades reales, no un id inventado. */
+  /* El grupo no tiene su propio OrderID real -- su destello sale de
+     si ALGUNA unidad de adentro esta sin ver (ver
+     batchOrderGroupCard), asi que aqui se marcan las unidades reales,
+     no un id inventado. Pero markOrderSeen solo toca la tarjeta de
+     CADA unidad (data-order-id=<orderId real>) -- la tarjeta del
+     GRUPO mismo (data-order-id="batch-X", el borde/brillo que se ve
+     por fuera) nunca se tocaba, por eso se quedaba destellada aunque
+     ya se hubieran marcado todas las unidades de adentro. */
   body.querySelectorAll('.order-card[data-order-id]').forEach(card => markOrderSeen(card.dataset.orderId));
+  const groupCard = body.closest('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
+  if (groupCard) groupCard.classList.remove('unseen');
 }
 
 function paintActive(list) {
