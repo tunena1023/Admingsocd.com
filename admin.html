@@ -3863,6 +3863,7 @@ async function decideReactivation(orderId) {
     });
     showToast('Order ' + orderId + ' reactivated by ' + actor + '. Status: ' + res.status + '.');
     await loadAll();
+    await reopenAndFlashOrder(orderId, 'active');
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3884,6 +3885,7 @@ async function cancelOfficeUpdate(orderId) {
     });
     showToast('Update cancelled. Order ' + orderId + ' returned to Active.');
     await loadAll();
+    await reopenAndFlashOrder(orderId, 'active');
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3969,6 +3971,7 @@ async function reactivateOrder(orderId) {
     const res = await api('/admin-approve-order', { body: { orderId, decision: 'reactivate', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' reactivated. Status: ' + res.status + '.');
     await loadAll();
+    await reopenAndFlashOrder(orderId, 'active');
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
@@ -10834,6 +10837,11 @@ async function reloadAndReopen(clientId) {
      archivar) hasta que se vuelva a abrir. */
   const control = document.getElementById(cid + '-control');
   if (control) { control.classList.remove('open'); control.innerHTML = ''; }
+  const card = document.querySelector('.order-card[data-client-id="' + CSS.escape(clientId) + '"]');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    GSLiveRefresh.flashElement(card);
+  }
 }
 
 function toggleNotifSubgroup(cid) {
