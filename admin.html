@@ -126,9 +126,14 @@
     .panel.active { display: block; }
 
     /* CARDS */
+    /* Fondo parejo en TODAS las tarjetas (21/09/2026) -- antes solo
+       Approvals/Review/Developer tenian este tinte dorado tenue
+       (puesto a mano en el header con un style inline); Active,
+       History, Scheduling, lotes y Recurring se quedaban en blanco
+       liso. A peticion del dueño: todas deben verse igual. */
     .order-card {
-      background: var(--white); border: 1px solid var(--border); border-radius: 4px;
-      margin-bottom: 12px; overflow: hidden;
+      background: rgba(201,168,76,.12); border: 1px solid var(--border); border-radius: 4px;
+      margin-bottom: 12px; overflow: hidden; position: relative;
     }
     .order-card-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -139,11 +144,24 @@
     .order-pin { font-size: 12px; }
     /* Marcado persistente de "sin ver" (21/09/2026) -- distinto al
        destello de live-refresh (se apaga solo a los ~900ms): este se
-       queda hasta que EL USUARIO que lo ve abre la orden. */
-    .order-unseen-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
-      flex-shrink: 0; box-shadow: 0 0 0 2px rgba(201,168,76,.25);
+       queda hasta que EL USUARIO que lo ve abre la orden. Un borde
+       dorado solido (se nota incluso cuando no esta pasando el
+       brillo) + un brillo de luz que RECORRE la tarjeta cada ~2.8s,
+       como el reflejo de luz sobre un lingote -- confirmado con el
+       dueño que "destello" significa esto, no un tinte fijo ni un
+       punto chico (probados antes, ninguno de los dos era lo que
+       pedia). */
+    .order-card.unseen {
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 0 1px rgba(201,168,76,.25);
     }
+    .order-card.unseen::after {
+      content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%;
+      background: linear-gradient(75deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%);
+      animation: cardShine 2.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes cardShine { 0% { left: -60%; } 55% { left: 130%; } 100% { left: 130%; } }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
     /* El CSS de .order-photo-strip/.order-photo-thumb/.order-photo-more
        y .gs-hover-preview-overlay ahora vive en gsocd-shared/
@@ -687,7 +705,13 @@
   #panel-recurring .assign-row { display:grid; grid-template-columns:1fr 100px 32px; gap:10px; margin-bottom:8px; align-items:end; }
   #panel-recurring .assign-row .field-group { margin-bottom:0; }
   #panel-recurring .remove-assign { background:none; border:1px solid var(--border); color:#B33A3A; cursor:pointer; height:36px; }
-  #panel-recurring .rc-card { border:1px solid var(--border); background:var(--white); padding:16px 20px; margin-bottom:10px; }
+  #panel-recurring .rc-card { border:1px solid var(--border); background:rgba(201,168,76,.12); padding:16px 20px; margin-bottom:10px; position:relative; overflow:hidden; }
+  #panel-recurring .rc-card.unseen { border:2px solid var(--gold); box-shadow:0 0 0 1px rgba(201,168,76,.25); }
+  #panel-recurring .rc-card.unseen::after {
+    content:""; position:absolute; top:0; left:-60%; width:45%; height:100%;
+    background:linear-gradient(75deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%);
+    animation:cardShine 2.8s ease-in-out infinite; pointer-events:none;
+  }
   #panel-recurring .rc-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
   #panel-recurring .rc-name { font-size:13px; font-weight:700; }
   #panel-recurring .rc-meta { font-size:12px; color:var(--gray); margin-top:3px; }
@@ -3402,7 +3426,7 @@ function newOrderApprovalCard(o) {
     </div>`;
 
   return `
-    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+    <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
           ${GSOrderCardHeader.html({
@@ -3615,7 +3639,7 @@ function approvalCard(o) {
      sigue siendo visible en la tarjeta cerrada, antes de expandir. */
   const isCancelSync = (o.Status === 'Cancellation Requested');
   return `
-    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+    <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
           ${GSOrderCardHeader.html({
@@ -3632,7 +3656,6 @@ function approvalCard(o) {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
-          ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
@@ -5047,16 +5070,13 @@ function batchOrderGroupCard(batchId, units, context) {
   const clientId = units[0].ClientID || '';
   const innerHtml = units.map(o => orderCard(o, context)).join('');
   return `
-    <div class="order-card" data-order-id="${esc(groupOrderId)}">
+    <div class="order-card${units.some(o => o.Unseen) ? ' unseen' : ''}" data-order-id="${esc(groupOrderId)}">
       <div class="order-card-header" onclick="toggleBatchCard('${esc(groupOrderId)}','${context}')">
         <div>
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
           <div class="order-meta">${units.length} units${poGroupDateLabel(units) ? ' · ' + poGroupDateLabel(units) : ''}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          ${units.some(o => o.Unseen) ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
-          <span style="font-size:11px;color:var(--gray)">▼</span>
-        </div>
+        <span style="font-size:11px;color:var(--gray);flex-shrink:0">▼</span>
       </div>
       <div class="order-body" id="${id}" style="padding:16px">
         ${contextCan(context, 'addUnit') ? addUnitWidgetHtml(clientId, batchId, context) : ''}
@@ -5557,12 +5577,11 @@ function renderRecurringList() {
         expHtml = ' · <span style="color:' + color + ';font-weight:700">' + label + ' (' + esc(expDate.toLocaleDateString()) + ')</span>';
       }
 
-      return '<div class="rc-card">' +
+      return '<div class="rc-card' + (s.unseen ? ' unseen' : '') + '">' +
         '<div class="rc-top" onclick="toggleContractCard(\'' + s.id + '\')">' +
           '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
           '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
           '<div class="rc-right">' +
-            (s.unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : '') +
             '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
             '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
           '</div>' +
@@ -8403,13 +8422,12 @@ function orderCard(o, context, qbInfo) {
           ${orderPhotoStripHtml(o.OrderID)}
         </div>`;
   return `
-    <div class="order-card" data-order-id="${esc(o.OrderID)}">
+    <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         ${qbInfo ? `<div style="display:flex;align-items:center;gap:12px">${qbSelector}${infoBlock}</div>` : infoBlock}
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
-          ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
           <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
         </div>
       </div>
@@ -8588,8 +8606,16 @@ function markOrderSeen(orderId) {
     const s = (rcServicesCache || []).find(x => x.id === orderId);
     if (s) s.unseen = false;
   }
-  document.querySelectorAll('.order-card[data-order-id="' + CSS.escape(orderId) + '"] .order-unseen-dot')
-    .forEach(dot => dot.remove());
+  /* .order-card[data-order-id] (Active/History/Approvals/Review/
+     lotes) y .order-card[data-order] (Scheduling -- atributo
+     distinto, ver comentario en applyLiveOrderUpdate mas arriba).
+     Recurring (.rc-card) no hace falta aqui -- toggleContractCard ya
+     vuelve a pintar todo justo despues de llamar a esto, usando
+     rcServicesCache ya actualizado arriba. */
+  document.querySelectorAll(
+    '.order-card[data-order-id="' + CSS.escape(orderId) + '"], ' +
+    '.order-card[data-order="' + CSS.escape(orderId) + '"]'
+  ).forEach(card => card.classList.remove('unseen'));
   api('/admin-mark-order-seen', { body: { orderId, viewerId: adminUser.email } })
     .catch(err => console.error('No se pudo marcar como visto:', err.message));
 }
@@ -11986,7 +12012,7 @@ let pendingDirectLinkOrderId = null;
   function orderQueueCardHtml(o) {
     const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
     return `
-      <div class="order-card" data-order="${escAttr(o.OrderID)}">
+      <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
           <div>
             ${GSOrderCardHeader.html({
@@ -12000,10 +12026,7 @@ let pendingDirectLinkOrderId = null;
             })}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-            ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
-            <span style="font-size:11px;color:var(--gray)">▾</span>
-          </div>
+          <span style="font-size:11px;color:var(--gray);flex-shrink:0">▾</span>
         </div>
         <div class="order-body" id="order-body-${escAttr(o.OrderID)}"></div>
       </div>`;
