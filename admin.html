@@ -8468,8 +8468,7 @@ async function showOrderWherever(orderId) {
     reopenAndFlashApprCard(orderId, 'review');
   } else if (activeOf('').some(o => o.OrderID === orderId)) {
     showTab('active');
-    await showOrderWherever(orderId);
-    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
+    await reopenAndFlashOrder(orderId, 'active');
   } else if (historyOf('').some(o => o.OrderID === orderId)) {
     showTab('history');
     await reopenAndFlashOrder(orderId, 'history');
@@ -10928,7 +10927,6 @@ async function unarchiveBuilding(clientId, buildingId) {
    no perder el lugar tras guardar/archivar. */
 async function reloadAndReopen(clientId) {
   await loadAll();
-  GSLoadingSplash.hide();
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(cid + '-body');
   if (body) body.classList.add('open');
@@ -10944,6 +10942,7 @@ async function reloadAndReopen(clientId) {
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     GSLiveRefresh.flashElement(card);
   }
+  GSLoadingSplash.hide(); // hasta que la tarjeta ya se abrio/destello, no antes
 }
 
 function toggleNotifSubgroup(cid) {
@@ -10989,8 +10988,7 @@ async function saveNewClient() {
     document.getElementById('add-client-form').style.display = 'none';
     ['new-business','new-contact','new-email','new-phone','new-address','new-suite','new-city','new-zip']
       .forEach(id => document.getElementById(id).value = '');
-    await loadAll();
-    GSLoadingSplash.hide();
+    await reloadAndReopen(res.clientId);
   } catch(e) {
     GSLoadingSplash.hide();
     errEl.textContent = 'Error: ' + e.message;
