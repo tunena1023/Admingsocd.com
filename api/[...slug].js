@@ -34,7 +34,8 @@ const handlers = {
   'save-service-assignment': require('../save-service-assignment').handler,
   'complete-service-assignment': require('../complete-service-assignment').handler,
   'resolve-service-change-request': require('../resolve-service-change-request').handler,
-  'reorder-service-queue': require('../reorder-service-queue').handler
+  'reorder-service-queue': require('../reorder-service-queue').handler,
+  'admin-mark-order-seen': require('../admin-mark-order-seen').handler
 };
 
 module.exports = async (req, res) => {
