@@ -8964,6 +8964,31 @@ function reopenAndFlashApprCard(orderId, context) {
   GSLiveRefresh.flashElement(card);
 }
 
+/* BUG REAL arreglado (22/09/2026, reportado por el dueño): crear una
+   orden de varias unidades desde Clients, cuando cae en Approvals,
+   cambiaba de tab pero nunca abria ni destellaba el grupo -- el
+   comentario en submitCreateOrder ya decia "se abre el GRUPO
+   completo (reopenAndFlashBatch)", pero esa llamada solo existia
+   para cuando la orden caia en Active; a Approvals le faltaba la
+   equivalente. reopenAndFlashBatch (la de Active) no sirve aqui tal
+   cual -- el grupo de PO en Approvals (batchApprovalGroupCard) usa
+   una convencion de DOM totalmente distinta (.appr-body con
+   apprDomId(), no .order-body con la clase 'open'), asi que esta es
+   la version equivalente para ese sistema. */
+function reopenAndFlashApprBatch(batchId, context) {
+  const groupOrderId = 'batch-' + batchId;
+  const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
+  if (!listEl) return;
+  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
+  if (!card) return;
+  closeOtherApprCards(context, groupOrderId);
+  const body = card.querySelector('.appr-body');
+  if (body) body.style.display = '';
+  cardOpenState(context).open = groupOrderId;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  GSLiveRefresh.flashElement(card);
+}
+
 /* Sigue a una orden a donde sea que haya quedado despues de una
    accion -- Approvals, Review, Active o History son 4 pestanas
    reales distintas (showTab), cada una con su propio sistema de
@@ -12143,7 +12168,7 @@ async function submitCreateOrder() {
          completo (reopenAndFlashBatch), no una unidad suelta. */
       const firstUnitId = (res.orderIds || [])[0];
       if (firstUnitId) {
-        if (approvalsOf('').some(o => o.OrderID === firstUnitId)) { showTab('approvals'); }
+        if (approvalsOf('').some(o => o.OrderID === firstUnitId)) { showTab('approvals'); reopenAndFlashApprBatch(res.batchId, 'approvals'); }
         else if (activeOf('').some(o => o.OrderID === firstUnitId)) { showTab('active'); reopenAndFlashBatch(res.batchId, 'active'); }
       }
       GSLoadingSplash.hide();
