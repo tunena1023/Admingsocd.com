@@ -8746,6 +8746,21 @@ async function reopenAndFlashOrder(orderId, context) {
   await loadOrderBody(orderId, context, body);
   const card = body.closest('.order-card');
   if (card) {
+    /* BUG REAL encontrado en produccion (22/09/2026, reportado por el
+       dueño: "en History los PO no abren cuando son nuevos"): si esta
+       orden vive DENTRO de un grupo de PO, esto solo abria la unidad
+       de adentro -- el grupo que la contiene se quedaba cerrado
+       (su propio .order-body nunca recibia la clase 'open'), asi
+       que visualmente no se veia nada abierto, aunque por dentro la
+       unidad si tuviera la clase. Se busca un ancestro MAS ALLA de
+       la propia tarjeta (card.parentElement.closest, no card.closest
+       -- ese se encontraria a si misma) que sea un grupo de PO
+       (data-order-id empieza con "batch-") y se abre tambien. */
+    const groupCard = card.parentElement ? card.parentElement.closest('.order-card[data-order-id^="batch-"]') : null;
+    if (groupCard) {
+      const groupBody = groupCard.querySelector(':scope > .order-body');
+      if (groupBody) groupBody.classList.add('open');
+    }
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     GSLiveRefresh.flashElement(card);
   }
