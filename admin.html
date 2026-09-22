@@ -3484,6 +3484,7 @@ async function decideNewOrder(orderId, action) {
       });
       showToast('Order ' + orderId + ' sent to Review for cancellation.');
       await loadAll();
+      await showOrderWherever(orderId);
     } catch (e) {
       showToast('Error: ' + e.message);
       if (no) { no.disabled = false; no.textContent = 'Request Cancellation'; }
@@ -3549,6 +3550,7 @@ async function decideNewOrder(orderId, action) {
     showToast(msg);
     delete window['__bypassActor_' + orderId];
     await loadAll();
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
     if (ok) { ok.disabled = false; ok.textContent = 'Approve'; }
@@ -3844,6 +3846,7 @@ async function decideReview(orderId, decision, needsPassword) {
       + ' by ' + actor + '. Status: ' + res.status + '.';
     showToast(msg);
     await loadAll();
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3863,7 +3866,7 @@ async function decideReactivation(orderId) {
     });
     showToast('Order ' + orderId + ' reactivated by ' + actor + '. Status: ' + res.status + '.');
     await loadAll();
-    await reopenAndFlashOrder(orderId, 'active');
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3885,7 +3888,7 @@ async function cancelOfficeUpdate(orderId) {
     });
     showToast('Update cancelled. Order ' + orderId + ' returned to Active.');
     await loadAll();
-    await reopenAndFlashOrder(orderId, 'active');
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3971,7 +3974,7 @@ async function reactivateOrder(orderId) {
     const res = await api('/admin-approve-order', { body: { orderId, decision: 'reactivate', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' reactivated. Status: ' + res.status + '.');
     await loadAll();
-    await reopenAndFlashOrder(orderId, 'active');
+    await showOrderWherever(orderId);
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
@@ -8384,6 +8387,52 @@ async function loadOrderBody(orderId, context, body) {
    de tocar, no un listado generico cerrado. Si la orden ya no vive
    en ese context (cambio de tab por el mismo cambio de estatus), no
    truena, simplemente no hace nada mas. */
+/* Approvals y Review comparten el mismo sistema de tarjetas
+   (apprDomId/.appr-body/closeOtherApprCards) -- distinto al de
+   Active/History (orderCard/toggleOrder). El contenido ya esta
+   precargado al pintar la lista (loadApprovalDetail), asi que abrir
+   es solo mostrar, sin fetch de por medio. */
+function reopenAndFlashApprCard(orderId, context) {
+  const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
+  if (!listEl) return;
+  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(orderId) + '"]');
+  if (!card) return;
+  closeOtherApprCards(context, orderId);
+  const body = card.querySelector('.appr-body');
+  if (body) body.style.display = '';
+  cardOpenState(context).open = orderId;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  GSLiveRefresh.flashElement(card);
+}
+
+/* Sigue a una orden a donde sea que haya quedado despues de una
+   accion -- Approvals, Review, Active o History son 4 pestanas
+   reales distintas (showTab), cada una con su propio sistema de
+   tarjetas por dentro. Se checa con las MISMAS 4 funciones que ya
+   deciden que pinta cada pestana (approvalsOf/reviewOf/activeOf/
+   historyOf) -- asi nunca se adivina a mano en que estatus cae
+   cada destino, y si algun dia cambian esas reglas, esto las sigue
+   automaticamente. A peticion del dueno (21/09/2026): "si la orden
+   termina en un tab diferente, ahi se abre -- la idea es seguir el
+   tab, si no se pierde y no sabemos donde quedo". Si no cae en
+   ninguna (agrupada en lote, archivada, etc.) no hace nada -- mejor
+   eso que adivinar mal y abrir la orden equivocada. */
+async function showOrderWherever(orderId) {
+  if (approvalsOf('').some(o => o.OrderID === orderId)) {
+    showTab('approvals');
+    reopenAndFlashApprCard(orderId, 'approvals');
+  } else if (reviewOf('').some(o => o.OrderID === orderId)) {
+    showTab('review');
+    reopenAndFlashApprCard(orderId, 'review');
+  } else if (activeOf('').some(o => o.OrderID === orderId)) {
+    showTab('active');
+    await showOrderWherever(orderId);
+  } else if (historyOf('').some(o => o.OrderID === orderId)) {
+    showTab('history');
+    await reopenAndFlashOrder(orderId, 'history');
+  }
+}
+
 async function reopenAndFlashOrder(orderId, context) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
@@ -8804,7 +8853,7 @@ async function markSeen(orderId) {
     });
     showToast('Order ' + orderId + ' marked as seen.');
     await loadAll();
-    await reopenAndFlashOrder(orderId, 'active');
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -10110,7 +10159,7 @@ async function markCompleted(orderId) {
     await api('/admin-update-order', { body });
     showToast('Order ' + orderId + ' marked as Completed.');
     await loadAll();
-    await reopenAndFlashOrder(orderId, 'active');
+    await showOrderWherever(orderId);
   } catch (e) {
     showToast('Error: ' + e.message);
   }
