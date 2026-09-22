@@ -5357,14 +5357,27 @@ function historyOf(q) {
   return list.filter(o => String(o.OrderID||'').toLowerCase().includes(q));
 }
 
+let __paintHistoryCallCount = 0;
 function paintHistory(list) {
+  __paintHistoryCallCount++;
+  const thisCall = __paintHistoryCallCount;
   const box = document.getElementById('history-list');
   if (!box) return;
   if (!list.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
   const { standalone, groupsMap, groupOrder } = groupByBatch(list);
+  /* DIAGNOSTICO TEMPORAL -- ver cuantas veces aparece PO5000 en groupOrder
+     ANTES de pintar, para saber si el duplicado ya viene de groupByBatch
+     o se genera despues. */
+  const vecesPO5000enGroupOrder = groupOrder.filter(b => b === 'PO5000').length;
   box.innerHTML =
     groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
     standalone.map(o => orderCard(o, 'history')).join('');
+  const encontradasDespues = box.querySelectorAll('.order-card[data-order-id="batch-PO5000"]').length;
+  const diag = document.createElement('div');
+  diag.style.cssText = 'position:fixed;bottom:8px;left:8px;right:8px;z-index:999998;background:rgba(80,0,80,.9);color:#0ff;font-family:monospace;font-size:10px;padding:6px;border-radius:6px';
+  diag.textContent = 'paintHistory llamada #' + thisCall + ' | PO5000 en groupOrder: ' + vecesPO5000enGroupOrder + ' | tarjetas PO5000 en el DOM despues de pintar: ' + encontradasDespues + ' | list.length=' + list.length;
+  diag.onclick = () => diag.remove();
+  document.body.appendChild(diag);
 }
 
 function renderHistory() {
