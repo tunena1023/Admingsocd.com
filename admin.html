@@ -132,15 +132,14 @@
        History, Scheduling, lotes y Recurring se quedaban en blanco
        liso. A peticion del dueño: todas deben verse igual. */
     .order-card {
-      /* Solido, NO rgba -- una tarjeta de lote tiene otras tarjetas
-         adentro (cada unidad tambien es .order-card); con rgba las 2
-         capas transparentes se suman y las de adentro se ven mas
-         oscuras/turbias que la de afuera, sin importar el estatus de
-         cada una -- reportado por el dueño, 22/09/2026. #F1EDDF es
-         el mismo tono percibido de rgba(201,168,76,.12) sobre
-         --off (#F7F6F3), pero opaco: nunca se acumula sin importar
-         cuantos niveles de anidado haya. */
-      background: #F1EDDF; border: 1px solid var(--border); border-radius: 4px;
+      /* Blanco parejo en TODAS las tarjetas (22/09/2026, rediseño
+         final tras varias rondas) -- el dorado de fondo en TODO
+         (antes rgba, luego solido) se veia como "una sola mancha
+         cafe", nada se distinguia entre tarjetas ni entre lote y
+         unidad. El dorado ahora es EXCLUSIVO del destello
+         (.unseen mas abajo) -- significa una sola cosa (actualizacion
+         pendiente), no decoracion pareja. Confirmado con el dueño. */
+      background: var(--white); border: 1px solid var(--border); border-radius: 4px;
       margin-bottom: 12px; overflow: hidden; position: relative;
     }
     .order-card-header {
@@ -713,7 +712,7 @@
   #panel-recurring .assign-row { display:grid; grid-template-columns:1fr 100px 32px; gap:10px; margin-bottom:8px; align-items:end; }
   #panel-recurring .assign-row .field-group { margin-bottom:0; }
   #panel-recurring .remove-assign { background:none; border:1px solid var(--border); color:#B33A3A; cursor:pointer; height:36px; }
-  #panel-recurring .rc-card { border:1px solid var(--border); background:#F1EDDF; padding:16px 20px; margin-bottom:10px; position:relative; overflow:hidden; }
+  #panel-recurring .rc-card { border:1px solid var(--border); background:var(--white); padding:16px 20px; margin-bottom:10px; position:relative; overflow:hidden; }
   #panel-recurring .rc-card.unseen { border:2px solid var(--gold); box-shadow:0 0 0 1px rgba(201,168,76,.25); }
   #panel-recurring .rc-card.unseen::after {
     content:""; position:absolute; top:0; left:-60%; width:45%; height:100%;
@@ -3396,7 +3395,7 @@ function batchApprovalGroupCard(batchId, units) {
   const innerHtml = units.map(o => newOrderApprovalCard(o)).join('');
   return `
     <div class="order-card" data-order-id="${esc(groupOrderId)}">
-      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
+      <div class="order-card-header" onclick="toggleApprCard('${esc(groupOrderId)}','approvals',this)" ondblclick="pinApprCard('${esc(groupOrderId)}','approvals',this)">
         <div>
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
           <div class="order-meta">${units.length} units awaiting scheduling${poGroupDateLabel(units) ? ' · ' + poGroupDateLabel(units) : ''}</div>
@@ -3436,7 +3435,7 @@ function newOrderApprovalCard(o) {
 
   return `
     <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
-      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
+      <div class="order-card-header" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
         <div>
           ${GSOrderCardHeader.html({
             name: o.BusinessName || o.ClientID,
@@ -3649,7 +3648,7 @@ function approvalCard(o) {
   const isCancelSync = (o.Status === 'Cancellation Requested');
   return `
     <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
-      <div class="order-card-header" style="cursor:pointer;background:rgba(201,168,76,0.12)" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
+      <div class="order-card-header" onclick="toggleApprCard('${esc(o.OrderID)}','review',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','review',this)">
         <div>
           ${GSOrderCardHeader.html({
             name: o.BusinessName || o.ClientID,
