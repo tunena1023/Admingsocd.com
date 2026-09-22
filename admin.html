@@ -2195,6 +2195,7 @@ async function importSelectedEstimates() {
   btn.disabled = true;
   const originalText = btn.textContent;
   btn.textContent = 'Importing…';
+  showLoadingOverlay('Importing estimates…');
   try {
     const res = await api('/quickbooks-import-estimates', { method: 'POST', body: { orders } });
     const results = res.results || [];
@@ -2648,6 +2649,7 @@ async function saveHolidayChoice(safe, holidayName) {
   const all = holidaysCache[safe] || [];
   const h = all.find(x => x.name === holidayName);
   if (!h) return;
+  showLoadingOverlay('Saving holiday…');
   try {
     const res = await api('/admin-save-client-holiday', { body: {
       clientId: h.clientId,
@@ -3823,6 +3825,7 @@ async function decideReview(orderId, decision, needsPassword) {
     actor = getActorName();
   }
 
+  showLoadingOverlay('Saving decision on order ' + orderId + '…');
   try {
     const res = await api('/admin-approve-order', {
       body: { orderId, decision, approvedBy: actor, notes: notes || undefined }
@@ -3844,6 +3847,7 @@ async function decideReview(orderId, decision, needsPassword) {
 async function decideReactivation(orderId) {
   const actor = await promptDirectorPassword();
   if (!actor) return;
+  showLoadingOverlay('Reactivating order ' + orderId + '…');
   try {
     const res = await api('/admin-approve-order', {
       body: { orderId, decision: 'reactivate-confirm', approvedBy: actor }
@@ -3864,6 +3868,7 @@ async function cancelOfficeUpdate(orderId) {
   if (!confirm("Discard this pending update and return the order to Active? This can't be undone and won't be recorded anywhere.")) {
     return;
   }
+  showLoadingOverlay('Cancelling update on order ' + orderId + '…');
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'cancel-update', approvedBy: getActorName() }
@@ -3941,6 +3946,7 @@ async function toggleSupervisorGallery(orderId, galleryId) {
 }
 
 async function archiveOrder(orderId) {
+  showLoadingOverlay('Archiving order ' + orderId + '…');
   try {
     await api('/admin-approve-order', { body: { orderId, decision: 'archive', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' archived.');
@@ -3949,6 +3955,7 @@ async function archiveOrder(orderId) {
 }
 
 async function reactivateOrder(orderId) {
+  showLoadingOverlay('Reactivating order ' + orderId + '…');
   try {
     const res = await api('/admin-approve-order', { body: { orderId, decision: 'reactivate', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' reactivated. Status: ' + res.status + '.');
@@ -4623,6 +4630,7 @@ async function decideRecurringReview(logId, decision) {
     if (notesInput) notesInput.focus();
     return;
   }
+  showLoadingOverlay('Saving decision…');
   try {
     await api('/developer-admin', { body: { action: 'decide-recurring-review', email: adminUser.email, actorName: getActorName(), logId, decision, notes: notes || undefined } });
     recurringPendingCache = recurringPendingCache.filter(p => p.id !== logId);
@@ -4677,11 +4685,13 @@ function renderMaterialsReadyReview() {
 }
 
 async function markMaterialsSeen(orderId) {
+  showLoadingOverlay('Marking materials as seen…');
   try {
     await api('/developer-admin', { body: { action: 'mark-materials-seen', email: adminUser.email, actorName: getActorName(), orderId } });
     const o = allOrders.find(x => x.OrderID === orderId);
     if (o) o.MaterialsReadySeen = true;
     renderMaterialsReadyReview();
+    GSLoadingSplash.hide(); // aqui no hay showToast en el exito que lo apague solo
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -4963,6 +4973,7 @@ async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
     changedBy: getActorName()
   };
 
+  showLoadingOverlay('Adding unit to ' + clientId + '-' + batchId + '…');
   try {
     await api('/submit-order', { body });
     showToast('Unit added to ' + clientId + '-' + batchId + '.');
@@ -5348,6 +5359,7 @@ async function saveRecurring() {
     if (!time) { errEl.textContent = 'Set a time.'; return; }
     if (!assignments.length) { errEl.textContent = 'Add at least one employee.'; return; }
 
+    showLoadingOverlay('Saving recurring contract…');
     try {
       await api('/developer-admin', {
         body: {
@@ -5358,6 +5370,7 @@ async function saveRecurring() {
           daysOfWeek: days.join(','), time, totalHours, expirationDate, assignments
         }
       });
+      GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
       editingServiceId = null;
       document.getElementById('rc-client').value = '';
       document.getElementById('rc-building').value = '';
@@ -5370,6 +5383,7 @@ async function saveRecurring() {
       addAssignRow();
       loadRecurringList();
     } catch (e) {
+      GSLoadingSplash.hide();
       errEl.textContent = e.message;
     }
   }
@@ -5488,20 +5502,26 @@ function toggleRecurringCreateCard(forceOpen) {
 
 async function deactivateContract(id) {
     if (!confirm('Stop generating new visits for this contract? Orders already generated are not affected.')) return;
+    showLoadingOverlay('Deactivating contract…');
     try {
       await api('/developer-admin', { body: { action: 'deactivate-recurring-service', email: adminUser.email, recurringServiceId: id } });
+      GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
       loadRecurringList();
     } catch (e) {
+      GSLoadingSplash.hide();
       alert('Could not deactivate: ' + e.message);
     }
   }
 
 
 async function toggleActive(id, active) {
+    showLoadingOverlay(active ? 'Reactivating contract…' : 'Pausing contract…');
     try {
       await api('/developer-admin', { body: { action: 'toggle-recurring-active', email: adminUser.email, recurringServiceId: id, active } });
+      GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
       loadRecurringList();
     } catch (e) {
+      GSLoadingSplash.hide();
       alert('Error: ' + e.message);
     }
   }
@@ -6155,6 +6175,7 @@ function cancelEdit() {
     // (el tema de Servicios se resuelve aparte), asi que no hay que pisarlos
     // con blanco sin querer.
     const existing = r.existingService;
+    showLoadingOverlay('Saving recurring contract…');
     try {
       const res = await api('/developer-admin', {
         body: {
@@ -8028,6 +8049,7 @@ function cancelEdit() {
     if (!employeeRows || !employeeRows.length) return;
     const btn = document.getElementById('employee-upload-btn');
     btn.disabled = true; btn.textContent = 'Uploading…';
+    showLoadingOverlay('Uploading employee report…');
     try {
       const res = await devApi('upload-employee-report', { rows: employeeRows });
       const box = document.getElementById('employee-result');
@@ -8047,6 +8069,7 @@ function cancelEdit() {
     } catch (e) {
       alert('Error: ' + e.message);
     } finally {
+      GSLoadingSplash.hide(); // finally corre siempre -- exito o error, una sola vez
       btn.disabled = false; btn.textContent = 'Upload';
     }
   }
@@ -8132,6 +8155,7 @@ function cancelEdit() {
     if (!hoursRows || !hoursRows.length) return;
     const btn = document.getElementById('hours-upload-btn');
     btn.disabled = true; btn.textContent = 'Uploading…';
+    showLoadingOverlay('Uploading hours report…');
     try {
       const res = await devApi('upload-hours-report', { rows: hoursRows });
       const box = document.getElementById('hours-result');
@@ -8145,6 +8169,7 @@ function cancelEdit() {
     } catch (e) {
       alert('Error: ' + e.message);
     } finally {
+      GSLoadingSplash.hide(); // finally corre siempre -- exito o error, una sola vez
       btn.disabled = false; btn.textContent = 'Upload';
     }
   }
@@ -8732,6 +8757,7 @@ function unseenActiveCardHtml(o, services, history) {
 }
 
 async function markSeen(orderId) {
+  showLoadingOverlay('Marking order ' + orderId + ' as seen…');
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'approve', approvedBy: getActorName() }
@@ -10038,6 +10064,7 @@ async function markCompleted(orderId) {
     technician: technician, completedDate: completedDate
   };
   if (services) body.services = services;
+  showLoadingOverlay('Marking order ' + orderId + ' as Completed…');
   try {
     await api('/admin-update-order', { body });
     showToast('Order ' + orderId + ' marked as Completed.');
@@ -10053,6 +10080,7 @@ async function markCompleted(orderId) {
 async function requestCancelActive(orderId) {
   if (!confirm('Send order ' + orderId + ' to Review for cancellation?')) return;
   const actor = getActorName();
+  showLoadingOverlay('Sending order ' + orderId + ' to Review…');
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'request-cancel', approvedBy: actor }
@@ -10070,6 +10098,7 @@ async function requestCancelActive(orderId) {
 async function requestReactivate(orderId) {
   if (!confirm('Send order ' + orderId + ' for reactivation? Either the Director or the client can confirm it, whichever happens first.')) return;
   const actor = getActorName();
+  showLoadingOverlay('Sending order ' + orderId + ' for reactivation…');
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'request-reactivate', approvedBy: actor }
@@ -10572,11 +10601,13 @@ async function savePrimaryEdit(clientId) {
   });
   body.contacts = contacts;
 
+  showLoadingOverlay('Saving client…');
   try {
     await api('/admin-update-client', { body });
     showToast('Client updated.');
     await reloadAndReopen(clientId);
   } catch (e) {
+    GSLoadingSplash.hide(); // el error a veces no pasa por showToast (usa errEl)
     const err = document.getElementById(cid + '-ctl-error');
     if (err) err.textContent = e.message; else showToast('Error: ' + e.message);
   }
@@ -10609,12 +10640,14 @@ async function saveBuildingEdit(clientId, buildingId) {
   const phoneVal = $f('phone')?.value.trim();
   if (phoneVal) building.newContact = { name: label, type: 'Phone', value: phoneVal };
 
+  showLoadingOverlay(buildingId ? 'Saving building…' : 'Adding building…');
   try {
     const res = await api('/admin-update-client', { body: { clientId, building } });
     showToast(buildingId ? 'Building updated.' : 'Building saved.');
     clientState(clientId).selected = buildingId || res.addressId;
     await reloadAndReopen(clientId);
   } catch (e) {
+    GSLoadingSplash.hide(); // el error a veces no pasa por showToast (usa errEl)
     if (errEl) errEl.textContent = e.message; else showToast('Error: ' + e.message);
   }
 }
@@ -10651,6 +10684,7 @@ async function saveNotifications(clientId) {
   });
   body.contacts = contacts;
 
+  showLoadingOverlay('Saving notifications…');
   try {
     await api('/admin-update-client', { body });
     showToast('Notifications updated.');
@@ -10685,16 +10719,19 @@ async function saveBuildingNotifications(clientId) {
     building.contactId = checkedValue;
   }
 
+  showLoadingOverlay('Saving notifications…');
   try {
     await api('/admin-update-client', { body: { clientId, building } });
     showToast('Building notifications updated.');
     await reloadAndReopen(clientId);
   } catch (e) {
+    GSLoadingSplash.hide(); // el error a veces no pasa por showToast (usa errEl)
     if (errEl) errEl.textContent = e.message; else showToast('Error: ' + e.message);
   }
 }
 
 async function archiveContact(clientId, contactId) {
+  showLoadingOverlay('Removing contact…');
   try {
     await api('/admin-update-client', { body: { clientId, contactAction: { action: 'archive', contactId } } });
     showToast('Contact removed.');
@@ -10705,6 +10742,7 @@ async function archiveContact(clientId, contactId) {
 }
 
 async function unarchiveContact(clientId, contactId) {
+  showLoadingOverlay('Restoring contact…');
   try {
     await api('/admin-update-client', { body: { clientId, contactAction: { action: 'unarchive', contactId } } });
     showToast('Contact restored.');
@@ -10720,6 +10758,7 @@ function toggleShowArchivedContacts(clientId) {
 }
 
 async function archiveBuilding(clientId, buildingId) {
+  showLoadingOverlay('Archiving building…');
   try {
     await api('/admin-update-client', { body: { clientId, building: { action: 'archive', addressId: buildingId } } });
     showToast('Building archived.');
@@ -10730,6 +10769,7 @@ async function archiveBuilding(clientId, buildingId) {
 }
 
 async function unarchiveBuilding(clientId, buildingId) {
+  showLoadingOverlay('Restoring building…');
   try {
     await api('/admin-update-client', { body: { clientId, building: { action: 'unarchive', addressId: buildingId } } });
     showToast('Building restored.');
@@ -10786,11 +10826,13 @@ async function saveNewClient() {
     errEl.textContent = 'Please fill in all required fields.';
     return;
   }
+  showLoadingOverlay('Creating client…');
   try {
     const res = await api('/register-client', {
       body: { businessName, contactPerson, address, suite, city, zip, contact: email, phone }
     });
     if (res.existing) {
+      GSLoadingSplash.hide();
       errEl.textContent = 'A client with that email already exists: ' + res.clientId;
       return;
     }
@@ -10800,6 +10842,7 @@ async function saveNewClient() {
       .forEach(id => document.getElementById(id).value = '');
     await loadAll();
   } catch(e) {
+    GSLoadingSplash.hide();
     errEl.textContent = 'Error: ' + e.message;
   }
 }
@@ -11376,6 +11419,7 @@ async function submitCreateOrder() {
     body.EntryDate = new Date(entryDate + 'T' + entryTime).toISOString();
     body.DueDate = new Date(dueDate + 'T23:59:59').toISOString();
 
+    showLoadingOverlay('Creating order…');
     try {
       const res = await api('/submit-order', { body });
       showToast('Order ' + createSelectedClient.clientId + '-' + res.batchId + ' created with ' + (res.orderIds||[]).length + ' units.');
@@ -11399,6 +11443,7 @@ async function submitCreateOrder() {
   body.EntryDate      = new Date(entryDateVal + 'T' + entryTimeVal).toISOString();
   body.DueDate        = new Date(dueDateVal + 'T23:59:59').toISOString();
 
+  showLoadingOverlay('Creating order…');
   try {
     const res = await api('/submit-order', { body });
     showToast('Order ' + res.orderId + ' created successfully.');
@@ -12452,6 +12497,7 @@ let pendingDirectLinkOrderId = null;
 
   async function rescheduleOrder(orderId) {
     if (!confirm('Remove this order\'s assignment and send it back to the queue?')) return;
+    showLoadingOverlay('Sending order ' + orderId + ' back to the queue…');
     try {
       await api('/developer-admin', { body: { action: 'reschedule-order', email: adminUser.email, orderId } });
       await api('/admin-update-order', {
@@ -12462,7 +12508,9 @@ let pendingDirectLinkOrderId = null;
       /* Mismo motivo que en submitAssignment: quitar una asignacion
          tambien debe reflejarse fuera de Scheduling de inmediato. */
       await Promise.all([scheduleRefresh, loadAll()]);
+      GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
     } catch (e) {
+      GSLoadingSplash.hide();
       alert('Error: ' + e.message);
     }
   }
