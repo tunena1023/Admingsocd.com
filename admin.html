@@ -332,7 +332,7 @@
        el logo viejo detras. */
     .action-overlay {
       display: none; position: fixed; left: 50%; bottom: 28px;
-      transform: translateX(-50%); z-index: 9999; cursor: pointer;
+      transform: translateX(-50%); z-index: 100000; cursor: pointer;
       max-width: min(420px, calc(100vw - 32px));
     }
     .action-overlay.show { display: block; }
@@ -2731,7 +2731,14 @@ function hideActionOverlay() {
 }
 
 function showToast(msg) {
-  GSLoadingSplash.hide();
+  /* Ya NO apaga el splash aqui -- se llama justo despues de la accion
+     (exito), antes de loadAll()/showOrderWherever(), asi que apagarlo
+     aqui dejaba el movimiento de tab/reabrir tarjeta pasar a la vista,
+     sin tapar. Cada flujo apaga el splash el solo, hasta que de
+     verdad termino de moverse (ver GSLoadingSplash.hide() despues de
+     loadAll()/showOrderWherever() en cada funcion). El toast puede
+     seguir viendose encima del splash mientras tanto -- eso si esta
+     bien, es el mensaje, no el "ya termine". */
   const el = document.getElementById('action-overlay');
   const msgEl = document.getElementById('action-overlay-msg');
   msgEl.textContent = msg;
@@ -3485,6 +3492,7 @@ async function decideNewOrder(orderId, action) {
       showToast('Order ' + orderId + ' sent to Review for cancellation.');
       await loadAll();
       await showOrderWherever(orderId);
+      GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
     } catch (e) {
       showToast('Error: ' + e.message);
       if (no) { no.disabled = false; no.textContent = 'Request Cancellation'; }
@@ -3551,6 +3559,7 @@ async function decideNewOrder(orderId, action) {
     delete window['__bypassActor_' + orderId];
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
     if (ok) { ok.disabled = false; ok.textContent = 'Approve'; }
@@ -3810,6 +3819,7 @@ window.resolveServiceChangeRequest = async function(orderId, cat, name, decision
     delete reviewChangeDraftCache[key];
     showToast('Change request ' + (decision === 'approve' ? 'approved' : 'cancelled') + '.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3847,6 +3857,7 @@ async function decideReview(orderId, decision, needsPassword) {
     showToast(msg);
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3867,6 +3878,7 @@ async function decideReactivation(orderId) {
     showToast('Order ' + orderId + ' reactivated by ' + actor + '. Status: ' + res.status + '.');
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3889,6 +3901,7 @@ async function cancelOfficeUpdate(orderId) {
     showToast('Update cancelled. Order ' + orderId + ' returned to Active.');
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3927,6 +3940,7 @@ async function sendSupervisorUpdateToCustomer(orderId) {
     await api('/admin-update-order', { body });
     showToast('Sent to the client for confirmation.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -3965,6 +3979,7 @@ async function archiveOrder(orderId) {
     await api('/admin-approve-order', { body: { orderId, decision: 'archive', approvedBy: getActorName() } });
     showToast('Order ' + orderId + ' archived.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
@@ -3975,6 +3990,7 @@ async function reactivateOrder(orderId) {
     showToast('Order ' + orderId + ' reactivated. Status: ' + res.status + '.');
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) { showToast('Error: ' + e.message); }
 }
 
@@ -4311,6 +4327,7 @@ async function toggleApprSvcUpdate(orderId, division) {
        'Services Updated' recien creado aparezca ya en el historial de
        la tarjeta. */
     await loadAll();
+    GSLoadingSplash.hide();
     return;
   }
 
@@ -4993,6 +5010,7 @@ async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
     await api('/submit-order', { body });
     showToast('Unit added to ' + clientId + '-' + batchId + '.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) {
     if (errEl) errEl.textContent = e.message; else showToast('Error: ' + e.message);
   }
@@ -8427,6 +8445,7 @@ async function showOrderWherever(orderId) {
   } else if (activeOf('').some(o => o.OrderID === orderId)) {
     showTab('active');
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } else if (historyOf('').some(o => o.OrderID === orderId)) {
     showTab('history');
     await reopenAndFlashOrder(orderId, 'history');
@@ -8854,6 +8873,7 @@ async function markSeen(orderId) {
     showToast('Order ' + orderId + ' marked as seen.');
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -9664,6 +9684,7 @@ function toggleActiveSvcUpdate(orderId, division) {
           }
           showToast('Saved.');
           await loadAll();
+          GSLoadingSplash.hide();
         } catch (e) {
           showToast('Could not save: ' + e.message);
         }
@@ -10104,6 +10125,7 @@ async function saveOrderUpdate(orderId, sendToClient, context) {
       ? 'Change sent to the client for confirmation.'
       : (requestOnly ? 'Change sent to Review — waiting for approval before it takes effect.' : 'Saved.'));
     await loadAll();
+    GSLoadingSplash.hide();
   } catch(e) {
     showToast('Error: ' + e.message);
   }
@@ -10160,6 +10182,7 @@ async function markCompleted(orderId) {
     showToast('Order ' + orderId + ' marked as Completed.');
     await loadAll();
     await showOrderWherever(orderId);
+    GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -10178,6 +10201,7 @@ async function requestCancelActive(orderId) {
     });
     showToast('Order ' + orderId + ' sent to Review for cancellation.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -10196,6 +10220,7 @@ async function requestReactivate(orderId) {
     });
     showToast('Order ' + orderId + ' sent for reactivation — waiting for the Director or the client.');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -10876,6 +10901,7 @@ async function unarchiveBuilding(clientId, buildingId) {
    no perder el lugar tras guardar/archivar. */
 async function reloadAndReopen(clientId) {
   await loadAll();
+  GSLoadingSplash.hide();
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(cid + '-body');
   if (body) body.classList.add('open');
@@ -10937,6 +10963,7 @@ async function saveNewClient() {
     ['new-business','new-contact','new-email','new-phone','new-address','new-suite','new-city','new-zip']
       .forEach(id => document.getElementById(id).value = '');
     await loadAll();
+    GSLoadingSplash.hide();
   } catch(e) {
     GSLoadingSplash.hide();
     errEl.textContent = 'Error: ' + e.message;
@@ -11521,6 +11548,7 @@ async function submitCreateOrder() {
       showToast('Order ' + createSelectedClient.clientId + '-' + res.batchId + ' created with ' + (res.orderIds||[]).length + ' units.');
       cancelCreate();
       await loadAll();
+      GSLoadingSplash.hide();
     } catch (e) {
       showToast('Error: ' + e.message);
     }
@@ -11545,6 +11573,7 @@ async function submitCreateOrder() {
     showToast('Order ' + res.orderId + ' created successfully.');
     cancelCreate();
     await loadAll();
+    GSLoadingSplash.hide();
   } catch(e) {
     showToast('Error: ' + e.message);
   }
@@ -12483,6 +12512,7 @@ let pendingDirectLinkOrderId = null;
       });
       showToast(name + ' marked as completed.');
       await loadAll();
+      GSLoadingSplash.hide();
     } catch (e) {
       showToast('Error: ' + e.message);
     }
