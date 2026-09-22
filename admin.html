@@ -9082,6 +9082,15 @@ async function toggleOrder(orderId, context, headerEl) {
 function markOrderSeen(orderId) {
   const o = allOrders.find(x => x.OrderID === orderId);
   if (o) o.Unseen = false;
+  /* BUG REAL arreglado (22/09/2026, reportado por el dueño: "el
+     contador de History debe irse actualizando a como se abren las
+     tarjetas... nomas vi que se habia actualizado despues de
+     refrescar la pagina"): el contador de History cuenta las SIN VER
+     (no el total), asi que cada vez que una orden se marca como
+     vista, el numero deberia bajar al instante -- pero esta funcion
+     nunca le avisaba al contador que recalculara, solo lo hacian el
+     ciclo de 30s de fondo o un loadAll() completo. */
+  updateHistoryBadge();
   /* Los contratos recurrentes no viven en allOrders (su id es .id,
      no .OrderID) -- se limpia aparte aqui mismo para que quien llame
      a esto no tenga que saber cual de las dos cosas es. */
