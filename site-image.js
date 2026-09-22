@@ -75,13 +75,7 @@ async function serveCategory(cat) {
   return binaryResponse(await downloadById(item.id), typeOf(item.name));
 }
 
-/* ?name=Logo.png — archivo en la raíz del drive buscado por ruta directa
-   DIAGNOSTICO TEMPORAL: en vez de driveItemByPath (que se traga
-   cualquier error y regresa null), se llama a Graph directo aqui para
-   que el error real (permiso, ruta, lo que sea) salga en la respuesta
-   y se pueda ver visitando la URL en el navegador. Quitar despues de
-   encontrar la causa real. */
-/* ?name=Logo.jpg — archivo en la raíz del drive buscado por ruta directa */
+/* ?name=Logo.png / ?name=Logo.jpg — archivo en la raíz del drive buscado por ruta directa */
 async function serveRootFile(name) {
   const { driveItemByPath } = require('./lib/graph');
   const item = await driveItemByPath(String(name));

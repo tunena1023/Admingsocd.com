@@ -98,13 +98,13 @@ async function fetchServicesCatalogForDivisionCheck() {
   return out.filter(it => it.fields).map(it => ({ sku: it.fields.SKU || '', division: it.fields.Division || '' }));
 }
 
-/* DIAGNOSTICO TEMPORAL (20/09/2026, a peticion del dueño): 'General
-   exception while processing' es el mensaje generico que manda Graph
-   API tal cual -- no dice en que paso especifico truena. No cambia
-   NINGUN comportamiento (no atrapa ni ignora nada, solo le pega una
-   etiqueta al error y lo vuelve a lanzar) -- la proxima vez que esto
-   pase, el mensaje real le va a decir exactamente cual paso (y, para
-   servicios, cual servicio especifico) fue. */
+/* withStepLabel: envuelve cada paso de este flujo (aprobar cambio de
+   division, crear/borrar servicios) para que, si Graph API truena con
+   su mensaje generico 'General exception while processing', el error
+   real diga en que paso especifico paso (y, para servicios, cual
+   servicio). No cambia comportamiento, solo etiqueta errores -- es
+   infraestructura permanente de este archivo, no un diagnostico de
+   un bug puntual. */
 async function withStepLabel(label, fn) {
   try {
     return await fn();
