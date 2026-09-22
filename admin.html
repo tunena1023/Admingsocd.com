@@ -5019,6 +5019,13 @@ async function submitAddBatchUnitAdmin(clientId, batchId, dom) {
     await api('/submit-order', { body });
     showToast('Unit added to ' + clientId + '-' + batchId + '.');
     await loadAll();
+    /* Puede llamarse desde varios contextos (Active, Approvals) --
+       se checa igual que showOrderWherever, pero abriendo el grupo.
+       BatchId es un campo real de la orden, no un prefijo adivinado
+       del OrderID. */
+    if (activeOf('').some(o => o.BatchId === batchId)) {
+      reopenAndFlashBatch(batchId, 'active');
+    }
     GSLoadingSplash.hide();
   } catch (e) {
     if (errEl) errEl.textContent = e.message; else showToast('Error: ' + e.message);
@@ -5044,6 +5051,24 @@ function batchOrderGroupCard(batchId, units, context) {
         ${innerHtml}
       </div>
     </div>`;
+}
+
+/* Mismo patron que reopenAndFlashOrder, pero para la tarjeta de
+   grupo de lote -- mas simple porque el contenido ya esta armado
+   inline (sin fetch), igual que toggleBatchCard de abajo. */
+function reopenAndFlashBatch(batchId, context) {
+  const groupOrderId = 'batch-' + batchId;
+  const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  closeOtherCards(context, groupOrderId);
+  body.classList.add('open');
+  cardOpenState(context).open = groupOrderId;
+  const card = body.closest('.order-card');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    GSLiveRefresh.flashElement(card);
+  }
 }
 
 /* Version simple de toggleOrder para el grupo de PO -- no hace fetch
@@ -11581,6 +11606,15 @@ async function submitCreateOrder() {
       showToast('Order ' + createSelectedClient.clientId + '-' + res.batchId + ' created with ' + (res.orderIds||[]).length + ' units.');
       cancelCreate();
       await loadAll();
+      /* Cual tab le toca se decide igual que showOrderWherever (mismas
+         4 funciones reales), revisando cualquier unidad del lote --
+         todas nacen con el mismo estatus. Pero se abre el GRUPO
+         completo (reopenAndFlashBatch), no una unidad suelta. */
+      const firstUnitId = (res.orderIds || [])[0];
+      if (firstUnitId) {
+        if (approvalsOf('').some(o => o.OrderID === firstUnitId)) { showTab('approvals'); }
+        else if (activeOf('').some(o => o.OrderID === firstUnitId)) { showTab('active'); reopenAndFlashBatch(res.batchId, 'active'); }
+      }
       GSLoadingSplash.hide();
     } catch (e) {
       showToast('Error: ' + e.message);
