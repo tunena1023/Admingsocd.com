@@ -5281,36 +5281,25 @@ function reopenAndFlashBatch(batchId, context) {
    (el contenido ya esta armado inline con las unidades adentro), solo
    muestra/oculta con la misma exclusividad que las demas tarjetas. */
 function toggleBatchCard(groupOrderId, context) {
-  /* DIAGNOSTICO TEMPORAL (22/09/2026) -- quitar en cuanto se
-     encuentre la causa real del PO que no abre en movil. Confirma
-     si el toque de verdad esta llamando a esta funcion o si se
-     esta quedando en algo antes de llegar aqui. */
+  /* DIAGNOSTICO TEMPORAL v2 -- chico, en una esquina, para no tapar
+     la tarjeta real y poder ver los dos en la misma foto. */
   const diag = document.createElement('div');
-  diag.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#2A7A4A;color:#fff;font-family:monospace;font-size:12px;padding:10px 16px';
-  diag.textContent = 'toggleBatchCard SI se llamo. id=' + groupOrderId + ' context=' + context + ' (toca para cerrar)';
+  diag.style.cssText = 'position:fixed;bottom:8px;right:8px;left:8px;z-index:999999;background:rgba(0,0,0,.85);color:#0f0;font-family:monospace;font-size:10px;padding:8px;border-radius:6px;max-height:35vh;overflow:auto';
+  diag.textContent = 'toggleBatchCard: groupOrderId=' + groupOrderId + ' real batchId visto=' + JSON.stringify(groupOrderId);
   diag.onclick = () => diag.remove();
   document.body.appendChild(diag);
 
   const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
-  if (!body) {
-    diag.textContent += ' -- body NO se encontro con id=' + id;
-    return;
-  }
+  if (!body) { diag.textContent += ' | body NO encontrado con id=' + id; return; }
   const st = cardOpenState(context);
   const isOpen = body.classList.contains('open');
-  diag.textContent += ' | isOpen antes=' + isOpen + ' | classList antes="' + body.className + '"';
-  if (isOpen) {
-    body.classList.remove('open');
-    if (st.open === groupOrderId) st.open = null;
-    delete st.pinned[groupOrderId];
-    diag.textContent += ' | tomo rama CERRAR';
-    return;
-  }
+  const groupCardCheck = document.querySelectorAll('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
+  diag.textContent += ' | isOpen=' + isOpen + ' | tarjetas con ese data-order-id encontradas: ' + groupCardCheck.length;
+  if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; delete st.pinned[groupOrderId]; return; }
   if (!st.pinned[groupOrderId]) closeOtherCards(context, groupOrderId);
   body.classList.add('open');
   st.open = groupOrderId;
-  diag.textContent += ' | tomo rama ABRIR | classList despues="' + body.className + '" | computed display="' + getComputedStyle(body).display + '"';
   /* El grupo no tiene su propio OrderID real -- su destello sale de
      si ALGUNA unidad de adentro esta sin ver (ver
      batchOrderGroupCard), asi que aqui se marcan las unidades reales,
@@ -5322,7 +5311,10 @@ function toggleBatchCard(groupOrderId, context) {
   body.querySelectorAll('.order-card[data-order-id]').forEach(card => markOrderSeen(card.dataset.orderId));
   const groupCard = body.closest('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
   if (groupCard) groupCard.classList.remove('unseen');
-  diag.textContent += ' | FIN de la funcion, sin errores';
+  diag.textContent += ' | groupCard encontrado=' + !!groupCard + ' | groupCard.className final=' + (groupCard ? groupCard.className : 'N/A') + ' | body.className final=' + body.className + ' | body display=' + getComputedStyle(body).display;
+  setTimeout(() => {
+    diag.textContent += ' || 2s DESPUES -- body.className=' + body.className + ' display=' + getComputedStyle(body).display + (groupCard ? ' groupCard.className=' + groupCard.className : '');
+  }, 2000);
 }
 
 function paintActive(list) {
