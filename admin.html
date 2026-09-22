@@ -11972,6 +11972,22 @@ let pendingDirectLinkOrderId = null;
     }
   }
 
+  /* Mismo patron que reopenAndFlashOrder (Active) y
+     reopenAndFlashContract (Recurring), adaptado a la chapa de
+     Scheduling: toggleOrderCard() ya sabe abrir y llenar el
+     contenido -- despues de un repintado fresco (loadOrdersQueue)
+     la tarjeta siempre arranca cerrada, asi que llamarlo aqui la
+     abre de verdad, nunca la cierra por accidente. */
+  function reopenAndFlashQueueOrder(orderId) {
+    toggleOrderCard(orderId);
+    const body = document.getElementById('order-body-' + orderId);
+    const card = body ? body.closest('.order-card') : null;
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      GSLiveRefresh.flashElement(card);
+    }
+  }
+
   /* Misma lista de candidatos que assignFormHtml calcula abajo (para
      el bloque de toda-la-orden), pero aplanada a solo {id, name} --
      el picker por servicio (mas chico, un checkbox por persona) no
@@ -12643,6 +12659,12 @@ let pendingDirectLinkOrderId = null;
          Approvals se quedaban con el tecnico/fecha viejos hasta
          recargar toda la pagina. Ahora los dos de un jalon. */
       await Promise.all([loadOrdersQueue(), loadAll()]);
+      /* Asignar completa los 3 datos que faltaban -- la orden sale de
+         la cola de Scheduling y cae en Active (isFullyScheduled), no
+         se queda aqui. Por eso el enrutador general, no el de
+         Scheduling: sigue a la orden a donde de verdad quedo. */
+      await showOrderWherever(orderId);
+      GSLoadingSplash.hide();
     } catch (e) {
       errEl.textContent = e.message;
     }
@@ -12661,7 +12683,12 @@ let pendingDirectLinkOrderId = null;
       /* Mismo motivo que en submitAssignment: quitar una asignacion
          tambien debe reflejarse fuera de Scheduling de inmediato. */
       await Promise.all([scheduleRefresh, loadAll()]);
-      GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
+      /* A diferencia de submitAssignment, esta SI se queda en
+         Scheduling (vuelve a la cola sin asignar) -- el usuario ya
+         esta viendo esa pantalla al darle clic aqui, asi que se
+         reabre ahi mismo en vez de mandarlo a otro tab. */
+      if (!activeTab || activeTab.dataset.tab !== 'review') reopenAndFlashQueueOrder(orderId);
+      GSLoadingSplash.hide();
     } catch (e) {
       GSLoadingSplash.hide();
       alert('Error: ' + e.message);
