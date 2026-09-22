@@ -995,6 +995,7 @@
 
 
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.46.0/live-refresh/live-refresh.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.46.0/loading-splash/loading-splash.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.6/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.31.0/gallery-groups/gallery-groups.js"></script>
@@ -2700,24 +2701,25 @@ function statusClass(s) {
 }
 
 /* Se llama justo antes de empezar una accion que guarda/cambia algo
-   (aprobar, guardar edicion, asignar en Scheduling, etc) -- oscurece
-   la pantalla completa con el logo y "Loading…" mientras se espera
-   la respuesta del servidor. showToast() reusa este mismo overlay
-   para mostrar el resultado final, sin parpadeo entre los dos. */
+   (aprobar, guardar edicion, asignar en Scheduling, etc) --
+   gsocd-shared/loading-splash (GSLoadingSplash) cubre la pantalla
+   con el logo real mientras se espera la respuesta del servidor.
+   Sin duracion propia -- dura exactamente lo que tarde la llamada
+   real. Los 6 lugares que ya llamaban a esta funcion no cambiaron,
+   solo lo que hace por dentro. showToast() SIEMPRE se llama despues
+   (exito o error, ver los catch de cada flujo), asi que ahi mismo
+   se apaga el splash -- nunca se quedan los dos encimados. */
 function showLoadingOverlay(text) {
-  const el = document.getElementById('action-overlay');
-  const msg = document.getElementById('action-overlay-msg');
-  clearTimeout(window.__overlayTimer);
-  el.classList.add('loading');
-  msg.textContent = text || 'Loading…';
-  el.classList.add('show');
+  GSLoadingSplash.show({ text: text || 'Loading…' });
 }
 
 function hideActionOverlay() {
+  GSLoadingSplash.hide();
   document.getElementById('action-overlay').classList.remove('show', 'loading');
 }
 
 function showToast(msg) {
+  GSLoadingSplash.hide();
   const el = document.getElementById('action-overlay');
   const msgEl = document.getElementById('action-overlay-msg');
   el.classList.remove('loading');
