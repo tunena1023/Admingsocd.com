@@ -2382,8 +2382,13 @@ function buildOrderActivitySignature(orders) {
   return sig;
 }
 
-function applyLiveOrderUpdate(freshOrder) {
-  const card = document.querySelector('.order-card[data-order="' + CSS.escape(freshOrder.OrderID) + '"]');
+async function applyLiveOrderUpdate(freshOrder) {
+  /* BUG REAL (encontrado 21/09/2026 revisando por que nunca reabria
+     nada): el selector decia data-order, el atributo real que pinta
+     orderCard() es data-order-id -- nunca coincidia con nada, esta
+     funcion SIEMPRE caia al fallback de repintar toda la lista, en
+     silencio, sin que nadie se diera cuenta. */
+  const card = document.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
   const stillActive = ACTIVE_STATUSES.includes(freshOrder.Status)
     || (NEW_ORDER_STATUSES.includes(freshOrder.Status) && isFullyScheduled(freshOrder));
   /* Solo el camino rapido si la tarjeta ya existe COMO STANDALONE en
@@ -2395,8 +2400,16 @@ function applyLiveOrderUpdate(freshOrder) {
   const wrap = document.createElement('div');
   wrap.innerHTML = orderCard(freshOrder, 'active');
   const fresh = wrap.firstElementChild;
-  if (wasOpen) fresh.querySelector('.order-body')?.classList.add('open');
   card.replaceWith(fresh);
+  if (wasOpen) {
+    /* La tarjeta nueva sale siempre vacia por dentro (orderCard()
+       pinta el order-body en blanco a proposito, el contenido se
+       carga solo al abrir) -- si estaba abierta, hay que pedirlo de
+       verdad, si no se ve "abierta" pero vacia por dentro. */
+    const body = fresh.querySelector('.order-body');
+    body.classList.add('open');
+    await loadOrderBody(freshOrder.OrderID, 'active', body);
+  }
   GSLiveRefresh.flashElement(fresh);
   return true;
 }
@@ -2431,7 +2444,7 @@ function startOrderActivityPolling() {
       let needsFullRepaint = false;
       for (const id of changedIds) {
         const freshOrder = newSnap.orders.find(o => o.OrderID === id);
-        if (!freshOrder || !applyLiveOrderUpdate(freshOrder)) needsFullRepaint = true;
+        if (!freshOrder || !(await applyLiveOrderUpdate(freshOrder))) needsFullRepaint = true;
       }
       if (needsFullRepaint) paintActive(activeOf(''));
     }
@@ -8356,6 +8369,34 @@ async function loadOrderBody(orderId, context, body) {
    Approvals/Review): un clic sencillo se ignoraba por completo si la
    tarjeta estaba fijada -- se sentia trabada. Un clic sencillo ahora
    SIEMPRE puede cerrar (y desfijar) la que este abierta. */
+/* Se llama despues de una accion del USUARIO (markCompleted, markSeen,
+   etc, no del polling de fondo -- ver applyLiveOrderUpdate para ese
+   caso) que ya hizo loadAll(): todo se vuelve a pintar cerrado, sin
+   excepcion (cardOpenState nunca se leia para reabrir nada solo, ese
+   era justo el punto de "el logo de carga debe significar que la
+   info se actualiza, no un adorno" -- confirmado con el dueno,
+   21/09/2026). Reabre esa orden puntual, carga su contenido de
+   verdad (loadOrderBody, igual que toggleOrder) y la destella --
+   asi el usuario VE el cambio reflejado en la misma orden que acaba
+   de tocar, no un listado generico cerrado. Si la orden ya no vive
+   en ese context (cambio de tab por el mismo cambio de estatus), no
+   truena, simplemente no hace nada mas. */
+async function reopenAndFlashOrder(orderId, context) {
+  const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(id);
+  if (!body) return;
+  const st = cardOpenState(context);
+  closeOtherCards(context, orderId);
+  body.classList.add('open');
+  st.open = orderId;
+  await loadOrderBody(orderId, context, body);
+  const card = body.closest('.order-card');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    GSLiveRefresh.flashElement(card);
+  }
+}
+
 async function toggleOrder(orderId, context, headerEl) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
@@ -8760,6 +8801,7 @@ async function markSeen(orderId) {
     });
     showToast('Order ' + orderId + ' marked as seen.');
     await loadAll();
+    await reopenAndFlashOrder(orderId, 'active');
   } catch (e) {
     showToast('Error: ' + e.message);
   }
@@ -10065,6 +10107,7 @@ async function markCompleted(orderId) {
     await api('/admin-update-order', { body });
     showToast('Order ' + orderId + ' marked as Completed.');
     await loadAll();
+    await reopenAndFlashOrder(orderId, 'active');
   } catch (e) {
     showToast('Error: ' + e.message);
   }
