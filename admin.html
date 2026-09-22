@@ -9830,7 +9830,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
                  como span de solo lectura, no tiene sentido navegar
                  desde esos. */
               sr.label === 'Needs scheduling'
-                ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap;cursor:pointer;text-decoration:underline" onclick="goToScheduleForOrder(\'' + jsStr(o.OrderID) + '\')" title="Go to Scheduling">' + esc(sr.label) + '</span>'
+                ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap;cursor:pointer;text-decoration:underline" onclick="goToScheduleForOrder(\'' + jsStr(o.OrderID) + '\',\'' + jsStr((sr.svc && sr.svc.Category) || '') + '\',\'' + jsStr((sr.svc && sr.svc.ServiceName) || '') + '\')" title="Go to Scheduling">' + esc(sr.label) + '</span>'
                 : '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap">' + esc(sr.label) + '</span>'
             ) : '') + completeBtnHtml + '</td>'
           : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
@@ -12245,8 +12245,18 @@ function cancelCreate() {
    SCHEDULING -- fusionado desde schedule.html (paginа aparte antes,
    ahora panel dentro de admin.html como todo lo demas).
 ============================================================ */
-function goToScheduleForOrder(orderId) {
+/* cat/name opcionales (22/09/2026, a peticion del dueño: "que el
+   servicio ya este seleccionado y muestre las personas, nomas para
+   darle clic, seleccionar fecha y assign") -- si se dan, dejan
+   svcOpenKey ya puesto ANTES de navegar. svcOpenKey se revisa cada
+   vez que se pinta la cola de asignacion por servicio (isOpen =
+   svcOpenKey === key, ver leftRowsHtml mas abajo), asi que no hace
+   falta llamar a nada mas aparte -- en cuanto la orden se abre y su
+   cola de servicios se pinta por primera vez, ese renglon ya sale
+   expandido solo, con la lista de tecnicos lista para elegir. */
+function goToScheduleForOrder(orderId, cat, name) {
   pendingDirectLinkOrderId = orderId;
+  if (cat && name) svcOpenKey = svcKeyOf(orderId, cat, name);
   /* Si esta es la PRIMERA vez que se abre Schedule en esta sesion,
      showTab() de abajo dispara onScheduleTabOpened(), que YA por su
      cuenta abre el sub-tab 'orders' (ver esa funcion) -- eso consume
