@@ -5281,9 +5281,22 @@ function reopenAndFlashBatch(batchId, context) {
    (el contenido ya esta armado inline con las unidades adentro), solo
    muestra/oculta con la misma exclusividad que las demas tarjetas. */
 function toggleBatchCard(groupOrderId, context) {
+  /* DIAGNOSTICO TEMPORAL (22/09/2026) -- quitar en cuanto se
+     encuentre la causa real del PO que no abre en movil. Confirma
+     si el toque de verdad esta llamando a esta funcion o si se
+     esta quedando en algo antes de llegar aqui. */
+  const diag = document.createElement('div');
+  diag.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#2A7A4A;color:#fff;font-family:monospace;font-size:12px;padding:10px 16px';
+  diag.textContent = 'toggleBatchCard SI se llamo. id=' + groupOrderId + ' context=' + context + ' (toca para cerrar)';
+  diag.onclick = () => diag.remove();
+  document.body.appendChild(diag);
+
   const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
-  if (!body) return;
+  if (!body) {
+    diag.textContent += ' -- body NO se encontro con id=' + id;
+    return;
+  }
   const st = cardOpenState(context);
   const isOpen = body.classList.contains('open');
   if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; delete st.pinned[groupOrderId]; return; }
