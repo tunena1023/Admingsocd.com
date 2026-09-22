@@ -3299,6 +3299,7 @@ function pinApprCard(orderId, context, headerEl) {
   if (pinEl) pinEl.innerHTML = ' &#128274;';
   body.style.display = '';
   st.open = orderId;
+  markOrderSeen(orderId);
 }
 
 function approvalsOf(q) {
@@ -8644,6 +8645,7 @@ async function pinOrder(orderId, context, headerEl) {
   if (pinEl) pinEl.innerHTML = ' &#128274;';
   body.classList.add('open');
   st.open = orderId;
+  markOrderSeen(orderId);
   await loadOrderBody(orderId, context, body);
 }
 
