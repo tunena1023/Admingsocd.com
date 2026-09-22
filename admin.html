@@ -137,6 +137,13 @@
     .order-card-header:hover { background: var(--bg); }
     .order-id { font-weight: 600; font-size: 15px; }
     .order-pin { font-size: 12px; }
+    /* Marcado persistente de "sin ver" (21/09/2026) -- distinto al
+       destello de live-refresh (se apaga solo a los ~900ms): este se
+       queda hasta que EL USUARIO que lo ve abre la orden. */
+    .order-unseen-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
+      flex-shrink: 0; box-shadow: 0 0 0 2px rgba(201,168,76,.25);
+    }
     .order-meta { font-size: 12px; color: var(--gray); margin-top: 3px; }
     /* El CSS de .order-photo-strip/.order-photo-thumb/.order-photo-more
        y .gs-hover-preview-overlay ahora vive en gsocd-shared/
@@ -2297,7 +2304,7 @@ function showHistorySubTab(tab) {
 async function loadAll() {
   try {
     const [ordersRes, clientsRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes, galleryRes] = await Promise.all([
-      api('/admin-get-orders', { body: {} }),
+      api('/admin-get-orders', { body: { viewerId: adminUser.email } }),
       api('/admin-get-clients', { body: {} }),
       api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
       api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] })),
@@ -2421,7 +2428,7 @@ function startOrderActivityPolling() {
   liveRefreshWatcher = GSLiveRefresh.watch({
     intervalMs: 30000,
     checkFn: async () => {
-      const res = await api('/admin-get-orders', { body: {} });
+      const res = await api('/admin-get-orders', { body: { viewerId: adminUser.email } });
       return { sig: buildOrderActivitySignature(res.orders || []), orders: res.orders || [] };
     },
     hasChanged: (oldSnap, newSnap) => {
@@ -3249,6 +3256,7 @@ function toggleApprCard(orderId, context, headerEl) {
   if (!st.pinned[orderId]) closeOtherApprCards(context, orderId);
   body.style.display = '';
   st.open = orderId;
+  markOrderSeen(orderId);
 }
 
 function pinApprCard(orderId, context, headerEl) {
@@ -3624,6 +3632,7 @@ function approvalCard(o) {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
+          ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
           <span class="appr-kind ${kind.cls}">${kind.label}</span>
         </div>
@@ -5044,7 +5053,10 @@ function batchOrderGroupCard(batchId, units, context) {
           <div class="order-id">PO #${esc(clientId + '-' + batchId)}<span class="order-pin"></span></div>
           <div class="order-meta">${units.length} units${poGroupDateLabel(units) ? ' · ' + poGroupDateLabel(units) : ''}</div>
         </div>
-        <span style="font-size:11px;color:var(--gray)">▼</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${units.some(o => o.Unseen) ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
+          <span style="font-size:11px;color:var(--gray)">▼</span>
+        </div>
       </div>
       <div class="order-body" id="${id}" style="padding:16px">
         ${contextCan(context, 'addUnit') ? addUnitWidgetHtml(clientId, batchId, context) : ''}
@@ -5084,6 +5096,10 @@ function toggleBatchCard(groupOrderId, context) {
   if (!st.pinned[groupOrderId]) closeOtherCards(context, groupOrderId);
   body.classList.add('open');
   st.open = groupOrderId;
+  /* El grupo no tiene su propio OrderID real -- su punto sale de si
+     ALGUNA unidad de adentro esta sin ver (ver batchOrderGroupCard),
+     asi que aqui se marcan las unidades reales, no un id inventado. */
+  body.querySelectorAll('.order-card[data-order-id]').forEach(card => markOrderSeen(card.dataset.orderId));
 }
 
 function paintActive(list) {
@@ -5558,6 +5574,12 @@ function renderRecurringList() {
 function toggleContractCard(id) {
     openCardId = (openCardId === id) ? null : id;
     renderRecurringList();
+    /* Solo si de verdad se acaba de ABRIR (no cerrar). Backend
+       pendiente -- developer-admin.js (list-recurring-services)
+       todavia no calcula Unseen para contratos, asi que por ahora
+       esta llamada no truena nada pero tampoco quita ningun punto
+       (no hay ninguno que mostrar todavia). */
+    if (openCardId === id) markOrderSeen(id);
   }
 
   /* Mismo patron que reopenAndFlashOrder (Active) y reloadAndReopen
@@ -8387,6 +8409,7 @@ function orderCard(o, context, qbInfo) {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
+          ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
           <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
         </div>
       </div>
@@ -8545,7 +8568,23 @@ async function toggleOrder(orderId, context, headerEl) {
   if (!st.pinned[orderId]) closeOtherCards(context, orderId);
   body.classList.add('open');
   st.open = orderId;
+  markOrderSeen(orderId);
   await loadOrderBody(orderId, context, body);
+}
+
+/* Avisa al backend que ESTE usuario ya vio la orden, y quita el
+   punto dorado de inmediato en pantalla (sin esperar la respuesta --
+   si la llamada falla, el peor caso es que el punto reaparezca en el
+   proximo refresh, nunca un error visible por esto). No se espera
+   (sin await en quien la llama) -- abrir la tarjeta no debe sentirse
+   mas lento por esto. */
+function markOrderSeen(orderId) {
+  const o = allOrders.find(x => x.OrderID === orderId);
+  if (o) o.Unseen = false;
+  document.querySelectorAll('.order-card[data-order-id="' + CSS.escape(orderId) + '"] .order-unseen-dot')
+    .forEach(dot => dot.remove());
+  api('/admin-mark-order-seen', { body: { orderId, viewerId: adminUser.email } })
+    .catch(err => console.error('No se pudo marcar como visto:', err.message));
 }
 
 async function pinOrder(orderId, context, headerEl) {
@@ -11824,7 +11863,7 @@ let pendingDirectLinkOrderId = null;
     box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const [ordersRes, schedulingRes, hoursRes] = await Promise.all([
-        api('/admin-get-orders', { method: 'POST', body: {} }),
+        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } }),
         api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
         api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
       ]);
@@ -11954,7 +11993,10 @@ let pendingDirectLinkOrderId = null;
             })}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
-          <span style="font-size:11px;color:var(--gray);flex-shrink:0">▾</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            ${o.Unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : ''}
+            <span style="font-size:11px;color:var(--gray)">▾</span>
+          </div>
         </div>
         <div class="order-body" id="order-body-${escAttr(o.OrderID)}"></div>
       </div>`;
@@ -12001,6 +12043,7 @@ let pendingDirectLinkOrderId = null;
     body.innerHTML = assignFormHtml(order);
     body.classList.add('open');
     openOrderCard = orderId;
+    markOrderSeen(orderId);
 
     /* BUG REAL encontrado en produccion (21/09/2026): si la orden YA
        tenia "Assign by service" prendido de antes, assignFormHtml
@@ -12752,7 +12795,7 @@ let pendingDirectLinkOrderId = null;
     try {
       const [reviewRes, ordersRes] = await Promise.all([
         api('/developer-admin', { body: { action: 'list-orphaned-assignments', email: adminUser.email } }),
-        api('/admin-get-orders', { method: 'POST', body: {} })
+        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } })
       ]);
       const orderById = {};
       (ordersRes.orders || []).forEach(o => { orderById[o.OrderID] = o; });
@@ -12845,7 +12888,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 async function loadRouting() {
   try {
     const [ordersRes, schedulingRes] = await Promise.all([
-      api('/admin-get-orders', { method: 'POST', body: {} }),
+      api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } }),
       api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } })
     ]);
     const scheduledIds = new Set((schedulingRes.items || []).map(s => s.OrderID));

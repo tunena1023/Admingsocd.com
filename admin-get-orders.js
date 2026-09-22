@@ -1,9 +1,30 @@
 /* admin-get-orders.js — todas las órdenes (sin filtro de cliente) */
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, CLIENTS_LIST, CLIENT_ADDRESSES_LIST,
-  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, SERVICE_ASSIGNMENTS_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, SERVICE_ASSIGNMENTS_LIST, ORDER_SEEN_BY_LIST,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
+const { unseenIds } = require('gsocd-shared/lib/seen-tracking');
+
+/* Todos los renglones de OrderSeenBy de ESTE viewer -- no esta
+   indexada por columna (lista nueva), mismo header que ya usa
+   get-order-detail.js para ServiceAssignments. Si viewerId viene
+   vacio (llamada vieja sin actualizar, o algo fallo del lado del
+   frontend), regresa vacio y ninguna orden se marca -- nunca truena
+   la carga completa por esto. */
+async function fetchSeenMap(viewerId) {
+  if (!viewerId) return {};
+  const filter = encodeURIComponent(`fields/ViewerId eq '${viewerId}'`);
+  const map = {};
+  let url = siteListPath(ORDER_SEEN_BY_LIST) + `?$expand=fields&$top=200&$filter=${filter}`;
+  const opts = { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } };
+  while (url) {
+    const data = await graphFetch(url, opts);
+    (data.value || []).forEach(it => { map[it.fields.OrderID] = it.fields.SeenAt; });
+    url = data['@odata.nextLink'] || null;
+  }
+  return map;
+}
 
 function truthy(v) { return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes'; }
 
@@ -106,7 +127,8 @@ function computeNowOpenStatus(place, holidayToday, now) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const [rows, svcRows, clientRows, buildingRows, holidayRows, choiceRows, assignmentRows] = await Promise.all([
+    const viewerId = String(JSON.parse(event.body || '{}').viewerId || '').trim();
+    const [rows, svcRows, clientRows, buildingRows, holidayRows, choiceRows, assignmentRows, seenMap] = await Promise.all([
       fetchAll(ORDERS_LIST),
       fetchAll(ORDER_SERVICES_LIST),
       fetchAll(CLIENTS_LIST),
@@ -120,7 +142,8 @@ exports.handler = async (event) => {
          varias veces durante el mini: la cola de Scheduling nunca
          deja de mostrar una orden solo porque su primer servicio ya
          la mando a Active, mientras le falte algo por programar. */
-      fetchAll(SERVICE_ASSIGNMENTS_LIST).catch(err => { console.error('admin-get-orders: fetch de ServiceAssignments fallo (no fatal):', err); return []; })
+      fetchAll(SERVICE_ASSIGNMENTS_LIST).catch(err => { console.error('admin-get-orders: fetch de ServiceAssignments fallo (no fatal):', err); return []; }),
+      fetchSeenMap(viewerId).catch(err => { console.error('admin-get-orders: fetch de OrderSeenBy fallo (no fatal):', err); return {}; })
     ]);
 
     /* Resumen de servicios por orden, para poder filtrar por servicio
@@ -320,6 +343,15 @@ exports.handler = async (event) => {
         };
       })
       .sort((a,b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));
+
+    /* Marcado persistente por usuario (21/09/2026) -- distinto al
+       destello de live-refresh, que se apaga solo. Esto se queda
+       marcado hasta que ESTE viewer, por su cuenta, abra la orden
+       (ver admin-mark-order-seen.js). Si viewerId vino vacio,
+       seenMap ya es {} y unseen aqui sale false para todas. */
+    const unseenSet = unseenIds(orders, seenMap);
+    orders.forEach(o => { o.Unseen = unseenSet.has(o.OrderID); });
+
     return jsonResponse(200, { orders });
   } catch(e) {
     return jsonResponse(500, { error: e.message });

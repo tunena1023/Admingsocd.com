@@ -6,6 +6,6 @@
     "xlsx": "0.18.5",
     "web-push": "3.6.7",
     "heic-convert": "2.1.0",
-    "gsocd-shared": "github:tunena1023/gsocd-shared#v1.35.0"
+    "gsocd-shared": "github:tunena1023/gsocd-shared#v1.48.0"
   }
 }
