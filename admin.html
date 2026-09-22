@@ -5407,6 +5407,11 @@ async function saveRecurring() {
         }
       });
       GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
+      /* Solo se puede reabrir si YA se estaba editando un contrato
+         existente -- si era uno nuevo, esta llamada no guarda el ID
+         que regresa el backend, no hay forma de saber cual reabrir
+         sin cambiar tambien como se maneja la respuesta aqui. */
+      const savedContractId = editingServiceId;
       editingServiceId = null;
       document.getElementById('rc-client').value = '';
       document.getElementById('rc-building').value = '';
@@ -5417,7 +5422,7 @@ async function saveRecurring() {
       document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
       document.getElementById('cancel-edit-btn').style.display = 'none';
       addAssignRow();
-      loadRecurringList();
+      if (savedContractId) reopenAndFlashContract(savedContractId); else loadRecurringList();
     } catch (e) {
       GSLoadingSplash.hide();
       errEl.textContent = e.message;
@@ -5524,6 +5529,22 @@ function toggleContractCard(id) {
     renderRecurringList();
   }
 
+  /* Mismo patron que reopenAndFlashOrder (Active) y reloadAndReopen
+     (Clients), adaptado a la "chapa" de Recurring: aqui no hay
+     cardOpenState por contexto ni body lazy-cargado, solo la
+     variable openCardId que renderRecurringList() ya lee para saber
+     que tarjeta pintar abierta. */
+  function reopenAndFlashContract(id) {
+    openCardId = id;
+    renderRecurringList();
+    const body = document.getElementById('rc-body-' + id);
+    const card = body ? body.closest('.rc-card') : null;
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      GSLiveRefresh.flashElement(card);
+    }
+  }
+
 /* La tarjeta de "crear contrato" ahora es colapsable, igual que las
    de Clientes -- antes se quedaba siempre abierta, ocupando espacio
    permanentemente aunque nadie estuviera creando nada. */
@@ -5542,7 +5563,7 @@ async function deactivateContract(id) {
     try {
       await api('/developer-admin', { body: { action: 'deactivate-recurring-service', email: adminUser.email, recurringServiceId: id } });
       GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
-      loadRecurringList();
+      reopenAndFlashContract(id);
     } catch (e) {
       GSLoadingSplash.hide();
       alert('Could not deactivate: ' + e.message);
@@ -5555,7 +5576,7 @@ async function toggleActive(id, active) {
     try {
       await api('/developer-admin', { body: { action: 'toggle-recurring-active', email: adminUser.email, recurringServiceId: id, active } });
       GSLoadingSplash.hide(); // esta funcion no usa showToast, no se apaga sola
-      loadRecurringList();
+      reopenAndFlashContract(id);
     } catch (e) {
       GSLoadingSplash.hide();
       alert('Error: ' + e.message);
