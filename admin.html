@@ -5562,6 +5562,7 @@ function renderRecurringList() {
           '<div><div class="rc-name">' + esc(clientName) + (s.buildingNumber ? ' — Bldg ' + esc(s.buildingNumber) : '') + '</div>' +
           '<div class="rc-meta">' + esc(s.daysOfWeek) + ', ' + esc(s.time) + ' · ' + esc(peopleStr) + expHtml + '</div></div>' +
           '<div class="rc-right">' +
+            (s.unseen ? '<span class="order-unseen-dot" title="Update since you last opened this"></span>' : '') +
             '<span class="rc-badge' + (s.active ? '' : ' inactive') + '">' + (s.active ? 'Active' : 'Inactive') + '</span>' +
             '<span class="rc-arrow' + (isOpen ? ' open' : '') + '">▸</span>' +
           '</div>' +
@@ -5572,14 +5573,13 @@ function renderRecurringList() {
   }
 
 function toggleContractCard(id) {
-    openCardId = (openCardId === id) ? null : id;
+    const opening = openCardId !== id;
+    openCardId = opening ? id : null;
+    /* markOrderSeen ANTES de repintar -- si no, el repintado usa
+       rcServicesCache todavia con unseen viejo y el punto se queda
+       hasta el siguiente refresh de datos. */
+    if (opening) markOrderSeen(id);
     renderRecurringList();
-    /* Solo si de verdad se acaba de ABRIR (no cerrar). Backend
-       pendiente -- developer-admin.js (list-recurring-services)
-       todavia no calcula Unseen para contratos, asi que por ahora
-       esta llamada no truena nada pero tampoco quita ningun punto
-       (no hay ninguno que mostrar todavia). */
-    if (openCardId === id) markOrderSeen(id);
   }
 
   /* Mismo patron que reopenAndFlashOrder (Active) y reloadAndReopen
@@ -8581,6 +8581,13 @@ async function toggleOrder(orderId, context, headerEl) {
 function markOrderSeen(orderId) {
   const o = allOrders.find(x => x.OrderID === orderId);
   if (o) o.Unseen = false;
+  /* Los contratos recurrentes no viven en allOrders (su id es .id,
+     no .OrderID) -- se limpia aparte aqui mismo para que quien llame
+     a esto no tenga que saber cual de las dos cosas es. */
+  if (typeof rcServicesCache !== 'undefined') {
+    const s = (rcServicesCache || []).find(x => x.id === orderId);
+    if (s) s.unseen = false;
+  }
   document.querySelectorAll('.order-card[data-order-id="' + CSS.escape(orderId) + '"] .order-unseen-dot')
     .forEach(dot => dot.remove());
   api('/admin-mark-order-seen', { body: { orderId, viewerId: adminUser.email } })

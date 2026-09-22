@@ -29,12 +29,34 @@ const {
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
   HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST,
   ORDERS_FOLDER, findFolderByPrefix, listChildren, deleteDriveItemById,
+  ORDER_SEEN_BY_LIST,
   graphFetch, siteListPath, queryList,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
 } = require('./lib/graph');
 
 const { ensureRecurringOrders, propagateContractEdit } = require('./lib/recurring-orders');
+const { unseenIds } = require('gsocd-shared/lib/seen-tracking');
+
+/* Mismo criterio que admin-get-orders.js -- OrderSeenBy no esta
+   indexada por columna (lista nueva), mismo header que ya usa
+   get-order-detail.js para ServiceAssignments. El nombre de columna
+   sigue siendo OrderID aunque aqui guarde el id de un CONTRATO
+   recurrente, no de una orden -- es solo un identificador de texto,
+   seen-tracking.js no le importa que represente. */
+async function fetchSeenMap(viewerId) {
+  if (!viewerId) return {};
+  const filter = encodeURIComponent(`fields/ViewerId eq '${viewerId}'`);
+  const map = {};
+  let url = siteListPath(ORDER_SEEN_BY_LIST) + `?$expand=fields&$top=200&$filter=${filter}`;
+  const opts = { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } };
+  while (url) {
+    const data = await graphFetch(url, opts);
+    (data.value || []).forEach(it => { map[it.fields.OrderID] = it.fields.SeenAt; });
+    url = data['@odata.nextLink'] || null;
+  }
+  return map;
+}
 
 /* A peticion del dueño (20/09/2026): si alguien con ordenes futuras
    asignadas se desactiva (en Techs & Roles, o solo por el reporte de
@@ -1570,12 +1592,21 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-recurring-services') {
-      const [services, assignments, employees, logRows] = await Promise.all([
+      const [services, assignments, employees, logRows, seenMap] = await Promise.all([
         fetchAll(RECURRING_SERVICES_LIST),
         fetchAll(RECURRING_ASSIGNMENTS_LIST),
         fetchAll(FIELD_EMPLOYEES_LIST),
-        fetchAll(RECURRING_LOG_LIST)
+        fetchAll(RECURRING_LOG_LIST),
+        fetchSeenMap(email).catch(err => { console.error('list-recurring-services: fetch de OrderSeenBy fallo (no fatal):', err); return {}; })
       ]);
+      /* Marcado persistente "visto por usuario" (21/09/2026, mismo
+         criterio que admin-get-orders.js) -- se calcula contra los
+         renglones CRUDOS (services), antes del .map de abajo, porque
+         ahi es donde vive lastModifiedDateTime. */
+      const unseenSet = unseenIds(
+        services.filter(it => it.fields).map(it => ({ OrderID: it.id, lastModifiedDateTime: it.lastModifiedDateTime })),
+        seenMap
+      );
 
       const nameByPayroll = {};
       employees.forEach(it => {
@@ -1620,7 +1651,8 @@ exports.handler = async (event) => {
           anchorDate: f.AnchorDate || '',
           active: truthy(f.Active),
           assignments: myAssignments,
-          pendingConfirmCount: pendingByService[String(it.id)] || 0
+          pendingConfirmCount: pendingByService[String(it.id)] || 0,
+          unseen: unseenSet.has(it.id)
         };
       });
 
