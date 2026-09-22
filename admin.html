@@ -1985,6 +1985,24 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script>
+/* Muestra cualquier error de JavaScript directo en pantalla (22/09/2026,
+   a peticion del dueño -- "en serio crees que no hice eso?", tras un
+   bug movil que no se pudo reproducir ni con clic sintetico ni con
+   toque real simulado). No se queda esperando a que alguien tenga
+   como conectar el celular a chrome://inspect -- el error se lee
+   directo en la pantalla, se puede mandar screenshot de una vez. No
+   se auto-cierra solo (a diferencia del toast normal), para dar
+   tiempo de leerlo o copiarlo. */
+window.addEventListener('error', function (e) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;' +
+    'background:#B33A3A;color:#fff;font-family:monospace;font-size:12px;' +
+    'padding:12px 16px;white-space:pre-wrap;word-break:break-word;' +
+    'box-shadow:0 2px 8px rgba(0,0,0,.3)';
+  el.textContent = 'JS error: ' + e.message + '\n' + (e.filename || '') + ':' + e.lineno + ':' + e.colno + '\n(toca aqui para cerrar)';
+  el.onclick = () => el.remove();
+  document.body.appendChild(el);
+});
 GSOrderFormPremium.styleTag();
 GSPhotoHoverPreview.setup();
 /* ============================================================
