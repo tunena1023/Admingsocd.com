@@ -5076,13 +5076,39 @@ function renderSortFilterToolbar(prefix, fullList, onChangeFn) {
     </div>`;
 }
 
+/* BUG REAL encontrado por el dueño (22/09/2026, tras insistir en
+   revisar el panorama completo en vez de solo el clic de la
+   tarjeta): esto agrupaba usando SOLO la lista ya filtrada por cada
+   tab (activeOf()/historyOf()/etc) -- si un PO tiene varias ordenes
+   y no TODAS comparten el mismo estatus todavia (una ya Completed,
+   otra sigue Active), el grupo se pintaba en History con solo la
+   unidad que si califica ahi, dejando a las demas invisibles en ese
+   grupo (viven en su propio grupo, aparte, dentro de Active) --
+   visualmente parecia "una tarjeta de PO que no abre bien", cuando
+   en realidad mostraba una serie incompleta a proposito.
+
+   Regla real, tal como la explico el dueño: cuando se marca algo
+   completado, esa orden sola pasa a su tab -- el PO como grupo
+   agrupado SOLO debe pintarse una vez que TODA la serie (todos los
+   OrderID que comparten ese BatchId, sin importar en que tab
+   individualmente calificarian) esta en el mismo tab/estatus. Si la
+   serie esta a medias, cada orden se pinta suelta (standalone) en su
+   propio tab, nunca agrupada a medias.
+
+   Se checa contra el global allOrders (todas las ordenes, sin
+   filtrar por tab) para saber si la serie completa de un batch esta
+   presente en la lista YA FILTRADA que se esta pintando ahorita. */
 function groupByBatch(orders) {
   const standalone = [];
   const groupsMap = {};
   const groupOrder = [];
+  const idsEnEstaLista = new Set(orders.map(o => o.OrderID));
   orders.forEach(o => {
     const bid = o.BatchId || '';
     if (!bid) { standalone.push(o); return; }
+    const serieCompleta = allOrders.filter(x => x.BatchId === bid);
+    const serieAlineada = serieCompleta.every(x => idsEnEstaLista.has(x.OrderID));
+    if (!serieAlineada) { standalone.push(o); return; }
     if (!groupsMap[bid]) { groupsMap[bid] = []; groupOrder.push(bid); }
     groupsMap[bid].push(o);
   });
@@ -5281,21 +5307,11 @@ function reopenAndFlashBatch(batchId, context) {
    (el contenido ya esta armado inline con las unidades adentro), solo
    muestra/oculta con la misma exclusividad que las demas tarjetas. */
 function toggleBatchCard(groupOrderId, context) {
-  /* DIAGNOSTICO TEMPORAL v2 -- chico, en una esquina, para no tapar
-     la tarjeta real y poder ver los dos en la misma foto. */
-  const diag = document.createElement('div');
-  diag.style.cssText = 'position:fixed;bottom:8px;right:8px;left:8px;z-index:999999;background:rgba(0,0,0,.85);color:#0f0;font-family:monospace;font-size:10px;padding:8px;border-radius:6px;max-height:35vh;overflow:auto';
-  diag.textContent = 'toggleBatchCard: groupOrderId=' + groupOrderId + ' real batchId visto=' + JSON.stringify(groupOrderId);
-  diag.onclick = () => diag.remove();
-  document.body.appendChild(diag);
-
   const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
   const body = document.getElementById(id);
-  if (!body) { diag.textContent += ' | body NO encontrado con id=' + id; return; }
+  if (!body) return;
   const st = cardOpenState(context);
   const isOpen = body.classList.contains('open');
-  const groupCardCheck = document.querySelectorAll('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
-  diag.textContent += ' | isOpen=' + isOpen + ' | tarjetas con ese data-order-id encontradas: ' + groupCardCheck.length;
   if (isOpen) { body.classList.remove('open'); if (st.open === groupOrderId) st.open = null; delete st.pinned[groupOrderId]; return; }
   if (!st.pinned[groupOrderId]) closeOtherCards(context, groupOrderId);
   body.classList.add('open');
@@ -5311,10 +5327,6 @@ function toggleBatchCard(groupOrderId, context) {
   body.querySelectorAll('.order-card[data-order-id]').forEach(card => markOrderSeen(card.dataset.orderId));
   const groupCard = body.closest('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
   if (groupCard) groupCard.classList.remove('unseen');
-  diag.textContent += ' | groupCard encontrado=' + !!groupCard + ' | groupCard.className final=' + (groupCard ? groupCard.className : 'N/A') + ' | body.className final=' + body.className + ' | body display=' + getComputedStyle(body).display;
-  setTimeout(() => {
-    diag.textContent += ' || 2s DESPUES -- body.className=' + body.className + ' display=' + getComputedStyle(body).display + (groupCard ? ' groupCard.className=' + groupCard.className : '');
-  }, 2000);
 }
 
 function paintActive(list) {
@@ -5357,27 +5369,14 @@ function historyOf(q) {
   return list.filter(o => String(o.OrderID||'').toLowerCase().includes(q));
 }
 
-let __paintHistoryCallCount = 0;
 function paintHistory(list) {
-  __paintHistoryCallCount++;
-  const thisCall = __paintHistoryCallCount;
   const box = document.getElementById('history-list');
   if (!box) return;
   if (!list.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
   const { standalone, groupsMap, groupOrder } = groupByBatch(list);
-  /* DIAGNOSTICO TEMPORAL -- ver cuantas veces aparece PO5000 en groupOrder
-     ANTES de pintar, para saber si el duplicado ya viene de groupByBatch
-     o se genera despues. */
-  const vecesPO5000enGroupOrder = groupOrder.filter(b => b === 'PO5000').length;
   box.innerHTML =
     groupOrder.map(bid => batchOrderGroupCard(bid, groupsMap[bid], 'history')).join('') +
     standalone.map(o => orderCard(o, 'history')).join('');
-  const encontradasDespues = box.querySelectorAll('.order-card[data-order-id="batch-PO5000"]').length;
-  const diag = document.createElement('div');
-  diag.style.cssText = 'position:fixed;bottom:8px;left:8px;right:8px;z-index:999998;background:rgba(80,0,80,.9);color:#0ff;font-family:monospace;font-size:10px;padding:6px;border-radius:6px';
-  diag.textContent = 'paintHistory llamada #' + thisCall + ' | PO5000 en groupOrder: ' + vecesPO5000enGroupOrder + ' | tarjetas PO5000 en el DOM despues de pintar: ' + encontradasDespues + ' | list.length=' + list.length;
-  diag.onclick = () => diag.remove();
-  document.body.appendChild(diag);
 }
 
 function renderHistory() {
