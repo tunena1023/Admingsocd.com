@@ -398,6 +398,17 @@ archivo nuevo por separado.
 
 ---
 
+## TEMPORAL (23/09/2026): boton "Fill with Equitable (test)" en el formulario de Recurring
+
+Pedido del dueño para probar el flujo completo con el caso real. Rellena
+(NO guarda) el contrato de Equitable según el PDF: Lun-Vie 7:00, 5 h;
+pisos 1-2 diario, piso 3 lun/mié/jue/vie, jueves aspirado/barrido del 3
+al 19 + oficina completa, elevadores diario, lunes patio del 19.
+Servicios buscados en el catálogo real por palabra clave (avisa en el
+toast cuáles no encontró); gente = los 2 primeros técnicos Janitorial,
+a cambiar a mano. **Quitar** el botón (comentario TEMPORAL en #rc-scope)
+y `fillEquitableTest()` cuando ya no haga falta.
+
 ## SUBIDO (23/09/2026): Recurring "Who does what" por lugar -- reemplaza el diseño de piso/amenidad de abajo
 
 El diseño de "layout del edificio + día por día" (entrada de abajo) se

@@ -2022,6 +2022,11 @@
           <label for="rc-mode"><b>Who does what by place</b> — <span id="rc-mode-note">on, each person gets their own places</span></label>
         </div>
         <div id="rc-scope">
+          <!-- TEMPORAL (23/09/2026, pedido del dueno para probar el flujo
+               completo con un caso real): rellena el formulario con el
+               contrato de Equitable. Quitar este boton y fillEquitableTest()
+               cuando ya no haga falta. -->
+          <div style="margin:-4px 0 14px"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:8px 14px;font-size:11px" onclick="fillEquitableTest()">Fill with Equitable (test)</button></div>
           <div class="field-row">
             <div class="field-group"><label>Floors in this building</label><input type="number" id="rc-floors" min="1" max="60" value="3" onchange="setRcFloors(this.value)"></div>
             <div></div>
@@ -6468,6 +6473,65 @@ function renderRcScope() {
       }
     });
   }));
+}
+
+/* TEMPORAL (23/09/2026, pedido del dueno): boton "Fill with Equitable
+   (test)" -- rellena el formulario con el contrato real de Equitable
+   (del PDF: Lun-Vie 7am-12pm; pisos 1-3 lunes/miercoles/viernes, martes
+   solo 1-2, jueves 1-2 + aspirado/barrido del 3 al 19 + oficina
+   completa; elevadores todos los dias; lunes revisar patio del 19).
+   NO guarda nada: deja el formulario lleno para revisarlo y darle
+   Create. Servicios: se buscan en el catalogo real por palabra clave;
+   gente: los primeros tecnicos Janitorial (cambiarlos a mano). Quitar
+   junto con el boton cuando ya no haga falta. */
+function fillEquitableTest() {
+  if (!rcScopeOn) setRcScopeMode(true);
+  const client = (clientsCache || []).find(c => /equitable/i.test(c.businessName || ''));
+  if (client) document.getElementById('rc-client').value = client.clientId;
+  const missing = [];
+  /* Primer patron que encuentre algo en el catalogo real gana (ej.
+     patio: "patio"/"litter" antes que un "sweep" generico). */
+  const pick = (res, label) => {
+    for (const re of [].concat(res)) { const s = (servicesCache || []).find(x => re.test(x.serviceName || '')); if (s) return s; }
+    missing.push(label); return null;
+  };
+  const SV = {
+    vacuum: pick(/vacuum/i, 'vacuum'), trash: pick(/trash|garbage/i, 'trash'), dust: pick(/dust/i, 'dust'),
+    sweep: pick(/sweep|mop/i, 'sweep/mop'), elevator: pick(/elevator/i, 'elevator'),
+    office: pick(/office/i, 'office'), patio: pick([/patio|litter/i, /sweep/i], 'patio')
+  };
+  const svcOf = list => {
+    const svc = rcScEmptySvc();
+    list.filter(Boolean).forEach(x => {
+      const pt = x.propertyType || 'Commercial';
+      (svc.selected[pt] = svc.selected[pt] || {})[x.serviceName] = x.sku;
+      svc.levels[pt + '|' + x.serviceName] = 'Level 2';
+    });
+    return svc;
+  };
+  const row = (zone, area, days, list) => ({ id: rcScId('r'), zone, area, qty: 1, days: days.slice(), svc: svcOf(list) });
+  const MF = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const floorSvc = [SV.vacuum, SV.trash, SV.dust];
+  const techs = rcScTechs();
+  const pA = techs[0] ? String(techs[0].payrollId) : '';
+  const pB = techs[1] ? String(techs[1].payrollId) : pA;
+  const rowsA = [row('F1', 'Hallway', MF, floorSvc), row('F2', 'Hallway', MF, floorSvc), row('F1', 'Office', ['Thu'], [SV.office])];
+  const rowsB = [row('BLD', 'Elevator', MF, [SV.elevator]), row('F3', 'Hallway', ['Mon', 'Wed', 'Thu', 'Fri'], floorSvc)];
+  for (let f = 4; f <= 19; f++) rowsB.push(row('F' + f, 'Hallway', ['Thu'], [SV.vacuum, SV.sweep]));
+  rowsB.push(row('F19', 'Rooftop Patio/Terrace', ['Mon'], [SV.patio]));
+  rcParts = (pB && pB !== pA)
+    ? [{ id: rcScId('p'), p: pA, hours: 2.5, rows: rowsA }, { id: rcScId('p'), p: pB, hours: 2.5, rows: rowsB }]
+    : [{ id: rcScId('p'), p: pA, hours: 5, rows: rowsA.concat(rowsB) }];
+  rcScOpen = {};
+  rcFloors = 19;
+  document.getElementById('rc-floors').value = 19;
+  mountRcDateTimeFields('07:00', GSDateTimePicker.getDate('rc-expiration') || null);
+  document.getElementById('rc-total-hours').value = 5;
+  renderRcScope();
+  toggleRecurringCreateCard(true);
+  showToast('Equitable filled — review people and services, then Create.' +
+    (client ? '' : ' No client named Equitable was found, pick it by hand.') +
+    (missing.length ? ' Not in the catalog: ' + missing.join(', ') + '.' : ''));
 }
 function rcScopeToServices() {
   const out = [];
