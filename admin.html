@@ -9400,7 +9400,10 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   const acWho = new Set();
   const acVal = { days: ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen'], o: '09:00', c: '17:00', on: true, active: true };
   var portalPriceSet = portalPriceSet || new Set();
-  function acPick(k) { acChange = k; renderAllClientsTable(); }
+  /* Al cambiar de cambio se limpia la seleccion (bug reportado por el
+     dueño: los clientes escogidos para 'Hours' se quedaban marcados al
+     pasar a 'Prices'). */
+  function acPick(k) { if (acChange !== k) acWho.clear(); acChange = k; renderAllClientsTable(); }
   function acList() {
     const q = ((document.getElementById('acw-q') || {}).value || '').trim().toLowerCase();
     return (allClientsCache || []).filter(c => (acFilter === 'All' || (acFilter === 'Active' ? c.active !== false : c.active === false)) &&
