@@ -454,8 +454,14 @@ Developer/Director podía llamar al API directo. Ahora:
   Lógica en `lib/package-contents.js` (también el default).
 - **Areas en Developer:** dropdown bonito (gsocd-shared **v1.53.0**,
   `multi-select`), se guarda al cerrarlo; solo Janitorial.
-- **Pendiente:** llevar el toggle + paquetes (y su foto) al portal del
-  cliente y a Tech.
+- **Portal del cliente y Tech (mismo día):** leen `catalog_service_areas`
+  y `catalog_package_contents` de Settings (Admin los deja escritos la
+  primera vez que carga el catálogo; ellos no tienen defaults). Orders:
+  picker v1.52.0 (Create Order arranca en Units), foto al crear órdenes
+  (sus 4 caminos) y "Includes" en tracking desde la foto. Tech:
+  get-my-orders manda `PackageSnapshots` por orden y el técnico ve el
+  checklist bajo el paquete; supervisor con el toggle. Admin también
+  congela al aprobar un cambio que agrega paquete (admin-approve-order).
 
 ## ACORDADO (23/09/2026, corregido el mismo día): categorías + picker Recurring / Units
 

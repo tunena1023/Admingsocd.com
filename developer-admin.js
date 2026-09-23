@@ -403,6 +403,13 @@ exports.handler = async (event) => {
       const [rows, areasRes, pkgRes] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents()]);
       const areasMap = areasRes.map;
       const pkgMap = pkgRes.map;
+      /* El portal del cliente y Tech solo LEEN Settings (no tienen los
+         defaults): la primera vez que Admin carga el catalogo, se dejan
+         escritos los borradores aprobados. */
+      try {
+        if (!areasRes.row) await createListItem(SETTINGS_LIST, { Title: SERVICE_AREAS_KEY, Key: SERVICE_AREAS_KEY, Value: JSON.stringify(areasMap) });
+        if (!pkgRes.row) await createListItem(SETTINGS_LIST, { Title: PACKAGE_CONTENTS_KEY, Key: PACKAGE_CONTENTS_KEY, Value: JSON.stringify(pkgMap) });
+      } catch (e) { console.error('Seeding catalog settings:', e.message); }
       const services = rows.filter(it => it.fields).map(it => ({
         id: it.id,
         serviceName: it.fields.ServiceName || '',
