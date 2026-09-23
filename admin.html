@@ -1161,6 +1161,10 @@
   #panel-recurring .rs-ed-days { margin-bottom: 14px; }
   #panel-recurring .rs-ed-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
   #panel-recurring .rs-ed-empty { color: var(--gray); font-size: 13px; padding: 30px 10px; text-align: center; }
+  /* El picker pone las categorias en 2 columnas (.gs-sp-accordion); en el
+     panel del lugar (columna derecha, ~480px) cada una quedaba de ~230px
+     y los nombres se partian en 3 renglones junto a L1/L2/L3. */
+  #panel-recurring .rs-ed .gs-sp-accordion, #panel-recurring .sc-pick .gs-sp-accordion { grid-template-columns: 1fr; }
   #panel-recurring .pr-head { cursor: pointer; }
   #panel-recurring .pr-head:hover { background: #F1EEE6; }
   #panel-recurring .pr-head .rc-arrow { margin-left: auto; }
@@ -7999,6 +8003,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     try {
       const res = await devApi('list-catalog');
       allCatalogRows = res.services || [];
+      if (window.GSServiceTooltip) GSServiceTooltip.register(allCatalogRows);
       const activeCount = allCatalogRows.filter(s => s.active).length;
       document.getElementById('browse-sub').textContent =
         allCatalogRows.length
@@ -8084,7 +8089,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th><th>Qty?</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
-        '<td>' + esc(r.serviceName) + '</td>' +
+        '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) + '</td>' +
         '<td class="diff-sku">' + esc(r.sku) + '</td>' +
         '<td>' + esc(r.division) + '</td>' +
         '<td>' + esc(r.propertyType) + '</td>' +
