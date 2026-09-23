@@ -1179,6 +1179,10 @@
   .acw-tile .ic { font-size: 18px; display: block; margin-bottom: 8px; }
   .acw-tile b { font-size: 13px; display: block; }
   .acw-tile small { font-size: 11px; color: var(--gray); }
+  .acw-tile.ready { border-color: #3E7A4C; background: #F6FAF6; }
+  .acw-tile.ready small { color: #2F5F3A; font-weight: 600; }
+  .acw-x { display: inline-block; margin-left: 6px; color: #B33A3A; font-weight: 700; cursor: pointer; }
+  .acw-sep { color: var(--gray); margin: 0 8px; }
   .acw-val { margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .acw-val .lbl { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
   .acw-val input[type=time] { padding: 7px; border: 1px solid var(--border); font-family: inherit; }
@@ -9422,14 +9426,17 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     status: ['●', 'Status', 'Active or inactive']
   };
   const AC_DAYS = [['monOpen', 'M', 'Mon'], ['tueOpen', 'T', 'Tue'], ['wedOpen', 'W', 'Wed'], ['thuOpen', 'T', 'Thu'], ['friOpen', 'F', 'Fri'], ['satOpen', 'S', 'Sat'], ['sunOpen', 'S', 'Sun']];
+  /* Cada cambio guarda SU seleccion y SU valor (pedido del dueño):
+     puedes dejar armadas horas para unos clientes, precios para otros,
+     etc., y aplicar todo junto con un solo boton. */
   let acChange = null, acFilter = 'Active', acBusy = false;
-  const acWho = new Set();
-  const acVal = { days: ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen'], o: '09:00', c: '17:00', on: true, active: true };
+  const acState = {};
+  function acS(k) { return acState[k] || (acState[k] = { who: new Set(), val: { days: ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen'], o: '09:00', c: '17:00', on: true, active: true } }); }
+  let acWho = acS('days').who, acVal = acS('days').val;
   var portalPriceSet = portalPriceSet || new Set();
-  /* Al cambiar de cambio se limpia la seleccion (bug reportado por el
-     dueño: los clientes escogidos para 'Hours' se quedaban marcados al
-     pasar a 'Prices'). */
-  function acPick(k) { if (acChange !== k) acWho.clear(); acChange = k; renderAllClientsTable(); }
+  function acPick(k) { acChange = k; acWho = acS(k).who; acVal = acS(k).val; renderAllClientsTable(); }
+  function acClear(k, e) { if (e) e.stopPropagation(); acS(k).who.clear(); if (k === acChange) acWho = acS(k).who; renderAllClientsTable(); }
+  function acReady() { return Object.keys(AC_CHANGES).filter(k => acState[k] && acState[k].who.size); }
   function acList() {
     const q = ((document.getElementById('acw-q') || {}).value || '').trim().toLowerCase();
     return (allClientsCache || []).filter(c => (acFilter === 'All' || (acFilter === 'Active' ? c.active !== false : c.active === false)) &&
@@ -9443,18 +9450,26 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     return '<span class="acw-now' + (on ? ' on' : '') + '">' + (acChange === 'status' ? (on ? 'Active' : 'Inactive') : (on ? 'On' : 'Off')) + '</span>';
   }
   function acTo12(v) { const [h, m] = String(v).split(':').map(Number); return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h < 12 ? ' AM' : ' PM'); }
-  function acValText() {
-    if (acChange === 'days') { const t = AC_DAYS.filter(d => acVal.days.includes(d[0])).map(d => d[2].slice(0, 2)).join(' '); return t || 'Closed'; }
-    if (acChange === 'hours') return acTo12(acVal.o) + ' – ' + acTo12(acVal.c);
-    if (acChange === 'status') return acVal.active ? 'Active' : 'Inactive';
-    return acVal.on ? 'On' : 'Off';
+  function acValTextFor(k) {
+    const v = acS(k).val;
+    if (k === 'days') { const t = AC_DAYS.filter(d => v.days.includes(d[0])).map(d => d[2].slice(0, 2)).join(' '); return t || 'Closed'; }
+    if (k === 'hours') return acTo12(v.o) + ' – ' + acTo12(v.c);
+    if (k === 'status') return v.active ? 'Active' : 'Inactive';
+    return v.on ? 'On' : 'Off';
+  }
+  function acValText() { return acChange ? acValTextFor(acChange) : ''; }
+  function acTilesHtml() {
+    return Object.keys(AC_CHANGES).map(k => {
+      const n = acState[k] ? acState[k].who.size : 0;
+      return '<button type="button" class="acw-tile' + (acChange === k ? ' on' : '') + (n ? ' ready' : '') + '" onclick="acPick(\'' + k + '\')"><span class="ic">' + AC_CHANGES[k][0] + '</span><b>' + AC_CHANGES[k][1] + '</b><small>' + (n ? esc(acValTextFor(k)) + ' → ' + n + (n === 1 ? ' client' : ' clients') + ' <span class="acw-x" onclick="acClear(\'' + k + '\', event)" title="Clear">✕</span>' : AC_CHANGES[k][2]) + '</small></button>';
+    }).join('');
   }
   function renderAllClientsTable() {
     const box = document.getElementById('all-clients-table');
     document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
     if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
     const keepQ = ((document.getElementById('acw-q') || {}).value) || '';
-    const tiles = Object.keys(AC_CHANGES).map(k => '<button type="button" class="acw-tile' + (acChange === k ? ' on' : '') + '" onclick="acPick(\'' + k + '\')"><span class="ic">' + AC_CHANGES[k][0] + '</span><b>' + AC_CHANGES[k][1] + '</b><small>' + AC_CHANGES[k][2] + '</small></button>').join('');
+    const tiles = acTilesHtml();
     let val = '';
     if (acChange === 'days') val = '<span class="lbl">Set to</span><span class="acw-days">' + AC_DAYS.map(d => '<span class="' + (acVal.days.includes(d[0]) ? 'on' : '') + '" title="' + d[2] + '" onclick="acVal.days = acVal.days.includes(\'' + d[0] + '\') ? acVal.days.filter(x => x !== \'' + d[0] + '\') : acVal.days.concat(\'' + d[0] + '\'); renderAllClientsTable()">' + d[1] + '</span>').join('') + '</span>';
     if (acChange === 'hours') val = '<span class="lbl">Set to</span><input type="time" value="' + acVal.o + '" onchange="acVal.o=this.value;renderAllClientsTable()"> → <input type="time" value="' + acVal.c + '" onchange="acVal.c=this.value;renderAllClientsTable()">';
@@ -9483,41 +9498,48 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const lbl = document.getElementById('acw-all-lbl'); if (lbl) lbl.textContent = 'All (' + list.length + ')';
     who.innerHTML = list.map(c => '<label class="acw-row' + (acWho.has(c.id) ? ' sel' : '') + '"><input type="checkbox"' + (acWho.has(c.id) ? ' checked' : '') + ' onchange="acToggle(\'' + escAttr(c.id) + '\')">' +
       '<span class="nm"><b>' + esc(c.clientId || '') + '</b>' + esc(c.businessName || '') + '</span>' + acNow(c) + '</label>').join('') || '<p class="empty-note">No clients match.</p>';
-    const n = acWho.size, btn = document.getElementById('acw-apply'), sum = document.getElementById('acw-sum');
-    sum.innerHTML = !acChange ? 'Pick a change in step 1.' : !n ? 'Now pick the clients in step 2.' : '<b>' + AC_CHANGES[acChange][1] + ': ' + esc(acValText()) + '</b> → ' + n + (n === 1 ? ' client' : ' clients');
-    btn.disabled = !acChange || !n || acBusy;
-    btn.textContent = acBusy ? 'Applying…' : (acChange && n ? 'Apply to ' + n + (n === 1 ? ' client' : ' clients') : 'Apply');
+    const tilesBox = document.querySelector('#all-clients-table .acw-tiles'); if (tilesBox) tilesBox.innerHTML = acTilesHtml();
+    const ready = acReady(), btn = document.getElementById('acw-apply'), sum = document.getElementById('acw-sum');
+    sum.innerHTML = !ready.length
+      ? (!acChange ? 'Pick a change in step 1.' : 'Now pick the clients in step 2. You can set up several changes before applying.')
+      : ready.map(k => '<b>' + AC_CHANGES[k][1] + ': ' + esc(acValTextFor(k)) + '</b> → ' + acState[k].who.size + (acState[k].who.size === 1 ? ' client' : ' clients')).join('<span class="acw-sep">·</span>');
+    btn.disabled = !ready.length || acBusy;
+    btn.textContent = acBusy ? 'Applying…' : (ready.length > 1 ? 'Apply ' + ready.length + ' changes' : ready.length === 1 ? 'Apply to ' + acState[ready[0]].who.size + (acState[ready[0]].who.size === 1 ? ' client' : ' clients') : 'Apply');
   }
   async function acApply() {
-    if (!acChange || !acWho.size || acBusy) return;
-    const chosen = (allClientsCache || []).filter(c => acWho.has(c.id));
-    let value;
-    if (acChange === 'days') { value = {}; AC_DAYS.forEach(d => { value[d[0]] = acVal.days.includes(d[0]); }); }
-    else if (acChange === 'hours') value = acTo12(acVal.o) + ' - ' + acTo12(acVal.c);
-    else if (acChange === 'status') value = acVal.active;
-    else value = acVal.on;
+    const ready = acReady();
+    if (!ready.length || acBusy) return;
     acBusy = true; acDrawWho();
-    try {
-      const res = await devApi('bulk-update-clients', { change: acChange, value, clients: chosen.map(c => ({ id: c.id, clientId: c.clientId })) });
-      chosen.forEach(c => {
-        const twin = (allClients || []).find(x => x.clientId === c.clientId);
-        [c, twin].filter(Boolean).forEach(x => {
-          if (acChange === 'days') AC_DAYS.forEach(d => { x[d[0]] = value[d[0]]; });
-          if (acChange === 'hours') x.officeHours = value;
-          if (acChange === 'est') x.showEstimatedTime = value;
-          if (acChange === 'status') x.active = value;
+    const done = [], failed = [];
+    for (const k of ready) {
+      const st = acS(k), chosen = (allClientsCache || []).filter(c => st.who.has(c.id));
+      let value;
+      if (k === 'days') { value = {}; AC_DAYS.forEach(d => { value[d[0]] = st.val.days.includes(d[0]); }); }
+      else if (k === 'hours') value = acTo12(st.val.o) + ' - ' + acTo12(st.val.c);
+      else if (k === 'status') value = st.val.active;
+      else value = st.val.on;
+      try {
+        const res = await devApi('bulk-update-clients', { change: k, value, clients: chosen.map(c => ({ id: c.id, clientId: c.clientId })) });
+        chosen.forEach(c => {
+          const twin = (allClients || []).find(x => x.clientId === c.clientId);
+          [c, twin].filter(Boolean).forEach(x => {
+            if (k === 'days') AC_DAYS.forEach(d => { x[d[0]] = value[d[0]]; });
+            if (k === 'hours') x.officeHours = value;
+            if (k === 'est') x.showEstimatedTime = value;
+            if (k === 'status') x.active = value;
+          });
+          if (k === 'rec') value ? portalRecurringSet.add(String(c.clientId)) : portalRecurringSet.delete(String(c.clientId));
+          if (k === 'price') value ? portalPriceSet.add(String(c.clientId)) : portalPriceSet.delete(String(c.clientId));
         });
-        if (acChange === 'rec') value ? portalRecurringSet.add(String(c.clientId)) : portalRecurringSet.delete(String(c.clientId));
-        if (acChange === 'price') value ? portalPriceSet.add(String(c.clientId)) : portalPriceSet.delete(String(c.clientId));
-      });
-      showToast(AC_CHANGES[acChange][1] + ' → ' + acValText() + ' · ' + (res.updated || chosen.length) + (chosen.length === 1 ? ' client' : ' clients') + (res.failed && res.failed.length ? ' (' + res.failed.length + ' failed)' : ''));
-      acWho.clear();
-    } catch (e) {
-      showToast('Could not apply: ' + e.message);
-    } finally {
-      acBusy = false; renderAllClientsTable();
+        done.push(AC_CHANGES[k][1] + ' → ' + (res.updated || chosen.length) + (res.failed && res.failed.length ? ' (' + res.failed.length + ' failed)' : ''));
+        st.who.clear();
+      } catch (e) { failed.push(AC_CHANGES[k][1] + ': ' + e.message); }
     }
+    acBusy = false;
+    showToast((done.length ? 'Applied: ' + done.join(', ') : '') + (failed.length ? (done.length ? ' — ' : '') + 'Could not apply ' + failed.join(', ') : ''));
+    renderAllClientsTable();
   }
+
 
 
   /* Descarga la tabla de All Clients como .xlsx -- mismo patron que
