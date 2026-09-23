@@ -1328,7 +1328,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.52.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.56.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -8297,6 +8297,20 @@ async function resolveExtraRequest(orderId, requestId, decision) {
 
   /* ===== Developer > Package contents (paquetes como plantilla) ===== */
   let pkgEditItems = [];
+  /* Desde el catalogo (lo que viene de QuickBooks): un paquete sin
+     contenido se define aqui mismo -- abre Package contents con ese
+     paquete escogido. */
+  async function openPkgContentsFor(sku) {
+    const sec = document.getElementById('pkg-contents-section');
+    if (!sec) return;
+    const header = sec.querySelector('.order-card-header');
+    const body = sec.querySelector('.appr-body');
+    if (body && body.style.display === 'none' && header) toggleDevCard(header);
+    await loadPkgEditor();
+    const sel = document.getElementById('pkg-edit-select');
+    if (sel && Array.from(sel.options).some(o => o.value === sku)) { sel.value = sku; renderPkgEditor(); }
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   async function loadPkgEditor() {
     if (!allCatalogRows || !allCatalogRows.length) await loadCatalogBrowse();
     const pk = allCatalogRows.filter(r => r.active && /package/i.test(r.category || '')).sort((a, b) => a.serviceName.localeCompare(b.serviceName));
@@ -8404,7 +8418,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         '<td><input type="text" list="catalog-category-options" value="' + esc(r.category) + '" placeholder="Uncategorized" ' +
           'style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;font-family:inherit" ' +
           'onchange="saveCatalogCategory(\'' + r.id + '\', this.value)"></td>' +
-        '<td>' + catalogAreasCellHtml(r) + '</td>' +
+        '<td>' + catalogAreasCellHtml(r) + (/^packages?$/i.test(String(r.category || '')) ? '<div style="margin-top:6px"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:4px 10px;font-size:10px" onclick="openPkgContentsFor(\'' + escAttr(r.sku) + '\')">' + ((r.packageItems || []).length ? 'Contents (' + r.packageItems.length + ')' : 'Set contents') + '</button></div>' : '') + '</td>' +
         '<td>' + (r.price != null ? '$' + Number(r.price).toFixed(2) : '\u2014') + '</td>' +
         '<td><label class="svc-toggle">' +
           '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +
@@ -9130,8 +9144,11 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   let allServiceTimes = [];
   async function loadServiceTimes() {
     try {
-      const res = await devApi('list-service-times');
+      const [res, cat] = await Promise.all([devApi('list-service-times'), (allCatalogRows && allCatalogRows.length) ? null : devApi('list-catalog')]);
       allServiceTimes = res.services || [];
+      /* Precio por nivel tambien para servicios inactivos (pedido del
+         dueño): se busca en el catalogo completo, no solo el activo. */
+      if (cat) allCatalogRows = cat.services || [];
       renderServiceTimes();
     } catch (e) {
       document.querySelector('#service-times-table tbody').innerHTML =
@@ -9173,7 +9190,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
 
   /* Precio por nivel (aprobado con mini): Level 1 = precio de QuickBooks;
      Level 2 y 3 suman % o $. Se guarda al cambiarlo. */
-  function stCat(sku) { return (activeCatalogCache || []).find(x => String(x.sku) === String(sku)); }
+  function stCat(sku) { return (allCatalogRows || []).find(x => String(x.sku) === String(sku)) || (activeCatalogCache || []).find(x => String(x.sku) === String(sku)); }
   function stMoney(n) { return '$' + (Math.round(n * 100) / 100).toFixed(Number(n) % 1 ? 2 : 0); }
   function stPriceCellsHtml(s, isJan) {
     const c = stCat(s.sku);

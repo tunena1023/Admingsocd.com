@@ -26,6 +26,13 @@ const {
   markOrderImported
 } = require('./lib/quickbooks');
 
+/* "Includes: 111-59 Dusting (L3), 111-23 Kitchen appliance wipe-down (L2)…" */
+function pkgIncludesText(snap, sku) {
+  const items = snap && snap[String(sku || '')];
+  if (!Array.isArray(items) || !items.length) return '';
+  return '\nIncludes: ' + items.map(x => String(x.sku) + ' ' + (x.serviceName || '') + (x.level ? ' (' + String(x.level).replace('Level ', 'L') + ')' : '')).join(', ');
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method not allowed' });
@@ -70,6 +77,17 @@ exports.handler = async (event) => {
         const services = o.ServicesDetailed || [];
         if (!services.length) throw new Error('This order has no services to import.');
 
+        /* Lo que incluyo cada paquete EN ESTA orden (su copia congelada,
+           'Package Snapshot' en su historial) -- va en la descripcion de
+           la linea del paquete, con SKU (pedido del dueño). */
+        let pkgSnap = {};
+        try {
+          const hist = await queryList('OrderHistory', '$expand=fields&$top=200&$filter=' + encodeURIComponent("fields/OrderID eq '" + String(o.OrderID || '').replace(/'/g, "''") + "'"));
+          hist.filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot').forEach(h => {
+            try { Object.assign(pkgSnap, JSON.parse(h.fields.NewValue || '{}')); } catch (e) { /* sigue */ }
+          });
+        } catch (e) { pkgSnap = {}; }
+
         const lines = [];
         for (const s of services) {
           const sku = s.SubOption;
@@ -82,7 +100,7 @@ exports.handler = async (event) => {
             Amount: price * qty,
             DetailType: 'SalesItemLineDetail',
             SalesItemLineDetail: { ItemRef: { value: itemId }, Qty: qty, UnitPrice: price },
-            Description: s.ServiceName + (s.Level ? ' — ' + s.Level : '')
+            Description: s.ServiceName + (s.Level ? ' — ' + s.Level : '') + pkgIncludesText(pkgSnap, sku)
           });
         }
 
