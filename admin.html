@@ -1228,7 +1228,6 @@
   .pkg-chip { font-size: 12px; background: #FBF7EC; border: 1px solid rgba(201,168,76,.35); color: var(--black); padding: 4px 10px; border-radius: 14px; }
   .pkg-chip b { color: var(--gold-dk); font-size: 10px; }
   .pkg-chip.empty { background: var(--bg); border-color: var(--border); color: var(--gray); }
-  #pkg-edit-picker .gs-sp-accordion { grid-template-columns: 1fr; }
   .dev-grp-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 18px 0 8px; }
   .dev-group-title:first-of-type .dev-grp-title { margin-top: 0; }
   #panel-recurring .rs-team { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -8364,6 +8363,9 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     if (pkgEditPicker) { try { pkgEditPicker.destroy(); } catch (e) { /* nada */ } }
     pkgEditPicker = GSServicePicker.mount('pkg-edit', box, {
       catalog, division: pkg.division || 'Janitorial', crossDivision: true, mode: 'levels', groupByCategory: true,
+      /* El mismo picker de tarjetas que en todos lados: toggle Recurring /
+         Units (areas comunes por tarjeta, o categorias por cuarto). */
+      workToggle: true, workMode: 'units', showSelectAll: false,
       propertyType: pkg.propertyType || 'Commercial', initialSelected, initialLevels,
       onChange: function (sel, lvl) {
         const items = [];
