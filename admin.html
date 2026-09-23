@@ -8334,11 +8334,18 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   }
   async function loadPkgEditor() {
     if (!allCatalogRows || !allCatalogRows.length) await loadCatalogBrowse();
-    const pk = allCatalogRows.filter(r => r.active && /package/i.test(r.category || '')).sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    /* Commercial primero (pedido del dueño: "siempre en Commercial por
+       defecto, Residential es poco y opcional"); alfabetico dentro de
+       cada uno. Antes se mezclaban y ordenaban solo por nombre, asi que
+       si un paquete Residential caia primero en el alfabeto, la tarjeta
+       abria en Residential sin que nadie lo pidiera. */
+    const pk = allCatalogRows.filter(r => r.active && /package/i.test(r.category || ''))
+      .sort((a, b) => (a.propertyType === 'Residential') - (b.propertyType === 'Residential') || a.serviceName.localeCompare(b.serviceName));
     const sel = document.getElementById('pkg-edit-select');
     const keep = sel.value;
     sel.innerHTML = pk.map(r => '<option value="' + escAttr(r.sku) + '">' + esc(r.serviceName) + ' (' + esc(r.propertyType) + ')</option>').join('');
     if (keep && pk.some(r => r.sku === keep)) sel.value = keep;
+    else { const firstCommercial = pk.find(r => r.propertyType !== 'Residential'); if (firstCommercial) sel.value = firstCommercial.sku; }
     renderPkgEditor();
   }
   function renderPkgEditor() {
