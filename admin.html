@@ -1223,7 +1223,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.52.0/service-picker/service-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.53.0/multi-select/multi-select.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.44.2/order-history/order-history.js"></script>
@@ -1460,6 +1460,20 @@
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
         <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div id="catalog-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="portal-recurring-section" data-category="services">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); loadPortalRecurringClients()">
+        <div><div class="order-id">Recurring option in the client portal</div>
+        <div class="order-desc">Which clients see the Recurring / Units switch when they order. Everyone else only sees Units (rooms and packages).</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="max-width:460px;margin:16px 0 6px"><div id="portal-recurring-ms"></div></div>
+        <p class="section-sub" style="margin:6px 0 0">Saved as soon as you close the list.</p>
       </div>
     </div>
   </section>
@@ -8180,6 +8194,35 @@ async function resolveExtraRequest(orderId, requestId, decision) {
           }
         }
       });
+    });
+  }
+
+  /* ===== Quien ve la opcion Recurring en el portal del cliente =====
+     Settings, Key portal_recurring_clients (JSON: lista de ClientID).
+     El portal pregunta por el suyo en get-services (recurringAllowed). */
+  let portalRecurringMs = null;
+  async function loadPortalRecurringClients() {
+    const box = document.getElementById('portal-recurring-ms');
+    if (!box || typeof GSMultiSelect === 'undefined') return;
+    let chosen = [];
+    try {
+      const res = await devApi('get-settings');
+      chosen = JSON.parse((res.settings || {}).portal_recurring_clients || '[]');
+      if (!Array.isArray(chosen)) chosen = [];
+    } catch (e) { chosen = []; }
+    const options = (allClients || []).filter(c => c.clientId).map(c => ({ value: c.clientId, label: c.businessName || c.clientId }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    portalRecurringMs = GSMultiSelect.mount(box, {
+      options, selected: chosen, search: true, placeholder: 'Nobody yet — choose clients…',
+      onChange: async function (values) {
+        try {
+          await devApi('save-setting', { key: 'portal_recurring_clients', value: JSON.stringify(values) });
+          showToast(values.length ? values.length + (values.length === 1 ? ' client sees' : ' clients see') + ' Recurring now.' : 'Nobody sees Recurring now.');
+        } catch (e) {
+          showToast('Could not save: ' + e.message);
+          portalRecurringMs.set(chosen);
+        }
+      }
     });
   }
 
