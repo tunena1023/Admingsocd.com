@@ -2682,7 +2682,7 @@ function applyLiveQueueCardUpdate(freshOrder) {
   /* Mismo criterio que loadOrdersQueue() usa para decidir que orden
      entra a esta cola -- ver el comentario largo ahi (22/09/2026:
      "todavia falta AL MENOS un servicio por COMPLETAR"). */
-  const belongsHere = freshOrder.Status === 'Received' || (freshOrder.AssignByService && freshOrder.AssignByServiceHasIncomplete);
+  const belongsHere = freshOrder.Status === 'Received' || (freshOrder.AssignByService && freshOrder.AssignByServiceHasIncomplete && !freshOrder.RecurringServiceID);
   const idxQ = ordersQueueCache.findIndex(o => o.OrderID === freshOrder.OrderID);
   const idxS = ordersScheduledCache.findIndex(o => o.OrderID === freshOrder.OrderID);
 
@@ -6539,6 +6539,14 @@ function rcScContractWhoHtml(s, list) {
     g.places.map(pl => '<div class="sc-who-line">' + esc(pl.label) + ': ' + esc(pl.svcs.join(', ')) + ' <span>(' + esc(rcScDaysText(pl.days)) + ')</span></div>').join('') +
     '</div>').join('');
 }
+/* "07:00" -> "7:00 AM" para la hoja del cliente (el contrato guarda
+   la hora en 24h, como la da GSDateTimePicker.getTime). */
+function rcScTime12(t) {
+  const m = String(t || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return String(t || '');
+  const h = +m[1];
+  return ((h % 12) || 12) + ':' + m[2] + (h < 12 ? ' AM' : ' PM');
+}
 function printScopeOfWork(id) {
   const s = (rcServicesCache || []).find(x => x.id === id); if (!s) return;
   let list = [];
@@ -6574,7 +6582,7 @@ function printScopeOfWork(id) {
     '.g{color:#6B6B6B}td.g{width:22%;white-space:nowrap}.foot{margin-top:24px;padding-top:12px;border-top:1px solid #E0DDD6;font-size:13px}' +
     '@media print{body{margin:0}}</style></head><body>' +
     '<h1>Scope of Work</h1><p class="sub">' + esc(clientName) + (s.buildingNumber ? ', ' + esc(s.buildingNumber) : '') + '. Janitorial common areas, ' +
-    esc(rcScDaysText((s.daysOfWeek || '').split(',').filter(Boolean))) + (s.time ? ', ' + esc(s.time) : '') + '.</p>' +
+    esc(rcScDaysText((s.daysOfWeek || '').split(',').filter(Boolean))) + (s.time ? ', ' + esc(rcScTime12(s.time)) : '') + '.</p>' +
     sections +
     '<p class="foot">Anything not listed above is outside this contract and will be quoted separately before the work is done.</p>' +
     '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
@@ -12977,8 +12985,13 @@ let pendingDirectLinkOrderId = null;
          condicion real es "todavia falta AL MENOS un servicio por
          COMPLETAR", no por asignar -- AssignByServiceHasIncomplete
          (real, calculado en admin-get-orders.js) es esa señal. */
+      /* Recurrentes (RecurringServiceID): nacen YA asignadas desde su
+         contrato -- nunca pasan por Scheduling. Sin esto, las
+         recurrentes "Who does what" por lugar (AssignByService=true,
+         23/09/2026) llenaban esta cola con ~30 dias de visitas
+         futuras, cada una con servicios "por completar". */
       const pending = (ordersRes.orders || []).filter(o =>
-        o.Status === 'Received' || (o.AssignByService && o.AssignByServiceHasIncomplete)
+        o.Status === 'Received' || (o.AssignByService && o.AssignByServiceHasIncomplete && !o.RecurringServiceID)
       );
 
       ordersQueueCache = pending.filter(o => !scheduledOrderIds.has(o.OrderID));
