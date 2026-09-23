@@ -290,6 +290,7 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/admin-tab-counts/admin-tab-counts.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
@@ -455,7 +456,7 @@ function initPage() {
 
 async function loadNavCounts() {
   try {
-    const res = await fetch('/api/admin-get-orders', {
+    const res = await gsAuthFetch('/api/admin-get-orders', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
     });
     const data = await res.json();
@@ -474,8 +475,47 @@ function signOut() {
   window.location.href = 'index.html';
 }
 
+/* ===== Mismo login (MSAL) que admin.html (23/09/2026): el servidor
+   pide el ID token de Microsoft en cada peticion (lib/auth.js). ===== */
+const GS_MSAL = new msal.PublicClientApplication({
+  auth: {
+    clientId: '18dfcf2e-0059-40f5-831c-69d13b9091fc',
+    authority: 'https://login.microsoftonline.com/d18a66ea-5185-4a02-99cc-46b6578ff498',
+    redirectUri: window.location.origin + '/index.html'
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+});
+const gsMsalReady = GS_MSAL.initialize().catch(() => {});
+let gsTok = '', gsTokExp = 0;
+async function gsToken(force) {
+  await gsMsalReady;
+  const now = Date.now() / 1000;
+  if (!force && gsTok && gsTokExp - now > 120) return gsTok;
+  const account = GS_MSAL.getAllAccounts()[0];
+  if (!account) return sessionStorage.getItem('admin_token') || '';
+  try {
+    const r = await GS_MSAL.acquireTokenSilent({ scopes: ['openid', 'profile', 'User.Read'], account, forceRefresh: !!force || (gsTok && gsTokExp - now <= 120) });
+    gsTok = r.idToken || gsTok;
+    gsTokExp = (r.idTokenClaims && r.idTokenClaims.exp) || (now + 300);
+  } catch (e) {
+    return gsTok || sessionStorage.getItem('admin_token') || '';
+  }
+  return gsTok;
+}
+async function gsAuthFetch(url, init) {
+  const go = async (force) => {
+    const token = await gsToken(force);
+    const headers = Object.assign({}, (init && init.headers) || {}, token ? { Authorization: 'Bearer ' + token } : {});
+    return fetch(url, Object.assign({}, init || {}, { headers }));
+  };
+  let res = await go(false);
+  if (res.status === 401) { res = await go(true); if (res.status === 401 && !sessionStorage.getItem('gs_auth_bounced')) { sessionStorage.setItem('gs_auth_bounced', '1'); location.href = 'index.html'; } }
+  if (res.ok) sessionStorage.removeItem('gs_auth_bounced');
+  return res;
+}
+
 async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
+  const res = await gsAuthFetch('/api' + path, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined

@@ -5,6 +5,7 @@
    solo cuenta ESTE archivo como una funcion, sin importar cuantas
    acciones se registren aqui adentro. */
 const { toVercel } = require('../lib/vercel-adapter');
+const { verifyIdToken } = require('../lib/auth');
 
 const handlers = {
   'admin-approve-order': require('../admin-approve-order').handler,
@@ -39,6 +40,8 @@ const handlers = {
   'admin-mark-order-seen': require('../admin-mark-order-seen').handler
 };
 
+const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders']);
+
 module.exports = async (req, res) => {
   const pathOnly = (req.url || '').split('?')[0];
   const parts = pathOnly.split('/').filter(Boolean); // ['api', 'submit-order']
@@ -47,6 +50,36 @@ module.exports = async (req, res) => {
   if (!h) {
     res.status(404).json({ error: 'Unknown endpoint: ' + slug });
     return;
+  }
+  /* 23/09/2026: TODA peticion trae el ID token de Microsoft y se
+     valida aqui (lib/auth.js) -- antes el servidor se fiaba del correo
+     que mandaba la pagina. Excepciones: imagenes del sitio (publicas),
+     el regreso de QuickBooks (OAuth, lo valida su propio state) y el
+     cron (lo valida su propio CRON_SECRET). El token viaja en el header
+     Authorization; los links que se abren en otra pestaña (PDFs,
+     conectar QuickBooks) lo mandan en ?t=. */
+  if (!PUBLIC_SLUGS.has(slug)) {
+    const authz = String((req.headers && req.headers.authorization) || '');
+    let token = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+    if (!token && req.query && req.query.t) token = String(req.query.t);
+    let user;
+    try {
+      user = await verifyIdToken(token);
+    } catch (e) {
+      res.status(401).json({ error: 'Please sign in again (' + e.message + ')', code: 'AUTH' });
+      return;
+    }
+    /* Quien hace la peticion = el del token, no el que diga el body:
+       developer-admin decide permisos por body.email, y "visto por"
+       usa viewerId. Ningun otro endpoint usa esos campos para otra
+       cosa (revisado: el correo de clientes/contactos va en otros). */
+    const IDENTITY_FIELD = { 'developer-admin': 'email', 'admin-get-orders': 'viewerId', 'admin-mark-order-seen': 'viewerId' };
+    const field = IDENTITY_FIELD[slug];
+    if (field) {
+      let b = req.body;
+      if (typeof b === 'string') { try { b = JSON.parse(b || '{}'); } catch (e) { b = null; } }
+      if (b && typeof b === 'object') { b[field] = user.email; req.body = b; }
+    }
   }
   return toVercel(h)(req, res);
 };

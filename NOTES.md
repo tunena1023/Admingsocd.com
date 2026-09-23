@@ -398,6 +398,31 @@ archivo nuevo por separado.
 
 ---
 
+## SUBIDO (23/09/2026): el servidor de Admin valida el login de Microsoft en CADA petición
+
+Antes `/api/*` se fiaba del correo del body (developer-admin decidía
+permisos con `body.email`): cualquiera que supiera el correo de un
+Developer/Director podía llamar al API directo. Ahora:
+
+- `lib/auth.js` valida el **ID token de Microsoft** (firma RS256 contra
+  el JWKS del tenant, `aud` = clientId de Admin, `iss` = tenant GS,
+  vigencia con 5 min de tolerancia).
+- `api/[...slug].js` lo exige en todo endpoint salvo `site-image`
+  (imágenes públicas), `quickbooks-callback` (OAuth, su propio state) y
+  `cron-recurring-orders` (su propio CRON_SECRET). Header
+  `Authorization: Bearer`, o `?t=` en links que abren otra pestaña
+  (PDFs, conectar QuickBooks). El correo del token **reemplaza**
+  `email` (developer-admin) y `viewerId` (admin-get-orders,
+  admin-mark-order-seen); ningún otro endpoint usa esos campos para
+  otra cosa (el correo de clientes/contactos va en otros campos).
+- Páginas: `admin.html` (`getIdToken`/`authFetch`, renovación cada 4 min
+  y antes de vencer, reintento con token nuevo si da 401, una sola
+  vuelta al login por sesión para no rebotar sin fin), `calendar.html`
+  y `camera-capture.html` (mismo MSAL, `gsAuthFetch`).
+- **Pendiente, misma clase de problema:** Orders (se fía de `clientId`)
+  y Tech (se fía de `techId`) — ahí no hay login de Microsoft, hace
+  falta un token de sesión propio.
+
 ## ACORDADO (23/09/2026): categorías de la app para Commercial Janitorial
 
 Aprobado por el dueño con mini ("Service categories: today vs proposed").

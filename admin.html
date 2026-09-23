@@ -2239,6 +2239,8 @@ async function initAuth() {
   GSNavPremium.applyChrome();
   msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
   await msalInstance.initialize();
+  /* Primer token antes de cualquier llamada (loadAll, etc.). */
+  await getIdToken();
 
   const stored = sessionStorage.getItem('admin_account');
   if (stored) {
@@ -2337,8 +2339,64 @@ function signOut() {
 /* ============================================================
    API
 ============================================================ */
+/* ===== Login real en cada peticion (23/09/2026) =====
+   El servidor ya no se fia del correo que manda la pagina: cada
+   llamada a /api lleva el ID token de Microsoft (MSAL, el mismo login
+   de siempre) y el servidor lo valida (lib/auth.js). Se guarda en
+   memoria y se renueva solo antes de vencer (y cada 4 min por si la
+   pestaña se queda abierta); los links que abren otra pestaña (PDFs,
+   conectar QuickBooks) lo llevan en ?t= usando el que ya esta en
+   memoria, sin esperar, para que el navegador no bloquee la ventana. */
+let adminIdToken = '';
+let adminIdTokenExp = 0;
+async function getIdToken(force) {
+  const now = Date.now() / 1000;
+  if (!force && adminIdToken && adminIdTokenExp - now > 120) return adminIdToken;
+  if (!msalInstance) return adminIdToken;
+  const account = msalInstance.getAllAccounts()[0];
+  if (!account) return adminIdToken;
+  try {
+    const r = await msalInstance.acquireTokenSilent({ scopes: ['openid', 'profile', 'User.Read'], account, forceRefresh: !!force || (adminIdToken && adminIdTokenExp - now <= 120) });
+    adminIdToken = r.idToken || adminIdToken;
+    adminIdTokenExp = (r.idTokenClaims && r.idTokenClaims.exp) || (now + 300);
+    try { sessionStorage.setItem('admin_token', adminIdToken); } catch (e) {}
+  } catch (e) {
+    console.error('Sign-in token:', e.message);
+  }
+  return adminIdToken;
+}
+setInterval(() => { if (msalInstance) getIdToken(); }, 4 * 60 * 1000);
+function authQuery() { return 't=' + encodeURIComponent(adminIdToken || sessionStorage.getItem('admin_token') || ''); }
+/* fetch a /api con el token; si el servidor dice que la sesion ya no
+   vale, se pide un token nuevo UNA vez y se reintenta; si tampoco,
+   de vuelta al login. */
+async function authFetch(url, init) {
+  const go = async (force) => {
+    const token = await getIdToken(force);
+    const headers = Object.assign({}, (init && init.headers) || {}, token ? { Authorization: 'Bearer ' + token } : {});
+    return fetch(url, Object.assign({}, init || {}, { headers }));
+  };
+  let res = await go(false);
+  if (res.status === 401) {
+    res = await go(true);
+    if (res.status === 401) {
+      /* Una sola vuelta al login por sesion: si al regresar sigue
+         fallando, se avisa en pantalla en vez de rebotar sin fin. */
+      if (!sessionStorage.getItem('gs_auth_bounced')) {
+        sessionStorage.setItem('gs_auth_bounced', '1');
+        showToast('Your session expired, signing you in again…');
+        setTimeout(() => { window.location.href = 'index.html'; }, 1200);
+      } else {
+        showToast('Sign-in check failed. Sign out and sign in again, or call the office.');
+      }
+    }
+  }
+  if (res.ok) sessionStorage.removeItem('gs_auth_bounced');
+  return res;
+}
+
 async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
+  const res = await authFetch('/api' + path, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -2424,7 +2482,7 @@ async function renderQuickBooksPanel() {
       box.innerHTML =
         '<div style="text-align:center;padding:40px 20px;border:1px solid var(--border);border-radius:8px;background:var(--off)">' +
         '<p style="font-size:14px;color:var(--gray);margin-bottom:16px">QuickBooks is not connected yet.</p>' +
-        '<a href="/api/quickbooks-connect" class="gs-ofp-btn-primary" style="text-decoration:none;display:inline-block;padding:14px 28px">Connect to QuickBooks</a>' +
+        '<a href="/api/quickbooks-connect" onclick="this.href=\'/api/quickbooks-connect?\' + authQuery()" class="gs-ofp-btn-primary" style="text-decoration:none;display:inline-block;padding:14px 28px">Connect to QuickBooks</a>' +
         '</div>';
       return;
     }
@@ -4239,7 +4297,7 @@ async function printRequestDocument(orderId, btnEl) {
   btnEl.disabled = true;
   btnEl.textContent = 'Printing…';
   try {
-    window.open('/api/print-request-document?orderId=' + encodeURIComponent(orderId), '_blank');
+    window.open('/api/print-request-document?orderId=' + encodeURIComponent(orderId) + '&' + authQuery(), '_blank');
   } finally {
     setTimeout(() => { btnEl.disabled = false; btnEl.textContent = original; }, 1200);
   }
@@ -7853,7 +7911,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
      inexistente en TODO Developer, no solo en whoami. Identica a la
      api() original de developer.html. */
   async function devApi(action, extra) {
-    const res = await fetch('/api/developer-admin', {
+    const res = await authFetch('/api/developer-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({ action, email: adminUser.email }, extra || {}))
@@ -11654,7 +11712,7 @@ function startServicePhoto(orderId, cat, svc) {
 function openOrderDocument(orderId, kind) {
   let url = '/api/get-order-document?orderId=' + encodeURIComponent(orderId);
   if (kind) url += '&kind=' + encodeURIComponent(kind);
-  window.open(url, '_blank');
+  window.open(url + '&' + authQuery(), '_blank');
 }
 
 /* Arma el arreglo de servicios (con su estado de "Not completed") a
