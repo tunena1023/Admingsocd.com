@@ -253,14 +253,6 @@ function classifySku(sku) {
 const SERVICE_AREA_NAMES = ["Hallways & Floors", "Lobby & Entry", "Restrooms & Locker Rooms", "Elevators & Stairs", "Trash", "Kitchen & Breakroom", "Offices & Meeting Rooms", "Amenities", "Exterior"];
 const DEFAULT_SERVICE_AREAS = {"111-57": ["Hallways & Floors", "Lobby & Entry", "Offices & Meeting Rooms"], "111-58": ["Hallways & Floors", "Lobby & Entry", "Restrooms & Locker Rooms", "Elevators & Stairs", "Kitchen & Breakroom"], "111-51": ["Hallways & Floors"], "111-59": ["Hallways & Floors", "Offices & Meeting Rooms"], "111-25": ["Hallways & Floors"], "111-24": ["Hallways & Floors"], "111-37": ["Hallways & Floors"], "111-22": ["Hallways & Floors"], "111-14": ["Lobby & Entry"], "111-18": ["Lobby & Entry"], "111-26": ["Lobby & Entry"], "111-40": ["Lobby & Entry"], "111-21": ["Lobby & Entry"], "111-13": ["Restrooms & Locker Rooms"], "111-19": ["Restrooms & Locker Rooms"], "111-28": ["Restrooms & Locker Rooms"], "111-27": ["Restrooms & Locker Rooms"], "111-16": ["Elevators & Stairs"], "111-17": ["Elevators & Stairs"], "111-15": ["Trash"], "111-44": ["Trash"], "111-62": ["Trash"], "111-12": ["Kitchen & Breakroom"], "111-23": ["Kitchen & Breakroom"], "111-60": ["Offices & Meeting Rooms"], "111-66": ["Offices & Meeting Rooms"], "111-69": ["Offices & Meeting Rooms"], "111-39": ["Amenities"], "111-41": ["Amenities"], "111-61": ["Amenities"], "111-67": ["Amenities"], "111-68": ["Amenities"], "111-63": ["Exterior"], "111-64": ["Exterior"], "111-65": ["Exterior"]};
 const SERVICE_AREAS_KEY = 'catalog_service_areas';
-async function readServiceAreas() {
-  const rows = await fetchAll(SETTINGS_LIST);
-  const row = rows.find(it => it.fields && it.fields.Key === SERVICE_AREAS_KEY);
-  if (row && row.fields.Value) {
-    try { const v = JSON.parse(row.fields.Value); if (v && typeof v === 'object') return { map: v, row }; } catch (e) { /* cae al default */ }
-  }
-  return { map: Object.assign({}, DEFAULT_SERVICE_AREAS), row: row || null };
-}
 
 /* ============================================================
    Contenido de cada PAQUETE (23/09/2026, aprobado con mini, parte 2):
@@ -272,15 +264,8 @@ async function readServiceAreas() {
    editar se usa DEFAULT_PACKAGE_CONTENTS (borrador del mini).
 ============================================================ */
 const { DEFAULT_PACKAGE_CONTENTS } = require('./lib/package-contents');
+const settingsJson = require('./lib/settings-json');
 const PACKAGE_CONTENTS_KEY = 'catalog_package_contents';
-async function readPackageContents() {
-  const rows = await fetchAll(SETTINGS_LIST);
-  const row = rows.find(it => it.fields && it.fields.Key === PACKAGE_CONTENTS_KEY);
-  if (row && row.fields.Value) {
-    try { const v = JSON.parse(row.fields.Value); if (v && typeof v === 'object') return { map: v, row }; } catch (e) { /* default */ }
-  }
-  return { map: JSON.parse(JSON.stringify(DEFAULT_PACKAGE_CONTENTS)), row: row || null };
-}
 
 /* ============================================================
    Precio por nivel (aprobado con mini, 23/09/2026): QuickBooks guarda
@@ -299,6 +284,17 @@ function levelPricesFor(price, adj) {
     out[L] = Math.round((a && a.t === '$' ? b + v : b * (1 + v / 100)) * 100) / 100;
   });
   return out;
+}
+
+async function readServiceAreas() {
+  const rows = await fetchAll(SETTINGS_LIST);
+  const v = settingsJson.readJson(rows, SERVICE_AREAS_KEY);
+  return v ? { map: v, row: true, rows } : { map: Object.assign({}, DEFAULT_SERVICE_AREAS), row: null, rows };
+}
+async function readPackageContents() {
+  const rows = await fetchAll(SETTINGS_LIST);
+  const v = settingsJson.readJson(rows, PACKAGE_CONTENTS_KEY);
+  return v ? { map: v, row: true, rows } : { map: JSON.parse(JSON.stringify(DEFAULT_PACKAGE_CONTENTS)), row: null, rows };
 }
 
 async function getRole(email) {
@@ -421,15 +417,15 @@ exports.handler = async (event) => {
     if (action === 'list-catalog') {
       const [rows, areasRes, pkgRes, settingRows] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents(), fetchAll(SETTINGS_LIST)]);
       let levelAdj = {};
-      try { const r = settingRows.find(it => it.fields && it.fields.Key === LEVEL_PRICES_KEY); levelAdj = JSON.parse((r && r.fields.Value) || '{}') || {}; } catch (e) { levelAdj = {}; }
+      levelAdj = settingsJson.readJson(settingRows, LEVEL_PRICES_KEY) || {};
       const areasMap = areasRes.map;
       const pkgMap = pkgRes.map;
       /* El portal del cliente y Tech solo LEEN Settings (no tienen los
          defaults): la primera vez que Admin carga el catalogo, se dejan
          escritos los borradores aprobados. */
       try {
-        if (!areasRes.row) await createListItem(SETTINGS_LIST, { Title: SERVICE_AREAS_KEY, Key: SERVICE_AREAS_KEY, Value: JSON.stringify(areasMap) });
-        if (!pkgRes.row) await createListItem(SETTINGS_LIST, { Title: PACKAGE_CONTENTS_KEY, Key: PACKAGE_CONTENTS_KEY, Value: JSON.stringify(pkgMap) });
+        if (!areasRes.row) await settingsJson.writeJson(SERVICE_AREAS_KEY, areasMap, areasRes.rows);
+        if (!pkgRes.row) await settingsJson.writeJson(PACKAGE_CONTENTS_KEY, pkgMap, pkgRes.rows);
       } catch (e) { console.error('Seeding catalog settings:', e.message); }
       const services = rows.filter(it => it.fields).map(it => ({
         id: it.id,
@@ -469,13 +465,10 @@ exports.handler = async (event) => {
       if (!sku) return jsonResponse(400, { error: 'sku is required' });
       const clean = a => (a && a.v !== '' && a.v != null && !isNaN(Number(a.v))) ? { t: a.t === '$' ? '$' : '%', v: Number(a.v) } : null;
       const rows = await fetchAll(SETTINGS_LIST);
-      const row = rows.find(it => it.fields && it.fields.Key === LEVEL_PRICES_KEY);
-      let map = {};
-      try { map = JSON.parse((row && row.fields.Value) || '{}') || {}; } catch (e) { map = {}; }
+      const map = settingsJson.readJson(rows, LEVEL_PRICES_KEY) || {};
       const l2 = clean(body.l2), l3 = clean(body.l3);
       if (l2 || l3) map[sku] = { l2, l3 }; else delete map[sku];
-      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: JSON.stringify(map) });
-      else await createListItem(SETTINGS_LIST, { Title: LEVEL_PRICES_KEY, Key: LEVEL_PRICES_KEY, Value: JSON.stringify(map) });
+      await settingsJson.writeJson(LEVEL_PRICES_KEY, map, rows);
       return jsonResponse(200, { success: true, sku, adjust: map[sku] || null });
     }
 
@@ -487,11 +480,9 @@ exports.handler = async (event) => {
       const items = (Array.isArray(body.items) ? body.items : [])
         .map(x => ({ sku: String((x && x.sku) || '').trim(), level: LV.indexOf(x && x.level) !== -1 ? x.level : 'Level 2' }))
         .filter(x => x.sku && x.sku !== sku);
-      const { map, row } = await readPackageContents();
+      const { map, rows } = await readPackageContents();
       map[sku] = items;
-      const value = JSON.stringify(map);
-      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: value });
-      else await createListItem(SETTINGS_LIST, { Title: PACKAGE_CONTENTS_KEY, Key: PACKAGE_CONTENTS_KEY, Value: value });
+      await settingsJson.writeJson(PACKAGE_CONTENTS_KEY, map, rows);
       return jsonResponse(200, { success: true, sku, items });
     }
 
@@ -500,11 +491,9 @@ exports.handler = async (event) => {
       const sku = String(body.sku || '').trim();
       if (!sku) return jsonResponse(400, { error: 'sku is required' });
       const areas = (Array.isArray(body.areas) ? body.areas : []).filter(a => SERVICE_AREA_NAMES.indexOf(a) !== -1);
-      const { map, row } = await readServiceAreas();
+      const { map, rows } = await readServiceAreas();
       map[sku] = areas;
-      const value = JSON.stringify(map);
-      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: value });
-      else await createListItem(SETTINGS_LIST, { Title: SERVICE_AREAS_KEY, Key: SERVICE_AREAS_KEY, Value: value });
+      await settingsJson.writeJson(SERVICE_AREAS_KEY, map, rows);
       return jsonResponse(200, { success: true, sku, areas });
     }
 
@@ -1163,7 +1152,9 @@ exports.handler = async (event) => {
       const settings = {};
       rows.forEach(it => {
         if (!it.fields) return;
-        settings[it.fields.Key || ''] = it.fields.Value || '';
+        const k = String(it.fields.Key || '');
+        if (/#\d+$/.test(k)) return;          /* trozos: se pegan abajo */
+        settings[k] = settingsJson.joinValue(rows, k);
       });
       return jsonResponse(200, { settings });
     }
@@ -1171,12 +1162,15 @@ exports.handler = async (event) => {
     if (action === 'save-setting') {
       const key = body.key, value = body.value;
       if (!key) return jsonResponse(400, { error: 'key is required' });
+      /* Valores largos (listas de clientes en JSON) se guardan en trozos. */
       const rows = await fetchAll(SETTINGS_LIST);
-      const existing = rows.find(it => it.fields && it.fields.Key === key);
-      if (existing) {
-        await updateListItemByItemId(SETTINGS_LIST, existing.id, { Value: value || '' });
-      } else {
-        await createListItem(SETTINGS_LIST, { Title: key, Key: key, Value: value || '' });
+      let parsed = null;
+      try { parsed = JSON.parse(value); } catch (e) { parsed = null; }
+      if (parsed !== null && typeof parsed === 'object') await settingsJson.writeJson(key, parsed, rows);
+      else {
+        const existing = rows.find(it => it.fields && it.fields.Key === key);
+        if (existing) await updateListItemByItemId(SETTINGS_LIST, existing.id, { Value: value || '' });
+        else await createListItem(SETTINGS_LIST, { Title: key, Key: key, Value: value || '' });
       }
       return jsonResponse(200, { success: true });
     }
@@ -2479,14 +2473,12 @@ exports.handler = async (event) => {
       const settingsKey = { rec: 'portal_recurring_clients', price: 'portal_price_clients' }[change];
       if (settingsKey) {
         const rows = await fetchAll(SETTINGS_LIST);
-        const row = rows.find(it => it.fields && it.fields.Key === settingsKey);
         let set = [];
-        try { set = JSON.parse((row && row.fields.Value) || '[]'); } catch (e) { set = []; }
+        try { set = JSON.parse(settingsJson.joinValue(rows, settingsKey) || '[]'); } catch (e) { set = []; }
         if (!Array.isArray(set)) set = [];
         const ids = list.map(c => String(c.clientId || '')).filter(Boolean);
         const next = body.value ? [...new Set(set.concat(ids))] : set.filter(x => ids.indexOf(String(x)) === -1);
-        if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: JSON.stringify(next) });
-        else await createListItem(SETTINGS_LIST, { Title: settingsKey, Key: settingsKey, Value: JSON.stringify(next) });
+        await settingsJson.writeJson(settingsKey, next, rows);
         return jsonResponse(200, { success: true, updated: ids.length });
       }
       let fields;

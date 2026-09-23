@@ -56,8 +56,7 @@ exports.handler = async (event) => {
     let levelAdj = {};
     try {
       const st = await queryList('Settings', '$expand=fields&$top=200');
-      const r = st.find(it => it.fields && it.fields.Key === 'catalog_level_prices');
-      levelAdj = JSON.parse((r && r.fields.Value) || '{}') || {};
+      levelAdj = require('./lib/settings-json').readJson(st, 'catalog_level_prices') || {};
     } catch (e) { levelAdj = {}; }
     const levelPrice = (sku, base, level) => {
       const a = levelAdj[sku] && levelAdj[sku][level === 'Level 2' ? 'l2' : level === 'Level 3' ? 'l3' : ''];
