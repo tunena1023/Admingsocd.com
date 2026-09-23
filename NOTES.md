@@ -398,6 +398,25 @@ archivo nuevo por separado.
 
 ---
 
+## ACORDADO (23/09/2026): categorías de la app para Commercial Janitorial
+
+Aprobado por el dueño con mini ("Service categories: today vs proposed").
+Se agrupa por **cómo se vende** el servicio (sus propias etiquetas en la
+descripción), no por cuarto:
+
+| Categoría | Qué lleva |
+|---|---|
+| **Common Areas** | Todo lo de visita regular, lo que usan los contratos recurrentes (pisos, dusting, basura, baños, elevadores, escaleras, lobby, oficinas, amenidades, exterior). Nombre del dueño; además sale primero en el picker (orden alfabético). |
+| **Floor Care** | Trabajo periódico de pisos (shampoo, spot, scrubbing, polishing, strip & wax). |
+| **Deep Cleaning** | A pedido o con cargo extra (deep scrub, ventanas, vidrios, desinfección, odor/ozone, boiler room, balcones). |
+| **Packages** | Precio por trabajo completo (move-in/out, post-construction, unit cleaning, touch-up, áreas comunes de apartamentos, consultorios). |
+| **Extras** | Lo que el cliente pide en sitio, por hora. |
+
+Se aplica con la columna "App category" del archivo
+GS-services-QuickBooks-and-App.csv (el mismo que va a QuickBooks), o a
+mano en Developer. Servicio nuevo = una de estas 5. Residential no se
+tocó.
+
 ## SUBIDO (23/09/2026): mismo archivo para QuickBooks y para la app + descripciones en tooltip
 
 - **Import del catálogo acepta la plantilla de importación de QuickBooks**
