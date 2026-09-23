@@ -8167,6 +8167,9 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       document.getElementById('holidays-section').classList.add('role-eligible');
       document.getElementById('import-recurring-section').classList.add('role-eligible');
       document.getElementById('recurring-scheduler-section').classList.add('role-eligible');
+      /* Faltaba (bug reportado por el dueño): Package contents nunca se
+         marcaba como visible para ningun rol. */
+      document.getElementById('pkg-contents-section').classList.add('role-eligible');
       loadRecurringImportMatrix();
     }
 
@@ -8177,6 +8180,17 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       loadTechs();
       loadServiceTimes();
     }
+
+    /* Titulos de grupo de Settings (Access / Imports / Tools): se ven si
+       alguna tarjeta de su grupo se ve para este rol. */
+    document.querySelectorAll('#dev-content > section.dev-group-title').forEach(t => {
+      let el = t.nextElementSibling, any = false;
+      while (el && !el.classList.contains('dev-group-title')) {
+        if (el.tagName === 'SECTION' && el.dataset.category === t.dataset.category && el.classList.contains('role-eligible')) { any = true; break; }
+        el = el.nextElementSibling;
+      }
+      t.classList.toggle('role-eligible', any);
+    });
 
     loadCatalogBrowse();
     if (canEdit) { loadAllTemplates(); loadHolidays(); }
