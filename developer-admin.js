@@ -264,7 +264,8 @@ const SERVICE_AREAS_KEY = 'catalog_service_areas';
    editar se usa DEFAULT_PACKAGE_CONTENTS (borrador del mini).
 ============================================================ */
 const { DEFAULT_PACKAGE_CONTENTS } = require('./lib/package-contents');
-const settingsJson = require('./lib/settings-json');
+const catalogFields = require('./lib/catalog-fields');
+const settingsJson = require('./lib/settings-json');   /* solo para migrar lo viejo una vez */
 const PACKAGE_CONTENTS_KEY = 'catalog_package_contents';
 
 /* ============================================================
@@ -286,15 +287,71 @@ function levelPricesFor(price, adj) {
   return out;
 }
 
-async function readServiceAreas() {
-  const rows = await fetchAll(SETTINGS_LIST);
-  const v = settingsJson.readJson(rows, SERVICE_AREAS_KEY);
-  return v ? { map: v, row: true, rows } : { map: Object.assign({}, DEFAULT_SERVICE_AREAS), row: null, rows };
-}
-async function readPackageContents() {
-  const rows = await fetchAll(SETTINGS_LIST);
-  const v = settingsJson.readJson(rows, PACKAGE_CONTENTS_KEY);
-  return v ? { map: v, row: true, rows } : { map: JSON.parse(JSON.stringify(DEFAULT_PACKAGE_CONTENTS)), row: null, rows };
+/* ============================================================
+   Migracion UNICA a las columnas reales (23/09/2026). Lo que hubiera
+   en Settings (en trozos) o, si no hay, los borradores del mini, pasa
+   a ServicesCatalog.Areas / PackageItems / Level2-3, a
+   Clients.ShowRecurring / ShowPrices y a Orders.PackageContents (desde
+   los renglones 'Package Snapshot' del historial). Solo llena lo que
+   este vacio; nunca pisa una columna que ya tenga algo. Al terminar
+   deja Settings 'columns_migrated' = '1' y no vuelve a correr.
+============================================================ */
+async function migrateToColumns() {
+  const settingRows = await fetchAll(SETTINGS_LIST);
+  if (settingRows.some(it => it.fields && it.fields.Key === 'columns_migrated')) return;
+  const areasMap = settingsJson.readJson(settingRows, SERVICE_AREAS_KEY) || DEFAULT_SERVICE_AREAS;
+  const pkgMap = settingsJson.readJson(settingRows, PACKAGE_CONTENTS_KEY) || DEFAULT_PACKAGE_CONTENTS;
+  const lvlMap = settingsJson.readJson(settingRows, LEVEL_PRICES_KEY) || {};
+  const catalog = await fetchAll(SERVICES_CATALOG_LIST);
+  const patches = [];
+  catalog.forEach(it => {
+    const f = it.fields || {}; const sku = String(f.SKU || '').trim(); if (!sku) return;
+    const patch = {};
+    if (!f.Areas && Array.isArray(areasMap[sku]) && areasMap[sku].length) patch.Areas = JSON.stringify(areasMap[sku]);
+    if (!f.PackageItems && Array.isArray(pkgMap[sku]) && pkgMap[sku].length) patch.PackageItems = JSON.stringify(pkgMap[sku]);
+    const a = lvlMap[sku];
+    if (a && f.Level2Price == null && f.Level3Price == null) {
+      if (a.l2) { patch.Level2Price = Number(a.l2.v) || 0; patch.Level2Mode = a.l2.t === '$' ? 'Dollar' : 'Percent'; }
+      if (a.l3) { patch.Level3Price = Number(a.l3.v) || 0; patch.Level3Mode = a.l3.t === '$' ? 'Dollar' : 'Percent'; }
+    }
+    if (Object.keys(patch).length) patches.push({ id: it.id, patch });
+  });
+  for (let i = 0; i < patches.length; i += 8) {
+    await Promise.all(patches.slice(i, i + 8).map(p => updateListItemByItemId(SERVICES_CATALOG_LIST, p.id, p.patch).catch(e => console.error('migrate service', p.id, e.message))));
+  }
+  const lists = {};
+  ['portal_recurring_clients', 'portal_price_clients'].forEach(k => { try { lists[k] = JSON.parse(settingsJson.joinValue(settingRows, k) || '[]'); } catch (e) { lists[k] = []; } });
+  if ((lists.portal_recurring_clients || []).length || (lists.portal_price_clients || []).length) {
+    const clients = await fetchAll(CLIENTS_LIST);
+    const cp = [];
+    clients.forEach(it => {
+      const f = it.fields || {}; const cid = String(f.ClientID || '').trim(); if (!cid) return;
+      const patch = {};
+      if ((lists.portal_recurring_clients || []).map(String).indexOf(cid) !== -1 && !truthy(f.ShowRecurring)) patch.ShowRecurring = true;
+      if ((lists.portal_price_clients || []).map(String).indexOf(cid) !== -1 && !truthy(f.ShowPrices)) patch.ShowPrices = true;
+      if (Object.keys(patch).length) cp.push({ id: it.id, patch });
+    });
+    for (let i = 0; i < cp.length; i += 8) {
+      await Promise.all(cp.slice(i, i + 8).map(p => updateListItemByItemId(CLIENTS_LIST, p.id, p.patch).catch(e => console.error('migrate client', p.id, e.message))));
+    }
+  }
+  try {
+    const hist = await fetchAll(ORDER_HISTORY_LIST);
+    const byOrder = {};
+    hist.filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot').forEach(h => {
+      try { byOrder[h.fields.OrderID] = Object.assign(byOrder[h.fields.OrderID] || {}, JSON.parse(h.fields.NewValue || '{}')); } catch (e) { /* sigue */ }
+    });
+    const ids = Object.keys(byOrder);
+    if (ids.length) {
+      const orders = await fetchAll(ORDERS_LIST);
+      for (const oid of ids) {
+        const o = orders.find(it => it.fields && it.fields.OrderID === oid);
+        if (o && !o.fields.PackageContents) await updateListItemByItemId(ORDERS_LIST, o.id, { PackageContents: JSON.stringify(byOrder[oid]) }).catch(e => console.error('migrate order', oid, e.message));
+      }
+    }
+  } catch (e) { console.error('migrate snapshots:', e.message); }
+  await createListItem(SETTINGS_LIST, { Title: 'columns_migrated', Key: 'columns_migrated', Value: '1' });
+  console.log('Migrated to columns:', patches.length, 'services');
 }
 
 async function getRole(email) {
@@ -415,18 +472,10 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-catalog') {
-      const [rows, areasRes, pkgRes, settingRows] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents(), fetchAll(SETTINGS_LIST)]);
-      let levelAdj = {};
-      levelAdj = settingsJson.readJson(settingRows, LEVEL_PRICES_KEY) || {};
-      const areasMap = areasRes.map;
-      const pkgMap = pkgRes.map;
-      /* El portal del cliente y Tech solo LEEN Settings (no tienen los
-         defaults): la primera vez que Admin carga el catalogo, se dejan
-         escritos los borradores aprobados. */
-      try {
-        if (!areasRes.row) await settingsJson.writeJson(SERVICE_AREAS_KEY, areasMap, areasRes.rows);
-        if (!pkgRes.row) await settingsJson.writeJson(PACKAGE_CONTENTS_KEY, pkgMap, pkgRes.rows);
-      } catch (e) { console.error('Seeding catalog settings:', e.message); }
+      /* Una sola vez: lo que se habia guardado en Settings (o los
+         borradores del mini) pasa a las columnas reales. */
+      try { await migrateToColumns(); } catch (e) { console.error('Migrating to columns:', e.message); }
+      const rows = await fetchAll(SERVICES_CATALOG_LIST);
       const services = rows.filter(it => it.fields).map(it => ({
         id: it.id,
         serviceName: it.fields.ServiceName || '',
@@ -437,18 +486,13 @@ exports.handler = async (event) => {
         price: it.fields.Price != null ? it.fields.Price : null,
         active: truthy(it.fields.Active),
         requiresQuantity: truthy(it.fields.RequiresQuantity),
-        /* Categoria manual -- confirmado con el usuario, con el hallazgo
-           de por medio: el catalogo viene de QuickBooks (Division/
-           PropertyType/Price se sobreescriben en cada import), pero
-           esto NO -- el import solo manda un PATCH con esos campos
-           especificos, nunca toca Category. El usuario decidio que
-           vale la pena mantenerla al dia el mismo, categorizando lo
-           nuevo que llegue. */
         category: it.fields.Category || '',
-        areas: Array.isArray(areasMap[String(it.fields.SKU || '').trim()]) ? areasMap[String(it.fields.SKU || '').trim()] : [],
-        packageItems: Array.isArray(pkgMap[String(it.fields.SKU || '').trim()]) ? pkgMap[String(it.fields.SKU || '').trim()] : [],
-        levelAdjust: levelAdj[String(it.fields.SKU || '').trim()] || null,
-        levelPrices: levelPricesFor(it.fields.Price, levelAdj[String(it.fields.SKU || '').trim()])
+        /* Columnas nuevas (el dueño las creo): Areas, PackageItems,
+           Level2Price/Mode, Level3Price/Mode. */
+        areas: catalogFields.areasOf(it.fields),
+        packageItems: catalogFields.packageItemsOf(it.fields),
+        levelAdjust: catalogFields.levelAdjustOf(it.fields),
+        levelPrices: catalogFields.levelPricesFor(it.fields.Price, catalogFields.levelAdjustOf(it.fields))
       }));
       return jsonResponse(200, { services, areaNames: SERVICE_AREA_NAMES });
     }
@@ -463,13 +507,15 @@ exports.handler = async (event) => {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
       const sku = String(body.sku || '').trim();
       if (!sku) return jsonResponse(400, { error: 'sku is required' });
+      const item = (await fetchAll(SERVICES_CATALOG_LIST)).find(it => it.fields && String(it.fields.SKU || '').trim() === sku);
+      if (!item) return jsonResponse(404, { error: 'Service not found.' });
       const clean = a => (a && a.v !== '' && a.v != null && !isNaN(Number(a.v))) ? { t: a.t === '$' ? '$' : '%', v: Number(a.v) } : null;
-      const rows = await fetchAll(SETTINGS_LIST);
-      const map = settingsJson.readJson(rows, LEVEL_PRICES_KEY) || {};
       const l2 = clean(body.l2), l3 = clean(body.l3);
-      if (l2 || l3) map[sku] = { l2, l3 }; else delete map[sku];
-      await settingsJson.writeJson(LEVEL_PRICES_KEY, map, rows);
-      return jsonResponse(200, { success: true, sku, adjust: map[sku] || null });
+      await updateListItemByItemId(SERVICES_CATALOG_LIST, item.id, {
+        Level2Price: l2 ? l2.v : null, Level2Mode: l2 ? (l2.t === '$' ? 'Dollar' : 'Percent') : null,
+        Level3Price: l3 ? l3.v : null, Level3Mode: l3 ? (l3.t === '$' ? 'Dollar' : 'Percent') : null
+      });
+      return jsonResponse(200, { success: true, sku, adjust: (l2 || l3) ? { l2, l3 } : null });
     }
 
     if (action === 'save-package-contents') {
@@ -478,11 +524,11 @@ exports.handler = async (event) => {
       if (!sku) return jsonResponse(400, { error: 'sku is required' });
       const LV = ['Level 1', 'Level 2', 'Level 3'];
       const items = (Array.isArray(body.items) ? body.items : [])
-        .map(x => ({ sku: String((x && x.sku) || '').trim(), level: LV.indexOf(x && x.level) !== -1 ? x.level : 'Level 2' }))
+        .map(x => ({ sku: String((x && x.sku) || '').trim(), level: LV.indexOf(x && x.level) !== -1 ? x.level : '' }))
         .filter(x => x.sku && x.sku !== sku);
-      const { map, rows } = await readPackageContents();
-      map[sku] = items;
-      await settingsJson.writeJson(PACKAGE_CONTENTS_KEY, map, rows);
+      const item = (await fetchAll(SERVICES_CATALOG_LIST)).find(it => it.fields && String(it.fields.SKU || '').trim() === sku);
+      if (!item) return jsonResponse(404, { error: 'Service not found.' });
+      await updateListItemByItemId(SERVICES_CATALOG_LIST, item.id, { PackageItems: items.length ? JSON.stringify(items) : '' });
       return jsonResponse(200, { success: true, sku, items });
     }
 
@@ -491,9 +537,9 @@ exports.handler = async (event) => {
       const sku = String(body.sku || '').trim();
       if (!sku) return jsonResponse(400, { error: 'sku is required' });
       const areas = (Array.isArray(body.areas) ? body.areas : []).filter(a => SERVICE_AREA_NAMES.indexOf(a) !== -1);
-      const { map, rows } = await readServiceAreas();
-      map[sku] = areas;
-      await settingsJson.writeJson(SERVICE_AREAS_KEY, map, rows);
+      const item = (await fetchAll(SERVICES_CATALOG_LIST)).find(it => it.fields && String(it.fields.SKU || '').trim() === sku);
+      if (!item) return jsonResponse(404, { error: 'Service not found.' });
+      await updateListItemByItemId(SERVICES_CATALOG_LIST, item.id, { Areas: areas.length ? JSON.stringify(areas) : '' });
       return jsonResponse(200, { success: true, sku, areas });
     }
 
@@ -1152,9 +1198,7 @@ exports.handler = async (event) => {
       const settings = {};
       rows.forEach(it => {
         if (!it.fields) return;
-        const k = String(it.fields.Key || '');
-        if (/#\d+$/.test(k)) return;          /* trozos: se pegan abajo */
-        settings[k] = settingsJson.joinValue(rows, k);
+        settings[it.fields.Key || ''] = it.fields.Value || '';
       });
       return jsonResponse(200, { settings });
     }
@@ -1162,16 +1206,10 @@ exports.handler = async (event) => {
     if (action === 'save-setting') {
       const key = body.key, value = body.value;
       if (!key) return jsonResponse(400, { error: 'key is required' });
-      /* Valores largos (listas de clientes en JSON) se guardan en trozos. */
       const rows = await fetchAll(SETTINGS_LIST);
-      let parsed = null;
-      try { parsed = JSON.parse(value); } catch (e) { parsed = null; }
-      if (parsed !== null && typeof parsed === 'object') await settingsJson.writeJson(key, parsed, rows);
-      else {
-        const existing = rows.find(it => it.fields && it.fields.Key === key);
-        if (existing) await updateListItemByItemId(SETTINGS_LIST, existing.id, { Value: value || '' });
-        else await createListItem(SETTINGS_LIST, { Title: key, Key: key, Value: value || '' });
-      }
+      const existing = rows.find(it => it.fields && it.fields.Key === key);
+      if (existing) await updateListItemByItemId(SETTINGS_LIST, existing.id, { Value: value || '' });
+      else await createListItem(SETTINGS_LIST, { Title: key, Key: key, Value: value || '' });
       return jsonResponse(200, { success: true });
     }
 
@@ -2450,6 +2488,8 @@ exports.handler = async (event) => {
              Yes/No, default No en SharePoint). Se activa cliente por
              cliente desde aqui. */
           showEstimatedTime: truthy(f.ShowEstimatedTime),
+          showRecurring: truthy(f.ShowRecurring),
+          showPrices: truthy(f.ShowPrices),
           additionalAddresses: (addrByClient[f.ClientID] || []).filter(a => !a.archived)
         };
       }).sort((a, b) => a.businessName.localeCompare(b.businessName));
@@ -2470,23 +2510,14 @@ exports.handler = async (event) => {
       const list = (Array.isArray(body.clients) ? body.clients : []).filter(c => c && (c.id || c.clientId));
       if (!list.length) return jsonResponse(400, { error: 'No clients selected.' });
       const DAYF = ['MonOpen', 'TueOpen', 'WedOpen', 'ThuOpen', 'FriOpen', 'SatOpen', 'SunOpen'];
-      const settingsKey = { rec: 'portal_recurring_clients', price: 'portal_price_clients' }[change];
-      if (settingsKey) {
-        const rows = await fetchAll(SETTINGS_LIST);
-        let set = [];
-        try { set = JSON.parse(settingsJson.joinValue(rows, settingsKey) || '[]'); } catch (e) { set = []; }
-        if (!Array.isArray(set)) set = [];
-        const ids = list.map(c => String(c.clientId || '')).filter(Boolean);
-        const next = body.value ? [...new Set(set.concat(ids))] : set.filter(x => ids.indexOf(String(x)) === -1);
-        await settingsJson.writeJson(settingsKey, next, rows);
-        return jsonResponse(200, { success: true, updated: ids.length });
-      }
       let fields;
       if (change === 'days') {
         const v = body.value || {};
         fields = {}; DAYF.forEach(f => { fields[f] = !!v[f.charAt(0).toLowerCase() + f.slice(1)]; });
       } else if (change === 'hours') fields = { OfficeHours: String(body.value || '') };
       else if (change === 'est') fields = { ShowEstimatedTime: !!body.value };
+      else if (change === 'rec') fields = { ShowRecurring: !!body.value };
+      else if (change === 'price') fields = { ShowPrices: !!body.value };
       else if (change === 'status') fields = { Active: !!body.value };
       else return jsonResponse(400, { error: 'Unknown change.' });
       let updated = 0; const failed = [];
@@ -2509,6 +2540,18 @@ exports.handler = async (event) => {
     /* Quien puede ver el tiempo estimado en sus ordenes desde Orders --
        cliente por cliente, apagado por default. Mismo patron que
        toggle-client-active. */
+    /* Columnas Si/No del cliente: ShowRecurring, ShowPrices (y
+       ShowEstimatedTime, que ya existia). */
+    if (action === 'toggle-client-flag') {
+      const clientItemId = String(body.id || '').trim();
+      const field = String(body.field || '');
+      if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
+      if (['ShowRecurring', 'ShowPrices', 'ShowEstimatedTime'].indexOf(field) === -1) return jsonResponse(400, { error: 'Unknown field.' });
+      const patch = {}; patch[field] = !!body.show;
+      await updateListItemByItemId(CLIENTS_LIST, clientItemId, patch);
+      return jsonResponse(200, { success: true });
+    }
+
     if (action === 'toggle-client-show-estimated-time') {
       const clientItemId = String(body.id || '').trim();
       if (!clientItemId) return jsonResponse(400, { error: 'id is required' });

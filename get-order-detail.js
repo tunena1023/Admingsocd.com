@@ -143,6 +143,7 @@ exports.handler = async (event) => {
       Division:        f.Division || '',
       Status:          f.Status || 'Pending',
       DirtLevel:       f.DirtLevel || '',
+      PackageContents: f.PackageContents || '',
       Services:        f.Services || '',
       DraftData:       f.DraftData || '',
       BuildingNumber:  f.BuildingNumber || '',

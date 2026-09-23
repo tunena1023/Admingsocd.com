@@ -2548,9 +2548,8 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
   /* Snapshot de paquetes: se guarda el historial de cada orden que se
      abre (pkgIncludesHtml lo lee). */
-  if (path === '/get-order-detail' && data && Array.isArray(data.history)) {
-    const oid = (data.order && data.order.OrderID) || (opts.body && opts.body.orderId);
-    if (oid && typeof pkgHistoryByOrder !== 'undefined') pkgHistoryByOrder[oid] = data.history;
+  if (path === '/get-order-detail' && data && data.order && data.order.OrderID && typeof pkgHistoryByOrder !== 'undefined') {
+    pkgHistoryByOrder[data.order.OrderID] = data.order.PackageContents || '';
   }
   return data;
 }
@@ -9395,15 +9394,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         box.innerHTML = '<p class="empty-note">Loading…</p>';
         const res = await devApi('list-all-clients');
         allClientsCache = res.clients || [];
-        /* Quien ve la opcion Recurring en su portal (Settings,
-           portal_recurring_clients: lista de ClientID). */
-        try {
-          const st = await devApi('get-settings');
-          const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
-          portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
-          const plist = JSON.parse((st.settings || {}).portal_price_clients || '[]');
-          portalPriceSet = new Set(Array.isArray(plist) ? plist.map(String) : []);
-        } catch (e) { portalRecurringSet = new Set(); }
+
       }
       renderAllClientsTable();
     } catch (e) {
@@ -9446,7 +9437,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     if (!acChange) return '';
     if (acChange === 'days') { const t = AC_DAYS.filter(d => c[d[0]]).map(d => d[1]).join(''); return '<span class="acw-now">' + (t || 'Closed') + '</span>'; }
     if (acChange === 'hours') return '<span class="acw-now">' + esc(c.officeHours || '—') + '</span>';
-    const on = acChange === 'status' ? c.active !== false : acChange === 'est' ? !!c.showEstimatedTime : acChange === 'rec' ? portalRecurringSet.has(String(c.clientId)) : portalPriceSet.has(String(c.clientId));
+    const on = acChange === 'status' ? c.active !== false : acChange === 'est' ? !!c.showEstimatedTime : acChange === 'rec' ? !!c.showRecurring : !!c.showPrices;
     return '<span class="acw-now' + (on ? ' on' : '') + '">' + (acChange === 'status' ? (on ? 'Active' : 'Inactive') : (on ? 'On' : 'Off')) + '</span>';
   }
   function acTo12(v) { const [h, m] = String(v).split(':').map(Number); return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h < 12 ? ' AM' : ' PM'); }
@@ -9526,10 +9517,10 @@ async function resolveExtraRequest(orderId, requestId, decision) {
             if (k === 'days') AC_DAYS.forEach(d => { x[d[0]] = value[d[0]]; });
             if (k === 'hours') x.officeHours = value;
             if (k === 'est') x.showEstimatedTime = value;
+            if (k === 'rec') x.showRecurring = value;
+            if (k === 'price') x.showPrices = value;
             if (k === 'status') x.active = value;
           });
-          if (k === 'rec') value ? portalRecurringSet.add(String(c.clientId)) : portalRecurringSet.delete(String(c.clientId));
-          if (k === 'price') value ? portalPriceSet.add(String(c.clientId)) : portalPriceSet.delete(String(c.clientId));
         });
         done.push(AC_CHANGES[k][1] + ' → ' + (res.updated || chosen.length) + (res.failed && res.failed.length ? ' (' + res.failed.length + ' failed)' : ''));
         st.who.clear();
@@ -9692,21 +9683,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     }
   }
 
-  /* Casilla "Show Recurring" (pedido del dueño, junto a "Show Est.
-     Time"): el cliente ve el toggle Recurring / Units al pedir en su
-     portal; los demas solo Units (cuartos + paquetes). */
-  let portalRecurringSet = new Set();
-  async function toggleClientShowRecurring(clientId, show) {
-    const next = new Set(portalRecurringSet);
-    if (show) next.add(clientId); else next.delete(clientId);
-    try {
-      await devApi('save-setting', { key: 'portal_recurring_clients', value: JSON.stringify(Array.from(next)) });
-      portalRecurringSet = next;
-    } catch (e) {
-      showToast('Could not update: ' + e.message);
-      renderAllClientsTable();
-    }
-  }
+  var portalRecurringSet = portalRecurringSet || new Set();
 
   async function toggleClientShowEstimatedTime(id, show) {
     try {
@@ -11464,21 +11441,15 @@ function flattenSelectedForEstimate(orderId) {
    no solo en el total de abajo) -- misma logica y mismo catalogo que
    calcOrderEstimatedMinutes, nomas para un servicio suelto. '' si
    todavia no se conoce su tiempo. */
-/* Paquete (plantilla, picker v1.52.0). Pedido del dueño: cada orden
-   guarda SUS datos -- lo que incluia el paquete el dia que se creo la
-   orden queda congelado en su historial (ChangeType 'Package Snapshot',
-   interno, ver lib/package-contents.js). Si despues se cambia el
-   paquete, solo cambian las ordenes nuevas. Una orden sin snapshot (de
-   antes) no muestra nada, igual que siempre. */
-var pkgHistoryByOrder = {};
+/* Paquete (plantilla). Cada orden guarda SUS datos: lo que incluia el
+   paquete el dia que se creo queda congelado en la columna
+   Orders.PackageContents (lib/package-contents.js). Si despues se cambia
+   el paquete, solo cambian las ordenes nuevas. */
+var pkgHistoryByOrder = {};   /* OrderID -> Orders.PackageContents (JSON) */
 function pkgSnapshotFor(orderId, sku) {
-  const hist = pkgHistoryByOrder[orderId] || [];
-  for (let i = hist.length - 1; i >= 0; i--) {
-    const h = hist[i];
-    if (String(h.ChangeType || '') !== 'Package Snapshot') continue;
-    try { const v = JSON.parse(h.NewValue || '{}'); if (Array.isArray(v[sku])) return v[sku]; } catch (e) { /* sigue */ }
-  }
-  return null;
+  const raw = pkgHistoryByOrder[orderId];
+  if (!raw) return null;
+  try { const v = JSON.parse(raw); return Array.isArray(v[sku]) ? v[sku] : null; } catch (e) { return null; }
 }
 function pkgIncludesHtml(sku, orderId) {
   const items = pkgSnapshotFor(orderId, String(sku || ''));
@@ -13225,18 +13196,6 @@ function goToOrderInAnyTab(orderId) {
    vive en SU tarjeta -- dias y horario de oficina (del cliente y de
    cada edificio), y lo que ve en su portal (tiempo estimado, opcion
    Recurring). Mismas acciones que ya usaba Developer > All Clients. */
-let portalRecurringLoaded = false;
-async function ensurePortalRecurringSet() {
-  if (portalRecurringLoaded) return;
-  try {
-    const st = await api('/developer-admin', { body: { action: 'get-settings', email: adminUser.email } });
-    const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
-    portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
-    const plist = JSON.parse((st.settings || {}).portal_price_clients || '[]');
-    portalPriceSet = new Set(Array.isArray(plist) ? plist.map(String) : []);
-    portalRecurringLoaded = true;
-  } catch (e) { /* se queda como este */ }
-}
 /* Caja de oficina (dias + horario) del cliente (b = null) o de UN
    edificio; se guarda al tocarla (cardHoursChanged). */
 function clientOfficeBoxHtml(c, b) {
@@ -13281,12 +13240,8 @@ function clientOfficeViz(key) {
 function createCustomPanelHtml(c) {
   const portal = '<div class="cl-box"><h4>What they see in their portal</h4><div class="cl-sub">Client ID <b class="cl-idmono">' + esc(c.clientId) + '</b></div>' +
     '<label class="cc-switch"><span><b>Show estimated time</b><small>On their orders</small></span><span class="svc-toggle"><input type="checkbox"' + (c.showEstimatedTime ? ' checked' : '') + ' onchange="cardToggleEst(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
-    '<label class="cc-switch"><span><b>Show Recurring</b><small>Recurring / Units switch when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-rec-' + escAttr(c.clientId) + '"' + (portalRecurringSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleRecurring(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
-    '<label class="cc-switch"><span><b>Show prices</b><small>Prices on services and packages when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-price-' + escAttr(c.clientId) + '"' + (portalPriceSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleSetting(\'portal_price_clients\',\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label></div>';
-  if (!portalRecurringLoaded) ensurePortalRecurringSet().then(() => {
-    document.querySelectorAll('.cc-rec-' + CSS.escape(c.clientId)).forEach(el => { el.checked = portalRecurringSet.has(String(c.clientId)); });
-    document.querySelectorAll('.cc-price-' + CSS.escape(c.clientId)).forEach(el => { el.checked = portalPriceSet.has(String(c.clientId)); });
-  });
+    '<label class="cc-switch"><span><b>Show Recurring</b><small>Recurring / Units switch when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-rec-' + escAttr(c.clientId) + '"' + (c.showRecurring ? ' checked' : '') + ' onchange="cardToggleRecurring(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
+    '<label class="cc-switch"><span><b>Show prices</b><small>Prices on services and packages when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-price-' + escAttr(c.clientId) + '"' + (c.showPrices ? ' checked' : '') + ' onchange="cardToggleSetting(\'ShowPrices\',\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label></div>';
   const blds = (c.buildings || []).filter(x => !x.archived).map(x => clientOfficeBoxHtml(c, x)).join('');
   return '<div class="cl-grid">' + clientOfficeBoxHtml(c, null) + portal + blds + '</div>';
 }
@@ -13316,25 +13271,16 @@ async function cardToggleEst(clientId, el) {
     if (typeof allClientsCache !== 'undefined' && allClientsCache) (allClientsCache.find(x => x.id === c.id) || {}).showEstimatedTime = el.checked;
   } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
 }
-async function cardToggleSetting(key, clientId, el) {
-  await ensurePortalRecurringSet();
-  const cur = key === 'portal_price_clients' ? portalPriceSet : portalRecurringSet;
-  const next = new Set(cur);
-  if (el.checked) next.add(clientId); else next.delete(clientId);
+/* Columnas Si/No del cliente (ShowRecurring, ShowPrices). */
+async function cardToggleSetting(field, clientId, el) {
+  const c = allClients.find(x => x.clientId === clientId); if (!c) return;
   try {
-    await api('/developer-admin', { body: { action: 'save-setting', email: adminUser.email, key, value: JSON.stringify(Array.from(next)) } });
-    if (key === 'portal_price_clients') portalPriceSet = next; else portalRecurringSet = next;
+    await api('/developer-admin', { body: { action: 'toggle-client-flag', email: adminUser.email, id: c.id, field, show: el.checked } });
+    if (field === 'ShowPrices') { c.showPrices = el.checked; el.checked ? portalPriceSet.add(clientId) : portalPriceSet.delete(clientId); }
+    else { c.showRecurring = el.checked; el.checked ? portalRecurringSet.add(clientId) : portalRecurringSet.delete(clientId); }
   } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
 }
-async function cardToggleRecurring(clientId, el) {
-  await ensurePortalRecurringSet();
-  const next = new Set(portalRecurringSet);
-  if (el.checked) next.add(clientId); else next.delete(clientId);
-  try {
-    await api('/developer-admin', { body: { action: 'save-setting', email: adminUser.email, key: 'portal_recurring_clients', value: JSON.stringify(Array.from(next)) } });
-    portalRecurringSet = next;
-  } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
-}
+async function cardToggleRecurring(clientId, el) { return cardToggleSetting('ShowRecurring', clientId, el); }
 
 function createClientCard(c) {
   const cid = 'createcl-' + (c.clientId||'').replace(/[^a-z0-9]/gi,'_');

@@ -17,7 +17,7 @@
 
 const {
   ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST,
-  createListItem, queryList,
+  createListItem, queryList, ORDERS_LIST,
   jsonResponse
 } = require('./lib/graph');
 
@@ -50,24 +50,16 @@ exports.handler = async (event) => {
     /* Precio actual de cada SKU -- una sola pasada al catalogo
        completo, no una consulta por servicio por orden. */
     const catalogRows = await queryList(SERVICES_CATALOG_LIST, '$expand=fields&$top=500');
-    /* Precio por nivel (Developer > Service Times): L2/L3 suman % o $ al
-       precio de QuickBooks (= Level 1). Se manda como precio de ESA
-       linea; el articulo en QuickBooks nunca se reescribe. */
-    let levelAdj = {};
-    try {
-      const st = await queryList('Settings', '$expand=fields&$top=200');
-      levelAdj = require('./lib/settings-json').readJson(st, 'catalog_level_prices') || {};
-    } catch (e) { levelAdj = {}; }
+    /* Precio por nivel (columnas Level2/3Price+Mode de ServicesCatalog):
+       L2/L3 suman % o $ al precio de QuickBooks (= Level 1). Se manda
+       como precio de ESA linea; el articulo en QuickBooks no se toca. */
+    const { levelAdjustOf, levelPricesFor } = require('./lib/catalog-fields');
+    const adjBySku = {};
+    catalogRows.forEach(it => { if (it.fields && it.fields.SKU) adjBySku[it.fields.SKU] = levelAdjustOf(it.fields); });
     const levelPrice = (sku, base, level) => {
-      const a = levelAdj[sku] && levelAdj[sku][level === 'Level 2' ? 'l2' : level === 'Level 3' ? 'l3' : ''];
-      if (!a) return base;
-      const v = Number(a.v) || 0;
-      return Math.round((a.t === '$' ? base + v : base * (1 + v / 100)) * 100) / 100;
+      const lp = levelPricesFor(base, adjBySku[sku]);
+      return lp && lp[level] != null ? lp[level] : base;
     };
-    const priceBySku = {};
-    catalogRows.forEach(it => {
-      if (it.fields && it.fields.SKU) priceBySku[it.fields.SKU] = it.fields.Price;
-    });
 
     const results = [];
 
@@ -76,15 +68,13 @@ exports.handler = async (event) => {
         const services = o.ServicesDetailed || [];
         if (!services.length) throw new Error('This order has no services to import.');
 
-        /* Lo que incluyo cada paquete EN ESTA orden (su copia congelada,
-           'Package Snapshot' en su historial) -- va en la descripcion de
-           la linea del paquete, con SKU (pedido del dueño). */
+        /* Lo que incluyo cada paquete EN ESTA orden (columna
+           Orders.PackageContents) -- va en la descripcion de la linea del
+           paquete, con SKU (pedido del dueño). */
         let pkgSnap = {};
         try {
-          const hist = await queryList('OrderHistory', '$expand=fields&$top=200&$filter=' + encodeURIComponent("fields/OrderID eq '" + String(o.OrderID || '').replace(/'/g, "''") + "'"));
-          hist.filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot').forEach(h => {
-            try { Object.assign(pkgSnap, JSON.parse(h.fields.NewValue || '{}')); } catch (e) { /* sigue */ }
-          });
+          const rows = await queryList(ORDERS_LIST, '$expand=fields&$top=5&$filter=' + encodeURIComponent("fields/OrderID eq '" + String(o.OrderID || '').replace(/'/g, "''") + "'"));
+          pkgSnap = JSON.parse((rows[0] && rows[0].fields && rows[0].fields.PackageContents) || '{}') || {};
         } catch (e) { pkgSnap = {}; }
 
         const lines = [];

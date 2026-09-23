@@ -7,6 +7,24 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## SUBIDO (23/09/2026): columnas reales (fin de los JSON en Settings)
+
+El dueño creó las columnas en SharePoint; el código ya las usa:
+- **ServicesCatalog:** `Areas` (JSON lista), `PackageItems` (JSON
+  [{sku, level}]), `Level2Price`/`Level2Mode`, `Level3Price`/`Level3Mode`
+  (Percent | Dollar; Level 1 = precio de QuickBooks).
+- **Clients:** `ShowRecurring`, `ShowPrices` (Sí/No), junto a
+  `ShowEstimatedTime`.
+- **Orders:** `PackageContents` (JSON): la copia congelada de lo que
+  incluyó cada paquete en esa orden (antes iba en OrderHistory).
+- **ClientPackages** (`ClientID`, `PackageSKU`, `Items`): lista nueva,
+  todavía sin usar (versión del paquete por cliente, lo que sigue).
+- Helpers iguales en Admin/Orders/Tech: `lib/catalog-fields.js`.
+- `migrateToColumns()` (developer-admin.js) corre UNA vez al cargar el
+  catálogo: pasa lo que hubiera en Settings (o los borradores del mini)
+  a las columnas, solo llena lo vacío, y deja `columns_migrated` en
+  Settings. `lib/settings-json.js` se queda solo para esa lectura.
+
 ## SUBIDO (23/09/2026): cambios en masa + precios en el portal + precio por nivel
 
 - **Developer > Customers > All Clients** = cambios en masa (aprobado con

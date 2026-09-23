@@ -583,10 +583,7 @@ exports.handler = async (event) => {
            HOY; los que la orden ya tenia congelados no se tocan
            (lib/package-contents.js). */
         try {
-          const prevSnaps = (await fetchByOrderId(ORDER_HISTORY_LIST, orderId))
-            .filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot')
-            .flatMap(h => { try { return Object.keys(JSON.parse(h.fields.NewValue || '{}')); } catch (e) { return []; } });
-          await recordPackageSnapshots(orderId, services, actor, undefined, prevSnaps);
+          await recordPackageSnapshots(orderId, services, actor);
         } catch (e) { console.error('Package snapshot on edit:', e.message); }
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),

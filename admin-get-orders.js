@@ -294,6 +294,8 @@ exports.handler = async (event) => {
           lastModifiedDateTime: it.lastModifiedDateTime || it.createdDateTime || '',
           OrderID: f.OrderID || f.Title || '',
           ClientID: f.ClientID || '',
+          /* Copia congelada de lo que incluyo cada paquete (columna Orders.PackageContents). */
+          PackageContents: f.PackageContents || '',
           BusinessName: f.BusinessName || f.Title || '',
           Division: f.Division || '',
           Status: f.Status || 'Pending',

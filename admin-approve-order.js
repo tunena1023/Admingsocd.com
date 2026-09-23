@@ -582,10 +582,7 @@ exports.handler = async (event) => {
           /* Paquete agregado al aprobar el cambio: se congela lo que
              incluye HOY (los que la orden ya tenia congelados no). */
           try {
-            const prevSnaps = (await fetchByOrderId(ORDER_HISTORY_LIST, orderId))
-              .filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot')
-              .flatMap(h => { try { return Object.keys(JSON.parse(h.fields.NewValue || '{}')); } catch (e) { return []; } });
-            await recordPackageSnapshots(orderId, proposed.services, actor, undefined, prevSnaps);
+            await recordPackageSnapshots(orderId, proposed.services, actor);
           } catch (e) { console.error('Package snapshot on approve:', e.message); }
         restored = proposed.services.length;
       }

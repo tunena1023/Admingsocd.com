@@ -218,6 +218,8 @@ exports.handler = async (event) => {
           officeHours:    f.OfficeHours || '',
           /* Panel Custom (Clients > Create Order): switch 'Show estimated time'. */
           showEstimatedTime: truthy(f.ShowEstimatedTime),
+          showRecurring: truthy(f.ShowRecurring),
+          showPrices: truthy(f.ShowPrices),
           entryCushionMinutes: Number(f.EntryCushionMinutes) || 0,
           exitCushionMinutes:  Number(f.ExitCushionMinutes)  || 0,
           nowOpenStatus:  computeNowOpenStatus(
