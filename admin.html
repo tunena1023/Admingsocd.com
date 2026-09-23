@@ -1165,6 +1165,63 @@
     .cl-custom { gap: 5px; font-size: 9px; }
     .cl-grid { grid-template-columns: 1fr; }
   }
+  /* All Clients: cambios en masa */
+  .acw { background: var(--white); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.05); }
+  .acw-step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .acw-step.dim { opacity: .45; pointer-events: none; }
+  .acw-num { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(155deg, #EAD9A0, #C9A84C 55%, #A8873A); color: #171310; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(140,111,42,.3); }
+  .acw-body { min-width: 0; }
+  .acw-body h3 { margin: 4px 0 12px; font-size: 14px; }
+  .acw-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .acw-tile { border: 1.5px solid var(--border); background: var(--white); padding: 14px; text-align: left; cursor: pointer; font: inherit; border-radius: 6px; transition: border-color .15s ease, box-shadow .15s ease; }
+  .acw-tile:hover { border-color: #D8CBA6; }
+  .acw-tile.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,.18); background: #FFFCF3; }
+  .acw-tile .ic { font-size: 18px; display: block; margin-bottom: 8px; }
+  .acw-tile b { font-size: 13px; display: block; }
+  .acw-tile small { font-size: 11px; color: var(--gray); }
+  .acw-val { margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .acw-val .lbl { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
+  .acw-val input[type=time] { padding: 7px; border: 1px solid var(--border); font-family: inherit; }
+  .acw-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+  .acw-seg button { border: none; background: var(--white); padding: 7px 14px; font: inherit; font-size: 12px; font-weight: 600; color: var(--gray); cursor: pointer; }
+  .acw-seg button + button { border-left: 1px solid var(--border); }
+  .acw-seg button.on { background: var(--gold); color: var(--black); }
+  .acw-days { display: flex; gap: 6px; }
+  .acw-days span { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #D9D2C2; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #8A8577; cursor: pointer; }
+  .acw-days span.on { background: linear-gradient(155deg, #EAD9A0, #C9A84C 55%, #A8873A); border-color: #B8963F; color: #171310; }
+  .acw-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .acw-all { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .acw-all input, .acw-row input { accent-color: #C9A84C; width: 16px; height: 16px; }
+  #acw-q { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--border); font-size: 13px; font-family: inherit; }
+  .acw-chips { display: flex; gap: 6px; }
+  .acw-chip { border: 1px solid var(--border); background: var(--white); border-radius: 20px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .acw-chip.on { background: rgba(201,168,76,.15); border-color: var(--gold); font-weight: 700; }
+  .acw-who { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; max-height: 360px; overflow-y: auto; padding: 2px; }
+  .acw-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); padding: 9px 12px; cursor: pointer; border-radius: 4px; }
+  .acw-row.sel { border-color: var(--gold); background: #FFFCF3; }
+  .acw-row .nm { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acw-row .nm b { color: var(--gold-dk); margin-right: 6px; }
+  .acw-now { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--gray); white-space: nowrap; }
+  .acw-now.on { color: var(--gold-dk); border-color: rgba(201,168,76,.45); background: rgba(201,168,76,.14); }
+  .acw-foot { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: #FCFAF4; }
+  #acw-sum { font-size: 13px; color: var(--gray); }
+  #acw-sum b { color: var(--black); }
+  #acw-apply { width: auto; padding: 11px 22px; }
+  #acw-apply[disabled] { opacity: .45; cursor: not-allowed; }
+  @media (max-width: 700px) {
+    .acw-step { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 14px 12px; }
+    .acw-tiles { grid-template-columns: 1fr 1fr; }
+    .acw-who { grid-template-columns: minmax(0, 1fr); }
+    .acw-foot { flex-direction: column; align-items: stretch; padding: 12px; }
+    #acw-apply { width: 100%; }
+  }
+  .st-adj { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .st-adj input { width: 56px; padding: 5px 6px; }
+  .st-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .st-seg button { border: none; background: var(--white); padding: 4px 8px; font: inherit; font-size: 11px; font-weight: 700; color: var(--gray); cursor: pointer; }
+  .st-seg button + button { border-left: 1px solid var(--border); }
+  .st-seg button.on { background: var(--gold); color: var(--black); }
+  .st-res { font-size: 11px; font-weight: 700; color: var(--gold-dk); }
   .dev-grp-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 18px 0 8px; }
   .dev-group-title:first-of-type .dev-grp-title { margin-top: 0; }
   #panel-recurring .rs-team { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1719,7 +1776,7 @@
         </div>
         <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
         <table class="staff-table" id="service-times-table">
-          <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
+          <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Price (QuickBooks)</th><th>Level 2 price</th><th>Level 3 price</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2038,7 +2095,7 @@
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">All Clients</div>
-        <div class="order-desc">Every client on file, same view as the import preview — read only.</div></div>
+        <div class="order-desc">Change many clients at once: pick one change, pick who gets it, apply.</div></div>
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="all-clients-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
@@ -9085,7 +9142,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const list = allServiceTimes.filter(s => !q ||
       s.serviceName.toLowerCase().includes(q) || s.sku.toLowerCase().includes(q));
     const tbody = document.querySelector('#service-times-table tbody');
-    if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No services match that search.</td></tr>'; return; }
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-note">No services match that search.</td></tr>'; return; }
 
     const missing = allServiceTimes.filter(s => s.level1 == null).length;
     const badge = document.getElementById('service-times-count-badge');
@@ -9107,8 +9164,43 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         '<td><input type="number" min="0" value="' + (s.level1 != null ? s.level1 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level1\',this.value)"></td>' +
         '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level2 != null ? s.level2 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level2\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
         '<td>' + (isJan ? '<input type="number" min="0" value="' + (s.level3 != null ? s.level3 : '') + '" placeholder="min" onchange="saveServiceTime(\'' + s.sku + '\',\'level3\',this.value)">' : '<span style="color:var(--gray)">—</span>') + '</td>' +
+        stPriceCellsHtml(s, isJan) +
         '</tr>';
     }).join('');
+  }
+
+  /* Precio por nivel (aprobado con mini): Level 1 = precio de QuickBooks;
+     Level 2 y 3 suman % o $. Se guarda al cambiarlo. */
+  function stCat(sku) { return (activeCatalogCache || []).find(x => String(x.sku) === String(sku)); }
+  function stMoney(n) { return '$' + (Math.round(n * 100) / 100).toFixed(Number(n) % 1 ? 2 : 0); }
+  function stPriceCellsHtml(s, isJan) {
+    const c = stCat(s.sku);
+    const base = c && c.price != null && c.price !== '' ? Number(c.price) : null;
+    if (base == null || isNaN(base)) return '<td style="color:var(--gray);font-size:11px">No price yet</td><td></td><td></td>';
+    if (!isJan) return '<td><b>' + stMoney(base) + '</b></td><td></td><td></td>';
+    const adj = (c && c.levelAdjust) || {};
+    const cell = k => {
+      const a = adj[k] || { t: '%', v: '' };
+      const v = a.v === '' || a.v == null ? 0 : Number(a.v);
+      const res = a.t === '$' ? base + v : base * (1 + v / 100);
+      return '<td><div class="st-adj">+ <input type="number" min="0" step="1" value="' + (a.v === '' || a.v == null ? '' : a.v) + '" placeholder="0" onchange="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'v\',this.value)">' +
+        '<span class="st-seg"><button type="button" class="' + (a.t !== '$' ? 'on' : '') + '" onclick="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'t\',\'%\')">%</button><button type="button" class="' + (a.t === '$' ? 'on' : '') + '" onclick="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'t\',\'$\')">$</button></span>' +
+        '<span class="st-res">= ' + stMoney(res) + '</span></div></td>';
+    };
+    return '<td><b>' + stMoney(base) + '</b><div style="font-size:10px;color:var(--gray)">= Level 1</div></td>' + cell('l2') + cell('l3');
+  }
+  async function saveLevelPrice(sku, k, field, value) {
+    const c = stCat(sku); if (!c) return;
+    const adj = Object.assign({ l2: null, l3: null }, c.levelAdjust || {});
+    const cur = Object.assign({ t: '%', v: '' }, adj[k] || {});
+    cur[field] = field === 'v' ? (value === '' ? '' : Number(value)) : value;
+    adj[k] = cur;
+    try {
+      const res = await devApi('save-level-price', { sku, l2: adj.l2, l3: adj.l3 });
+      c.levelAdjust = res.adjust;
+      showToast('Saved.');
+    } catch (e) { showToast('Error: ' + e.message); }
+    renderServiceTimes();
   }
 
   async function saveServiceTime(sku, field, value) {
@@ -9242,6 +9334,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
           const st = await devApi('get-settings');
           const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
           portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
+          const plist = JSON.parse((st.settings || {}).portal_price_clients || '[]');
+          portalPriceSet = new Set(Array.isArray(plist) ? plist.map(String) : []);
         } catch (e) { portalRecurringSet = new Set(); }
       }
       renderAllClientsTable();
@@ -9252,43 +9346,113 @@ async function resolveExtraRequest(orderId, requestId, decision) {
 
   /* DAY_FIELDS ya existe en admin.html, identica. */
 
+  /* ===== All Clients: cambios en masa (aprobado con mini) =====
+     1) escoges UN cambio y su valor, 2) a quien (cada cliente muestra
+     como lo tiene HOY), 3) Apply. Un cliente a la vez sigue en
+     Clients > Create Order > Custom. */
+  const AC_CHANGES = {
+    days: ['📅', 'Office days', 'Days the office is open'],
+    hours: ['🕘', 'Office hours', 'Opening and closing time'],
+    est: ['⏱️', 'Estimated time', 'Show it on their orders'],
+    rec: ['🔁', 'Recurring', 'Recurring / Units switch'],
+    price: ['$', 'Prices', 'Show prices when they order'],
+    status: ['●', 'Status', 'Active or inactive']
+  };
+  const AC_DAYS = [['monOpen', 'M', 'Mon'], ['tueOpen', 'T', 'Tue'], ['wedOpen', 'W', 'Wed'], ['thuOpen', 'T', 'Thu'], ['friOpen', 'F', 'Fri'], ['satOpen', 'S', 'Sat'], ['sunOpen', 'S', 'Sun']];
+  let acChange = null, acFilter = 'Active', acBusy = false;
+  const acWho = new Set();
+  const acVal = { days: ['monOpen', 'tueOpen', 'wedOpen', 'thuOpen', 'friOpen'], o: '09:00', c: '17:00', on: true, active: true };
+  var portalPriceSet = portalPriceSet || new Set();
+  function acPick(k) { acChange = k; renderAllClientsTable(); }
+  function acList() {
+    const q = ((document.getElementById('acw-q') || {}).value || '').trim().toLowerCase();
+    return (allClientsCache || []).filter(c => (acFilter === 'All' || (acFilter === 'Active' ? c.active !== false : c.active === false)) &&
+      (!q || (String(c.businessName || '') + ' ' + String(c.clientId || '') + ' ' + String(c.city || '')).toLowerCase().includes(q)));
+  }
+  function acNow(c) {
+    if (!acChange) return '';
+    if (acChange === 'days') { const t = AC_DAYS.filter(d => c[d[0]]).map(d => d[1]).join(''); return '<span class="acw-now">' + (t || 'Closed') + '</span>'; }
+    if (acChange === 'hours') return '<span class="acw-now">' + esc(c.officeHours || '—') + '</span>';
+    const on = acChange === 'status' ? c.active !== false : acChange === 'est' ? !!c.showEstimatedTime : acChange === 'rec' ? portalRecurringSet.has(String(c.clientId)) : portalPriceSet.has(String(c.clientId));
+    return '<span class="acw-now' + (on ? ' on' : '') + '">' + (acChange === 'status' ? (on ? 'Active' : 'Inactive') : (on ? 'On' : 'Off')) + '</span>';
+  }
+  function acTo12(v) { const [h, m] = String(v).split(':').map(Number); return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h < 12 ? ' AM' : ' PM'); }
+  function acValText() {
+    if (acChange === 'days') { const t = AC_DAYS.filter(d => acVal.days.includes(d[0])).map(d => d[2].slice(0, 2)).join(' '); return t || 'Closed'; }
+    if (acChange === 'hours') return acTo12(acVal.o) + ' – ' + acTo12(acVal.c);
+    if (acChange === 'status') return acVal.active ? 'Active' : 'Inactive';
+    return acVal.on ? 'On' : 'Off';
+  }
   function renderAllClientsTable() {
     const box = document.getElementById('all-clients-table');
     document.getElementById('all-clients-count-badge').textContent = allClientsCache.length ? allClientsCache.length + ' clients' : '';
     if (!allClientsCache.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
-    const td = 'style="padding:6px;border:1px solid var(--border)"';
-
-    const rowsHtml = allClientsCache.map(c => {
-      let html = '<tr' + (c.active === false ? ' style="opacity:.5"' : '') + '>' +
-        '<td ' + td + '>' + esc(c.businessName) + '</td><td ' + td + '>' + esc(c.address) + '</td>' +
-        '<td ' + td + '>' + esc(c.city) + '</td><td ' + td + '>' + esc(c.zip) + '</td>' +
-        '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
-        clientHoursRowCellsHtml(c, td) +
-        '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c.showEstimatedTime ? 'checked' : '') + ' onchange="toggleClientShowEstimatedTime(\'' + c.id + '\',this.checked)"></td>' +
-        '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (portalRecurringSet.has(String(c.clientId || '')) ? 'checked' : '') + (c.clientId ? '' : ' disabled') + ' onchange="toggleClientShowRecurring(\'' + escAttr(c.clientId || '') + '\',this.checked)"></td>' +
-        '<td ' + td + '><button type="button" class="gs-ofp-btn-secondary" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
-      html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
-      return html;
-    }).join('');
-
+    const keepQ = ((document.getElementById('acw-q') || {}).value) || '';
+    const tiles = Object.keys(AC_CHANGES).map(k => '<button type="button" class="acw-tile' + (acChange === k ? ' on' : '') + '" onclick="acPick(\'' + k + '\')"><span class="ic">' + AC_CHANGES[k][0] + '</span><b>' + AC_CHANGES[k][1] + '</b><small>' + AC_CHANGES[k][2] + '</small></button>').join('');
+    let val = '';
+    if (acChange === 'days') val = '<span class="lbl">Set to</span><span class="acw-days">' + AC_DAYS.map(d => '<span class="' + (acVal.days.includes(d[0]) ? 'on' : '') + '" title="' + d[2] + '" onclick="acVal.days = acVal.days.includes(\'' + d[0] + '\') ? acVal.days.filter(x => x !== \'' + d[0] + '\') : acVal.days.concat(\'' + d[0] + '\'); renderAllClientsTable()">' + d[1] + '</span>').join('') + '</span>';
+    if (acChange === 'hours') val = '<span class="lbl">Set to</span><input type="time" value="' + acVal.o + '" onchange="acVal.o=this.value;renderAllClientsTable()"> → <input type="time" value="' + acVal.c + '" onchange="acVal.c=this.value;renderAllClientsTable()">';
+    if (['est', 'rec', 'price'].includes(acChange)) val = '<span class="lbl">Turn</span><span class="acw-seg"><button type="button" class="' + (acVal.on ? 'on' : '') + '" onclick="acVal.on=true;renderAllClientsTable()">On</button><button type="button" class="' + (!acVal.on ? 'on' : '') + '" onclick="acVal.on=false;renderAllClientsTable()">Off</button></span>';
+    if (acChange === 'status') val = '<span class="lbl">Make</span><span class="acw-seg"><button type="button" class="' + (acVal.active ? 'on' : '') + '" onclick="acVal.active=true;renderAllClientsTable()">Active</button><button type="button" class="' + (!acVal.active ? 'on' : '') + '" onclick="acVal.active=false;renderAllClientsTable()">Inactive</button></span>';
     box.innerHTML =
-      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">' +
-      '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="downloadAllClientsReport()">⬇ Download Report (.xlsx)</button>' +
-      '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
-      '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
-      '<tr style="background:var(--bg);position:sticky;top:0"><th style="text-align:left;padding:6px;border:1px solid var(--border)">Business</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Address</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">City</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Zip</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Phone</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Email</th>' +
-      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => '<th style="text-align:center;padding:6px;border:1px solid var(--border)">' + d + '</th>').join('') +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)">Office Hours</th>' +
-      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Est. Time</th>' +
-      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Recurring</th>' +
-      '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
-      rowsHtml + '</table></div>';
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">' +
+      '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 12px;font-size:11px" onclick="downloadAllClientsReport()">⬇ Download report (.xlsx)</button>' +
+      '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 12px;font-size:11px" onclick="refreshDevClientsTable()">Refresh</button></div>' +
+      '<div class="acw">' +
+      '<div class="acw-step"><span class="acw-num">1</span><div class="acw-body"><h3>What do you want to change?</h3><div class="acw-tiles">' + tiles + '</div>' + (val ? '<div class="acw-val">' + val + '</div>' : '') + '</div></div>' +
+      '<div class="acw-step' + (acChange ? '' : ' dim') + '"><span class="acw-num">2</span><div class="acw-body"><h3>Who gets it?</h3>' +
+      '<div class="acw-tools"><label class="acw-all"><input type="checkbox" id="acw-all" onchange="acAll(this.checked)"> <span id="acw-all-lbl"></span></label>' +
+      '<input type="text" id="acw-q" placeholder="Search by name, Client ID or city…" oninput="acDrawWho()"><div class="acw-chips">' +
+      ['Active', 'Inactive', 'All'].map(f => '<button type="button" class="acw-chip' + (f === acFilter ? ' on' : '') + '" onclick="acFilter=\'' + f + '\';renderAllClientsTable()">' + f + '</button>').join('') + '</div></div>' +
+      '<div class="acw-who" id="acw-who"></div></div></div>' +
+      '<div class="acw-foot"><span id="acw-sum"></span><button type="button" class="gs-ofp-btn-primary" id="acw-apply" onclick="acApply()">Apply</button></div></div>';
+    const qEl = document.getElementById('acw-q'); if (qEl && keepQ) qEl.value = keepQ;
+    acDrawWho();
   }
+  function acAll(on) { acList().forEach(c => on ? acWho.add(c.id) : acWho.delete(c.id)); acDrawWho(); }
+  function acToggle(id) { acWho.has(id) ? acWho.delete(id) : acWho.add(id); acDrawWho(); }
+  function acDrawWho() {
+    const list = acList(), who = document.getElementById('acw-who'); if (!who) return;
+    const all = document.getElementById('acw-all'); if (all) all.checked = list.length > 0 && list.every(c => acWho.has(c.id));
+    const lbl = document.getElementById('acw-all-lbl'); if (lbl) lbl.textContent = 'All (' + list.length + ')';
+    who.innerHTML = list.map(c => '<label class="acw-row' + (acWho.has(c.id) ? ' sel' : '') + '"><input type="checkbox"' + (acWho.has(c.id) ? ' checked' : '') + ' onchange="acToggle(\'' + escAttr(c.id) + '\')">' +
+      '<span class="nm"><b>' + esc(c.clientId || '') + '</b>' + esc(c.businessName || '') + '</span>' + acNow(c) + '</label>').join('') || '<p class="empty-note">No clients match.</p>';
+    const n = acWho.size, btn = document.getElementById('acw-apply'), sum = document.getElementById('acw-sum');
+    sum.innerHTML = !acChange ? 'Pick a change in step 1.' : !n ? 'Now pick the clients in step 2.' : '<b>' + AC_CHANGES[acChange][1] + ': ' + esc(acValText()) + '</b> → ' + n + (n === 1 ? ' client' : ' clients');
+    btn.disabled = !acChange || !n || acBusy;
+    btn.textContent = acBusy ? 'Applying…' : (acChange && n ? 'Apply to ' + n + (n === 1 ? ' client' : ' clients') : 'Apply');
+  }
+  async function acApply() {
+    if (!acChange || !acWho.size || acBusy) return;
+    const chosen = (allClientsCache || []).filter(c => acWho.has(c.id));
+    let value;
+    if (acChange === 'days') { value = {}; AC_DAYS.forEach(d => { value[d[0]] = acVal.days.includes(d[0]); }); }
+    else if (acChange === 'hours') value = acTo12(acVal.o) + ' - ' + acTo12(acVal.c);
+    else if (acChange === 'status') value = acVal.active;
+    else value = acVal.on;
+    acBusy = true; acDrawWho();
+    try {
+      const res = await devApi('bulk-update-clients', { change: acChange, value, clients: chosen.map(c => ({ id: c.id, clientId: c.clientId })) });
+      chosen.forEach(c => {
+        const twin = (allClients || []).find(x => x.clientId === c.clientId);
+        [c, twin].filter(Boolean).forEach(x => {
+          if (acChange === 'days') AC_DAYS.forEach(d => { x[d[0]] = value[d[0]]; });
+          if (acChange === 'hours') x.officeHours = value;
+          if (acChange === 'est') x.showEstimatedTime = value;
+          if (acChange === 'status') x.active = value;
+        });
+        if (acChange === 'rec') value ? portalRecurringSet.add(String(c.clientId)) : portalRecurringSet.delete(String(c.clientId));
+        if (acChange === 'price') value ? portalPriceSet.add(String(c.clientId)) : portalPriceSet.delete(String(c.clientId));
+      });
+      showToast(AC_CHANGES[acChange][1] + ' → ' + acValText() + ' · ' + (res.updated || chosen.length) + (chosen.length === 1 ? ' client' : ' clients') + (res.failed && res.failed.length ? ' (' + res.failed.length + ' failed)' : ''));
+      acWho.clear();
+    } catch (e) {
+      showToast('Could not apply: ' + e.message);
+    } finally {
+      acBusy = false; renderAllClientsTable();
+    }
+  }
+
 
   /* Descarga la tabla de All Clients como .xlsx -- mismo patron que
      downloadRecurringSchedulerReport (XLSX/SheetJS ya cargado en la
@@ -12980,6 +13144,8 @@ async function ensurePortalRecurringSet() {
     const st = await api('/developer-admin', { body: { action: 'get-settings', email: adminUser.email } });
     const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
     portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
+    const plist = JSON.parse((st.settings || {}).portal_price_clients || '[]');
+    portalPriceSet = new Set(Array.isArray(plist) ? plist.map(String) : []);
     portalRecurringLoaded = true;
   } catch (e) { /* se queda como este */ }
 }
@@ -13027,9 +13193,11 @@ function clientOfficeViz(key) {
 function createCustomPanelHtml(c) {
   const portal = '<div class="cl-box"><h4>What they see in their portal</h4><div class="cl-sub">Client ID <b class="cl-idmono">' + esc(c.clientId) + '</b></div>' +
     '<label class="cc-switch"><span><b>Show estimated time</b><small>On their orders</small></span><span class="svc-toggle"><input type="checkbox"' + (c.showEstimatedTime ? ' checked' : '') + ' onchange="cardToggleEst(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
-    '<label class="cc-switch"><span><b>Show Recurring</b><small>Recurring / Units switch when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-rec-' + escAttr(c.clientId) + '"' + (portalRecurringSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleRecurring(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label></div>';
+    '<label class="cc-switch"><span><b>Show Recurring</b><small>Recurring / Units switch when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-rec-' + escAttr(c.clientId) + '"' + (portalRecurringSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleRecurring(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
+    '<label class="cc-switch"><span><b>Show prices</b><small>Prices on services and packages when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-price-' + escAttr(c.clientId) + '"' + (portalPriceSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleSetting(\'portal_price_clients\',\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label></div>';
   if (!portalRecurringLoaded) ensurePortalRecurringSet().then(() => {
     document.querySelectorAll('.cc-rec-' + CSS.escape(c.clientId)).forEach(el => { el.checked = portalRecurringSet.has(String(c.clientId)); });
+    document.querySelectorAll('.cc-price-' + CSS.escape(c.clientId)).forEach(el => { el.checked = portalPriceSet.has(String(c.clientId)); });
   });
   const blds = (c.buildings || []).filter(x => !x.archived).map(x => clientOfficeBoxHtml(c, x)).join('');
   return '<div class="cl-grid">' + clientOfficeBoxHtml(c, null) + portal + blds + '</div>';
@@ -13058,6 +13226,16 @@ async function cardToggleEst(clientId, el) {
     await api('/developer-admin', { body: { action: 'toggle-client-show-estimated-time', email: adminUser.email, id: c.id, show: el.checked } });
     c.showEstimatedTime = el.checked;
     if (typeof allClientsCache !== 'undefined' && allClientsCache) (allClientsCache.find(x => x.id === c.id) || {}).showEstimatedTime = el.checked;
+  } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
+}
+async function cardToggleSetting(key, clientId, el) {
+  await ensurePortalRecurringSet();
+  const cur = key === 'portal_price_clients' ? portalPriceSet : portalRecurringSet;
+  const next = new Set(cur);
+  if (el.checked) next.add(clientId); else next.delete(clientId);
+  try {
+    await api('/developer-admin', { body: { action: 'save-setting', email: adminUser.email, key, value: JSON.stringify(Array.from(next)) } });
+    if (key === 'portal_price_clients') portalPriceSet = next; else portalRecurringSet = next;
   } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
 }
 async function cardToggleRecurring(clientId, el) {

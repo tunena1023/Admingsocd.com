@@ -7,6 +7,23 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## SUBIDO (23/09/2026): cambios en masa + precios en el portal + precio por nivel
+
+- **Developer > Customers > All Clients** = cambios en masa (aprobado con
+  mini): 1) UN cambio (Office days, Office hours, Estimated time,
+  Recurring, Prices, Status) y su valor, 2) a quién (cada cliente muestra
+  cómo lo tiene hoy), 3) Apply. Acción `bulk-update-clients`.
+- **Precios en el portal:** apagados para todos por default; se prenden
+  por cliente (Create Order > Custom > Show prices) o en masa. Settings
+  `portal_price_clients`. El portal los pide en get-services
+  (`pricesAllowed`) y el picker (gsocd-shared **v1.55.0**, `showPrices`)
+  los muestra junto a cada servicio y paquete ("Included" adentro).
+- **Precio por nivel:** QuickBooks = UN precio por servicio = Level 1.
+  Developer > Service Times: Level 2 / Level 3 suman % o $ (Settings
+  `catalog_level_prices`). El portal muestra el precio del nivel elegido;
+  las cotizaciones a QuickBooks mandan ese precio como precio de la
+  línea (el artículo en QuickBooks nunca se reescribe).
+
 ## SUBIDO Y DESPLEGADO (confirmado 13/09/2026): rediseño de "+ Add a Unit" en Admin
 
 Cambios en `admin.html` (función `addUnitFormHtml`, `submitAddBatchUnitAdmin`,

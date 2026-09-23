@@ -43,6 +43,21 @@ exports.handler = async (event) => {
     /* Precio actual de cada SKU -- una sola pasada al catalogo
        completo, no una consulta por servicio por orden. */
     const catalogRows = await queryList(SERVICES_CATALOG_LIST, '$expand=fields&$top=500');
+    /* Precio por nivel (Developer > Service Times): L2/L3 suman % o $ al
+       precio de QuickBooks (= Level 1). Se manda como precio de ESA
+       linea; el articulo en QuickBooks nunca se reescribe. */
+    let levelAdj = {};
+    try {
+      const st = await queryList('Settings', '$expand=fields&$top=200');
+      const r = st.find(it => it.fields && it.fields.Key === 'catalog_level_prices');
+      levelAdj = JSON.parse((r && r.fields.Value) || '{}') || {};
+    } catch (e) { levelAdj = {}; }
+    const levelPrice = (sku, base, level) => {
+      const a = levelAdj[sku] && levelAdj[sku][level === 'Level 2' ? 'l2' : level === 'Level 3' ? 'l3' : ''];
+      if (!a) return base;
+      const v = Number(a.v) || 0;
+      return Math.round((a.t === '$' ? base + v : base * (1 + v / 100)) * 100) / 100;
+    };
     const priceBySku = {};
     catalogRows.forEach(it => {
       if (it.fields && it.fields.SKU) priceBySku[it.fields.SKU] = it.fields.Price;
@@ -61,7 +76,7 @@ exports.handler = async (event) => {
           if (!sku) throw new Error('Service "' + s.ServiceName + '" has no SKU on file.');
           const itemId = await findItemIdBySku(sku);
           if (!itemId) throw new Error('Service "' + s.ServiceName + '" (SKU ' + sku + ') was not found in QuickBooks.');
-          const price = priceBySku[sku] != null ? Number(priceBySku[sku]) : 0;
+          const price = priceBySku[sku] != null ? levelPrice(sku, Number(priceBySku[sku]), s.Level) : 0;
           const qty = Number(s.Quantity) || 1;
           lines.push({
             Amount: price * qty,

@@ -282,6 +282,25 @@ async function readPackageContents() {
   return { map: JSON.parse(JSON.stringify(DEFAULT_PACKAGE_CONTENTS)), row: row || null };
 }
 
+/* ============================================================
+   Precio por nivel (aprobado con mini, 23/09/2026): QuickBooks guarda
+   UN precio por servicio = Level 1. En Developer > Service Times cada
+   servicio dice cuanto suman Level 2 y Level 3, en % o en $. Settings,
+   Key catalog_level_prices, JSON {sku: {l2: {t: '%'|'$', v}, l3: {...}}}.
+   QuickBooks nunca se reescribe: la cotizacion manda el precio del
+   nivel como precio de ESA linea (quickbooks-import-estimates.js).
+============================================================ */
+const LEVEL_PRICES_KEY = 'catalog_level_prices';
+function levelPricesFor(price, adj) {
+  if (price == null || price === '' || isNaN(Number(price))) return null;
+  const b = Number(price); const out = { 'Level 1': b };
+  [['l2', 'Level 2'], ['l3', 'Level 3']].forEach(([k, L]) => {
+    const a = adj && adj[k]; const v = a ? (Number(a.v) || 0) : 0;
+    out[L] = Math.round((a && a.t === '$' ? b + v : b * (1 + v / 100)) * 100) / 100;
+  });
+  return out;
+}
+
 async function getRole(email) {
   if (!email) return null;
   const rows = await fetchAll(STAFF_LIST);
@@ -400,7 +419,9 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-catalog') {
-      const [rows, areasRes, pkgRes] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents()]);
+      const [rows, areasRes, pkgRes, settingRows] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents(), fetchAll(SETTINGS_LIST)]);
+      let levelAdj = {};
+      try { const r = settingRows.find(it => it.fields && it.fields.Key === LEVEL_PRICES_KEY); levelAdj = JSON.parse((r && r.fields.Value) || '{}') || {}; } catch (e) { levelAdj = {}; }
       const areasMap = areasRes.map;
       const pkgMap = pkgRes.map;
       /* El portal del cliente y Tech solo LEEN Settings (no tienen los
@@ -429,7 +450,9 @@ exports.handler = async (event) => {
            nuevo que llegue. */
         category: it.fields.Category || '',
         areas: Array.isArray(areasMap[String(it.fields.SKU || '').trim()]) ? areasMap[String(it.fields.SKU || '').trim()] : [],
-        packageItems: Array.isArray(pkgMap[String(it.fields.SKU || '').trim()]) ? pkgMap[String(it.fields.SKU || '').trim()] : []
+        packageItems: Array.isArray(pkgMap[String(it.fields.SKU || '').trim()]) ? pkgMap[String(it.fields.SKU || '').trim()] : [],
+        levelAdjust: levelAdj[String(it.fields.SKU || '').trim()] || null,
+        levelPrices: levelPricesFor(it.fields.Price, levelAdj[String(it.fields.SKU || '').trim()])
       }));
       return jsonResponse(200, { services, areaNames: SERVICE_AREA_NAMES });
     }
@@ -439,6 +462,23 @@ exports.handler = async (event) => {
        (asi "sin areas" le gana al default). */
     /* Contenido de UN paquete (Developer > Package contents). Lista
        vacia = el paquete deja de salir como plantilla. */
+    /* Ajuste de precio por nivel de UN servicio (Service Times). */
+    if (action === 'save-level-price') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const sku = String(body.sku || '').trim();
+      if (!sku) return jsonResponse(400, { error: 'sku is required' });
+      const clean = a => (a && a.v !== '' && a.v != null && !isNaN(Number(a.v))) ? { t: a.t === '$' ? '$' : '%', v: Number(a.v) } : null;
+      const rows = await fetchAll(SETTINGS_LIST);
+      const row = rows.find(it => it.fields && it.fields.Key === LEVEL_PRICES_KEY);
+      let map = {};
+      try { map = JSON.parse((row && row.fields.Value) || '{}') || {}; } catch (e) { map = {}; }
+      const l2 = clean(body.l2), l3 = clean(body.l3);
+      if (l2 || l3) map[sku] = { l2, l3 }; else delete map[sku];
+      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: JSON.stringify(map) });
+      else await createListItem(SETTINGS_LIST, { Title: LEVEL_PRICES_KEY, Key: LEVEL_PRICES_KEY, Value: JSON.stringify(map) });
+      return jsonResponse(200, { success: true, sku, adjust: map[sku] || null });
+    }
+
     if (action === 'save-package-contents') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
       const sku = String(body.sku || '').trim();
@@ -2426,6 +2466,47 @@ exports.handler = async (event) => {
     /* Desactivar un cliente -- no lo borra, solo lo saca de las
        listas donde se elige a quien agregar (Routing, etc). Se puede
        volver a activar igual de facil. */
+    /* Cambios en masa (Developer > Customers > All Clients, aprobado con
+       mini): UN cambio a muchos clientes. change: days | hours | est |
+       rec | price | status. clients: [{ id (item de Clients), clientId }].
+       days/hours/est/status se escriben en cada cliente (de 8 en 8);
+       rec/price son listas de ClientID en Settings (una sola escritura). */
+    if (action === 'bulk-update-clients') {
+      const change = String(body.change || '');
+      const list = (Array.isArray(body.clients) ? body.clients : []).filter(c => c && (c.id || c.clientId));
+      if (!list.length) return jsonResponse(400, { error: 'No clients selected.' });
+      const DAYF = ['MonOpen', 'TueOpen', 'WedOpen', 'ThuOpen', 'FriOpen', 'SatOpen', 'SunOpen'];
+      const settingsKey = { rec: 'portal_recurring_clients', price: 'portal_price_clients' }[change];
+      if (settingsKey) {
+        const rows = await fetchAll(SETTINGS_LIST);
+        const row = rows.find(it => it.fields && it.fields.Key === settingsKey);
+        let set = [];
+        try { set = JSON.parse((row && row.fields.Value) || '[]'); } catch (e) { set = []; }
+        if (!Array.isArray(set)) set = [];
+        const ids = list.map(c => String(c.clientId || '')).filter(Boolean);
+        const next = body.value ? [...new Set(set.concat(ids))] : set.filter(x => ids.indexOf(String(x)) === -1);
+        if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: JSON.stringify(next) });
+        else await createListItem(SETTINGS_LIST, { Title: settingsKey, Key: settingsKey, Value: JSON.stringify(next) });
+        return jsonResponse(200, { success: true, updated: ids.length });
+      }
+      let fields;
+      if (change === 'days') {
+        const v = body.value || {};
+        fields = {}; DAYF.forEach(f => { fields[f] = !!v[f.charAt(0).toLowerCase() + f.slice(1)]; });
+      } else if (change === 'hours') fields = { OfficeHours: String(body.value || '') };
+      else if (change === 'est') fields = { ShowEstimatedTime: !!body.value };
+      else if (change === 'status') fields = { Active: !!body.value };
+      else return jsonResponse(400, { error: 'Unknown change.' });
+      let updated = 0; const failed = [];
+      for (let i = 0; i < list.length; i += 8) {
+        await Promise.all(list.slice(i, i + 8).map(async c => {
+          try { await updateListItemByItemId(CLIENTS_LIST, String(c.id), fields); updated++; }
+          catch (e) { failed.push(String(c.clientId || c.id)); }
+        }));
+      }
+      return jsonResponse(200, { success: !failed.length, updated, failed });
+    }
+
     if (action === 'toggle-client-active') {
       const clientItemId = String(body.id || '').trim();
       if (!clientItemId) return jsonResponse(400, { error: 'id is required' });
