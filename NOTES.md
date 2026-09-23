@@ -401,9 +401,11 @@ archivo nuevo por separado.
 ## TEMPORAL (23/09/2026): boton "Fill with Equitable (test)" en el formulario de Recurring
 
 Pedido del dueño para probar el flujo completo con el caso real. Rellena
-(NO guarda) el contrato de Equitable según el PDF: Lun-Vie 7:00, 5 h;
-pisos 1-2 diario, piso 3 lun/mié/jue/vie, jueves aspirado/barrido del 3
-al 19 + oficina completa, elevadores diario, lunes patio del 19.
+(NO guarda) el contrato de Equitable según el PDF: Lun-Vie 7:00, 5 h,
+**3 pisos por defecto** (pedido del dueño); pisos 1-2 diario, piso 3
+lun/mié/jue/vie, jueves oficina completa, elevadores diario, lunes patio
+(Exterior / Courtyard). Los pisos 4-19 del jueves del PDF NO se
+rellenan: si hacen falta, se sube Floors y se agregan con + Add place.
 Servicios buscados en el catálogo real por palabra clave (avisa en el
 toast cuáles no encontró); gente = los 2 primeros técnicos Janitorial,
 a cambiar a mano. **Quitar** el botón (comentario TEMPORAL en #rc-scope)
