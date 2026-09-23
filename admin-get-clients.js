@@ -216,6 +216,8 @@ exports.handler = async (event) => {
           satOpen:        truthy(f.SatOpen),
           sunOpen:        truthy(f.SunOpen),
           officeHours:    f.OfficeHours || '',
+          /* Tarjeta del cliente (pestaña Clients): switch 'Show estimated time'. */
+          showEstimatedTime: truthy(f.ShowEstimatedTime),
           entryCushionMinutes: Number(f.EntryCushionMinutes) || 0,
           exitCushionMinutes:  Number(f.ExitCushionMinutes)  || 0,
           nowOpenStatus:  computeNowOpenStatus(

@@ -1120,6 +1120,16 @@
   #panel-recurring .nc-desc { font-size: 13px; color: var(--gray); line-height: 1.55; margin-top: 4px; max-width: 68ch; }
   #panel-recurring #rc-create-card > .nc-top .rc-arrow { margin-top: 12px; }
   #panel-recurring #rc-create-card > .rc-body { border-top: 1px solid var(--border); padding: 18px 20px 20px; }
+  .cc-cid { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; font-weight: 700; background: #F3EFE4; color: var(--gold-dk); padding: 3px 8px; border-radius: 4px; }
+  .cc-sec-title { margin-top: 18px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); }
+  .cc-office { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+  .cc-days { margin: 0; }
+  .cc-hours { display: flex; align-items: center; gap: 8px; }
+  .cc-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 420px; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 13px; cursor: pointer; }
+  .cc-switch small { display: block; color: var(--gray); font-size: 11px; }
+  .cc-switch b { font-weight: 600; }
+  .dev-grp-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 18px 0 8px; }
+  .dev-group-title:first-of-type .dev-grp-title { margin-top: 0; }
   #panel-recurring .rs-team { display: flex; flex-wrap: wrap; gap: 8px; }
   #panel-recurring .rs-team-chip { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--white); padding: 6px 8px 6px 12px; font-size: 12px; font-weight: 700; }
   #panel-recurring .rs-team-chip input { width: 58px; padding: 5px 6px; border: 1px solid var(--border); font-size: 12px; font-family: Arial, sans-serif; }
@@ -1441,29 +1451,6 @@
     </div>
     <div class="dev-content" id="dev-content">
 
-  <section id="import-section" data-category="services" style="display:none">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div><div class="order-id">Import from QuickBooks</div>
-        <div class="order-desc">Upload the Products/Services report and update the catalog by SKU.</div></div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">
-          Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
-          100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
-          Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
-          list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
-          never edited by hand here.
-        </p>
-        <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
-        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
-        <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
-        <div id="catalog-preview"></div>
-      </div>
-    </div>
-  </section>
-
   <section id="pkg-contents-section" data-category="services">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this); loadPkgEditor()">
@@ -1610,6 +1597,8 @@
     </div>
   </section>
 
+  <section class="dev-group-title" data-category="settings"><p class="dev-grp-title">Access</p></section>
+
   <section id="staff-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -1696,24 +1685,6 @@
           <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th></tr></thead>
           <tbody></tbody>
         </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="import-recurring-section" data-category="services" style="display:none">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div><div class="order-id">Import Recurring Contracts</div>
-        <div class="order-desc">Upload the same report you get from "Download Report" below — matched rows land in Recurring Services Scheduler.</div></div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">
-          Upload the <b>same .xlsx</b> the "Download Report" button below produces (columns: Contract #, Client, Frequency, Mon…Sun, Hours, Target, Tech 1/Tech 1 Hours/Day, Tech 2/Tech 2 Hours/Day…). <b>Contract #</b> is filled in automatically once a row's Client is matched — it's the real ClientID (like "GS-1001"), with a letter added ("GS-1001-A", "GS-1001-B"…) only if that same client already has another building in the matrix. Leave it blank on upload — it fills itself in. Mark a day with <b>X</b> (either case). Hours go as <b>duration, "xx:xx"</b> — 8 hours is "08:00", 4.5 hours is "04:30", not a time of day. Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Techs lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
-        </p>
-        <input type="file" id="import-recurring-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onImportRecurringFileChosen()">
-        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('import-recurring-file').click()">Choose file…</button>
-        <span id="import-recurring-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
       </div>
     </div>
   </section>
@@ -1826,19 +1797,6 @@
     }
   </style>
 
-  <section id="recurring-scheduler-section" data-category="services" style="display:none">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div><div class="order-id">Recurring Services Scheduler</div>
-        <div class="order-desc">Editable table from the last uploaded report — create new contracts or update ones that already exist, right here.</div></div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <div id="import-recurring-preview" style="margin-top:16px"><p class="section-sub">Loading saved draft rows…</p></div>
-      </div>
-    </div>
-  </section>
-
   <section id="password-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -1861,7 +1819,50 @@
     </div>
   </section>
 
-  <section id="reports-section" data-category="reports" style="display:none">
+  <section class="dev-group-title" data-category="settings"><p class="dev-grp-title">Imports</p></section>
+
+  <section id="import-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Import from QuickBooks</div>
+        <div class="order-desc">Upload the Products/Services report and update the catalog by SKU.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Upload the Products/Services report exported from QuickBooks (.csv, .xls or .xlsx). Matches by SKU —
+          100–199 is Janitorial, 200–299 is Renovations, 300–399 is Exteriors; within each range, 111/222/333 is
+          Commercial and any other prefix in that range is Residential. Rows with no SKU or a prefix outside this
+          list are never imported. Names, prices and descriptions can only be changed by uploading a new report —
+          never edited by hand here.
+        </p>
+        <input type="file" id="catalog-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onCatalogFileChosen()">
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
+        <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+        <div id="catalog-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="import-recurring-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Import Recurring Contracts</div>
+        <div class="order-desc">Upload the same report you get from "Download Report" below — matched rows land in Recurring Services Scheduler.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Upload the <b>same .xlsx</b> the "Download Report" button below produces (columns: Contract #, Client, Frequency, Mon…Sun, Hours, Target, Tech 1/Tech 1 Hours/Day, Tech 2/Tech 2 Hours/Day…). <b>Contract #</b> is filled in automatically once a row's Client is matched — it's the real ClientID (like "GS-1001"), with a letter added ("GS-1001-A", "GS-1001-B"…) only if that same client already has another building in the matrix. Leave it blank on upload — it fills itself in. Mark a day with <b>X</b> (either case). Hours go as <b>duration, "xx:xx"</b> — 8 hours is "08:00", 4.5 hours is "04:30", not a time of day. Columns are matched automatically. Only Weekly contracts can be created today — RecurringServices doesn't support Biweekly/Monthly yet, those rows show up but stay blocked. Client and Tech always come from the real Clients/Techs lists, same as the regular Recurring form — nothing here is typed free-text into the system. The file stays loaded here once you upload it — you don't need to re-upload after saving a row.
+        </p>
+        <input type="file" id="import-recurring-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onImportRecurringFileChosen()">
+        <button class="gs-ofp-btn-secondary" onclick="document.getElementById('import-recurring-file').click()">Choose file…</button>
+        <span id="import-recurring-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="reports-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">Employee Report</div>
@@ -1903,20 +1904,7 @@
     </div>
   </section>
 
-  <section id="all-clients-section" data-category="customers" style="display:none">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this)">
-        <div><div class="order-id">All Clients</div>
-        <div class="order-desc">Every client on file, same view as the import preview — read only.</div></div>
-        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="all-clients-count-badge"></span><span class="dev-chevron">▸</span></div>
-      </div>
-      <div class="appr-body" style="display:none">
-        <div id="all-clients-table" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="bulk-clients-section" data-category="customers" style="display:none">
+  <section id="bulk-clients-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">Bulk Import Clients</div>
@@ -1933,7 +1921,7 @@
     </div>
   </section>
 
-  <section id="bulk-hours-section" data-category="customers" style="display:none">
+  <section id="bulk-hours-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
         <div><div class="order-id">Bulk Set Office Hours</div>
@@ -1960,6 +1948,8 @@
       </div>
     </div>
   </section>
+
+  <section class="dev-group-title" data-category="settings"><p class="dev-grp-title">Tools</p></section>
 
   <section id="geocode-section" data-category="settings" style="display:none">
     <div class="order-card">
@@ -1990,6 +1980,32 @@
         <button class="gs-ofp-btn-danger" onclick="debugWipeTestData()">Wipe All Test Data</button>
         <button class="gs-ofp-btn-danger" onclick="debugWipeClientsOnly()">Wipe Clients Only</button>
         <div id="debug-wipe-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="recurring-scheduler-section" data-category="reports" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Recurring Services Scheduler</div>
+        <div class="order-desc">Editable table from the last uploaded report — create new contracts or update ones that already exist, right here.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div id="import-recurring-preview" style="margin-top:16px"><p class="section-sub">Loading saved draft rows…</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="all-clients-section" data-category="customers" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">All Clients</div>
+        <div class="order-desc">Every client on file, same view as the import preview — read only.</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="all-clients-count-badge"></span><span class="dev-chevron">▸</span></div>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div id="all-clients-table" style="margin-top:16px"><p class="empty-note">Loading…</p></div>
       </div>
     </div>
   </section>
@@ -12269,6 +12285,79 @@ function selectClientAddr(clientId, key) {
   renderClientDetail(clientId);
 }
 
+/* ===== Tarjeta del cliente (pestaña Clients): oficina + portal =====
+   Pedido del dueño (23/09/2026, aprobado con mini): lo de cada cliente
+   vive en SU tarjeta -- dias y horario de oficina (del cliente y de
+   cada edificio), y lo que ve en su portal (tiempo estimado, opcion
+   Recurring). Mismas acciones que ya usaba Developer > All Clients. */
+let portalRecurringLoaded = false;
+async function ensurePortalRecurringSet() {
+  if (portalRecurringLoaded) return;
+  try {
+    const st = await api('/developer-admin', { body: { action: 'get-settings', email: adminUser.email } });
+    const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
+    portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
+    portalRecurringLoaded = true;
+  } catch (e) { /* se queda como este */ }
+}
+function clientCardOfficePortalHtml(c, b) {
+  const who = b || c;
+  const key = (b ? 'b' : 'c') + '-' + String(who.id);
+  cardKeyMap[key] = { clientId: c.clientId, bid: b ? b.id : '' };
+  const parsed = parseOfficeHoursRange(who.officeHours);
+  const open = parsed.open || { h: 9, m: 0 }, close = parsed.close || { h: 17, m: 0 };
+  const LBL = { monOpen: 'M', tueOpen: 'T', wedOpen: 'W', thuOpen: 'T', friOpen: 'F', satOpen: 'S', sunOpen: 'S' };
+  const NAME = { monOpen: 'Monday', tueOpen: 'Tuesday', wedOpen: 'Wednesday', thuOpen: 'Thursday', friOpen: 'Friday', satOpen: 'Saturday', sunOpen: 'Sunday' };
+  const days = DAY_FIELDS.map(f => '<div class="day-pill sm' + (who[f] ? ' active' : '') + '" role="button" tabindex="0" title="' + NAME[f] + '" data-day="' + f + '" onclick="this.classList.toggle(\'active\');cardHoursChanged(\'' + escAttr(c.clientId) + '\',\'' + escAttr(b ? b.id : '') + '\')">' + LBL[f] + '</div>').join('');
+  let html = '<div class="cc-sec-title">' + (b ? 'Office hours for this building' : 'Office') + '</div>' +
+    '<div class="cc-office" id="cc-office-' + escAttr(key) + '"><div class="day-pills cc-days">' + days + '</div>' +
+    '<div class="cc-hours">' + devOfficeClockFieldHtml('cch-' + key + '-officeOpen', open.h, open.m, 'cardHoursChangedKey', key) +
+    '<span style="color:var(--gray)">to</span>' + devOfficeClockFieldHtml('cch-' + key + '-officeClose', close.h, close.m, 'cardHoursChangedKey', key) + '</div></div>';
+  if (!b) {
+    html += '<div class="cc-sec-title">Client portal</div>' +
+      '<label class="cc-switch"><span><b>Show estimated time</b><small>On their orders</small></span><span class="svc-toggle"><input type="checkbox"' + (c.showEstimatedTime ? ' checked' : '') + ' onchange="cardToggleEst(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>' +
+      '<label class="cc-switch"><span><b>Show Recurring</b><small>Recurring / Units switch when they order</small></span><span class="svc-toggle"><input type="checkbox" class="cc-rec-' + escAttr(c.clientId) + '"' + (portalRecurringSet.has(String(c.clientId)) ? ' checked' : '') + ' onchange="cardToggleRecurring(\'' + escAttr(c.clientId) + '\',this)"><span class="svc-toggle-track"></span></span></label>';
+    if (!portalRecurringLoaded) ensurePortalRecurringSet().then(() => {
+      document.querySelectorAll('.cc-rec-' + CSS.escape(c.clientId)).forEach(el => { el.checked = portalRecurringSet.has(String(c.clientId)); });
+    });
+  }
+  return html;
+}
+var cardKeyMap = cardKeyMap || {};
+function cardHoursChangedKey(key) { const m = cardKeyMap[key]; if (m) cardHoursChanged(m.clientId, m.bid); }
+async function cardHoursChanged(clientId, bid) {
+  const c = allClients.find(x => x.clientId === clientId); if (!c) return;
+  const b = bid ? (c.buildings || []).find(x => String(x.id) === String(bid)) : null;
+  const who = b || c, key = (b ? 'b' : 'c') + '-' + String(who.id);
+  cardKeyMap[key] = { clientId, bid };
+  const box = document.getElementById('cc-office-' + key); if (!box) return;
+  const body = { id: String(who.id) };
+  box.querySelectorAll('.day-pill[data-day]').forEach(el => { body[el.dataset.day] = el.classList.contains('active'); });
+  body.officeHours = buildOfficeHoursString('cch-' + key + '-office');
+  try {
+    await api('/developer-admin', { body: Object.assign({ action: b ? 'update-building-hours' : 'update-client-hours', email: adminUser.email }, body) });
+    DAY_FIELDS.forEach(f => { who[f] = body[f]; }); who.officeHours = body.officeHours;
+    showToast('Office hours saved.');
+  } catch (e) { showToast('Could not save: ' + e.message); }
+}
+async function cardToggleEst(clientId, el) {
+  const c = allClients.find(x => x.clientId === clientId); if (!c) return;
+  try {
+    await api('/developer-admin', { body: { action: 'toggle-client-show-estimated-time', email: adminUser.email, id: c.id, show: el.checked } });
+    c.showEstimatedTime = el.checked;
+    if (typeof allClientsCache !== 'undefined' && allClientsCache) (allClientsCache.find(x => x.id === c.id) || {}).showEstimatedTime = el.checked;
+  } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
+}
+async function cardToggleRecurring(clientId, el) {
+  await ensurePortalRecurringSet();
+  const next = new Set(portalRecurringSet);
+  if (el.checked) next.add(clientId); else next.delete(clientId);
+  try {
+    await api('/developer-admin', { body: { action: 'save-setting', email: adminUser.email, key: 'portal_recurring_clients', value: JSON.stringify(Array.from(next)) } });
+    portalRecurringSet = next;
+  } catch (e) { el.checked = !el.checked; showToast('Could not update: ' + e.message); }
+}
+
 function renderClientDetail(clientId) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const detail = document.getElementById(cid + '-detail');
@@ -12280,7 +12369,7 @@ function renderClientDetail(clientId) {
     const contacts = (c.contacts || []).filter(ct => !ct.archived);
     const recipient = contacts.find(ct => ct.notifyRecipient);
     let html = `<p style="font-size:12px;color:var(--gray);margin-bottom:4px">This is the client's <strong>primary address</strong> — used by default unless a different building is selected when placing an order.</p>
-      <div style="font-size:15px;font-weight:600;margin:14px 0 4px">${esc(c.businessName)}</div>
+      <div style="font-size:15px;font-weight:600;margin:14px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${esc(c.businessName)}<span class="cc-cid" title="Client ID">${esc(c.clientId)}</span></div>
       <div style="font-size:13px;color:var(--gray)">${esc(c.address||'—')} ${esc(c.suite||'')} ${esc(c.city||'')} ${esc(c.zip||'')}</div>
       <div style="margin-top:18px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)">Contacts on file</div>`;
 
@@ -12296,6 +12385,7 @@ function renderClientDetail(clientId) {
       });
     }
 
+    html += clientCardOfficePortalHtml(c, null);
     html += `<div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
         <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
         <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientNotifications('${clientId}')">Notifications</button>
@@ -12315,6 +12405,7 @@ function renderClientDetail(clientId) {
       <div style="font-size:13px;color:var(--gray)">${esc(addrLine||'—')}</div>
       <div style="margin-top:18px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)">Contact for this building</div>
       <div style="font-size:13px;margin-top:6px">${contactLine}</div>
+      ${clientCardOfficePortalHtml(c, b)}
       <div style="display:flex;gap:8px;margin-top:20px;max-width:260px">
         <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openClientEdit('${clientId}')">Edit</button>
         <button class="gs-ofp-btn-secondary" style="flex:1" onclick="openBuildingNotifications('${clientId}')">Notifications</button>
