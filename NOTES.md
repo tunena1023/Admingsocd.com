@@ -395,3 +395,85 @@ real en Node antes de fusionar, no solo revisando sintaxis. Lección: cualquier
 archivo backend nuevo SIEMPRE tiene que agregarse a ese mapa, y la forma de
 confirmarlo es cargar el router de verdad, no solo `node --check` sobre el
 archivo nuevo por separado.
+
+---
+
+## 23/09/2026 -- Diseño en curso: Recurring detallado por piso/amenidad (NO implementado, solo diseño hablado)
+
+Disparado por un contrato real difícil de capturar (Equitable Building,
+PDF adjunto: 5 horas, Lun-Vie 7am-12pm, con tareas que cambian por día --
+lunes Pisos 1,2,3; martes solo 1&2; jueves además limpieza completa de
+oficina 1 vez/semana -- y tareas fijas por zona como Elevadores/Pasillos
+"todos los dias"). El sistema actual de Recurring solo entiende UNA
+lista de servicios plana, igual para todos los dias del contrato --
+Equitable no cabe ahi.
+
+**Rechazado en el camino (2 minis construidos y rechazados, ver
+Artifact tool para los links si hacen falta):**
+- Un mini con "líneas" (días + servicios en texto libre por línea) --
+  rechazado por texto libre: el sistema factura via SKU real, cada
+  servicio debe venir del catálogo real, nunca texto escrito a mano.
+- Un segundo mini con GSServicePicker real (sin texto libre) pero
+  organizado en "líneas" con nombre libre -- rechazado también: el
+  dueño ya había dicho que cada DÍA debe ser su propio toggle
+  (como Assign by Service), no un concepto nuevo de "líneas".
+
+**Diseño actual acordado (aún sin construir, seguir aquí la próxima
+sesión):**
+
+1. Catálogo de amenidades: 38 tipos reales, sacados investigando en
+   internet ~30 clientes reales de GS Solutions (complejos de
+   apartamentos de Iowa, de `All-Clients-2026-09-23.xlsx`) -- NO
+   inventado. Lista completa: Clubhouse, Playground, Basketball Court,
+   RV Storage, Dog Park, Fitness Center/Gym, Movie Theater/Cinema,
+   Business Center, Community Room, Pool, Garages, Storage Units,
+   Laundry Facilities, Elevator, Controlled Access, Villas con garage,
+   Gazebo, Pond, Pet Wash Station, Pet Play Area, Planned Social
+   Activities, Computer Center, TV Room, Coffee Bar, Courtyard, Bike
+   Storage, Conference Room, Guest Suite, Key Fob Access, Lobby, Media
+   Room, Package Receiving, Pool Table, Shuffleboard, Yoga Studio,
+   Rooftop Patio/Terrace, Skywalk Connection, Grill/BBQ Area, Picnic
+   Area.
+
+2. El selector de CLIENTE no es nuevo -- ya existe, es la lista de
+   Clients de Admin. No construir nada aparte para esto (ya se
+   confundió una vez en esta misma sesión, ojo).
+
+3. Jerarquía real de captura, nada se infiere, todo se marca a mano:
+   - Al edificio se le pone cuántos PISOS tiene (número real).
+   - Excepción: Elevadores y Escaleras se registran UNA VEZ por
+     edificio (no piso por piso) -- son una sola pieza física que
+     atraviesa varios pisos, con puerta en cada uno. Se captura
+     cuántos hay (ej. "2 elevadores") y el sistema ya sabe que cuentan
+     para todos los pisos del edificio -- NO se pregunta piso por piso
+     si "tiene elevador".
+   - PENDIENTE SIN RESOLVER: ¿Elevadores/Escaleras son las ÚNICAS 2
+     excepciones "de todo el edificio", o hay otras de las 38 que
+     también funcionan así? No se alcanzó a contestar antes de que el
+     dueño cortara la sesión.
+   - Cada PISO (que no sea la excepción de arriba) se marca a mano con
+     qué amenidades tiene, del catálogo de 38 -- nada se copia de un
+     piso a otro ni se asume.
+   - Dentro de cada amenidad de un piso, se elige qué SERVICIO se hace
+     ahí -- el selector real (GSServicePicker de gsocd-shared, con
+     niveles L1/L2/L3), nunca texto libre.
+   - Un total (cuántos pasillos hay en todo el edificio, por ejemplo)
+     sale solo de contar cuántos pisos lo tienen marcado -- no se
+     vuelve a capturar aparte.
+
+4. Del lado del contrato recurrente: 7 toggles, uno por día de la
+   semana (Dom-Sáb), igual que Assign by Service pero por día en vez
+   de por servicio. Prender el toggle de un día muestra un selector
+   para elegir QUÉ PISO(S) le tocan ese día -- y al elegir un piso,
+   salen las amenidades/servicios que ESE piso ya trae configurados
+   (del paso 3), no una lista genérica. Cada día es 100% independiente
+   -- si lunes/miércoles/viernes llevan lo mismo, se captura 3 veces,
+   nada se comparte entre días (decisión explícita del dueño).
+
+5. Equipo asignado: por default es el del contrato completo, pero
+   puede haber equipo propio distinto -- AÚN SIN RESOLVER si esto vive
+   a nivel día, a nivel piso, o ambos.
+
+**No se ha escrito ni una línea de código de esto.** Es puro diseño
+hablado, sujeto a seguir cambiando. Antes de construir nada: confirmar
+el pendiente del punto 3, y el del punto 5.
