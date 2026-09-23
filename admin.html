@@ -1128,6 +1128,23 @@
   .cc-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 420px; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 13px; cursor: pointer; }
   .cc-switch small { display: block; color: var(--gray); font-size: 11px; }
   .cc-switch b { font-weight: 600; }
+  /* Caja de oficina (panel Custom) -- semana en fichas redondas, horas y la barra del dia */
+  .cl-box-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .cl-open-chip { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gold-dk); background: rgba(201,168,76,.14); border: 1px solid rgba(201,168,76,.35); padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .cl-open-chip.off { color: var(--gray); background: #F1EFEA; border-color: var(--border); }
+  .cl-week { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .cl-day { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #D9D2C2; background: var(--white); color: #8A8577; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease; padding: 0; }
+  .cl-day:hover { border-color: var(--gold); }
+  .cl-day:active { transform: scale(.94); }
+  .cl-day.on { background: linear-gradient(155deg, #EAD9A0 0%, #C9A84C 55%, #A8873A 100%); border-color: #B8963F; color: #171310; box-shadow: 0 2px 6px rgba(140,111,42,.28), inset 0 1px 0 rgba(255,255,255,.4); }
+  .cl-day:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(201,168,76,.3); }
+  .cl-hours-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cl-arrow { color: var(--gold-dk); font-weight: 700; }
+  .cl-dur { font-size: 11px; font-weight: 700; color: var(--gold-dk); background: #FBF7EC; padding: 4px 9px; border-radius: 12px; }
+  .cl-timeline { position: relative; height: 8px; background: #EFEBE2; border-radius: 6px; margin: 16px 0 16px; }
+  .cl-tl-bar { position: absolute; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #D9BD6A, #C9A84C, #A8873A); transition: left .2s ease, width .2s ease; }
+  .cl-tl-bar.off { background: #CFC9BC; }
+  .cl-timeline i { position: absolute; top: 11px; transform: translateX(-2px); font-style: normal; font-size: 9px; color: var(--gray); letter-spacing: .03em; }
   .cl-head { display: flex; align-items: center; gap: 14px; flex-wrap: nowrap; }
   .cl-main { flex: 1; min-width: 0; }
   .cl-title, .cl-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -12976,13 +12993,33 @@ function clientOfficeBoxHtml(c, b) {
   const open = parsed.open || { h: 9, m: 0 }, close = parsed.close || { h: 17, m: 0 };
   const LBL = { monOpen: 'M', tueOpen: 'T', wedOpen: 'W', thuOpen: 'T', friOpen: 'F', satOpen: 'S', sunOpen: 'S' };
   const NAME = { monOpen: 'Monday', tueOpen: 'Tuesday', wedOpen: 'Wednesday', thuOpen: 'Thursday', friOpen: 'Friday', satOpen: 'Saturday', sunOpen: 'Sunday' };
-  const days = DAY_FIELDS.map(f => '<div class="day-pill' + (who[f] ? ' active' : '') + '" role="button" tabindex="0" title="' + NAME[f] + '" data-day="' + f + '" onclick="this.classList.toggle(\'active\');cardHoursChanged(\'' + escAttr(c.clientId) + '\',\'' + escAttr(b ? b.id : '') + '\')">' + LBL[f] + '</div>').join('');
+  const days = DAY_FIELDS.map(f => '<button type="button" class="cl-day' + (who[f] ? ' on' : '') + '" aria-pressed="' + !!who[f] + '" title="' + NAME[f] + '" data-day="' + f + '" onclick="this.classList.toggle(\'on\');this.setAttribute(\'aria-pressed\',this.classList.contains(\'on\'));cardHoursChanged(\'' + escAttr(c.clientId) + '\',\'' + escAttr(b ? b.id : '') + '\')">' + LBL[f] + '</button>').join('');
   const where = b ? (b.label || b.address || 'Building') : 'Office hours';
   const sub = b ? [b.address, b.city].filter(Boolean).join(', ') : ([c.address, c.city].filter(Boolean).join(', ') || 'Main address');
-  return '<div class="cl-box"><h4>' + (b ? '\u21b3 ' : '') + esc(where) + '</h4><div class="cl-sub">' + esc(sub) + '</div>' +
-    '<div class="cc-office" id="cc-office-' + escAttr(key) + '"><div class="day-pills cc-days">' + days + '</div>' +
-    '<div class="cc-hours">' + devOfficeClockFieldHtml('cch-' + key + '-officeOpen', open.h, open.m, 'cardHoursChangedKey', key) +
-    '<span style="color:var(--gray)">to</span>' + devOfficeClockFieldHtml('cch-' + key + '-officeClose', close.h, close.m, 'cardHoursChangedKey', key) + '</div></div></div>';
+  return '<div class="cl-box cl-office"><div class="cl-box-head"><div><h4>' + (b ? '\u21b3 ' : '') + esc(where) + '</h4><div class="cl-sub">' + esc(sub) + '</div></div>' +
+    '<span class="cl-open-chip" id="cc-chip-' + escAttr(key) + '"></span></div>' +
+    '<div id="cc-office-' + escAttr(key) + '">' +
+    '<div class="cl-week">' + days + '</div>' +
+    '<div class="cl-hours-row">' + devOfficeClockFieldHtml('cch-' + key + '-officeOpen', open.h, open.m, 'cardHoursChangedKey', key) +
+    '<span class="cl-arrow">\u2192</span>' + devOfficeClockFieldHtml('cch-' + key + '-officeClose', close.h, close.m, 'cardHoursChangedKey', key) +
+    '<span class="cl-dur" id="cc-dur-' + escAttr(key) + '"></span></div>' +
+    '<div class="cl-timeline" aria-hidden="true"><span class="cl-tl-bar" id="cc-bar-' + escAttr(key) + '"></span>' +
+    '<i style="left:0%">12a</i><i style="left:25%">6a</i><i style="left:50%">12p</i><i style="left:75%">6p</i></div>' +
+    '</div></div>';
+}
+/* Resumen vivo de la caja de oficina: "Open 5 days", duracion y la
+   barra del dia (se recalcula al tocar un dia o cambiar la hora). */
+function clientOfficeViz(key) {
+  const box = document.getElementById('cc-office-' + key); if (!box) return;
+  const on = box.querySelectorAll('.cl-day.on').length;
+  const chip = document.getElementById('cc-chip-' + key);
+  if (chip) { chip.textContent = on ? 'Open ' + on + (on === 1 ? ' day' : ' days') : 'Closed'; chip.classList.toggle('off', !on); }
+  const o = document.getElementById('cch-' + key + '-officeOpen'), c = document.getElementById('cch-' + key + '-officeClose');
+  const mins = el => { const m = String((el && el.value) || '').match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const a = mins(o), z = mins(c), bar = document.getElementById('cc-bar-' + key), dur = document.getElementById('cc-dur-' + key);
+  if (a == null || z == null || z <= a) { if (bar) bar.style.width = '0'; if (dur) dur.textContent = ''; return; }
+  if (bar) { bar.style.left = (a / 1440 * 100) + '%'; bar.style.width = ((z - a) / 1440 * 100) + '%'; bar.classList.toggle('off', !on); }
+  if (dur) { const h = Math.floor((z - a) / 60), m = (z - a) % 60; dur.textContent = h + ' h' + (m ? ' ' + m + ' min' : ''); }
 }
 /* Panel "Custom" de la tarjeta del cliente en Clients > Create Order
    (aprobado con mini): oficina del cliente y de cada edificio, y lo que
@@ -13005,8 +13042,9 @@ async function cardHoursChanged(clientId, bid) {
   const who = b || c, key = (b ? 'b' : 'c') + '-' + String(who.id);
   cardKeyMap[key] = { clientId, bid };
   const box = document.getElementById('cc-office-' + key); if (!box) return;
+  clientOfficeViz(key);
   const body = { id: String(who.id) };
-  box.querySelectorAll('.day-pill[data-day]').forEach(el => { body[el.dataset.day] = el.classList.contains('active'); });
+  box.querySelectorAll('.cl-day[data-day]').forEach(el => { body[el.dataset.day] = el.classList.contains('on'); });
   body.officeHours = buildOfficeHoursString('cch-' + key + '-office');
   try {
     await api('/developer-admin', { body: Object.assign({ action: b ? 'update-building-hours' : 'update-client-hours', email: adminUser.email }, body) });
@@ -13048,7 +13086,7 @@ function createClientCard(c) {
           <div class="order-meta cl-meta">${esc(c.contactPerson||c.contact||'—')}${nb ? ' · ' + nb + (nb === 1 ? ' building' : ' buildings') : ''}</div>
         </div>
         <div class="cl-actions">
-          <button type="button" class="gs-ofp-btn-primary cl-add" onclick="event.stopPropagation(); startCreateOrderFor('${esc(c.clientId)}')">+ Add Order</button>
+          <button type="button" class="gs-ofp-btn-primary cl-add" onclick="event.stopPropagation(); createCardAddOrder('${esc(c.clientId)}')">+ Add Order</button>
           <label class="cl-custom${custom ? ' on' : ''}" onclick="event.stopPropagation()"><span class="cl-custom-lbl">Custom</span><span class="svc-toggle"><input type="checkbox"${custom ? ' checked' : ''} onchange="toggleCreateCustom('${esc(c.clientId)}', this.checked)"><span class="svc-toggle-track"></span></span></label>
         </div>
       </div>
@@ -13061,6 +13099,23 @@ function createClientCard(c) {
 }
 
 var createCustomOn = createCustomOn || {};
+/* "+ Add Order" vive en el encabezado: el formulario se pinta dentro de
+   la tarjeta (startCreateOrderFor), asi que hay que abrirla -- y si
+   estaba en Custom, se apaga. */
+function createCardAddOrder(clientId) {
+  if (createCustomOn[clientId]) {
+    createCustomOn[clientId] = false;
+    const card = document.querySelector('#create-client-result .order-card[data-client-id="' + CSS.escape(clientId) + '"]');
+    const t = card && card.querySelector('.cl-custom input'); if (t) t.checked = false;
+    const lbl = card && card.querySelector('.cl-custom'); if (lbl) lbl.classList.remove('on');
+  }
+  const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
+  const body = document.getElementById(cid + '-body');
+  if (body && !body.classList.contains('open')) toggleCreateCard(clientId);
+  startCreateOrderFor(clientId);
+  const content = document.getElementById(cid + '-content');
+  if (content) setTimeout(() => content.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+}
 function toggleCreateCustom(clientId, on) {
   createCustomOn[clientId] = !!on;
   const c = (allClients || []).find(x => x.clientId === clientId); if (!c) return;
@@ -13070,6 +13125,7 @@ function toggleCreateCustom(clientId, on) {
   const lbl = document.querySelector('.order-card[data-client-id="' + CSS.escape(clientId) + '"] .cl-custom');
   if (lbl) lbl.classList.toggle('on', !!on);
   if (content) content.innerHTML = on ? createCustomPanelHtml(c) : createClientRecentOrdersHtml(clientId);
+  if (on) setTimeout(() => Object.keys(cardKeyMap).forEach(clientOfficeViz), 0);
   if (on && body && !body.classList.contains('open')) toggleCreateCard(clientId);
 }
 
@@ -13139,6 +13195,8 @@ function renderCreateClientList() {
 
   if (!list.length) { box.innerHTML = '<p class="empty-note">No clients found.</p>'; return; }
   box.innerHTML = list.map(createClientCard).join('');
+  /* Tarjetas que quedaron en Custom: dibujar su resumen de horario. */
+  setTimeout(() => Object.keys(cardKeyMap).forEach(clientOfficeViz), 0);
 }
 
 function createOrderFormHtml() {
