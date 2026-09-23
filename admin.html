@@ -1222,7 +1222,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.51.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.44.2/order-history/order-history.js"></script>
@@ -6806,6 +6806,26 @@ function rsAccHtml() {
   }).join('');
 }
 function rsLayoutMode() { const w = window.innerWidth; return w >= 1100 ? 'c3' : (w >= 768 ? 'c2' : 'acc'); }
+/* Tarjeta de area (picker v1.51.0, modo Recurring) que corresponde al
+   tipo de lugar -- se abre sola y va primero. */
+const RS_AREA_CARD = {
+  'Hallway': 'Hallways & Floors',
+  'Lobby': 'Lobby & Entry', 'Entry/Vestibule': 'Lobby & Entry', 'Mailroom/Package Receiving': 'Lobby & Entry', 'Reception': 'Lobby & Entry',
+  'Restroom': 'Restrooms & Locker Rooms', 'Bathroom': 'Restrooms & Locker Rooms',
+  'Elevator': 'Elevators & Stairs', 'Stairwell': 'Elevators & Stairs',
+  'Trash/Chute Room': 'Trash',
+  'Kitchen': 'Kitchen & Breakroom', 'Breakroom': 'Kitchen & Breakroom', 'Dining Room': 'Kitchen & Breakroom',
+  'Office': 'Offices & Meeting Rooms', 'Conference Room': 'Offices & Meeting Rooms', 'Sanctuary': 'Offices & Meeting Rooms',
+  'Fellowship Hall': 'Offices & Meeting Rooms', 'Classroom': 'Offices & Meeting Rooms', 'Nursery': 'Offices & Meeting Rooms',
+  'Laundry Facilities': 'Amenities', 'Laundry Room': 'Amenities'
+};
+function rsAreaCardFor(area) {
+  if (RS_AREA_CARD[area]) return RS_AREA_CARD[area];
+  const g = RS_AREA_GROUPS.find(x => x.items.includes(area));
+  if (g && g.group === 'Apartment amenities') return 'Amenities';
+  if (g && g.group === 'Exterior') return 'Exterior';
+  return '';
+}
 function rsMountPicker(r) {
   const pid = 'rs-pk-' + r.id;
   if (!document.getElementById(pid) || typeof GSServicePicker === 'undefined') return;
@@ -6813,6 +6833,9 @@ function rsMountPicker(r) {
      casi nunca aplica todo el catalogo). */
   rsPickers[pid] = GSServicePicker.mount(pid, pid, {
     catalog: servicesCache, division: 'Janitorial', mode: 'levels', groupByCategory: true, propertyType: 'Commercial',
+    /* v1.51.0: toggle Recurring / Units; aqui arranca en Recurring con
+       la tarjeta de este lugar abierta primero. */
+    workToggle: true, workMode: 'recurring', placeArea: rsAreaCardFor(r.area),
     initialSelected: r.svc.selected, initialLevels: r.svc.levels, initialQuantities: r.svc.qty,
     onChange: function () {
       const k = rsPickers[pid]; if (!k) return;
@@ -8061,6 +8084,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     try {
       const res = await devApi('list-catalog');
       allCatalogRows = res.services || [];
+      catalogAreaNames = res.areaNames || [];
       if (window.GSServiceTooltip) GSServiceTooltip.register(allCatalogRows);
       const activeCount = allCatalogRows.filter(s => s.active).length;
       document.getElementById('browse-sub').textContent =
@@ -8095,6 +8119,38 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Service Catalog');
     XLSX.writeFile(wb, 'Service-Catalog-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  }
+
+  /* Areas de cada servicio (tarjetas de Common Areas en el picker,
+     modo Recurring). Un servicio puede estar en varias. */
+  let catalogAreaNames = [];
+  let catalogAreasEditing = null;
+  function catalogAreasCellHtml(r) {
+    const areas = Array.isArray(r.areas) ? r.areas : [];
+    if (catalogAreasEditing === r.sku) {
+      return '<div style="display:grid;gap:4px;min-width:190px">' + catalogAreaNames.map(a =>
+        '<label style="display:flex;gap:6px;align-items:center;font-size:11px"><input type="checkbox" class="cat-area-chk" value="' + escAttr(a) + '"' + (areas.includes(a) ? ' checked' : '') + '>' + esc(a) + '</label>').join('') +
+        '<div style="display:flex;gap:8px;margin-top:4px"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:5px 10px;font-size:10px" onclick="saveCatalogAreas(\'' + escAttr(r.sku) + '\', this)">Save</button>' +
+        '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:5px 10px;font-size:10px" onclick="catalogAreasEditing=null;renderCatalogTable()">Cancel</button></div></div>';
+    }
+    const label = areas.length ? areas.map(esc).join('<br>') : '<span style="color:var(--gray)">\u2014</span>';
+    return canEditCatalog ? '<span style="cursor:pointer;font-size:11px;line-height:1.5;display:inline-block" title="Edit areas" onclick="catalogAreasEditing=\'' + escAttr(r.sku) + '\';renderCatalogTable()">' + label + '</span>' : '<span style="font-size:11px">' + label + '</span>';
+  }
+  async function saveCatalogAreas(sku, btn) {
+    const box = btn.closest('td');
+    const areas = Array.from(box.querySelectorAll('.cat-area-chk')).filter(c => c.checked).map(c => c.value);
+    btn.disabled = true;
+    try {
+      await devApi('save-service-areas', { sku, areas });
+      allCatalogRows.filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
+      (servicesCache || []).filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
+      catalogAreasEditing = null;
+      renderCatalogTable();
+      showToast('Areas saved.');
+    } catch (e) {
+      btn.disabled = false;
+      showToast('Could not save: ' + e.message);
+    }
   }
 
   async function toggleCatalogActive(id, active) {
@@ -8144,7 +8200,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       return;
     }
     wrap.innerHTML = '<table class="cat-table"><thead><tr>' +
-      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Price</th><th>Active</th><th>Qty?</th>' +
+      '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Areas</th><th>Price</th><th>Active</th><th>Qty?</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
         '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) + '</td>' +
@@ -8154,6 +8210,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         '<td><input type="text" list="catalog-category-options" value="' + esc(r.category) + '" placeholder="Uncategorized" ' +
           'style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;font-family:inherit" ' +
           'onchange="saveCatalogCategory(\'' + r.id + '\', this.value)"></td>' +
+        '<td>' + catalogAreasCellHtml(r) + '</td>' +
         '<td>' + (r.price != null ? '$' + Number(r.price).toFixed(2) : '\u2014') + '</td>' +
         '<td><label class="svc-toggle">' +
           '<input type="checkbox" ' + (r.active ? 'checked' : '') + (canEditCatalog ? '' : ' disabled') +

@@ -423,6 +423,21 @@ Developer/Director podía llamar al API directo. Ahora:
   y Tech (se fía de `techId`) — ahí no hay login de Microsoft, hace
   falta un token de sesión propio.
 
+## SUBIDO (23/09/2026): parte 1 del picker Recurring / Units
+
+- gsocd-shared **v1.51.0**: toggle RECURRING / UNITS (mismo estilo que
+  Commercial / Residential) y, en Recurring, Common Areas en tarjetas
+  por área; la del lugar (`placeArea`) se abre sola y va primero; lo
+  demás en "+ Other services". Opt-in (`workToggle`).
+- Admin: el editor del lugar en Recurring lo usa (`rsAreaCardFor` pasa
+  del tipo de lugar a la tarjeta). Developer > Service Catalog tiene la
+  columna **Areas** (clic para editar); se guarda por SKU en Settings
+  (`catalog_service_areas`), con el borrador del mini como default
+  (`DEFAULT_SERVICE_AREAS` en developer-admin.js).
+- **Parte 2 pendiente:** paquetes como plantilla en modo Units (sin
+  precio los incluidos; QuickBooks factura solo el paquete, confirmado
+  por el dueño) y el toggle en Create Order / portal del cliente / Tech.
+
 ## ACORDADO (23/09/2026, corregido el mismo día): categorías + picker Recurring / Units
 
 **Corrección:** la propuesta de 5 categorías "por cómo se vende" (Common

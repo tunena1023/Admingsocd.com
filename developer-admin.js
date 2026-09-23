@@ -242,6 +242,26 @@ function classifySku(sku) {
 /* Rol real de un correo, segun la lista Staff. null si Staff no
    existe todavia, esta vacia, o el correo no tiene renglon ahi --
    en los 3 casos, "sin permiso" es la respuesta correcta, no un error. */
+/* ============================================================
+   Areas de cada servicio (23/09/2026, aprobado con mini): en el picker
+   (gsocd-shared v1.51.0), modo Recurring, Common Areas se abre en
+   tarjetas por AREA. Un servicio puede estar en varias -> es una lista
+   aparte por SKU, guardada en Settings (Key catalog_service_areas,
+   JSON {sku: [areas]}), no la categoria. Mientras nadie la edite se usa
+   DEFAULT_SERVICE_AREAS (el borrador aprobado en el mini).
+============================================================ */
+const SERVICE_AREA_NAMES = ["Hallways & Floors", "Lobby & Entry", "Restrooms & Locker Rooms", "Elevators & Stairs", "Trash", "Kitchen & Breakroom", "Offices & Meeting Rooms", "Amenities", "Exterior"];
+const DEFAULT_SERVICE_AREAS = {"111-57": ["Hallways & Floors", "Lobby & Entry", "Offices & Meeting Rooms"], "111-58": ["Hallways & Floors", "Lobby & Entry", "Restrooms & Locker Rooms", "Elevators & Stairs", "Kitchen & Breakroom"], "111-51": ["Hallways & Floors"], "111-59": ["Hallways & Floors", "Offices & Meeting Rooms"], "111-25": ["Hallways & Floors"], "111-24": ["Hallways & Floors"], "111-37": ["Hallways & Floors"], "111-22": ["Hallways & Floors"], "111-14": ["Lobby & Entry"], "111-18": ["Lobby & Entry"], "111-26": ["Lobby & Entry"], "111-40": ["Lobby & Entry"], "111-21": ["Lobby & Entry"], "111-13": ["Restrooms & Locker Rooms"], "111-19": ["Restrooms & Locker Rooms"], "111-28": ["Restrooms & Locker Rooms"], "111-27": ["Restrooms & Locker Rooms"], "111-16": ["Elevators & Stairs"], "111-17": ["Elevators & Stairs"], "111-15": ["Trash"], "111-44": ["Trash"], "111-62": ["Trash"], "111-12": ["Kitchen & Breakroom"], "111-23": ["Kitchen & Breakroom"], "111-60": ["Offices & Meeting Rooms"], "111-66": ["Offices & Meeting Rooms"], "111-69": ["Offices & Meeting Rooms"], "111-39": ["Amenities"], "111-41": ["Amenities"], "111-61": ["Amenities"], "111-67": ["Amenities"], "111-68": ["Amenities"], "111-63": ["Exterior"], "111-64": ["Exterior"], "111-65": ["Exterior"]};
+const SERVICE_AREAS_KEY = 'catalog_service_areas';
+async function readServiceAreas() {
+  const rows = await fetchAll(SETTINGS_LIST);
+  const row = rows.find(it => it.fields && it.fields.Key === SERVICE_AREAS_KEY);
+  if (row && row.fields.Value) {
+    try { const v = JSON.parse(row.fields.Value); if (v && typeof v === 'object') return { map: v, row }; } catch (e) { /* cae al default */ }
+  }
+  return { map: Object.assign({}, DEFAULT_SERVICE_AREAS), row: row || null };
+}
+
 async function getRole(email) {
   if (!email) return null;
   const rows = await fetchAll(STAFF_LIST);
@@ -360,7 +380,8 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-catalog') {
-      const rows = await fetchAll(SERVICES_CATALOG_LIST);
+      const [rows, areasRes] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas()]);
+      const areasMap = areasRes.map;
       const services = rows.filter(it => it.fields).map(it => ({
         id: it.id,
         serviceName: it.fields.ServiceName || '',
@@ -378,9 +399,26 @@ exports.handler = async (event) => {
            especificos, nunca toca Category. El usuario decidio que
            vale la pena mantenerla al dia el mismo, categorizando lo
            nuevo que llegue. */
-        category: it.fields.Category || ''
+        category: it.fields.Category || '',
+        areas: Array.isArray(areasMap[String(it.fields.SKU || '').trim()]) ? areasMap[String(it.fields.SKU || '').trim()] : []
       }));
-      return jsonResponse(200, { services });
+      return jsonResponse(200, { services, areaNames: SERVICE_AREA_NAMES });
+    }
+
+    /* Areas de UN servicio (Developer > Service Catalog). Guarda el
+       mapa completo en Settings; una lista vacia se guarda tal cual
+       (asi "sin areas" le gana al default). */
+    if (action === 'save-service-areas') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const sku = String(body.sku || '').trim();
+      if (!sku) return jsonResponse(400, { error: 'sku is required' });
+      const areas = (Array.isArray(body.areas) ? body.areas : []).filter(a => SERVICE_AREA_NAMES.indexOf(a) !== -1);
+      const { map, row } = await readServiceAreas();
+      map[sku] = areas;
+      const value = JSON.stringify(map);
+      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: value });
+      else await createListItem(SETTINGS_LIST, { Title: SERVICE_AREAS_KEY, Key: SERVICE_AREAS_KEY, Value: value });
+      return jsonResponse(200, { success: true, sku, areas });
     }
 
     /* Guardar la categoria de UN servicio -- separado de todo lo
