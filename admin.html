@@ -1217,7 +1217,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.44.2/order-history/order-history.js"></script>
@@ -2601,6 +2602,8 @@ async function loadAll() {
        para que Active/Approvals lo tengan listo sin esperar un fetch
        aparte cada vez que se abre un editor. Solo activos. */
     activeCatalogCache = (newCatalogRes.services || []).filter(s => s.active);
+    /* Descripciones de QuickBooks en tooltip (gsocd-shared/service-tooltip). */
+    if (window.GSServiceTooltip) GSServiceTooltip.register(newCatalogRes.services || []);
     /* Tiempos por SKU, en un Map para busqueda O(1) desde
        calcOrderEstimatedMinutes() cada vez que se abre una orden. */
     serviceTimesBySku = new Map((serviceTimesRes.services || []).map(s => [String(s.sku).trim(), s]));
@@ -4736,7 +4739,7 @@ function reviewSvcTableHtml(services) {
       const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level, r.nc.Quantity);
       return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
         '</tr>';
@@ -4803,7 +4806,7 @@ function apprReadOnlySvcHtml(orderId) {
     '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
@@ -7004,6 +7007,9 @@ function placeWhoHtml(o, services, history) {
   const assignments = svcAssignCache[o.OrderID] || [];
   const levelBy = {};
   (services || []).forEach(s => { levelBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.Level || ''; });
+  const skuBy = {};
+  (services || []).forEach(s => { skuBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.SubOption || ''; });
+  const svcName = (place, name) => window.GSServiceTooltip ? GSServiceTooltip.nameHtml(skuBy[place + '|' + name], esc(name)) : esc(name);
   const people = [];
   assignments.forEach(a => {
     const who = String(a.AssignedTo || 'Unassigned');
@@ -7053,7 +7059,7 @@ function placeWhoHtml(o, services, history) {
         '<span class="svc-assign-assigned">' + done + ' of ' + total + (total === 1 ? ' place' : ' places') + ' done</span></div>' +
         '<div class="svc-assign-editor">' + g.places.map(pl =>
           '<div class="pw-loc-head"><span class="pw-loc">' + esc(pl.place) + '</span>' + placeStatus(pl) + '</div><div class="pw-svcs">' +
-          pl.items.map(it => esc(it.ServiceName) + (levelBy[pl.place + '|' + it.ServiceName] ? ' <span class="lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '')).join('<br>') +
+          pl.items.map(it => svcName(pl.place, it.ServiceName) + (levelBy[pl.place + '|' + it.ServiceName] ? ' <span class="lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '')).join('<br>') +
           '</div>').join('') + '</div></div>';
     }).join('') + '</div>';
 }
@@ -8530,6 +8536,15 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         const colSku = findCol(headers, ['sku']);
         const colPrice = findCol(headers, ['price']);
         const colDesc = findCol(headers, ['sales description', 'description']);
+        /* 23/09/2026 (pedido del dueño): el MISMO archivo que se sube a
+           QuickBooks (su plantilla de importacion: "Sales price/rate",
+           "Quantity as of date"...) tambien se puede subir aqui, sin
+           tener que importarlo alla, exportarlo y volverlo a subir.
+           Esa plantilla trae solo algunos servicios -> "parcial": nada
+           de lo que no venga en el archivo se apaga. Columna opcional
+           "App category" (QuickBooks la ignora): categoria de la app. */
+        const partial = findCol(headers, ['sales price/rate', 'quantity as of date']) >= 0;
+        const colAppCat = findCol(headers, ['app category']);
 
         const parsed = rows.slice(1)
           .filter(r => r && r.length)
@@ -8537,7 +8552,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
             serviceName: String((colName >= 0 ? r[colName] : '') || '').trim(),
             sku: String((colSku >= 0 ? r[colSku] : '') || '').trim(),
             price: colPrice >= 0 ? String(r[colPrice] || '').replace(/[^0-9.\-]/g, '') : '',
-            description: String((colDesc >= 0 ? r[colDesc] : '') || '').trim()
+            description: String((colDesc >= 0 ? r[colDesc] : '') || '').trim(),
+            category: String((colAppCat >= 0 ? r[colAppCat] : '') || '').trim()
           }))
           .filter(r => r.serviceName);
 
@@ -8545,7 +8561,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
 
         currentRows = parsed;
         document.getElementById('catalog-preview').innerHTML = '<p class="empty-note">Comparing against the current catalog...</p>';
-        const preview = await devApi('preview-catalog-import', { rows: parsed });
+        const preview = await devApi('preview-catalog-import', { rows: parsed, partial });
+        preview.partial = partial;
         currentPreview = preview;
         renderCatalogPreview();
       } catch (e) {
@@ -8563,6 +8580,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
 
     const nothing = !p.toCreate.length && !p.toUpdate.length && !p.toReactivate.length && !p.toDeactivate.length;
     let html = '';
+    if (p.partial) html += '<div class="warn-box">This is a QuickBooks import file with only some services: services that are not in it stay exactly as they are.</div>';
 
     if (p.toCreate.length) {
       html += catalogDiffCard('New services', 'tag-create', p.toCreate, false, 'create');
@@ -10795,7 +10813,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           : '';
         return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
           ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? (
@@ -11064,7 +11082,7 @@ function activeSvcReadOnlyHtml(orderId) {
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + esc(r.name) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
       '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
       '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +

@@ -398,6 +398,24 @@ archivo nuevo por separado.
 
 ---
 
+## SUBIDO (23/09/2026): mismo archivo para QuickBooks y para la app + descripciones en tooltip
+
+- **Import del catálogo acepta la plantilla de importación de QuickBooks**
+  (la del sample oficial: "Product/service name", "Sales price/rate",
+  "Sales description"...). Si el archivo es esa plantilla (trae
+  "Sales price/rate" o "Quantity as of date") se trata como **parcial**:
+  crea/actualiza lo que trae y NO propone apagar nada de lo que no viene.
+  El reporte completo exportado de QuickBooks sigue funcionando igual
+  que siempre (modo completo). Columna opcional **"App category"**
+  (QuickBooks la ignora) = categoría de la app (Floors, Dusting...), se
+  pone al crear y al actualizar solo si viene llena.
+- **Descripciones en tooltip** (gsocd-shared v1.50.0,
+  `service-tooltip`): el picker (Admin/Orders/Tech) y los nombres de
+  servicio en Approvals/Active/History, el panel "Who does what", la
+  lista del técnico y el seguimiento del cliente. Se registra el
+  catálogo en loadAll(); la descripción es la Sales Description de
+  QuickBooks (ServicesCatalog.Description).
+
 ## SUBIDO (23/09/2026): Developer > Service Catalog > "Download Excel"
 
 Pedido del dueño para revisar qué servicios faltan crear en QuickBooks

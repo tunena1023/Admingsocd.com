@@ -436,7 +436,7 @@ exports.handler = async (event) => {
 
         const match = bySku.get(sku);
         if (!match) {
-          toCreate.push({ sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description });
+          toCreate.push({ sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, category: String(r.category || '').trim() });
           continue;
         }
 
@@ -448,10 +448,13 @@ exports.handler = async (event) => {
           String(f.Description || '') !== description ||
           Number(f.Price || 0) !== (price || 0);
 
+        const category = String(r.category || '').trim();
+        const catChanged = !!category && String(f.Category || '') !== category;
         const item = { sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, id: match.id };
+        if (category) item.category = category;
         if (!wasActive) {
           toReactivate.push(item);
-        } else if (changed) {
+        } else if (changed || catChanged) {
           toUpdate.push(item);
         }
         /* si no cambio nada y ya estaba activo, no se hace nada -- ni
@@ -462,7 +465,9 @@ exports.handler = async (event) => {
       /* Lo que esta activo hoy en el catalogo pero no aparecio para
          nada en este reporte -- candidato a desactivar, con aviso. */
       const toDeactivate = [];
-      existing.forEach(it => {
+      /* Archivo parcial (la plantilla de importacion de QuickBooks, con
+         solo algunos servicios): nada se propone apagar. */
+      if (!body.partial) existing.forEach(it => {
         const f = it.fields;
         if (!f) return;
         const sku = String(f.SKU || '').trim();
@@ -497,19 +502,22 @@ exports.handler = async (event) => {
           PropertyType: r.propertyType,
           Description: r.description || '',
           Price: r.price,
+          Category: String(r.category || '').trim(),
           Active: true
         });
         created++;
       }
 
       for (const r of toUpdate) {
-        await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, {
+        const upd = {
           ServiceName: r.serviceName,
           Division: r.division,
           PropertyType: r.propertyType,
           Description: r.description || '',
           Price: r.price
-        });
+        };
+        if (r.category) upd.Category = String(r.category).trim();
+        await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, upd);
         updated++;
       }
 
