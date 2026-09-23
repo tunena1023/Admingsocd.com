@@ -434,9 +434,18 @@ Developer/Director podía llamar al API directo. Ahora:
   columna **Areas** (clic para editar); se guarda por SKU en Settings
   (`catalog_service_areas`), con el borrador del mini como default
   (`DEFAULT_SERVICE_AREAS` en developer-admin.js).
-- **Parte 2 pendiente:** paquetes como plantilla en modo Units (sin
-  precio los incluidos; QuickBooks factura solo el paquete, confirmado
-  por el dueño) y el toggle en Create Order / portal del cliente / Tech.
+- **Parte 2 SUBIDA (mismo día):** gsocd-shared **v1.52.0** — en Units,
+  los paquetes salen como plantilla (tarjeta con lo que incluye; elegir
+  el nivel del paquete = usarlo). La orden guarda **solo la línea del
+  paquete** (QuickBooks factura solo eso, confirmado por el dueño); lo
+  que incluye se muestra con `pkgIncludesHtml()` (Approvals/Active/
+  History) desde el contenido actual del paquete. Contenido por paquete
+  en Settings (`catalog_package_contents`, default = borrador del mini),
+  editable en **Developer > Package contents**. Create Order arranca en
+  Units (Janitorial/Mixed).
+- **Pendiente:** llevar el toggle + paquetes al portal del cliente y a
+  Tech (sus endpoints de catálogo tendrían que mandar areas y
+  packageItems).
 
 ## ACORDADO (23/09/2026, corregido el mismo día): categorías + picker Recurring / Units
 

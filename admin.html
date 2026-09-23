@@ -1222,7 +1222,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.51.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.52.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.44.2/order-history/order-history.js"></script>
@@ -1459,6 +1459,28 @@
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
         <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div id="catalog-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pkg-contents-section" data-category="services">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); loadPkgEditor()">
+        <div><div class="order-id">Package contents</div>
+        <div class="order-desc">What each package includes. It shows as a template in the service picker (Units); only the package line is billed.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px">
+          <select id="pkg-edit-select" onchange="renderPkgEditor()" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
+          <span class="order-meta" id="pkg-edit-count"></span>
+        </div>
+        <div id="pkg-edit-rows"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+          <select id="pkg-edit-add" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
+          <button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:9px 14px;font-size:11px" onclick="pkgEditAdd()">+ Add service</button>
+          <button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:9px 16px;font-size:11px;margin-left:auto" onclick="pkgEditSave()">Save package</button>
+        </div>
       </div>
     </div>
   </section>
@@ -4801,7 +4823,7 @@ function reviewSvcTableHtml(services) {
       const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level, r.nc.Quantity);
       return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
         '</tr>';
@@ -4868,7 +4890,7 @@ function apprReadOnlySvcHtml(orderId) {
     '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
@@ -8153,6 +8175,58 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     }
   }
 
+  /* ===== Developer > Package contents (paquetes como plantilla) ===== */
+  let pkgEditItems = [];
+  async function loadPkgEditor() {
+    if (!allCatalogRows || !allCatalogRows.length) await loadCatalogBrowse();
+    const pk = allCatalogRows.filter(r => r.active && /package/i.test(r.category || '')).sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    const sel = document.getElementById('pkg-edit-select');
+    const keep = sel.value;
+    sel.innerHTML = pk.map(r => '<option value="' + escAttr(r.sku) + '">' + esc(r.serviceName) + ' (' + esc(r.propertyType) + ')</option>').join('');
+    if (keep && pk.some(r => r.sku === keep)) sel.value = keep;
+    renderPkgEditor();
+  }
+  function renderPkgEditor() {
+    const sku = document.getElementById('pkg-edit-select').value;
+    const pkg = allCatalogRows.find(r => r.sku === sku);
+    pkgEditItems = pkg && Array.isArray(pkg.packageItems) ? pkg.packageItems.map(x => ({ sku: x.sku, level: x.level })) : [];
+    drawPkgEditor(pkg);
+  }
+  function drawPkgEditor(pkg) {
+    const rows = document.getElementById('pkg-edit-rows');
+    const nameOf = k => { const r = allCatalogRows.find(x => x.sku === k); return r ? r.serviceName : k; };
+    document.getElementById('pkg-edit-count').textContent = pkgEditItems.length + (pkgEditItems.length === 1 ? ' service' : ' services');
+    rows.innerHTML = pkgEditItems.length ? pkgEditItems.map((x, i) =>
+      '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="flex:1;font-size:13px">' + esc(nameOf(x.sku)) + '</span>' +
+      '<select onchange="pkgEditItems[' + i + '].level=this.value" style="padding:6px 8px;border:1px solid var(--border);font-size:12px;font-family:inherit">' +
+      ['Level 1', 'Level 2', 'Level 3'].map(l => '<option' + (l === x.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+      '<button type="button" class="sc-x" style="width:30px;height:30px;border:1px solid var(--border);background:var(--white);color:#B33A3A;cursor:pointer" aria-label="Remove" onclick="pkgEditItems.splice(' + i + ',1);drawPkgEditor()">✕</button></div>').join('')
+      : '<p class="empty-note">Nothing in this package yet — add its services below.</p>';
+    const pkgRow = pkg || allCatalogRows.find(r => r.sku === document.getElementById('pkg-edit-select').value);
+    const pool = allCatalogRows.filter(r => r.active && pkgRow && r.division === pkgRow.division && r.propertyType === pkgRow.propertyType &&
+      !/package/i.test(r.category || '') && !pkgEditItems.some(x => x.sku === r.sku)).sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    document.getElementById('pkg-edit-add').innerHTML = '<option value="">Add a service…</option>' + pool.map(r => '<option value="' + escAttr(r.sku) + '">' + esc(r.serviceName) + '</option>').join('');
+  }
+  function pkgEditAdd() {
+    const v = document.getElementById('pkg-edit-add').value;
+    if (!v) return;
+    pkgEditItems.push({ sku: v, level: 'Level 2' });
+    drawPkgEditor();
+  }
+  async function pkgEditSave() {
+    const sku = document.getElementById('pkg-edit-select').value;
+    if (!sku) return;
+    try {
+      const res = await devApi('save-package-contents', { sku, items: pkgEditItems });
+      allCatalogRows.filter(r => r.sku === sku).forEach(r => { r.packageItems = res.items; });
+      (activeCatalogCache || []).filter(r => r.sku === sku).forEach(r => { r.packageItems = res.items; });
+      showToast('Package saved.');
+    } catch (e) {
+      showToast('Could not save: ' + e.message);
+    }
+  }
+
   async function toggleCatalogActive(id, active) {
     const row = allCatalogRows.find(r => r.id === id);
     const prevActive = row ? row.active : !active;
@@ -10933,7 +11007,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           : '';
         return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
           ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? (
@@ -11065,6 +11139,22 @@ function flattenSelectedForEstimate(orderId) {
    no solo en el total de abajo) -- misma logica y mismo catalogo que
    calcOrderEstimatedMinutes, nomas para un servicio suelto. '' si
    todavia no se conoce su tiempo. */
+/* Paquete (plantilla, picker v1.52.0): la orden guarda solo la linea
+   del paquete -- lo que incluye se arma aqui con el contenido actual
+   del paquete (Developer > Package contents), para que oficina vea el
+   checklist sin que se facture linea por linea. */
+function pkgIncludesHtml(sku) {
+  const cat = activeCatalogCache || [];
+  const p = cat.find(s => String(s.sku) === String(sku || ''));
+  if (!p || !Array.isArray(p.packageItems) || !p.packageItems.length) return '';
+  const items = p.packageItems.map(x => {
+    const s = cat.find(c => String(c.sku) === String(x.sku));
+    if (!s) return '';
+    const name = window.GSServiceTooltip ? GSServiceTooltip.nameHtml(s.sku, esc(s.serviceName)) : esc(s.serviceName);
+    return name + (x.level ? ' <span style="color:var(--gold-dk);font-weight:700;font-size:10px">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '');
+  }).filter(Boolean);
+  return items.length ? '<div style="font-size:11px;color:var(--gray);margin-top:4px;line-height:1.6">Includes: ' + items.join(', ') + '</div>' : '';
+}
 function svcMinutesLabel(sku, level, qty) {
   const svc = serviceTimesBySku.get(String(sku || '').trim());
   if (!svc) return '';
@@ -11202,7 +11292,7 @@ function activeSvcReadOnlyHtml(orderId) {
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
       '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
       '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
@@ -13188,6 +13278,9 @@ async function loadCreateServices() {
     showSelectAll: isJan,
     groupByCategory: true,
     propertyType: createPropertyType,
+    /* v1.52.0: toggle Recurring / Units; aqui arranca en Units (unidades
+       vacias: paquetes como plantilla + categorias por cuarto). */
+    workToggle: isJan || isMixed, workMode: 'units',
     onChange: function (sel, lvl, propType, qty) {
       createPropertyType = propType;
       createSelected = new Map();

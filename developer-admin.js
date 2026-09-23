@@ -262,6 +262,26 @@ async function readServiceAreas() {
   return { map: Object.assign({}, DEFAULT_SERVICE_AREAS), row: row || null };
 }
 
+/* ============================================================
+   Contenido de cada PAQUETE (23/09/2026, aprobado con mini, parte 2):
+   en modo Units del picker los paquetes salen como plantilla (tarjeta
+   con lo que incluye). La orden guarda SOLO la linea del paquete (lo
+   que QuickBooks factura, confirmado con el dueño); el checklist se
+   arma al mostrarlo, con esta lista. Settings, Key
+   catalog_package_contents, JSON {skuPaquete: [{sku, level}]}. Sin
+   editar se usa DEFAULT_PACKAGE_CONTENTS (borrador del mini).
+============================================================ */
+const DEFAULT_PACKAGE_CONTENTS = {"111-50": [{"sku": "111-59", "level": "Level 3"}, {"sku": "111-23", "level": "Level 3"}, {"sku": "111-13", "level": "Level 3"}, {"sku": "111-25", "level": "Level 2"}, {"sku": "111-36", "level": "Level 1"}, {"sku": "111-57", "level": "Level 2"}, {"sku": "111-58", "level": "Level 3"}, {"sku": "111-15", "level": "Level 1"}, {"sku": "111-56", "level": "Level 1"}], "111-48": [{"sku": "111-59", "level": "Level 2"}, {"sku": "111-23", "level": "Level 2"}, {"sku": "111-13", "level": "Level 2"}, {"sku": "111-25", "level": "Level 2"}, {"sku": "111-36", "level": "Level 1"}, {"sku": "111-57", "level": "Level 2"}, {"sku": "111-58", "level": "Level 2"}], "111-43": [{"sku": "111-59", "level": "Level 2"}, {"sku": "111-23", "level": "Level 1"}, {"sku": "111-13", "level": "Level 2"}, {"sku": "111-57", "level": "Level 2"}, {"sku": "111-58", "level": "Level 2"}, {"sku": "111-15", "level": "Level 1"}], "111-42": [{"sku": "111-59", "level": "Level 1"}, {"sku": "111-13", "level": "Level 1"}, {"sku": "111-57", "level": "Level 1"}, {"sku": "111-58", "level": "Level 1"}, {"sku": "111-15", "level": "Level 1"}], "111-10": [{"sku": "111-59", "level": "Level 3"}, {"sku": "111-36", "level": "Level 2"}, {"sku": "111-23", "level": "Level 2"}, {"sku": "111-13", "level": "Level 3"}, {"sku": "111-25", "level": "Level 3"}, {"sku": "111-57", "level": "Level 3"}, {"sku": "111-58", "level": "Level 3"}]};
+const PACKAGE_CONTENTS_KEY = 'catalog_package_contents';
+async function readPackageContents() {
+  const rows = await fetchAll(SETTINGS_LIST);
+  const row = rows.find(it => it.fields && it.fields.Key === PACKAGE_CONTENTS_KEY);
+  if (row && row.fields.Value) {
+    try { const v = JSON.parse(row.fields.Value); if (v && typeof v === 'object') return { map: v, row }; } catch (e) { /* default */ }
+  }
+  return { map: JSON.parse(JSON.stringify(DEFAULT_PACKAGE_CONTENTS)), row: row || null };
+}
+
 async function getRole(email) {
   if (!email) return null;
   const rows = await fetchAll(STAFF_LIST);
@@ -380,8 +400,9 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-catalog') {
-      const [rows, areasRes] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas()]);
+      const [rows, areasRes, pkgRes] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), readServiceAreas(), readPackageContents()]);
       const areasMap = areasRes.map;
+      const pkgMap = pkgRes.map;
       const services = rows.filter(it => it.fields).map(it => ({
         id: it.id,
         serviceName: it.fields.ServiceName || '',
@@ -400,7 +421,8 @@ exports.handler = async (event) => {
            vale la pena mantenerla al dia el mismo, categorizando lo
            nuevo que llegue. */
         category: it.fields.Category || '',
-        areas: Array.isArray(areasMap[String(it.fields.SKU || '').trim()]) ? areasMap[String(it.fields.SKU || '').trim()] : []
+        areas: Array.isArray(areasMap[String(it.fields.SKU || '').trim()]) ? areasMap[String(it.fields.SKU || '').trim()] : [],
+        packageItems: Array.isArray(pkgMap[String(it.fields.SKU || '').trim()]) ? pkgMap[String(it.fields.SKU || '').trim()] : []
       }));
       return jsonResponse(200, { services, areaNames: SERVICE_AREA_NAMES });
     }
@@ -408,6 +430,24 @@ exports.handler = async (event) => {
     /* Areas de UN servicio (Developer > Service Catalog). Guarda el
        mapa completo en Settings; una lista vacia se guarda tal cual
        (asi "sin areas" le gana al default). */
+    /* Contenido de UN paquete (Developer > Package contents). Lista
+       vacia = el paquete deja de salir como plantilla. */
+    if (action === 'save-package-contents') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const sku = String(body.sku || '').trim();
+      if (!sku) return jsonResponse(400, { error: 'sku is required' });
+      const LV = ['Level 1', 'Level 2', 'Level 3'];
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .map(x => ({ sku: String((x && x.sku) || '').trim(), level: LV.indexOf(x && x.level) !== -1 ? x.level : 'Level 2' }))
+        .filter(x => x.sku && x.sku !== sku);
+      const { map, row } = await readPackageContents();
+      map[sku] = items;
+      const value = JSON.stringify(map);
+      if (row) await updateListItemByItemId(SETTINGS_LIST, row.id, { Value: value });
+      else await createListItem(SETTINGS_LIST, { Title: PACKAGE_CONTENTS_KEY, Key: PACKAGE_CONTENTS_KEY, Value: value });
+      return jsonResponse(200, { success: true, sku, items });
+    }
+
     if (action === 'save-service-areas') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
       const sku = String(body.sku || '').trim();
