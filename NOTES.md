@@ -423,24 +423,38 @@ Developer/Director podía llamar al API directo. Ahora:
   y Tech (se fía de `techId`) — ahí no hay login de Microsoft, hace
   falta un token de sesión propio.
 
-## ACORDADO (23/09/2026): categorías de la app para Commercial Janitorial
+## ACORDADO (23/09/2026, corregido el mismo día): categorías + picker Recurring / Units
 
-Aprobado por el dueño con mini ("Service categories: today vs proposed").
-Se agrupa por **cómo se vende** el servicio (sus propias etiquetas en la
-descripción), no por cuarto:
+**Corrección:** la propuesta de 5 categorías "por cómo se vende" (Common
+Areas / Floor Care / Deep Cleaning / Packages / Extras) quedó
+DESCARTADA: quitaba Kitchen & Bathrooms, Floors, etc., y la mayoría del
+trabajo es **limpieza de unidades vacías**, que se piensa por cuarto.
+Se quedan las categorías de cuarto del dueño ("Baseborads" corregido a
+"Baseboards & Trim"); los 14 servicios nuevos: Vacuuming y Sweep & mop
+→ Floors, Patio & courtyard → Patio, Extra cleaning request → Extras, el
+resto → Common Areas. Así viene la columna "App category" de
+GS-services-QuickBooks-and-App.csv.
 
-| Categoría | Qué lleva |
-|---|---|
-| **Common Areas** | Todo lo de visita regular, lo que usan los contratos recurrentes (pisos, dusting, basura, baños, elevadores, escaleras, lobby, oficinas, amenidades, exterior). Nombre del dueño; además sale primero en el picker (orden alfabético). |
-| **Floor Care** | Trabajo periódico de pisos (shampoo, spot, scrubbing, polishing, strip & wax). |
-| **Deep Cleaning** | A pedido o con cargo extra (deep scrub, ventanas, vidrios, desinfección, odor/ozone, boiler room, balcones). |
-| **Packages** | Precio por trabajo completo (move-in/out, post-construction, unit cleaning, touch-up, áreas comunes de apartamentos, consultorios). |
-| **Extras** | Lo que el cliente pide en sitio, por hora. |
-
-Se aplica con la columna "App category" del archivo
-GS-services-QuickBooks-and-App.csv (el mismo que va a QuickBooks), o a
-mano en Developer. Servicio nuevo = una de estas 5. Residential no se
-tocó.
+**Aprobado con mini** ("Services: common areas by area + packages as
+templates"), POR CONSTRUIR:
+- El picker con un **toggle Recurring / Units** (mismo estilo que el
+  toggle Commercial / Residential del picker).
+- **Recurring:** Common Areas se abre en **tarjetas por área**
+  (Restrooms & Locker Rooms, Hallways & Floors, Lobby & Entry,
+  Elevators & Stairs, Trash, Kitchen & Breakroom, Offices & Meeting
+  Rooms, Amenities, Exterior). La tarjeta que coincide con el lugar
+  ("Floor 1 / Restroom") se abre sola y va primero. Un servicio puede
+  estar en varias tarjetas → las áreas son una **lista aparte por
+  servicio** (editable en Developer), no la categoría.
+- **Units:** categorías de cuarto + **paquetes como plantilla**: cada
+  paquete (Move-out, Move-in, Regular Cleaning, Touch-Up,
+  Post-construction) lista sus servicios con nivel; "Use this package"
+  = UNA línea para facturar (el paquete) + checklist para el técnico;
+  se pueden agregar servicios sueltos encima. Contenido editable en
+  Developer (el del mini es borrador).
+- Pendiente de decidir al construir: cómo guarda la orden el checklist
+  del paquete sin que salga facturado línea por línea (QuickBooks sigue
+  viendo solo el paquete).
 
 ## SUBIDO (23/09/2026): mismo archivo para QuickBooks y para la app + descripciones en tooltip
 
