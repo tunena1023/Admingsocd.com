@@ -13853,8 +13853,13 @@ function cancelCreate() {
     const cid = 'createcl-' + clientId.replace(/[^a-z0-9]/gi,'_');
     const content = document.getElementById(cid + '-content');
     if (content) {
-      content.innerHTML = createClientRecentOrdersHtml(clientId) +
-        `<button class="gs-ofp-btn-primary" onclick="event.stopPropagation(); startCreateOrderFor('${esc(clientId)}')">+ Add Order</button>`;
+      /* El boton "+ Add Order" ya vive en el encabezado de la tarjeta
+         (bug reportado por el dueño: Cancel volvia a pintar el boton
+         viejo adentro). Se regresa a lo que la tarjeta muestra hoy: sus
+         ordenes, o el panel Custom si esta prendido. */
+      const c = (allClients || []).find(x => x.clientId === clientId);
+      content.innerHTML = (createCustomOn[clientId] && c) ? createCustomPanelHtml(c) : createClientRecentOrdersHtml(clientId);
+      if (createCustomOn[clientId]) setTimeout(() => Object.keys(cardKeyMap).forEach(clientOfficeViz), 0);
     }
   }
 }
