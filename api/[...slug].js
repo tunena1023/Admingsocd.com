@@ -33,6 +33,7 @@ const handlers = {
   'get-service-assignments': require('../get-service-assignments').handler,
   'save-service-assignment': require('../save-service-assignment').handler,
   'complete-service-assignment': require('../complete-service-assignment').handler,
+  'resolve-extra-request': require('../resolve-extra-request').handler,
   'resolve-service-change-request': require('../resolve-service-change-request').handler,
   'reorder-service-queue': require('../reorder-service-queue').handler,
   'admin-mark-order-seen': require('../admin-mark-order-seen').handler

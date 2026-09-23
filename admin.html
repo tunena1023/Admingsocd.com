@@ -1034,6 +1034,77 @@
   }
   .gs-ofp-btn-danger:hover { background: var(--red); color: var(--white); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.12); }
   .gs-ofp-btn-danger:active { transform: translateY(0); }
+
+  /* ===== Recurring "Who does what" por lugar (23/09/2026, aprobado
+     con mini interactivo). Formulario: scoped a #panel-recurring,
+     mismas piezas reales (.day-pill, .rc-badge, .add-more-link). ===== */
+  #panel-recurring .sc-note { font-size: 12px; color: var(--gray); margin-bottom: 12px; }
+  #panel-recurring .sc-part { border: 1px solid var(--border); background: var(--white); margin-bottom: 12px; }
+  #panel-recurring .sc-part-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  #panel-recurring .sc-part-head select { padding: 8px 10px; border: 1px solid var(--border); font-size: 13px; font-weight: 700; font-family: Arial, sans-serif; background: var(--white); }
+  #panel-recurring .sc-part-head .sc-hours { width: 70px; padding: 8px; border: 1px solid var(--border); font-size: 13px; font-family: Arial, sans-serif; }
+  #panel-recurring .sc-hlabel { font-size: 11px; color: var(--gray); }
+  #panel-recurring .sc-part-sum { flex: 1; min-width: 140px; font-size: 12px; color: var(--gray); }
+  #panel-recurring .sc-x { background: none; border: 1px solid var(--border); color: #B33A3A; cursor: pointer; width: 32px; height: 32px; flex-shrink: 0; }
+  #panel-recurring .sc-rows { padding: 4px 14px 10px; }
+  #panel-recurring .sc-row { border-bottom: 1px solid var(--border); }
+  #panel-recurring .sc-row:last-of-type { border-bottom: none; }
+  #panel-recurring .sc-row-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
+  #panel-recurring .sc-row-main select, #panel-recurring .sc-row-main input { padding: 7px 8px; border: 1px solid var(--border); font-size: 12px; font-family: Arial, sans-serif; background: var(--white); }
+  #panel-recurring .sc-zone { width: 150px; }
+  #panel-recurring .sc-area { width: 160px; }
+  #panel-recurring .sc-qty { width: 54px; }
+  #panel-recurring .sc-svc { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1 1 120px; min-width: 0; }
+  #panel-recurring .sc-svc .rc-badge { flex-shrink: 0; }
+  #panel-recurring .sc-svc-names { font-size: 12px; color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #panel-recurring .sc-days { display: flex; gap: 3px; margin-left: auto; }
+  #panel-recurring .day-pill.sm { width: 26px; height: 26px; font-size: 10px; }
+  #panel-recurring .sc-pick { padding: 0 0 12px; }
+  #panel-recurring .sc-pick-inner { padding: 12px; border: 1px solid var(--border); background: #FEFDFB; }
+  #panel-recurring .rc-badge.warn { color: #B33A3A; border-color: #F0C9C9; background: #FFF5F5; }
+  #panel-recurring .sc-who-card { border: 1px solid var(--border); background: var(--white); padding: 10px 14px; margin-bottom: 8px; }
+  #panel-recurring .sc-who-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  #panel-recurring .sc-who-line { font-size: 12px; line-height: 1.6; }
+  #panel-recurring .sc-who-line span { color: var(--gray); }
+  @media (max-width: 640px) {
+    #panel-recurring .sc-part-head { display: grid; grid-template-columns: minmax(0, 1fr) 64px 32px; gap: 8px; padding: 10px; }
+    #panel-recurring .sc-part-head select { width: 100%; }
+    #panel-recurring .sc-part-head .sc-hlabel { display: none; }
+    #panel-recurring .sc-part-head .sc-hours { width: 100%; }
+    #panel-recurring .sc-part-sum { grid-column: 1 / -1; grid-row: 2; }
+    #panel-recurring .sc-rows { padding: 4px 10px 10px; }
+    #panel-recurring .sc-row-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 50px; gap: 8px; }
+    #panel-recurring .sc-zone, #panel-recurring .sc-area { width: 100%; min-width: 0; }
+    #panel-recurring .sc-qty { width: 100%; }
+    #panel-recurring .sc-svc { grid-column: 1 / 3; grid-row: 2; }
+    #panel-recurring .sc-row-main .sc-x { grid-column: 3; grid-row: 2; justify-self: end; }
+    #panel-recurring .sc-days { grid-column: 1 / -1; grid-row: 3; margin-left: 0; justify-content: space-between; }
+    #panel-recurring .day-pill.sm { width: auto; flex: 1; max-width: 40px; }
+    #panel-recurring .rc-badge .w { display: none; }
+    /* El formulario de crear va dentro de 3 contenedores con padding
+       (tarjeta, cuerpo, card) -- en celular eso dejaba los selects de
+       lugar en ~70px. Se aprieta SOLO aqui, no en las demas tarjetas. */
+    #panel-recurring #rc-create-card { padding: 12px 10px; }
+    #panel-recurring #rc-create-body { padding: 12px 0 0; background: var(--white); }
+    #panel-recurring #rc-create-body > .card { padding: 14px 10px; }
+  }
+  /* Active: orden recurrente por lugar -- "Who does what" dentro del
+     detalle de la orden (mismas .svc-assign-card/.status-badge). */
+  .pw-block { margin-top: 16px; }
+  .pw-loc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 2px; }
+  .pw-loc-head:first-child { margin-top: 0; }
+  .pw-loc { font-size: 12px; font-weight: 700; }
+  .pw-svcs { font-size: 12px; line-height: 1.6; }
+  .pw-svcs .lv { color: var(--gold-dk); font-weight: 600; }
+  .pw-st { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; }
+  .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
+  .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
+  .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  .pw-confirm { font-size: 11px; color: var(--gold-dk); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font-family: inherit; }
+  .pw-extra { border: 1px solid #EDDCB4; background: #FBF3E1; padding: 12px 14px; margin-bottom: 12px; font-size: 12px; border-radius: 6px; }
+  .pw-extra b { display: block; margin-bottom: 4px; }
+  .pw-extra-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .pw-extra-actions button { width: auto; padding: 8px 14px; font-size: 11px; }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1929,7 +2000,7 @@
     <div id="panel-recurring">
       <p class="section-sub" style="margin-bottom:20px">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. Each visit becomes a real order, confirmed through Review if anything changes before its day.</p>
 
-      <div class="rc-card">
+      <div class="rc-card" id="rc-create-card">
         <div class="rc-top" onclick="toggleRecurringCreateCard()">
           <div><div class="rc-name">+ Create New Recurring Contract</div></div>
           <div class="rc-right"><span class="rc-arrow" id="rc-create-arrow">▸</span></div>
@@ -1941,6 +2012,25 @@
           <div class="field-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
         </div>
 
+        <!-- "Who does what" por lugar (23/09/2026, aprobado con mini
+             interactivo): prendido, el alcance se captura por persona
+             -> lugar (piso + area) -> servicios + dias propios de cada
+             lugar. Apagado, el formulario de siempre (una lista de
+             servicios para todo el equipo). -->
+        <div class="toggle-row" id="rc-mode-row" style="margin:4px 0 16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+          <label class="svc-toggle"><input type="checkbox" id="rc-mode" checked onchange="setRcScopeMode(this.checked)"><span class="svc-toggle-track"></span></label>
+          <label for="rc-mode"><b>Who does what by place</b> — <span id="rc-mode-note">on, each person gets their own places</span></label>
+        </div>
+        <div id="rc-scope">
+          <div class="field-row">
+            <div class="field-group"><label>Floors in this building</label><input type="number" id="rc-floors" min="1" max="60" value="3" onchange="setRcFloors(this.value)"></div>
+            <div></div>
+          </div>
+          <p class="sc-note">Each person only gets their own places. The office sees the whole contract as one order.</p>
+          <div id="rc-sc-parts"></div>
+          <div class="add-more-link" onclick="addRcPart()">+ Add person</div>
+        </div>
+        <div id="rc-legacy-svc" style="display:none">
         <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
           <div class="field-group" style="margin-bottom:0"><label>Services</label></div>
           <div style="text-align:right"><button class="gs-ofp-btn-secondary" id="add-services-btn" onclick="document.getElementById('svc-area').style.display='block'; this.style.display='none'">+ Add Services</button></div>
@@ -1949,9 +2039,10 @@
           <p class="empty-note" id="rc-svc-legacy-note" style="display:none;text-align:left;padding:6px 0 12px;font-size:11px;color:var(--gray)">This contract still has services saved in the old per-room format. Re-select the matching services below (and Save) to update it to the new catalog.</p>
           <div id="rc-svc-picker-mount"></div>
         </div>
+        </div>
 
         <div class="field-row">
-          <div class="field-group">
+          <div class="field-group" id="rc-days-group">
             <label>Days</label>
             <div class="day-pills" id="rc-days">
               <div class="day-pill" data-day="Sun">S</div><div class="day-pill" data-day="Mon">M</div><div class="day-pill" data-day="Tue">T</div>
@@ -1966,9 +2057,11 @@
           <div class="field-group"><label>Expiration Date <span style="text-transform:none;font-weight:400;color:var(--gray)">(optional)</span></label><div id="rc-expiration-mount"></div></div>
         </div>
 
+        <div id="rc-legacy-assign" style="display:none">
         <div class="field-group" style="margin-top:8px"><label>Assigned Employee(s)</label></div>
         <div id="assign-rows"></div>
         <div class="add-more-link" onclick="addAssignRow()">+ Add person</div>
+        </div>
 
         <div style="margin-top:16px">
           <button class="gs-ofp-btn-primary" id="save-recurring-btn" onclick="saveRecurring()">Create Recurring</button>
@@ -5699,6 +5792,13 @@ function addAssignRow(payrollNumber, hours) {
   }
 
 function refreshAssignRowOptions() {
+    if (rcScopeOn && rcParts.length) {
+      /* Los bloques nuevos se crearon antes de que llegaran los
+         tecnicos -- se les pone el primero libre y se repinta. */
+      const used = new Set(rcParts.map(p => String(p.p)).filter(Boolean));
+      rcParts.forEach(pt => { if (!pt.p) { const t = rcScTechs().find(t => !used.has(String(t.payrollId))); if (t) { pt.p = String(t.payrollId); used.add(pt.p); } } });
+      renderRcScope();
+    }
     document.querySelectorAll('#assign-rows .assign-emp').forEach(sel => {
       const current = sel.value;
       sel.innerHTML = allTechs.filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'))
@@ -5794,6 +5894,8 @@ async function loadServicesPicker() {
       const catalogRes = await api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } });
       servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
       mountRcPicker();
+      if (!editingServiceId && !rcParts.length) resetRcScope(); else renderRcScope();
+      setRcScopeMode(rcScopeOn);
     } catch (e) {
       document.getElementById('rc-svc-picker-mount').innerHTML = '<p class="empty-note">Could not load services: ' + esc(e.message) + '</p>';
     }
@@ -5856,14 +5958,25 @@ async function saveRecurring() {
     const time = GSDateTimePicker.getTime('rc-time');
     const totalHours = document.getElementById('rc-total-hours').value;
     const expirationDate = GSDateTimePicker.getDate('rc-expiration') || '';
-    const services = collectSelectedServices();
+    let services = collectSelectedServices();
 
-    const assignments = Array.from(document.querySelectorAll('.assign-row')).map(row => ({
+    let assignments = Array.from(document.querySelectorAll('#assign-rows .assign-row')).map(row => ({
       payrollNumber: row.querySelector('.assign-emp').value,
       hoursAllocated: row.querySelector('.assign-hours').value
     })).filter(a => a.payrollNumber);
 
     if (!clientId) { errEl.textContent = 'Select a client.'; return; }
+    /* "Who does what" por lugar: servicios, dias y gente salen de los
+       bloques por persona -- DaysOfWeek es la union de los dias de
+       todos sus lugares (ver lib/recurring-orders.js). */
+    if (rcScopeOn) {
+      const scErr = rcScopeValidate();
+      if (scErr) { errEl.textContent = scErr; return; }
+      services = rcScopeToServices();
+      days.length = 0;
+      RC_DAY_KEYS.filter(d => services.some(x => x.days.includes(d))).forEach(d => days.push(d));
+      assignments = rcParts.map(pt => ({ payrollNumber: String(pt.p), hoursAllocated: pt.hours }));
+    }
     if (!days.length) { errEl.textContent = 'Select at least one day.'; return; }
     if (!time) { errEl.textContent = 'Set a time.'; return; }
     if (!assignments.length) { errEl.textContent = 'Add at least one employee.'; return; }
@@ -5895,6 +6008,7 @@ async function saveRecurring() {
       document.getElementById('save-recurring-btn').textContent = 'Create Recurring';
       document.getElementById('cancel-edit-btn').style.display = 'none';
       addAssignRow();
+      resetRcScope(); setRcScopeMode(true);
       if (savedContractId) reopenAndFlashContract(savedContractId); else loadRecurringList();
     } catch (e) {
       GSLoadingSplash.hide();
@@ -5945,6 +6059,9 @@ function contractCardBodyHtml(s) {
       if (names.length) servicesText = esc(names.join(', '));
     } catch (e) { /* deja el guion */ }
 
+    let scList = [];
+    try { scList = JSON.parse(s.servicesJson || '[]'); } catch (e) { scList = []; }
+    const isPlace = rcScIsPlaceList(scList);
     return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 16px;margin-bottom:14px">' +
       '<div><div class="field-caption">Days</div><div class="field-value">' + esc(s.daysOfWeek || '—') + '</div></div>' +
       '<div><div class="field-caption">Time</div><div class="field-value">' + esc(s.time || '—') + '</div></div>' +
@@ -5953,10 +6070,13 @@ function contractCardBodyHtml(s) {
       '<div><div class="field-caption">Expiration</div><div class="field-value">' + esc(expText) + '</div></div>' +
       '<div><div class="field-caption">Employees</div><div class="field-value">' + esc(peopleStr) + '</div></div>' +
     '</div>' +
-    '<div class="field-caption">Services</div>' +
-    '<p class="meta-line" style="margin-bottom:16px">' + servicesText + '</p>' +
-    '<div style="display:flex;gap:8px">' +
+    (isPlace
+      ? '<div class="field-caption">Who does what</div><div style="margin:6px 0 16px">' + rcScContractWhoHtml(s, scList) + '</div>'
+      : '<div class="field-caption">Services</div>' +
+        '<p class="meta-line" style="margin-bottom:16px">' + servicesText + '</p>') +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation();editRecurring(\'' + s.id + '\')">Update</button>' +
+      (isPlace ? '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation();printScopeOfWork(\'' + s.id + '\')">Scope of Work</button>' : '') +
       '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation();deactivateContract(\'' + s.id + '\')"' + (s.active ? '' : ' disabled') + '>Deactivate</button>' +
     '</div>';
   }
@@ -6109,6 +6229,10 @@ async function editRecurring(id) {
     const built = buildInitialSelectedFrom(svc.servicesJson);
     document.getElementById('rc-svc-legacy-note').style.display = built.hasLegacy ? 'block' : 'none';
     mountRcPicker(built.selected, built.levels, built.firstType, built.qty);
+    let scList = [];
+    try { scList = JSON.parse(svc.servicesJson || '[]'); } catch (e) { scList = []; }
+    if (rcScIsPlaceList(scList)) { rcScopeFromServices(scList, svc.assignments || []); setRcScopeMode(true); }
+    else { rcParts = []; setRcScopeMode(false); }
 
     const days = (svc.daysOfWeek || '').split(',');
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
@@ -6135,6 +6259,7 @@ async function editRecurring(id) {
 
 function cancelEdit() {
     editingServiceId = null;
+    resetRcScope(); setRcScopeMode(true);
     document.getElementById('rc-client').value = '';
     document.getElementById('rc-building').value = '';
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => p.classList.remove('active'));
@@ -6145,6 +6270,400 @@ function cancelEdit() {
     document.getElementById('cancel-edit-btn').style.display = 'none';
     addAssignRow();
   }
+
+/* ===== Recurring "Who does what" por lugar (23/09/2026) =====
+   Aprobado con mini interactivo (recurring-quien-hace-que-mini). Un
+   solo contrato; dentro, cada persona con SUS lugares (piso + area +
+   cantidad), cada lugar con sus servicios (el GSServicePicker real) y
+   sus propios dias. Se guarda en el mismo ServicesJSON de siempre
+   (un renglon por servicio, con zone/area/qty/days/payrollNumber) --
+   ver lib/recurring-orders.js para como se convierte en ordenes. */
+const RC_AREA_TYPES = [
+  { name: 'Elevator', scope: 'building' }, { name: 'Stairwell', scope: 'building' },
+  ...['Hallway', 'Restroom', 'Office', 'Trash/Chute Room', 'Entry/Vestibule', 'Breakroom'].map(n => ({ name: n, scope: 'floor' })),
+  ...['Lobby', 'Clubhouse', 'Fitness Center/Gym', 'Movie Theater/Cinema', 'Business Center', 'Community Room', 'Storage Units', 'Laundry Facilities',
+      'Pet Wash Station', 'Computer Center', 'TV Room', 'Coffee Bar', 'Bike Storage', 'Conference Room', 'Guest Suite', 'Media Room',
+      'Package Receiving', 'Yoga Studio', 'Rooftop Patio/Terrace', 'Skywalk Connection'].map(n => ({ name: n, scope: 'floor' })),
+  ...['Pool', 'Playground', 'Dog Park', 'Pet Play Area', 'Courtyard', 'Gazebo', 'Picnic Area', 'Grill/BBQ Area', 'Basketball Court',
+      'RV Storage', 'Garages', 'Villas with Garage', 'Pond'].map(n => ({ name: n, scope: 'exterior' }))
+];
+const RC_DAYS = [['Sun', 'S'], ['Mon', 'M'], ['Tue', 'T'], ['Wed', 'W'], ['Thu', 'T'], ['Fri', 'F'], ['Sat', 'S']];
+const RC_DAY_KEYS = RC_DAYS.map(d => d[0]);
+const RC_DAY_LONG = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' };
+/* Mismo formato que placeLabel() en lib/recurring-orders.js -- es lo
+   que viaja en OrderServices/ServiceAssignments.Category. */
+const RC_PLACE_RE = /^(Floor \d+|Elevators & stairs|Exterior) \/ /;
+let rcScopeOn = true;
+let rcFloors = 3;
+let rcParts = [];
+let rcScOpen = {};
+const rcScPickers = {};
+let rcScSeq = 0;
+function rcScId(prefix) { return prefix + (++rcScSeq); }
+function rcScEmptySvc() { return { selected: {}, levels: {}, qty: {} }; }
+function rcScTechs() {
+  return (allTechs || []).filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'));
+}
+function rcScTechName(p) {
+  const t = (allTechs || []).find(t => String(t.payrollId) === String(p));
+  return t ? (t.firstName + ' ' + t.lastName).trim() : String(p || '');
+}
+function rcScZoneKeys() { const k = []; for (let i = 1; i <= rcFloors; i++) k.push('F' + i); k.push('BLD', 'EXT'); return k; }
+function rcScZoneLabel(z) { return z === 'BLD' ? 'Elevators & stairs' : z === 'EXT' ? 'Exterior' : 'Floor ' + String(z).slice(1); }
+function rcScScope(z) { return z === 'BLD' ? 'building' : z === 'EXT' ? 'exterior' : 'floor'; }
+function rcScPlaceLabel(r) { return rcScZoneLabel(r.zone) + (r.area ? ' / ' + r.area : '') + (r.qty > 1 ? ' \u00d7' + r.qty : ''); }
+function rcScSvcList(svc) {
+  const out = [];
+  Object.keys((svc && svc.selected) || {}).forEach(pt => Object.entries(svc.selected[pt] || {}).forEach(([name, sku]) =>
+    out.push({ pt, name, sku, level: ((svc.levels || {})[pt + '|' + name]) || '' })));
+  return out;
+}
+function rcScLv(l) { return l ? String(l).replace('Level ', 'L') : ''; }
+function rcScNames(r) { return rcScSvcList(r.svc).map(x => x.name + (x.level ? ' ' + rcScLv(x.level) : '')).join(', '); }
+function rcScBadge(n) { return n ? n + '<span class="w"> ' + (n === 1 ? 'service' : 'services') + '</span>' : 'no services'; }
+function rcScDaysText(days) {
+  const idx = RC_DAY_KEYS.map((d, i) => (days || []).includes(d) ? i : -1).filter(i => i >= 0);
+  if (!idx.length) return 'no days';
+  if (idx.length === 7) return 'Every day';
+  const runs = []; let a = idx[0], b = idx[0];
+  for (let k = 1; k <= idx.length; k++) {
+    if (k < idx.length && idx[k] === b + 1) { b = idx[k]; continue; }
+    runs.push(b - a >= 2 ? RC_DAY_KEYS[a] + '–' + RC_DAY_KEYS[b] : (a === b ? RC_DAY_KEYS[a] : RC_DAY_KEYS[a] + ', ' + RC_DAY_KEYS[b]));
+    if (k < idx.length) { a = idx[k]; b = idx[k]; }
+  }
+  return runs.join(', ');
+}
+function rcScPartSummary(pt) {
+  const zones = [...new Set(pt.rows.map(r => r.zone))].sort((x, y) => rcScZoneKeys().indexOf(x) - rcScZoneKeys().indexOf(y));
+  const fl = zones.filter(z => z[0] === 'F').map(z => z.slice(1));
+  const where = [fl.length ? (fl.length === 1 ? 'Floor ' : 'Floors ') + fl.join(', ') : '', zones.includes('BLD') ? 'elevators & stairs' : '', zones.includes('EXT') ? 'exterior' : ''].filter(Boolean).join(' + ');
+  return rcScDaysText([...new Set(pt.rows.flatMap(r => r.days))]) + (where ? ', ' + where : '') + ', ' + pt.rows.length + (pt.rows.length === 1 ? ' place' : ' places');
+}
+function setRcScopeMode(on) {
+  rcScopeOn = !!on;
+  const cb = document.getElementById('rc-mode'); if (cb) cb.checked = rcScopeOn;
+  const note = document.getElementById('rc-mode-note');
+  if (note) note.textContent = rcScopeOn ? 'on, each person gets their own places' : 'off, one service list for the whole team';
+  document.getElementById('rc-scope').style.display = rcScopeOn ? '' : 'none';
+  document.getElementById('rc-legacy-svc').style.display = rcScopeOn ? 'none' : '';
+  document.getElementById('rc-days-group').style.display = rcScopeOn ? 'none' : '';
+  document.getElementById('rc-legacy-assign').style.display = rcScopeOn ? 'none' : '';
+  if (rcScopeOn && !document.querySelector('#rc-sc-parts .sc-part')) renderRcScope();
+}
+function resetRcScope() {
+  rcParts = []; rcFloors = 3; rcScOpen = {};
+  const f = document.getElementById('rc-floors'); if (f) f.value = rcFloors;
+  addRcPart();
+}
+function rcScDestroyPickers() { Object.keys(rcScPickers).forEach(id => { try { rcScPickers[id].destroy(); } catch (e) {} delete rcScPickers[id]; }); }
+function rcScFind(rid) { for (const pt of rcParts) { const r = pt.rows.find(x => x.id === rid); if (r) return { pt, r }; } return {}; }
+function addRcPart() {
+  const used = new Set(rcParts.map(p => String(p.p)));
+  const t = rcScTechs().find(t => !used.has(String(t.payrollId)));
+  const pt = { id: rcScId('p'), p: t ? String(t.payrollId) : '', hours: 1, rows: [] };
+  rcParts.push(pt);
+  addRcRow(pt.id);
+}
+function removeRcPart(pid) {
+  const pt = rcParts.find(p => p.id === pid);
+  if (pt && pt.rows.some(r => rcScSvcList(r.svc).length) && !confirm('Remove ' + rcScTechName(pt.p) + ' and all their places from this contract?')) return;
+  rcParts = rcParts.filter(p => p.id !== pid); renderRcScope();
+}
+function setRcPart(pid, field, v) {
+  const pt = rcParts.find(p => p.id === pid); if (!pt) return;
+  pt[field] = field === 'hours' ? (Number(v) || 0) : String(v);
+  renderRcScope();
+}
+function addRcRow(pid) {
+  const pt = rcParts.find(p => p.id === pid); if (!pt) return;
+  const last = pt.rows[pt.rows.length - 1];
+  /* Lugar nuevo: mismo piso y mismos dias que el de arriba (a la
+     vista y editable); el area se elige a mano. */
+  const r = { id: rcScId('r'), zone: last ? last.zone : 'F1', area: '', qty: 1, days: last ? last.days.slice() : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], svc: rcScEmptySvc() };
+  pt.rows.push(r); rcScOpen[r.id] = true;
+  renderRcScope();
+}
+function removeRcRow(rid) { const { pt } = rcScFind(rid); if (!pt) return; pt.rows = pt.rows.filter(r => r.id !== rid); delete rcScOpen[rid]; renderRcScope(); }
+function setRcRow(rid, field, v) {
+  const { r } = rcScFind(rid); if (!r) return;
+  if (field === 'zone') { r.zone = v; if (!RC_AREA_TYPES.find(t => t.name === r.area && t.scope === rcScScope(v))) r.area = ''; }
+  else if (field === 'qty') r.qty = Math.max(1, parseInt(v, 10) || 1);
+  else r[field] = v;
+  renderRcScope();
+}
+function toggleRcRowDay(rid, d) {
+  const { r } = rcScFind(rid); if (!r) return;
+  r.days = r.days.includes(d) ? r.days.filter(x => x !== d) : RC_DAY_KEYS.filter(x => x === d || r.days.includes(x));
+  const el = document.getElementById('rc-sc-d-' + rid + '-' + d); if (el) el.classList.toggle('active', r.days.includes(d));
+  rcScUpdateBadges();
+}
+function toggleRcRowOpen(rid) { rcScOpen[rid] = !rcScOpen[rid]; renderRcScope(); }
+function setRcFloors(v) {
+  const n = Math.max(1, Math.min(60, parseInt(v, 10) || 1));
+  const lost = rcParts.flatMap(pt => pt.rows.filter(r => r.zone[0] === 'F' && +r.zone.slice(1) > n));
+  if (lost.length && !confirm(lost.length + (lost.length === 1 ? ' place' : ' places') + ' above floor ' + n + ' will be removed. Continue?')) {
+    document.getElementById('rc-floors').value = rcFloors; return;
+  }
+  rcParts.forEach(pt => { pt.rows = pt.rows.filter(r => !(r.zone[0] === 'F' && +r.zone.slice(1) > n)); });
+  rcFloors = n; renderRcScope();
+}
+function rcScUpdateBadges() {
+  rcParts.forEach(pt => {
+    const s = document.getElementById('rc-sc-sum-' + pt.id); if (s) s.textContent = rcScPartSummary(pt);
+    pt.rows.forEach(r => {
+      const b = document.getElementById('rc-sc-cnt-' + r.id);
+      if (b) { const n = rcScSvcList(r.svc).length; b.innerHTML = rcScBadge(n); b.classList.toggle('warn', !n); }
+      const nm = document.getElementById('rc-sc-names-' + r.id); if (nm) nm.textContent = rcScNames(r);
+    });
+  });
+}
+function renderRcScope() {
+  const box = document.getElementById('rc-sc-parts'); if (!box) return;
+  rcScDestroyPickers();
+  const techs = rcScTechs();
+  const used = new Set(rcParts.map(p => String(p.p)));
+  box.innerHTML = rcParts.map(pt => {
+    const known = techs.some(t => String(t.payrollId) === String(pt.p));
+    const opts = (known || !pt.p ? '' : '<option value="' + escAttr(pt.p) + '" selected>' + esc(rcScTechName(pt.p)) + '</option>') +
+      (pt.p ? '' : '<option value="" selected>Select…</option>') +
+      techs.map(t => '<option value="' + escAttr(t.payrollId) + '"' + (String(t.payrollId) === String(pt.p) ? ' selected' : '') +
+        (String(t.payrollId) !== String(pt.p) && used.has(String(t.payrollId)) ? ' disabled' : '') + '>' + esc((t.firstName + ' ' + t.lastName).trim()) + '</option>').join('');
+    const rows = pt.rows.map(r => {
+      const areaOpts = '<option value="">Area…</option>' + RC_AREA_TYPES.filter(t => t.scope === rcScScope(r.zone))
+        .map(t => '<option' + (t.name === r.area ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
+      const zoneOpts = rcScZoneKeys().map(z => '<option value="' + z + '"' + (z === r.zone ? ' selected' : '') + '>' + rcScZoneLabel(z) + '</option>').join('');
+      const n = rcScSvcList(r.svc).length, open = !!rcScOpen[r.id];
+      const pills = RC_DAYS.map(([d, l]) => '<div class="day-pill sm' + (r.days.includes(d) ? ' active' : '') + '" id="rc-sc-d-' + r.id + '-' + d + '" role="button" tabindex="0" title="' + RC_DAY_LONG[d] + '" aria-label="' + RC_DAY_LONG[d] + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click()}" onclick="toggleRcRowDay(\'' + r.id + '\',\'' + d + '\')">' + l + '</div>').join('');
+      return '<div class="sc-row"><div class="sc-row-main">' +
+        '<select class="sc-zone" aria-label="Where" onchange="setRcRow(\'' + r.id + '\',\'zone\',this.value)">' + zoneOpts + '</select>' +
+        '<select class="sc-area" aria-label="Area" onchange="setRcRow(\'' + r.id + '\',\'area\',this.value)">' + areaOpts + '</select>' +
+        '<input class="sc-qty" type="number" min="1" value="' + r.qty + '" aria-label="How many" title="How many" onchange="setRcRow(\'' + r.id + '\',\'qty\',this.value)">' +
+        '<span class="sc-svc" role="button" tabindex="0" onclick="toggleRcRowOpen(\'' + r.id + '\')"><span class="rc-badge' + (n ? '' : ' warn') + '" id="rc-sc-cnt-' + r.id + '">' + rcScBadge(n) + '</span>' +
+        '<span class="sc-svc-names" id="rc-sc-names-' + r.id + '">' + esc(rcScNames(r)) + '</span><span class="rc-arrow' + (open ? ' open' : '') + '">▸</span></span>' +
+        '<div class="sc-days">' + pills + '</div>' +
+        '<button type="button" class="sc-x" aria-label="Remove place" onclick="removeRcRow(\'' + r.id + '\')">✕</button></div>' +
+        (open ? '<div class="sc-pick"><div class="sc-pick-inner" id="rc-sc-pk-' + r.id + '"></div></div>' : '') + '</div>';
+    }).join('');
+    return '<div class="sc-part"><div class="sc-part-head">' +
+      '<select aria-label="Person" onchange="setRcPart(\'' + pt.id + '\',\'p\',this.value)">' + opts + '</select>' +
+      '<span class="sc-hlabel">Hours</span><input class="sc-hours" type="number" step="0.5" value="' + pt.hours + '" aria-label="Hours" onchange="setRcPart(\'' + pt.id + '\',\'hours\',this.value)">' +
+      '<span class="sc-part-sum" id="rc-sc-sum-' + pt.id + '">' + esc(rcScPartSummary(pt)) + '</span>' +
+      '<button type="button" class="sc-x" aria-label="Remove person" onclick="removeRcPart(\'' + pt.id + '\')">✕</button></div>' +
+      '<div class="sc-rows">' + (rows || '<p class="sc-note" style="margin:10px 0 0">No places yet.</p>') +
+      '<div class="add-more-link" style="margin:6px 0 0" onclick="addRcRow(\'' + pt.id + '\')">+ Add place</div></div></div>';
+  }).join('') || '<p class="empty-note">Add the first person.</p>';
+  if (typeof GSServicePicker === 'undefined') return;
+  rcParts.forEach(pt => pt.rows.forEach(r => {
+    if (!rcScOpen[r.id]) return;
+    const pid = 'rc-sc-' + r.id;
+    /* Mismas opciones que mountRcPicker -- sin "Select all" (por
+       lugar casi nunca aplica todo el catalogo). */
+    rcScPickers[pid] = GSServicePicker.mount(pid, 'rc-sc-pk-' + r.id, {
+      catalog: servicesCache, division: 'Janitorial', mode: 'levels', groupByCategory: true, propertyType: 'Commercial',
+      initialSelected: r.svc.selected, initialLevels: r.svc.levels, initialQuantities: r.svc.qty,
+      onChange: function () {
+        const p = rcScPickers[pid]; if (!p) return;
+        r.svc = { selected: p.getSelected(), levels: p.getLevels(), qty: p.getQuantities() };
+        rcScUpdateBadges();
+      }
+    });
+  }));
+}
+function rcScopeToServices() {
+  const out = [];
+  rcParts.forEach(pt => pt.rows.forEach(r => rcScSvcList(r.svc).forEach(x => out.push({
+    sku: x.sku, serviceName: x.name, level: x.level, propertyType: x.pt,
+    zone: r.zone, area: r.area, qty: r.qty, days: r.days.slice(), payrollNumber: String(pt.p)
+  }))));
+  return out;
+}
+function rcScopeValidate() {
+  if (!rcParts.length) return 'Add at least one person.';
+  for (const pt of rcParts) {
+    if (!pt.p) return 'Pick who each block is for.';
+    if (!pt.rows.length) return rcScTechName(pt.p) + ': add at least one place or remove the person.';
+    for (const r of pt.rows) {
+      const miss = [];
+      if (!r.area) miss.push('area');
+      if (!rcScSvcList(r.svc).length) miss.push('services');
+      if (!r.days.length) miss.push('days');
+      if (miss.length) return rcScTechName(pt.p) + ', ' + rcScPlaceLabel(r) + ': missing ' + miss.join(', ') + '.';
+    }
+  }
+  return '';
+}
+function rcScIsPlaceList(list) { return (list || []).some(s => s && s.zone && s.area); }
+function rcScopeFromServices(list, assignments) {
+  rcParts = []; rcScOpen = {};
+  let maxFloor = 1;
+  const hoursBy = {};
+  (assignments || []).forEach(a => { hoursBy[String(a.payrollNumber)] = a.hoursAllocated; });
+  list.filter(s => s && s.zone && s.area).forEach(s => {
+    const p = String(s.payrollNumber || '');
+    let pt = rcParts.find(x => x.p === p);
+    if (!pt) { pt = { id: rcScId('p'), p, hours: hoursBy[p] != null ? Number(hoursBy[p]) : 1, rows: [] }; rcParts.push(pt); }
+    const days = Array.isArray(s.days) ? s.days : [];
+    const key = s.zone + '|' + s.area + '|' + (Number(s.qty) || 1) + '|' + days.join(',');
+    let r = pt.rows.find(x => x._key === key);
+    if (!r) { r = { id: rcScId('r'), _key: key, zone: s.zone, area: s.area, qty: Number(s.qty) || 1, days: days.slice(), svc: rcScEmptySvc() }; pt.rows.push(r); }
+    const ptype = s.propertyType || 'Commercial';
+    if (!r.svc.selected[ptype]) r.svc.selected[ptype] = {};
+    r.svc.selected[ptype][s.serviceName] = s.sku;
+    if (s.level) r.svc.levels[ptype + '|' + s.serviceName] = s.level;
+    if (/^F\d+$/.test(s.zone)) maxFloor = Math.max(maxFloor, +s.zone.slice(1));
+  });
+  rcFloors = Math.max(maxFloor, 1);
+  const f = document.getElementById('rc-floors'); if (f) f.value = rcFloors;
+  renderRcScope();
+}
+
+/* ---- Tarjeta del contrato + hoja de alcance para el cliente ---- */
+function rcScGroupContract(list) {
+  const people = [];
+  list.filter(s => s && s.zone && s.area).forEach(s => {
+    const p = String(s.payrollNumber || '');
+    let g = people.find(x => x.p === p); if (!g) { g = { p, places: [] }; people.push(g); }
+    const label = rcScPlaceLabel({ zone: s.zone, area: s.area, qty: Number(s.qty) || 1 });
+    const days = Array.isArray(s.days) ? s.days : [];
+    let pl = g.places.find(x => x.label === label && x.days.join() === days.join());
+    if (!pl) { pl = { label, days, svcs: [] }; g.places.push(pl); }
+    pl.svcs.push(s.serviceName + (s.level ? ' ' + rcScLv(s.level) : ''));
+  });
+  return people;
+}
+function rcScContractWhoHtml(s, list) {
+  const nameBy = {};
+  (s.assignments || []).forEach(a => { nameBy[String(a.payrollNumber)] = a.name; });
+  return rcScGroupContract(list).map(g =>
+    '<div class="sc-who-card"><div class="sc-who-name">' + esc(nameBy[g.p] || rcScTechName(g.p)) + '</div>' +
+    g.places.map(pl => '<div class="sc-who-line">' + esc(pl.label) + ': ' + esc(pl.svcs.join(', ')) + ' <span>(' + esc(rcScDaysText(pl.days)) + ')</span></div>').join('') +
+    '</div>').join('');
+}
+function printScopeOfWork(id) {
+  const s = (rcServicesCache || []).find(x => x.id === id); if (!s) return;
+  let list = [];
+  try { list = JSON.parse(s.servicesJson || '[]'); } catch (e) { list = []; }
+  const client = clientsCache.find(c => c.clientId === s.clientId);
+  const clientName = client ? client.businessName : s.clientId;
+  const zoneOrder = z => z === 'BLD' ? 1000 : z === 'EXT' ? 1001 : (+String(z).slice(1) || 0);
+  const zones = [...new Set(list.filter(x => x.zone && x.area).map(x => x.zone))].sort((a, b) => zoneOrder(a) - zoneOrder(b));
+  /* Un lugar sale UNA vez aunque lo compartan varias personas; cada
+     servicio con sus dias si no todos van los mismos dias. */
+  const sections = zones.map(z => {
+    const places = [];
+    list.filter(x => x.zone === z && x.area).forEach(x => {
+      const label = x.area + ((Number(x.qty) || 1) > 1 ? ' \u00d7' + x.qty : '');
+      let p = places.find(y => y.label === label); if (!p) { p = { label, svc: {} }; places.push(p); }
+      p.svc[x.serviceName] = [...new Set([...(p.svc[x.serviceName] || []), ...(x.days || [])])];
+    });
+    return '<h2>' + esc(rcScZoneLabel(z)) + '</h2><table>' + places.map(p => {
+      const names = Object.keys(p.svc), texts = names.map(n => rcScDaysText(p.svc[n])), same = texts.every(t => t === texts[0]);
+      return '<tr><td class="a">' + esc(p.label) + '</td><td>' +
+        (same ? names.map(esc).join(', ') : names.map((n, i) => esc(n) + ' <span class="g">(' + esc(texts[i]) + ')</span>').join(', ')) +
+        '</td><td class="g">' + esc(same ? texts[0] : rcScDaysText([...new Set(names.flatMap(n => p.svc[n]))])) + '</td></tr>';
+    }).join('') + '</table>';
+  }).join('');
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print the scope of work.'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Scope of Work — ' + esc(clientName) + '</title>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">' +
+    '<style>body{font-family:Inter,Arial,sans-serif;color:#111;max-width:820px;margin:32px auto;padding:0 20px}h1{font-family:"Cormorant Garamond",serif;font-size:30px;margin:0 0 4px}' +
+    '.sub{color:#6B6B6B;font-size:13px;margin-bottom:22px}h2{font-size:13px;margin:22px 0 6px;padding-bottom:6px;border-bottom:1px solid #111}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px}td{padding:8px 10px 8px 0;border-bottom:1px solid #E0DDD6;vertical-align:top}td.a{width:28%;font-weight:600}' +
+    '.g{color:#6B6B6B}td.g{width:22%;white-space:nowrap}.foot{margin-top:24px;padding-top:12px;border-top:1px solid #E0DDD6;font-size:13px}' +
+    '@media print{body{margin:0}}</style></head><body>' +
+    '<h1>Scope of Work</h1><p class="sub">' + esc(clientName) + (s.buildingNumber ? ', ' + esc(s.buildingNumber) : '') + '. Janitorial common areas, ' +
+    esc(rcScDaysText((s.daysOfWeek || '').split(',').filter(Boolean))) + (s.time ? ', ' + esc(s.time) : '') + '.</p>' +
+    sections +
+    '<p class="foot">Anything not listed above is outside this contract and will be quoted separately before the work is done.</p>' +
+    '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
+  w.document.close();
+}
+
+/* ---- Active: orden recurrente por lugar ---- */
+function isPlaceOrderServices(services) { return (services || []).some(s => RC_PLACE_RE.test(String(s.Category || ''))); }
+function placeWhoHtml(o, services, history) {
+  const assignments = (svcAssignCache[o.OrderID] || []).filter(a => RC_PLACE_RE.test(String(a.Category || '')));
+  const levelBy = {};
+  (services || []).forEach(s => { levelBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.Level || ''; });
+  const people = [];
+  assignments.forEach(a => {
+    const who = String(a.AssignedTo || 'Unassigned');
+    let g = people.find(x => x.who === who); if (!g) { g = { who, places: [] }; people.push(g); }
+    let pl = g.places.find(x => x.place === a.Category); if (!pl) { pl = { place: a.Category, items: [] }; g.places.push(pl); }
+    pl.items.push(a);
+  });
+  const canAct = !['Completed', 'Cancelled'].includes(o.Status);
+  const placeStatus = pl => {
+    const st = pl.items.map(i => i.WorkStatus || 'Not Started');
+    if (st.every(x => x === 'Completed')) return '<span class="pw-st done">Completed</span>';
+    const pend = st.some(x => x === 'Pending Review');
+    return (pend ? '<span class="pw-st pending">Waiting on office</span>' : '<span class="pw-st open">To do</span>') +
+      (canAct && pend ? '<button type="button" class="pw-confirm" onclick="confirmPlaceDone(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(pl.place) + '\')">Confirm</button>' : '');
+  };
+  const personBadge = g => {
+    const all = g.places.flatMap(pl => pl.items.map(i => i.WorkStatus || 'Not Started'));
+    if (all.length && all.every(x => x === 'Completed')) return '<span class="status-badge status-completed">Completed</span>';
+    if (all.length && all.every(x => x === 'Completed' || x === 'Pending Review')) return '<span class="status-badge status-working">Waiting on office</span>';
+    if (all.some(x => x !== 'Not Started')) return '<span class="status-badge status-working">In progress</span>';
+    return '<span class="status-badge status-assigned">Assigned</span>';
+  };
+  /* Extras que el cliente le pidio al tecnico (Tech, "The client asked
+     for something not on my list") -- viven en el historial real. */
+  const hist = history || [];
+  const resolved = {};
+  hist.forEach(h => {
+    if (h.ChangeType !== 'Extra Approved' && h.ChangeType !== 'Extra Declined') return;
+    try { const v = JSON.parse(h.NewValue || '{}'); if (v.requestId) resolved[v.requestId] = h.ChangeType; } catch (e) {}
+  });
+  const extras = hist.filter(h => h.ChangeType === 'Extra Requested').map(h => {
+    let v = {}; try { v = JSON.parse(h.NewValue || '{}'); } catch (e) {}
+    return { id: v.requestId, note: v.note || h.Notes || '', place: v.place || '', by: h.ChangedBy || '', state: resolved[v.requestId] || 'pending' };
+  }).filter(x => x.id);
+  const extrasHtml = extras.map(x =>
+    '<div class="pw-extra"><b>' + (x.state === 'pending' ? 'Extra requested by client — waiting on office' : x.state === 'Extra Approved' ? 'Extra approved — billed separately' : 'Extra declined') + '</b>' +
+    esc(x.by) + (x.place ? ' at ' + esc(x.place) : '') + ': “' + esc(x.note) + '”' +
+    (x.state === 'pending' && canAct ? '<div class="pw-extra-actions"><button class="gs-ofp-btn-primary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'approved\')">Approve as extra charge</button>' +
+      '<button class="gs-ofp-btn-secondary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'declined\')">Decline</button></div>' : '') +
+    '</div>').join('');
+  if (!people.length && !extrasHtml) return '';
+  return '<div class="pw-block">' + extrasHtml + '<p class="detail-label">Who does what</p>' +
+    people.map((g, i) => {
+      const total = g.places.length, done = g.places.filter(pl => pl.items.every(it => it.WorkStatus === 'Completed')).length;
+      return '<div class="svc-assign-card"><div class="svc-assign-header" style="flex-wrap:wrap"><span class="svc-assign-num">' + (i + 1) + '</span>' +
+        '<span class="svc-assign-name">' + esc(g.who) + '</span>' + personBadge(g) +
+        '<span class="svc-assign-assigned">' + done + ' of ' + total + (total === 1 ? ' place' : ' places') + ' done</span></div>' +
+        '<div class="svc-assign-editor">' + g.places.map(pl =>
+          '<div class="pw-loc-head"><span class="pw-loc">' + esc(pl.place) + '</span>' + placeStatus(pl) + '</div><div class="pw-svcs">' +
+          pl.items.map(it => esc(it.ServiceName) + (levelBy[pl.place + '|' + it.ServiceName] ? ' <span class="lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '')).join('<br>') +
+          '</div>').join('') + '</div></div>';
+    }).join('') + '</div>';
+}
+async function confirmPlaceDone(orderId, place) {
+  showLoadingOverlay('Confirming ' + place + '…');
+  try {
+    await api('/complete-service-assignment', { body: { orderId, category: place, placeMode: true, changedBy: getActorName() } });
+    showToast(place + ' confirmed.');
+    await loadAll();
+    GSLoadingSplash.hide();
+  } catch (e) {
+    GSLoadingSplash.hide();
+    showToast('Error: ' + e.message);
+  }
+}
+async function resolveExtraRequest(orderId, requestId, decision) {
+  showLoadingOverlay(decision === 'approved' ? 'Approving extra…' : 'Declining extra…');
+  try {
+    await api('/resolve-extra-request', { body: { orderId, requestId, decision, changedBy: getActorName() } });
+    showToast(decision === 'approved' ? 'Extra approved, bill it separately.' : 'Extra declined.');
+    await loadAll();
+    GSLoadingSplash.hide();
+  } catch (e) {
+    GSLoadingSplash.hide();
+    showToast('Error: ' + e.message);
+  }
+}
 
 
   /* ===== Assignment rows (1 o varias personas repartiendo horas) ===== */
@@ -9542,13 +10061,17 @@ function svcAssignmentStatusRows(orderId, services) {
 
   let prevScheduled = true;
   let prevCompleted = true;
+  /* Recurrentes "Who does what" por lugar: todos los lugares se
+     trabajan AL MISMO TIEMPO (cada quien el suyo), no en fila como una
+     remodelacion -- ninguno espera a que el anterior termine. */
+  const parallel = isPlaceOrderServices(services);
   return rows.map(row => {
     const { svc, a } = row;
     const scheduled = !!(a && a.AssignedTo && a.ScheduledDate);
     const workStatus = (a && a.WorkStatus) || 'Not Started';
     const isDone = workStatus === 'Completed';
-    const canSchedule = prevScheduled;
-    const current = prevCompleted && !isDone;
+    const canSchedule = parallel ? true : prevScheduled;
+    const current = parallel ? !isDone : (prevCompleted && !isDone);
     prevScheduled = scheduled;
     prevCompleted = isDone;
     let label, cls;
@@ -9894,6 +10417,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           </div>
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
+        ${isAssignByService && isPlaceOrderServices(services) ? placeWhoHtml(o, services, history) : ''}
         <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
         <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>

@@ -49,27 +49,32 @@ exports.handler = async (event) => {
 
   try {
     const b = JSON.parse(event.body || '{}');
-    const required = ['orderId', 'category', 'serviceName', 'changedBy'];
+    /* Por lugar (recurrentes "Who does what", 23/09/2026): placeMode
+       confirma de un jalon TODOS los servicios de ese lugar (misma
+       Category) -- el tecnico los marco juntos con un solo Mark as Done
+       y una foto del lugar. Sin placeMode, todo igual que siempre: un
+       servicio por llamada. */
+    const placeMode = b.placeMode === true;
+    const required = placeMode ? ['orderId', 'category', 'changedBy'] : ['orderId', 'category', 'serviceName', 'changedBy'];
     for (const k of required) if (!b[k]) return jsonResponse(400, { error: k + ' is required' });
 
     const [assignmentRows, orderSvcRows] = await Promise.all([
       fetchByOrderId(SERVICE_ASSIGNMENTS_LIST, b.orderId),
       fetchByOrderId(ORDER_SERVICES_LIST, b.orderId)
     ]);
-
-    const match = assignmentRows.find(it =>
-      it.fields.Category === b.category && it.fields.ServiceName === b.serviceName
-    );
+    const matches = placeMode
+      ? assignmentRows.filter(it => it.fields.Category === b.category && it.fields.AssignedTo && it.fields.WorkStatus !== 'Completed')
+      : assignmentRows.filter(it => it.fields.Category === b.category && it.fields.ServiceName === b.serviceName).slice(0, 1);
+    const match = matches[0];
     if (!match || !match.fields.AssignedTo) {
-      return jsonResponse(400, { error: 'This service has not been scheduled yet.' });
+      return jsonResponse(400, { error: placeMode ? 'Nothing left to confirm in this place.' : 'This service has not been scheduled yet.' });
     }
-
-    const cameFromTech = match.fields.WorkStatus === 'Pending Review';
+    const cameFromTech = matches.some(m => m.fields.WorkStatus === 'Pending Review');
     const nowIso = new Date().toISOString();
-    await updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, match.id, {
+    await Promise.all(matches.map(m => updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, m.id, {
       WorkStatus: 'Completed', CompletedDate: nowIso
-    });
-
+    })));
+    const doneBy = [...new Set(matches.map(m => m.fields.AssignedTo))].join(', ');
     await createListItem(ORDER_HISTORY_LIST, {
       Title: b.orderId + '-svc-completed-' + Date.now(),
       OrderID: b.orderId,
@@ -78,16 +83,18 @@ exports.handler = async (event) => {
       ChangeDate: nowIso,
       Notes: '',
       NewValue: JSON.stringify({
-        serviceName: b.serviceName, completedBy: match.fields.AssignedTo, finishedText: nowIso,
-        confirmedNote: cameFromTech ? ('Confirmed by office after ' + match.fields.AssignedTo + ' marked it done') : ''
+        serviceName: placeMode ? b.category : b.serviceName, completedBy: doneBy, finishedText: nowIso,
+        services: placeMode ? matches.map(m => m.fields.ServiceName) : undefined,
+        confirmedNote: cameFromTech ? ('Confirmed by office after ' + doneBy + ' marked it done') : ''
       })
     });
 
     /* Recap si este era el ultimo que faltaba -- servicios reales de
        OrderServices contra WorkStatus real de ServiceAssignments,
        incluyendo el que se acaba de marcar arriba. */
+    const matchIds = new Set(matches.map(m => m.id));
     const doneKeys = new Set(assignmentRows
-      .filter(it => it.fields.WorkStatus === 'Completed' || (it.id === match.id))
+      .filter(it => it.fields.WorkStatus === 'Completed' || matchIds.has(it.id))
       .map(it => it.fields.Category + '|' + it.fields.ServiceName));
     const allSvcKeys = orderSvcRows.filter(it => it.fields).map(it => (it.fields.Category || '') + '|' + (it.fields.ServiceName || ''));
     const allDone = allSvcKeys.length > 0 && allSvcKeys.every(k => doneKeys.has(k));
@@ -95,7 +102,7 @@ exports.handler = async (event) => {
     if (allDone) {
       const recap = assignmentRows.map(it => ({
         serviceName: it.fields.ServiceName,
-        completedBy: it.id === match.id ? match.fields.AssignedTo : it.fields.AssignedTo
+        completedBy: it.fields.AssignedTo
       }));
       await createListItem(ORDER_HISTORY_LIST, {
         Title: b.orderId + '-recap-' + Date.now(),

@@ -398,7 +398,55 @@ archivo nuevo por separado.
 
 ---
 
-## 23/09/2026 -- Diseño en curso: Recurring detallado por piso/amenidad (NO implementado, solo diseño hablado)
+## SUBIDO (23/09/2026): Recurring "Who does what" por lugar -- reemplaza el diseño de piso/amenidad de abajo
+
+El diseño de "layout del edificio + día por día" (entrada de abajo) se
+descartó en minis con el dueño por complicado. Lo aprobado (mini
+"Recurring — quién hace qué"): UN contrato, y dentro, cada persona con
+SUS lugares (piso + área + cantidad), cada lugar con sus servicios
+(GSServicePicker real) y sus propios 7 días. Oficina ve todo junto en una
+sola orden por día; cada técnico recibe solo lo suyo.
+
+**Sin columnas nuevas en SharePoint (a propósito):**
+- Contrato: el mismo `ServicesJSON`, un renglón por servicio con
+  `zone` (F1..Fn | BLD | EXT), `area`, `qty`, `days`, `payrollNumber`.
+  `DaysOfWeek` = unión de los días (Calendar y computeRecurringDates no
+  cambian). `RecurringAssignments` = una fila por persona con sus horas.
+- Orden: el LUGAR ("Floor 1 / Hallway") viaja en `Category` de
+  OrderServices y ServiceAssignments (antes siempre decía 'Janitorial').
+  Así la llave Category+ServiceName de todo Assign by service queda única
+  por lugar sin tocar esas piezas. Detección: regex
+  `^(Floor \d+|Elevators & stairs|Exterior) \/ ` (RC_PLACE_RE en
+  admin.html, PLACE_RE en Tech) -- si se cambia el formato de
+  placeLabel() en lib/recurring-orders.js hay que cambiar los 2 regex.
+- Estas órdenes nacen con `AssignByService=true` y sus ServiceAssignments
+  ya repartidos (AssignedTo = nombres de Techs por PayrollID). Se trabajan
+  en PARALELO (svcAssignmentStatusRows detecta lugar y no aplica la fila).
+- Editar un contrato por lugar SIEMPRE regenera sus órdenes futuras
+  (propagateContractEdit): cada día de la semana lleva otro alcance.
+
+**Piezas:** formulario (switch "Who does what by place", default prendido
+en contratos nuevos; los viejos abren en el formulario de siempre),
+tarjeta del contrato con resumen por persona + botón "Scope of Work"
+(hoja imprimible para el cliente; "lo que no está aquí se cotiza
+aparte"), panel "Who does what" en Active con Confirm por lugar
+(`complete-service-assignment` con `placeMode`), y EXTRAS: el técnico
+manda "el cliente pidió algo que no está en mi lista" (Tech,
+`submit-extra-request`) -> evento 'Extra Requested' en OrderHistory con
+FieldChanged 'Office Change (Internal)' (oculto al cliente) -> oficina
+aprueba (cobro aparte) o rechaza (`resolve-extra-request.js`, nuevo,
+registrado en api/[...slug].js). La aprobación queda en el historial;
+todavía NO crea una línea de cobro sola.
+
+`vercel.json`: maxDuration 60 para api/[...slug].js -- generar 30 días
+de un contrato por lugar crea muchos más renglones que uno plano.
+
+Probado antes de subir: plan por día con Node (datos de Equitable), el
+router cargado de verdad, y admin.html real en Puppeteer con login y API
+simulados (crear, editar lugar/viejo, cancelar, Active con Confirm y
+extras, 375px sin scroll horizontal).
+
+## 23/09/2026 -- (DESCARTADO, ver arriba) Diseño en curso: Recurring detallado por piso/amenidad
 
 Disparado por un contrato real difícil de capturar (Equitable Building,
 PDF adjunto: 5 horas, Lun-Vie 7am-12pm, con tareas que cambian por día --
