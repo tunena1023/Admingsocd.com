@@ -1467,7 +1467,10 @@
       </div>
       <div class="appr-body" style="display:none">
         <p class="section-sub" id="browse-sub" style="margin-top:16px">Loading…</p>
-        <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" class="search-input" id="catalog-search" placeholder="Search by name or SKU…" oninput="renderCatalogTable()" style="flex:1;min-width:200px">
+          <button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:9px 14px;font-size:11px" onclick="downloadCatalogExcel()">Download Excel</button>
+        </div>
         <div id="catalog-table-wrap"><p class="empty-note">Loading catalog…</p></div>
       </div>
     </div>
@@ -8001,6 +8004,28 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       document.getElementById('catalog-table-wrap').innerHTML =
         '<p class="empty-note">Could not load the catalog: ' + esc(e.message) + '</p>';
     }
+  }
+
+  /* Pedido del dueño (23/09/2026): bajar el catalogo completo en Excel
+     (activos e inactivos, con categoria, precio y los minutos por
+     nivel de ServiceTimes) para revisar que servicios faltan crear en
+     QuickBooks. Mismo patron que el export del Recurring Scheduler. */
+  function downloadCatalogExcel() {
+    if (!allCatalogRows || !allCatalogRows.length) { showToast('The catalog is still loading, try again in a moment.'); return; }
+    const rows = allCatalogRows.slice().sort((a, b) =>
+      a.division.localeCompare(b.division) || a.propertyType.localeCompare(b.propertyType) || (a.category || '').localeCompare(b.category || '') || a.serviceName.localeCompare(b.serviceName));
+    const header = ['Service', 'SKU', 'Division', 'Property Type', 'Category', 'Description', 'Price', 'Active', 'Requires Quantity', 'Level 1 minutes', 'Level 2 minutes', 'Level 3 minutes'];
+    const data = rows.map(r => {
+      const t = (typeof serviceTimesBySku !== 'undefined' && serviceTimesBySku) ? serviceTimesBySku.get(String(r.sku || '').trim()) : null;
+      return [r.serviceName, r.sku, r.division, r.propertyType, r.category || '', r.description || '',
+        r.price != null ? Number(r.price) : '', r.active ? 'Yes' : 'No', r.requiresQuantity ? 'Yes' : 'No',
+        t && t.level1 != null ? t.level1 : '', t && t.level2 != null ? t.level2 : '', t && t.level3 != null ? t.level3 : ''];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    ws['!cols'] = [{ wch: 44 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 50 }, { wch: 9 }, { wch: 7 }, { wch: 9 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Service Catalog');
+    XLSX.writeFile(wb, 'Service-Catalog-' + new Date().toISOString().slice(0, 10) + '.xlsx');
   }
 
   async function toggleCatalogActive(id, active) {

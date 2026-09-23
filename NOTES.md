@@ -398,6 +398,14 @@ archivo nuevo por separado.
 
 ---
 
+## SUBIDO (23/09/2026): Developer > Service Catalog > "Download Excel"
+
+Pedido del dueño para revisar qué servicios faltan crear en QuickBooks
+(los de Recurring por lugar). Baja TODO el catálogo (activos e
+inactivos) con categoría, descripción, precio, "Requires Quantity" y
+los minutos por nivel de ServiceTimes. Mismo patrón (SheetJS) que el
+export del Recurring Scheduler.
+
 ## SUBIDO (23/09/2026, tarde): Recurring con edificios + columnas + tarjeta nueva
 
 Rediseño aprobado en mini con el dueño ("Recurring — edificios y pisos
