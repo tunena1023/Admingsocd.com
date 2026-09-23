@@ -1223,6 +1223,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.52.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.53.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.44.2/order-history/order-history.js"></script>
@@ -2425,6 +2426,12 @@ async function api(path, opts = {}) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+  /* Snapshot de paquetes: se guarda el historial de cada orden que se
+     abre (pkgIncludesHtml lo lee). */
+  if (path === '/get-order-detail' && data && Array.isArray(data.history)) {
+    const oid = (data.order && data.order.OrderID) || (opts.body && opts.body.orderId);
+    if (oid && typeof pkgHistoryByOrder !== 'undefined') pkgHistoryByOrder[oid] = data.history;
+  }
   return data;
 }
 
@@ -4781,7 +4788,7 @@ function approvalDetailHtml(card, o, services, history) {
      ve arriba en "Requested by...") -- confirmado con el usuario que
      eso esta mal: el historial debe ser acumulativo, la misma orden
      debe verse igual sin importar en que tab se este mirando. */
-  const historyHtml = GSOrderHistory.html(card.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(card.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
 
   return '<div class="detail-grid">' +
     '<div>' + rows.join('') + '</div>' +
@@ -4823,7 +4830,7 @@ function reviewSvcTableHtml(services) {
       const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level, r.nc.Quantity);
       return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, card.OrderID) + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
         '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
         '</tr>';
@@ -4890,7 +4897,7 @@ function apprReadOnlySvcHtml(orderId) {
     '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, orderId) + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
       '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +
@@ -8144,35 +8151,36 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   }
 
   /* Areas de cada servicio (tarjetas de Common Areas en el picker,
-     modo Recurring). Un servicio puede estar en varias. */
+     modo Recurring). Un servicio puede estar en varias. Pedido del
+     dueño: un dropdown bonito (gsocd-shared/multi-select), no una
+     tarjeta que se despliega; se guarda solo al cerrarlo. Solo
+     Janitorial (es lo que usan las areas comunes). */
   let catalogAreaNames = [];
-  let catalogAreasEditing = null;
   function catalogAreasCellHtml(r) {
-    const areas = Array.isArray(r.areas) ? r.areas : [];
-    if (catalogAreasEditing === r.sku) {
-      return '<div style="display:grid;gap:4px;min-width:190px">' + catalogAreaNames.map(a =>
-        '<label style="display:flex;gap:6px;align-items:center;font-size:11px"><input type="checkbox" class="cat-area-chk" value="' + escAttr(a) + '"' + (areas.includes(a) ? ' checked' : '') + '>' + esc(a) + '</label>').join('') +
-        '<div style="display:flex;gap:8px;margin-top:4px"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:5px 10px;font-size:10px" onclick="saveCatalogAreas(\'' + escAttr(r.sku) + '\', this)">Save</button>' +
-        '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:5px 10px;font-size:10px" onclick="catalogAreasEditing=null;renderCatalogTable()">Cancel</button></div></div>';
-    }
-    const label = areas.length ? areas.map(esc).join('<br>') : '<span style="color:var(--gray)">\u2014</span>';
-    return canEditCatalog ? '<span style="cursor:pointer;font-size:11px;line-height:1.5;display:inline-block" title="Edit areas" onclick="catalogAreasEditing=\'' + escAttr(r.sku) + '\';renderCatalogTable()">' + label + '</span>' : '<span style="font-size:11px">' + label + '</span>';
+    if (String(r.division || '').toLowerCase() !== 'janitorial') return '<span style="color:var(--gray)">\u2014</span>';
+    return '<div class="cat-areas-ms" data-sku="' + escAttr(r.sku) + '" style="min-width:200px"></div>';
   }
-  async function saveCatalogAreas(sku, btn) {
-    const box = btn.closest('td');
-    const areas = Array.from(box.querySelectorAll('.cat-area-chk')).filter(c => c.checked).map(c => c.value);
-    btn.disabled = true;
-    try {
-      await devApi('save-service-areas', { sku, areas });
-      allCatalogRows.filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
-      (servicesCache || []).filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
-      catalogAreasEditing = null;
-      renderCatalogTable();
-      showToast('Areas saved.');
-    } catch (e) {
-      btn.disabled = false;
-      showToast('Could not save: ' + e.message);
-    }
+  function mountCatalogAreaDropdowns() {
+    if (typeof GSMultiSelect === 'undefined') return;
+    document.querySelectorAll('#catalog-table-wrap .cat-areas-ms').forEach(el => {
+      const sku = el.dataset.sku;
+      const row = allCatalogRows.find(r => r.sku === sku);
+      const ms = GSMultiSelect.mount(el, {
+        options: catalogAreaNames, selected: (row && row.areas) || [], placeholder: 'Choose areas\u2026',
+        onChange: async function (areas) {
+          if (!canEditCatalog) { showToast('Your role cannot edit the service catalog.'); ms.set((row && row.areas) || []); return; }
+          try {
+            await devApi('save-service-areas', { sku, areas });
+            allCatalogRows.filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
+            (servicesCache || []).filter(r => r.sku === sku).forEach(r => { r.areas = areas; });
+            showToast('Areas saved.');
+          } catch (e) {
+            ms.set((row && row.areas) || []);
+            showToast('Could not save: ' + e.message);
+          }
+        }
+      });
+    });
   }
 
   /* ===== Developer > Package contents (paquetes como plantilla) ===== */
@@ -8301,6 +8309,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       '<datalist id="catalog-category-options">' +
         [...new Set(allCatalogRows.map(r => r.category).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '">').join('') +
       '</datalist>';
+    mountCatalogAreaDropdowns();
   }
 
   async function saveCatalogCategory(id, category) {
@@ -10646,7 +10655,7 @@ function unseenActiveCardHtml(o, services, history) {
      reducida se quedo apilando todo en una sola columna cuando se
      construyo, con History hasta el fondo, distinto al resto de la
      app. A peticion del dueno, 17/09/2026. */
-  const historyHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
 
   const leftCol = `
     <div style="background:#EAF3FF;border:1px solid #BFDBFE;color:#1A56C4;font-size:12px;padding:10px 12px;margin-bottom:16px;font-weight:600">
@@ -10782,7 +10791,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
   const byCat = {};
   orderedServices.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
-  const histHtml = GSOrderHistory.html(o.OrderID, history, { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const histHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
@@ -11007,7 +11016,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           : '';
         return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
         '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
+        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, o.OrderID) + '</td>' +
         '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
         (isAssignByService
           ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? (
@@ -11139,22 +11148,34 @@ function flattenSelectedForEstimate(orderId) {
    no solo en el total de abajo) -- misma logica y mismo catalogo que
    calcOrderEstimatedMinutes, nomas para un servicio suelto. '' si
    todavia no se conoce su tiempo. */
-/* Paquete (plantilla, picker v1.52.0): la orden guarda solo la linea
-   del paquete -- lo que incluye se arma aqui con el contenido actual
-   del paquete (Developer > Package contents), para que oficina vea el
-   checklist sin que se facture linea por linea. */
-function pkgIncludesHtml(sku) {
-  const cat = activeCatalogCache || [];
-  const p = cat.find(s => String(s.sku) === String(sku || ''));
-  if (!p || !Array.isArray(p.packageItems) || !p.packageItems.length) return '';
-  const items = p.packageItems.map(x => {
-    const s = cat.find(c => String(c.sku) === String(x.sku));
-    if (!s) return '';
-    const name = window.GSServiceTooltip ? GSServiceTooltip.nameHtml(s.sku, esc(s.serviceName)) : esc(s.serviceName);
-    return name + (x.level ? ' <span style="color:var(--gold-dk);font-weight:700;font-size:10px">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '');
-  }).filter(Boolean);
-  return items.length ? '<div style="font-size:11px;color:var(--gray);margin-top:4px;line-height:1.6">Includes: ' + items.join(', ') + '</div>' : '';
+/* Paquete (plantilla, picker v1.52.0). Pedido del dueño: cada orden
+   guarda SUS datos -- lo que incluia el paquete el dia que se creo la
+   orden queda congelado en su historial (ChangeType 'Package Snapshot',
+   interno, ver lib/package-contents.js). Si despues se cambia el
+   paquete, solo cambian las ordenes nuevas. Una orden sin snapshot (de
+   antes) no muestra nada, igual que siempre. */
+var pkgHistoryByOrder = {};
+function pkgSnapshotFor(orderId, sku) {
+  const hist = pkgHistoryByOrder[orderId] || [];
+  for (let i = hist.length - 1; i >= 0; i--) {
+    const h = hist[i];
+    if (String(h.ChangeType || '') !== 'Package Snapshot') continue;
+    try { const v = JSON.parse(h.NewValue || '{}'); if (Array.isArray(v[sku])) return v[sku]; } catch (e) { /* sigue */ }
+  }
+  return null;
 }
+function pkgIncludesHtml(sku, orderId) {
+  const items = pkgSnapshotFor(orderId, String(sku || ''));
+  if (!items || !items.length) return '';
+  const html = items.map(x => {
+    const name = window.GSServiceTooltip ? GSServiceTooltip.nameHtml(x.sku, esc(x.serviceName || x.sku)) : esc(x.serviceName || x.sku);
+    return name + (x.level ? ' <span style="color:var(--gold-dk);font-weight:700;font-size:10px">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '');
+  });
+  return '<div style="font-size:11px;color:var(--gray);margin-top:4px;line-height:1.6">Includes: ' + html.join(', ') + '</div>';
+}
+/* El snapshot vive en el historial de la orden, pero el historial de
+   la orden (GSOrderHistory) no debe mostrarlo como evento. */
+function withoutPkgSnapshots(history) { return (history || []).filter(h => String(h.ChangeType || '') !== 'Package Snapshot'); }
 function svcMinutesLabel(sku, level, qty) {
   const svc = serviceTimesBySku.get(String(sku || '').trim());
   if (!svc) return '';
@@ -11292,7 +11313,7 @@ function activeSvcReadOnlyHtml(orderId) {
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
     rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
       '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku) + '</td>' +
+      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, orderId) + '</td>' +
       '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
       '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
       '</tr>').join('') +

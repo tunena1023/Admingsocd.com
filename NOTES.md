@@ -443,9 +443,19 @@ Developer/Director podía llamar al API directo. Ahora:
   en Settings (`catalog_package_contents`, default = borrador del mini),
   editable en **Developer > Package contents**. Create Order arranca en
   Units (Janitorial/Mixed).
-- **Pendiente:** llevar el toggle + paquetes al portal del cliente y a
-  Tech (sus endpoints de catálogo tendrían que mandar areas y
-  packageItems).
+- **Cada orden guarda SUS datos (pedido del dueño, mismo día):** al
+  crear una orden con paquete (submit-order, los 4 caminos) o agregarle
+  uno al editarla (admin-update-order), se congela lo que incluía ESE
+  día en su historial: ChangeType `Package Snapshot`, FieldChanged
+  `Office Change (Internal)` (el cliente no lo ve; Admin lo saca de la
+  línea de tiempo con `withoutPkgSnapshots`). `pkgIncludesHtml(sku,
+  orderId)` muestra SOLO esa foto; órdenes de antes no muestran nada
+  (igual que siempre). Cambiar un paquete afecta solo órdenes nuevas.
+  Lógica en `lib/package-contents.js` (también el default).
+- **Areas en Developer:** dropdown bonito (gsocd-shared **v1.53.0**,
+  `multi-select`), se guarda al cerrarlo; solo Janitorial.
+- **Pendiente:** llevar el toggle + paquetes (y su foto) al portal del
+  cliente y a Tech.
 
 ## ACORDADO (23/09/2026, corregido el mismo día): categorías + picker Recurring / Units
 

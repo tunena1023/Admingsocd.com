@@ -26,6 +26,7 @@ const {
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
+const { recordPackageSnapshots } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
 /* gsocd-shared v1.34.0+ -- primera pieza de BACKEND (Node) de ese
@@ -578,6 +579,15 @@ exports.handler = async (event) => {
 
       if (servicesDiffer(oldServices, services)) {
         servicesChanged = true;
+        /* Paquete agregado en esta edicion: se congela lo que incluye
+           HOY; los que la orden ya tenia congelados no se tocan
+           (lib/package-contents.js). */
+        try {
+          const prevSnaps = (await fetchByOrderId(ORDER_HISTORY_LIST, orderId))
+            .filter(h => h.fields && h.fields.ChangeType === 'Package Snapshot')
+            .flatMap(h => { try { return Object.keys(JSON.parse(h.fields.NewValue || '{}')); } catch (e) { return []; } });
+          await recordPackageSnapshots(orderId, services, actor, undefined, prevSnaps);
+        } catch (e) { console.error('Package snapshot on edit:', e.message); }
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   statusChanged ? status : 'Services Updated',

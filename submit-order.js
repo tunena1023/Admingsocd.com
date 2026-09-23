@@ -13,6 +13,7 @@ const {
   graphFetch, siteListPath, geocodeAddress,
   jsonResponse
 } = require('./lib/graph');
+const { recordPackageSnapshots } = require('./lib/package-contents');
 
 async function fetchAll(listName) {
   let url = siteListPath(listName) + '?$expand=fields&$top=200';
@@ -298,6 +299,8 @@ exports.handler = async (event) => {
           OldValue:   '',
           NewValue:   'SERVICES:' + JSON.stringify({ services: unitServices, dirtLevel: '', entryDate: effectiveEntryDate, dueDate: effectiveDueDate })
         });
+        /* Foto de lo que incluye cada paquete HOY (lib/package-contents.js). */
+        await recordPackageSnapshots(orderId, unitServices, actor);
       } catch (e) {
         console.error('AddUnitToBatch post-create write failed:', e.message);
       }
@@ -409,6 +412,7 @@ exports.handler = async (event) => {
           })
         ]);
       } catch (e) { console.error('Post-order write failed:', e.message); }
+      await recordPackageSnapshots(orderId, svcSource, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
 
       try {
         await Promise.all(draftServiceRows.map(row => deleteListItem(DRAFTS_LIST, row.id)));
@@ -601,6 +605,7 @@ exports.handler = async (event) => {
             OldValue:   '',
             NewValue:   'SERVICES:' + JSON.stringify({ services: parsedServices, dirtLevel: unit.dirtLevel || b.DirtLevel || '', entryDate: unitFields.EntryDate || '', dueDate: unitFields.DueDate || '' })
           });
+          await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
         } catch (e) {
           /* Mismo criterio que el Flujo C: un problema al escribir
              servicios/historial no debe tumbar la orden completa. */
@@ -712,6 +717,7 @@ exports.handler = async (event) => {
       }
     }
 } catch (e) { console.error('Post-order write failed:', e.message); }
+    await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
     return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning });
 
   } catch (err) {
