@@ -1105,6 +1105,100 @@
   .pw-extra b { display: block; margin-bottom: 4px; }
   .pw-extra-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .pw-extra-actions button { width: auto; padding: 8px 14px; font-size: 11px; }
+
+  /* ===== Recurring "Who does what" con edificios (23/09/2026, aprobado
+     en mini con el dueño): Team, menu Where, columnas, acordeon en
+     celular y la tarjeta "New Recurring Contract" rediseñada. ===== */
+  #panel-recurring #rc-create-card { padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  #panel-recurring #rc-create-card > .nc-top { display: flex; align-items: flex-start; gap: 16px; padding: 22px 24px; cursor: pointer; flex-wrap: nowrap; }
+  #panel-recurring #rc-create-card > .nc-top:hover { background: #FCFBF8; }
+  #panel-recurring .nc-plus { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(155deg, #EAD9A0 0%, #C9A84C 45%, #8C6F2A 100%); color: #171310; font-size: 22px; font-weight: 600; line-height: 1;
+    box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 4px 10px rgba(140,111,42,.3), inset 0 1px 0 rgba(255,255,255,.45); }
+  #panel-recurring .nc-text { flex: 1; min-width: 0; }
+  #panel-recurring .nc-title { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; line-height: 1.15; color: var(--black); }
+  #panel-recurring .nc-desc { font-size: 13px; color: var(--gray); line-height: 1.55; margin-top: 4px; max-width: 68ch; }
+  #panel-recurring #rc-create-card > .nc-top .rc-arrow { margin-top: 12px; }
+  #panel-recurring #rc-create-card > .rc-body { border-top: 1px solid var(--border); padding: 18px 20px 20px; }
+  #panel-recurring .rs-team { display: flex; flex-wrap: wrap; gap: 8px; }
+  #panel-recurring .rs-team-chip { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--white); padding: 6px 8px 6px 12px; font-size: 12px; font-weight: 700; }
+  #panel-recurring .rs-team-chip input { width: 58px; padding: 5px 6px; border: 1px solid var(--border); font-size: 12px; font-family: Arial, sans-serif; }
+  #panel-recurring .rs-team-chip span { font-weight: 400; color: var(--gray); font-size: 11px; }
+  #panel-recurring .bl-floors { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gray); margin-bottom: 12px; }
+  #panel-recurring .bl-floors input { width: 64px; padding: 7px 8px; border: 1px solid var(--border); font-size: 13px; font-family: Arial, sans-serif; }
+  #panel-recurring .rs-cols { display: grid; gap: 16px; align-items: start; }
+  #panel-recurring .rs-cols.three { grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.2fr); }
+  #panel-recurring .rs-cols.two { grid-template-columns: 240px minmax(0, 1fr); }
+  #panel-recurring .rs-cols.two-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  #panel-recurring .rs-col-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 0 0 8px; }
+  #panel-recurring .rs-tree { border: 1px solid var(--border); background: var(--white); max-height: 70vh; overflow-y: auto; }
+  #panel-recurring .rs-tree-bld { padding: 10px 12px; font-size: 12px; font-weight: 700; background: var(--bg); border-bottom: 1px solid var(--border); }
+  #panel-recurring .rs-tree-bld span { display: block; font-weight: 400; color: var(--gray); font-size: 11px; }
+  #panel-recurring .rs-tree-bld.tog, #panel-recurring .rs-tree-bld.pick { cursor: pointer; }
+  #panel-recurring .rs-tree-bld.tog:hover { background: #F1EEE6; }
+  #panel-recurring .rs-tree-bld.pick.active, #panel-recurring .rs-tree-line.active { background: rgba(201,168,76,0.22); }
+  #panel-recurring .rs-tree-bld.has-sel { box-shadow: inset 3px 0 0 var(--gold); }
+  #panel-recurring .rs-tree-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #panel-recurring .rs-tree-line { display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 20px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  #panel-recurring .rs-tree-line:hover { background: #FCFBF8; }
+  #panel-recurring .rs-tree-line.active:hover { background: rgba(201,168,76,0.28); }
+  #panel-recurring .rs-tree-line.empty { color: var(--gray); }
+  #panel-recurring .rs-tree-count { margin-left: auto; font-size: 11px; color: var(--gray); }
+  #panel-recurring .rs-tree-line.active .rs-tree-count { color: var(--gold-dk); font-weight: 700; }
+  #panel-recurring .rs-mid .sc-part { margin-bottom: 10px; }
+  #panel-recurring .rs-mid .sc-rows { padding: 2px 14px 8px; }
+  #panel-recurring .pl-line { cursor: pointer; }
+  #panel-recurring .pl-line .svc-assign-name { flex: 1; min-width: 0; }
+  #panel-recurring .pl-line.active { background: rgba(201,168,76,0.12); margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+  #panel-recurring .pl-days { display: flex; gap: 2px; }
+  #panel-recurring .pl-days i { font-style: normal; width: 15px; height: 15px; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); color: var(--gray); background: var(--white); }
+  #panel-recurring .pl-days i.on { background: var(--gold); border-color: var(--gold); color: var(--black); }
+  #panel-recurring .rs-ed { position: sticky; top: 12px; border: 1px solid var(--border); background: var(--white); padding: 16px; }
+  #panel-recurring .rs-ed.inline { position: static; margin: 4px 0 10px; background: #FEFDFB; }
+  #panel-recurring .rs-ed-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  #panel-recurring .rs-ed-sub { font-size: 12px; color: var(--gray); margin-bottom: 14px; }
+  #panel-recurring .rs-ed .rs-ed-row { margin-bottom: 12px; grid-template-columns: minmax(0, 1fr) 90px; }
+  #panel-recurring .rs-ed-days { margin-bottom: 14px; }
+  #panel-recurring .rs-ed-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+  #panel-recurring .rs-ed-empty { color: var(--gray); font-size: 13px; padding: 30px 10px; text-align: center; }
+  #panel-recurring .pr-head { cursor: pointer; }
+  #panel-recurring .pr-head:hover { background: #F1EEE6; }
+  #panel-recurring .pr-head .rc-arrow { margin-left: auto; }
+  #panel-recurring .pr-head .sc-part-sum { flex: 1; }
+  #panel-recurring .bl-card { padding: 0; margin-bottom: 10px; }
+  #panel-recurring .bl-card > .rc-top { padding: 14px 16px; cursor: pointer; flex-wrap: nowrap; }
+  #panel-recurring .bl-card > .rc-body { padding: 14px 16px 16px; }
+  #panel-recurring .bl-card .rc-meta b, #panel-recurring .fl-sum b { color: var(--black); font-weight: 600; }
+  #panel-recurring .fl-sec { border: 1px solid var(--border); background: var(--white); margin-bottom: 6px; }
+  #panel-recurring .fl-sec.empty .fl-name { color: var(--gray); font-weight: 600; }
+  #panel-recurring .fl-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+  #panel-recurring .fl-head:hover { background: #FCFBF8; }
+  #panel-recurring .fl-name { font-size: 13px; font-weight: 700; min-width: 128px; }
+  #panel-recurring .fl-sum { flex: 1; min-width: 0; font-size: 12px; color: var(--gray); }
+  #panel-recurring .fl-body { border-top: 1px solid var(--border); background: var(--bg); padding: 10px; }
+  #panel-recurring .fl-body .sc-part { margin-bottom: 8px; }
+  @media (max-width: 640px) {
+    #panel-recurring #rc-create-card > .nc-top { padding: 16px 14px; gap: 12px; }
+    #panel-recurring .nc-plus { width: 34px; height: 34px; font-size: 19px; }
+    #panel-recurring .nc-title { font-size: 21px; }
+    #panel-recurring #rc-create-card > .rc-body { padding: 12px 0 0; }
+    #panel-recurring #rc-create-card .field-row { grid-template-columns: 1fr; gap: 0; }
+    /* Renglon del acordeon: area + cantidad / servicios + X / dias */
+    #panel-recurring .sc-row-main { grid-template-areas: "area area qty" "svc svc x" "days days days"; }
+    #panel-recurring .sc-row-main .sc-area { grid-area: area; }
+    #panel-recurring .sc-row-main .sc-qty { grid-area: qty; }
+    #panel-recurring .sc-row-main .sc-svc { grid-area: svc; }
+    #panel-recurring .sc-row-main .sc-x { grid-area: x; }
+    #panel-recurring .sc-row-main .sc-days { grid-area: days; }
+    #panel-recurring .pr-head { grid-template-columns: minmax(0, 1fr) 24px 32px; }
+    #panel-recurring .pr-head .rc-arrow { margin: 0; justify-self: center; }
+    #panel-recurring .bl-card > .rc-top { padding: 12px 10px; }
+    #panel-recurring .bl-card > .rc-body { padding: 12px 8px; }
+    #panel-recurring .fl-head { flex-wrap: wrap; gap: 2px 10px; padding: 10px; }
+    #panel-recurring .fl-name { min-width: 0; flex: 1; }
+    #panel-recurring .fl-sum { order: 3; flex-basis: 100%; }
+    #panel-recurring .fl-body { padding: 8px 6px; }
+  }
   </style>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -2001,15 +2095,21 @@
       <p class="section-sub" style="margin-bottom:20px">Fixed weekly Janitorial contracts — hallways and common areas, rarely changed. Each visit becomes a real order, confirmed through Review if anything changes before its day.</p>
 
       <div class="rc-card" id="rc-create-card">
-        <div class="rc-top" onclick="toggleRecurringCreateCard()">
-          <div><div class="rc-name">+ Create New Recurring Contract</div></div>
-          <div class="rc-right"><span class="rc-arrow" id="rc-create-arrow">▸</span></div>
+        <!-- Rediseño (23/09/2026, aprobado en mini con el dueño): titulo
+             con la tipografia de titulos de la app + descripcion. -->
+        <div class="rc-top nc-top" onclick="toggleRecurringCreateCard()">
+          <span class="nc-plus" aria-hidden="true">+</span>
+          <div class="nc-text">
+            <div class="nc-title">New Recurring Contract</div>
+            <div class="nc-desc">Set up a client's weekly cleaning once: who works each place, which days, and which services. Every visit becomes its own order, and each tech only sees their part.</div>
+          </div>
+          <span class="rc-arrow" id="rc-create-arrow">▸</span>
         </div>
         <div class="rc-body" id="rc-create-body" style="display:none">
       <div class="card">
         <div class="field-row">
-          <div class="field-group"><label>Client</label><select id="rc-client"><option value="">Select…</option></select></div>
-          <div class="field-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
+          <div class="field-group"><label>Client</label><select id="rc-client" onchange="rsClientChanged(this.value)"><option value="">Select…</option></select></div>
+          <div class="field-group" id="rc-building-group"><label>Building Number</label><input type="text" id="rc-building" placeholder="e.g. 3"></div>
         </div>
 
         <!-- "Who does what" por lugar (23/09/2026, aprobado con mini
@@ -2027,13 +2127,10 @@
                contrato de Equitable. Quitar este boton y fillEquitableTest()
                cuando ya no haga falta. -->
           <div style="margin:-4px 0 14px"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:8px 14px;font-size:11px" onclick="fillEquitableTest()">Fill with Equitable (test)</button></div>
-          <div class="field-row">
-            <div class="field-group"><label>Floors in this building</label><input type="number" id="rc-floors" min="1" max="60" value="3" onchange="setRcFloors(this.value)"></div>
-            <div></div>
-          </div>
-          <p class="sc-note">Each person only gets their own places. The office sees the whole contract as one order.</p>
+          <div class="field-group" style="margin-bottom:6px"><label>Team</label></div>
+          <div class="rs-team" id="rc-team"></div>
+          <div class="field-group" style="margin:16px 0 6px"><label id="rc-bl-title">Building</label></div>
           <div id="rc-sc-parts"></div>
-          <div class="add-more-link" onclick="addRcPart()">+ Add person</div>
         </div>
         <div id="rc-legacy-svc" style="display:none">
         <div class="field-row" style="align-items:flex-end;margin-bottom:10px">
@@ -5797,13 +5894,9 @@ function addAssignRow(payrollNumber, hours) {
   }
 
 function refreshAssignRowOptions() {
-    if (rcScopeOn && rcParts.length) {
-      /* Los bloques nuevos se crearon antes de que llegaran los
-         tecnicos -- se les pone el primero libre y se repinta. */
-      const used = new Set(rcParts.map(p => String(p.p)).filter(Boolean));
-      rcParts.forEach(pt => { if (!pt.p) { const t = rcScTechs().find(t => !used.has(String(t.payrollId))); if (t) { pt.p = String(t.payrollId); used.add(pt.p); } } });
-      renderRcScope();
-    }
+    /* Los tecnicos llegaron despues de pintar "Who does what": se
+       repinta para que los selects de persona ya los traigan. */
+    if (rcScopeOn && document.getElementById('rc-sc-parts')) renderRcScope();
     document.querySelectorAll('#assign-rows .assign-emp').forEach(sel => {
       const current = sel.value;
       sel.innerHTML = allTechs.filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'))
@@ -5887,8 +5980,14 @@ async function loadClientOptions() {
     try {
       const clientsRes = await api('/admin-get-clients', { body: {} });
       clientsCache = clientsRes.clients || [];
-      document.getElementById('rc-client').innerHTML = '<option value="">Select…</option>' +
+      /* BUG REAL (encontrado en la revision del 23/09/2026): esta
+         funcion corre en CADA loadAll() (despues de casi cualquier
+         accion en Admin), y reconstruir el select sin guardar su valor
+         dejaba el formulario a medio llenar sin cliente. */
+      const sel = document.getElementById('rc-client'), keep = sel.value;
+      sel.innerHTML = '<option value="">Select…</option>' +
         clientsCache.map(c => '<option value="' + escAttr(c.clientId) + '">' + esc(c.businessName) + '</option>').join('');
+      if (keep) sel.value = keep;
     } catch (e) {
       document.getElementById('rc-client').innerHTML = '<option value="">Could not load clients</option>';
     }
@@ -5898,8 +5997,12 @@ async function loadServicesPicker() {
     try {
       const catalogRes = await api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } });
       servicesCache = (catalogRes.services || []).filter(s => s.division === 'Janitorial' && s.active);
-      mountRcPicker();
-      if (!editingServiceId && !rcParts.length) resetRcScope(); else renderRcScope();
+      /* Mismo bug que loadClientOptions: en cada loadAll() el picker de
+         la lista simple se volvia a montar vacio, perdiendo lo que ya
+         se habia elegido. Se remonta con lo que tenia. */
+      if (rcPicker) mountRcPicker(rcPicker.getSelected(), rcPicker.getLevels(), rcPicker.getPropertyType(), rcPicker.getQuantities());
+      else mountRcPicker();
+      if (!editingServiceId && !rsAllRows().length) resetRcScope();
       setRcScopeMode(rcScopeOn);
     } catch (e) {
       document.getElementById('rc-svc-picker-mount').innerHTML = '<p class="empty-note">Could not load services: ' + esc(e.message) + '</p>';
@@ -5917,6 +6020,7 @@ async function loadEmployeeOptions() {
     }
   }
 
+let rcFormInitDone = false;
 function loadInitialData() {
     /* FIX REAL (20/09/2026): esta funcion se llama sin await desde
        loadAll(), justo antes de init() -- si algo de aqui truena SIN
@@ -5942,8 +6046,12 @@ function loadInitialData() {
        llamada sin esperarla (sin await aqui) -- las 4 corren de
        verdad al mismo tiempo, y una colgada o rota ya no le quita
        nada a las demas. */
-    mountRcDateTimeFields();
-    addAssignRow();
+    /* BUG REAL (revision del 23/09/2026): loadInitialData() corre en
+       CADA loadAll(), no solo al entrar -- volver a montar la hora
+       (regresaba a 6:00 AM) y agregar otro renglon de empleado (se
+       iban acumulando renglones vacios que luego se guardaban como
+       asignaciones de mas) solo debe pasar la primera vez. */
+    if (!rcFormInitDone) { mountRcDateTimeFields(); addAssignRow(); rcFormInitDone = true; }
     loadClientOptions();
     loadServicesPicker();
     loadEmployeeOptions();
@@ -5958,7 +6066,7 @@ async function saveRecurring() {
     errEl.textContent = '';
 
     const clientId = document.getElementById('rc-client').value;
-    const buildingNumber = document.getElementById('rc-building').value.trim();
+    let buildingNumber = document.getElementById('rc-building').value.trim();
     const days = selectedDays();
     const time = GSDateTimePicker.getTime('rc-time');
     const totalHours = document.getElementById('rc-total-hours').value;
@@ -5980,7 +6088,10 @@ async function saveRecurring() {
       services = rcScopeToServices();
       days.length = 0;
       RC_DAY_KEYS.filter(d => services.some(x => x.days.includes(d))).forEach(d => days.push(d));
-      assignments = rcParts.map(pt => ({ payrollNumber: String(pt.p), hoursAllocated: pt.hours }));
+      assignments = rcScopeAssignments();
+      /* Los edificios van en cada lugar (ver rcScopeToServices), no en
+         el Building Number de siempre. */
+      buildingNumber = '';
     }
     if (!days.length) { errEl.textContent = 'Select at least one day.'; return; }
     if (!time) { errEl.textContent = 'Set a time.'; return; }
@@ -6236,8 +6347,8 @@ async function editRecurring(id) {
     mountRcPicker(built.selected, built.levels, built.firstType, built.qty);
     let scList = [];
     try { scList = JSON.parse(svc.servicesJson || '[]'); } catch (e) { scList = []; }
-    if (rcScIsPlaceList(scList)) { rcScopeFromServices(scList, svc.assignments || []); setRcScopeMode(true); }
-    else { rcParts = []; setRcScopeMode(false); }
+    if (rcScIsPlaceList(scList)) { rcScopeFromServices(scList, svc.assignments || [], svc.clientId); setRcScopeMode(true); }
+    else { resetRcScope(); setRcScopeMode(false); }
 
     const days = (svc.daysOfWeek || '').split(',');
     document.getElementById('rc-days').querySelectorAll('.day-pill').forEach(p => {
@@ -6276,35 +6387,42 @@ function cancelEdit() {
     addAssignRow();
   }
 
-/* ===== Recurring "Who does what" por lugar (23/09/2026) =====
-   Aprobado con mini interactivo (recurring-quien-hace-que-mini). Un
-   solo contrato; dentro, cada persona con SUS lugares (piso + area +
-   cantidad), cada lugar con sus servicios (el GSServicePicker real) y
-   sus propios dias. Se guarda en el mismo ServicesJSON de siempre
-   (un renglon por servicio, con zone/area/qty/days/payrollNumber) --
-   ver lib/recurring-orders.js para como se convierte en ordenes. */
-const RC_AREA_TYPES = [
-  { name: 'Elevator', scope: 'building' }, { name: 'Stairwell', scope: 'building' },
-  ...['Hallway', 'Restroom', 'Office', 'Trash/Chute Room', 'Entry/Vestibule', 'Breakroom'].map(n => ({ name: n, scope: 'floor' })),
-  ...['Lobby', 'Clubhouse', 'Fitness Center/Gym', 'Movie Theater/Cinema', 'Business Center', 'Community Room', 'Storage Units', 'Laundry Facilities',
-      'Pet Wash Station', 'Computer Center', 'TV Room', 'Coffee Bar', 'Bike Storage', 'Conference Room', 'Guest Suite', 'Media Room',
-      'Package Receiving', 'Yoga Studio', 'Rooftop Patio/Terrace', 'Skywalk Connection'].map(n => ({ name: n, scope: 'floor' })),
-  ...['Pool', 'Playground', 'Dog Park', 'Pet Play Area', 'Courtyard', 'Gazebo', 'Picnic Area', 'Grill/BBQ Area', 'Basketball Court',
-      'RV Storage', 'Garages', 'Villas with Garage', 'Pond'].map(n => ({ name: n, scope: 'exterior' }))
+/* ===== Recurring "Who does what" por lugar (23/09/2026, rediseño con
+   edificios, aprobado en mini con el dueño) =====
+   Un contrato; adentro: edificios (las direcciones del cliente en
+   Clients) -> pisos -> personas -> lugares (area + cantidad + dias +
+   servicios del GSServicePicker real). Se adapta al cliente: con una
+   sola direccion no hay nivel de edificio; con 1 piso no hay nivel de
+   piso. Pantalla grande: 3 columnas (menu Where / Who and what /
+   Selected place, mismo patron que Scheduling por servicio y By
+   Employee); mediana: 2; celular: acordeon (edificio > piso > persona).
+   Horas por persona: una sola fila "Team" para todo el contrato.
+   Se guarda en el mismo ServicesJSON (un renglon por servicio con
+   bld/bldLabel/floors/zone/area/qty/days/payrollNumber) -- ver
+   placeLabel() en lib/recurring-orders.js, que arma el texto del lugar
+   con las mismas reglas que rsPlaceLabel() de aqui. */
+const RS_AREA_GROUPS = [
+  { group: 'Common areas', scope: 'floor', items: ['Hallway', 'Lobby', 'Entry/Vestibule', 'Mailroom/Package Receiving', 'Trash/Chute Room', 'Laundry Facilities'] },
+  { group: 'Business', scope: 'floor', items: ['Office', 'Restroom', 'Breakroom', 'Conference Room', 'Reception', 'Kitchen', 'Dining Room', 'Sales Floor/Showroom', 'Warehouse', 'Shop/Service Bay'] },
+  { group: 'Apartment amenities', scope: 'floor', items: ['Clubhouse', 'Fitness Center/Gym', 'Community Room', 'Business Center', 'Media Room', 'Movie Theater/Cinema', 'Yoga Studio', 'Guest Suite', 'Pet Wash Station', 'Bike Storage', 'Storage Units', 'Rooftop Patio/Terrace', 'Skywalk Connection'] },
+  { group: 'Church', scope: 'floor', items: ['Sanctuary', 'Fellowship Hall', 'Classroom', 'Nursery'] },
+  { group: 'Home', scope: 'floor', items: ['Kitchen', 'Bathroom', 'Bedroom', 'Living Room', 'Laundry Room'] },
+  { group: 'Whole building', scope: 'building', items: ['Elevator', 'Stairwell'] },
+  { group: 'Exterior', scope: 'exterior', items: ['Parking Lot', 'Walkways', 'Courtyard', 'Pool', 'Playground', 'Dog Park', 'Pet Play Area', 'Gazebo', 'Picnic Area', 'Grill/BBQ Area', 'Basketball Court', 'Garages', 'RV Storage', 'Pond'] }
 ];
 const RC_DAYS = [['Sun', 'S'], ['Mon', 'M'], ['Tue', 'T'], ['Wed', 'W'], ['Thu', 'T'], ['Fri', 'F'], ['Sat', 'S']];
 const RC_DAY_KEYS = RC_DAYS.map(d => d[0]);
 const RC_DAY_LONG = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' };
-/* Mismo formato que placeLabel() en lib/recurring-orders.js -- es lo
-   que viaja en OrderServices/ServiceAssignments.Category. */
+const RS_MF = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+/* Respaldo para ordenes viejas: el lugar empezaba asi antes de los
+   edificios. Hoy una orden por lugar se reconoce por ser recurrente +
+   Assign by service (isPlaceOrderId), no por el texto. */
 const RC_PLACE_RE = /^(Floor \d+|Elevators & stairs|Exterior) \/ /;
 let rcScopeOn = true;
-let rcFloors = 3;
-let rcParts = [];
-let rcScOpen = {};
-const rcScPickers = {};
-let rcScSeq = 0;
-function rcScId(prefix) { return prefix + (++rcScSeq); }
+const RS = { clientId: '', buildings: [], byBld: {}, hours: {}, sel: { b: null, z: null }, selRow: null,
+  openTree: {}, openZone: {}, openPerson: {}, openBld: {}, openRow: {}, lastMode: null, seq: 0 };
+const rsPickers = {};
+function rsId(p) { return p + (++RS.seq); }
 function rcScEmptySvc() { return { selected: {}, levels: {}, qty: {} }; }
 function rcScTechs() {
   return (allTechs || []).filter(t => t.active !== false && t.payrollId && ((t.division || '').toLowerCase() === 'janitorial' || t.division === 'Mixed'));
@@ -6313,10 +6431,23 @@ function rcScTechName(p) {
   const t = (allTechs || []).find(t => String(t.payrollId) === String(p));
   return t ? (t.firstName + ' ' + t.lastName).trim() : String(p || '');
 }
-function rcScZoneKeys() { const k = []; for (let i = 1; i <= rcFloors; i++) k.push('F' + i); k.push('BLD', 'EXT'); return k; }
-function rcScZoneLabel(z) { return z === 'BLD' ? 'Elevators & stairs' : z === 'EXT' ? 'Exterior' : 'Floor ' + String(z).slice(1); }
-function rcScScope(z) { return z === 'BLD' ? 'building' : z === 'EXT' ? 'exterior' : 'floor'; }
-function rcScPlaceLabel(r) { return rcScZoneLabel(r.zone) + (r.area ? ' / ' + r.area : '') + (r.qty > 1 ? ' \u00d7' + r.qty : ''); }
+function rsScopeOfArea(a) { const g = RS_AREA_GROUPS.find(g => g.items.includes(a)); return g ? g.scope : 'floor'; }
+function rsZoneLabel(z) { return z === 'BLD' ? 'Elevators & stairs' : z === 'EXT' ? 'Exterior' : 'Floor ' + String(z).slice(1); }
+function rsBld(id) { return RS.buildings.find(b => b.id === id) || RS.buildings[0]; }
+function rsMultiBld() { return RS.buildings.length > 1; }
+function rsMultiFloor(b) { return !!(b && b.floors > 1); }
+function rsZones(b) { const z = []; for (let i = 1; i <= b.floors; i++) z.push('F' + i); if (b.floors > 1) z.push('BLD'); z.push('EXT'); return z; }
+/* Mismas reglas que placeLabel() del generador: solo los niveles que
+   aplican (edificio si hay varios; piso si ese edificio tiene varios). */
+function rsPlaceLabel(ctx) {
+  const out = [];
+  if (ctx.multiBld) out.push(ctx.bldLabel);
+  if ((Number(ctx.floors) || 1) > 1 || ctx.zone === 'EXT' || ctx.zone === 'BLD') out.push(rsZoneLabel(ctx.zone));
+  const q = Number(ctx.qty) || 1;
+  out.push(ctx.area ? ctx.area + (q > 1 ? ' \u00d7' + q : '') : '…');
+  return out.join(' / ');
+}
+function rsLabelOf(bid, r) { const b = rsBld(bid); return rsPlaceLabel({ multiBld: rsMultiBld(), bldLabel: b.label, floors: b.floors, zone: r.zone, area: r.area, qty: r.qty }); }
 function rcScSvcList(svc) {
   const out = [];
   Object.keys((svc && svc.selected) || {}).forEach(pt => Object.entries(svc.selected[pt] || {}).forEach(([name, sku]) =>
@@ -6324,7 +6455,7 @@ function rcScSvcList(svc) {
   return out;
 }
 function rcScLv(l) { return l ? String(l).replace('Level ', 'L') : ''; }
-function rcScNames(r) { return rcScSvcList(r.svc).map(x => x.name + (x.level ? ' ' + rcScLv(x.level) : '')).join(', '); }
+function rsNames(r) { return rcScSvcList(r.svc).map(x => x.name + (x.level ? ' ' + rcScLv(x.level) : '')).join(', '); }
 function rcScBadge(n) { return n ? n + '<span class="w"> ' + (n === 1 ? 'service' : 'services') + '</span>' : 'no services'; }
 function rcScDaysText(days) {
   const idx = RC_DAY_KEYS.map((d, i) => (days || []).includes(d) ? i : -1).filter(i => i >= 0);
@@ -6338,11 +6469,34 @@ function rcScDaysText(days) {
   }
   return runs.join(', ');
 }
-function rcScPartSummary(pt) {
-  const zones = [...new Set(pt.rows.map(r => r.zone))].sort((x, y) => rcScZoneKeys().indexOf(x) - rcScZoneKeys().indexOf(y));
-  const fl = zones.filter(z => z[0] === 'F').map(z => z.slice(1));
-  const where = [fl.length ? (fl.length === 1 ? 'Floor ' : 'Floors ') + fl.join(', ') : '', zones.includes('BLD') ? 'elevators & stairs' : '', zones.includes('EXT') ? 'exterior' : ''].filter(Boolean).join(' + ');
-  return rcScDaysText([...new Set(pt.rows.flatMap(r => r.days))]) + (where ? ', ' + where : '') + ', ' + pt.rows.length + (pt.rows.length === 1 ? ' place' : ' places');
+/* Edificios = direcciones del cliente en Clients: la principal + las
+   extra (ClientAddresses, sin archivadas). */
+function rsBuildingsForClient(clientId) {
+  const c = (clientsCache || []).find(x => x.clientId === clientId);
+  const out = [{ id: 'main', label: (c && (c.address || c.businessName)) || 'Main building', city: (c && c.city) || '', floors: 1 }];
+  if (c) (c.buildings || []).filter(b => !b.archived).forEach(b => {
+    const label = b.label || b.address || ('Building ' + (b.buildingNumber || ''));
+    if (b.address && c.address && b.address.trim().toLowerCase() === c.address.trim().toLowerCase()) return;
+    out.push({ id: String(b.id), label, city: b.city || '', floors: 1 });
+  });
+  return out;
+}
+function rsReset(clientId) {
+  rsDestroyPickers();
+  RS.clientId = clientId || '';
+  RS.buildings = rsBuildingsForClient(RS.clientId);
+  RS.byBld = {}; RS.buildings.forEach(b => { RS.byBld[b.id] = []; });
+  RS.hours = {}; RS.openTree = {}; RS.openZone = {}; RS.openPerson = {}; RS.openBld = {}; RS.openRow = {};
+  RS.sel = { b: RS.buildings[0].id, z: null }; RS.selRow = null;
+  RS.openTree[RS.buildings[0].id] = true; if (!rsMultiBld()) RS.openBld[RS.buildings[0].id] = true;
+}
+function rsAllRows() { return RS.buildings.flatMap(b => (RS.byBld[b.id] || []).flatMap(p => p.rows)); }
+function rsClientChanged(clientId) {
+  if (!rcScopeOn) return;
+  if (rsAllRows().length && !confirm('Changing the client clears the places you added. Continue?')) {
+    document.getElementById('rc-client').value = RS.clientId; return;
+  }
+  rsReset(clientId); renderRcScope();
 }
 function setRcScopeMode(on) {
   rcScopeOn = !!on;
@@ -6353,256 +6507,367 @@ function setRcScopeMode(on) {
   document.getElementById('rc-legacy-svc').style.display = rcScopeOn ? 'none' : '';
   document.getElementById('rc-days-group').style.display = rcScopeOn ? 'none' : '';
   document.getElementById('rc-legacy-assign').style.display = rcScopeOn ? 'none' : '';
-  if (rcScopeOn && !document.querySelector('#rc-sc-parts .sc-part')) renderRcScope();
+  const bn = document.getElementById('rc-building-group'); if (bn) bn.style.display = rcScopeOn ? 'none' : '';
+  if (rcScopeOn) { if (!RS.buildings.length) rsReset(document.getElementById('rc-client').value); renderRcScope(); }
 }
-function resetRcScope() {
-  rcParts = []; rcFloors = 3; rcScOpen = {};
-  const f = document.getElementById('rc-floors'); if (f) f.value = rcFloors;
-  addRcPart();
+function resetRcScope() { rsReset(document.getElementById('rc-client') ? document.getElementById('rc-client').value : ''); }
+function rsDestroyPickers() { Object.keys(rsPickers).forEach(id => { try { rsPickers[id].destroy(); } catch (e) {} delete rsPickers[id]; }); }
+function rsFind(rid) { for (const bid of Object.keys(RS.byBld)) for (const p of RS.byBld[bid]) { const r = p.rows.find(x => x.id === rid); if (r) return { bid, p, r }; } return {}; }
+function rsPeopleOn(bid, z) { return (RS.byBld[bid] || []).filter(p => z ? p.rows.some(r => r.zone === z) : p.rows.length); }
+function rsRowsAt(bid, z) { return (RS.byBld[bid] || []).flatMap(p => z ? p.rows.filter(r => r.zone === z) : p.rows); }
+function rsBlock(bid, payroll) {
+  let p = (RS.byBld[bid] || []).find(x => x.p === payroll);
+  if (!p) { p = { id: rsId('p'), p: payroll, rows: [] }; RS.byBld[bid].push(p); }
+  return p;
 }
-function rcScDestroyPickers() { Object.keys(rcScPickers).forEach(id => { try { rcScPickers[id].destroy(); } catch (e) {} delete rcScPickers[id]; }); }
-function rcScFind(rid) { for (const pt of rcParts) { const r = pt.rows.find(x => x.id === rid); if (r) return { pt, r }; } return {}; }
-function addRcPart() {
-  const used = new Set(rcParts.map(p => String(p.p)));
-  const t = rcScTechs().find(t => !used.has(String(t.payrollId)));
-  const pt = { id: rcScId('p'), p: t ? String(t.payrollId) : '', hours: 1, rows: [] };
-  rcParts.push(pt);
-  addRcRow(pt.id);
+function rsCleanup(bid) { RS.byBld[bid] = (RS.byBld[bid] || []).filter(p => p.rows.length); }
+function rsTeam() { const seen = []; RS.buildings.forEach(b => (RS.byBld[b.id] || []).forEach(p => { if (p.p && !seen.includes(p.p)) seen.push(p.p); })); return seen; }
+function rsPKey(bid, z, pid) { return bid + '|' + (z || '*') + '|' + pid; }
+function rsZKey(bid, z) { return bid + '|' + z; }
+function rsNewRow(zone, days) { return { id: rsId('r'), zone: zone || 'F1', area: '', qty: 1, days: (days || RS_MF).slice(), svc: rcScEmptySvc() }; }
+function rsSelectNew(bid, z, p, r) {
+  RS.openRow[r.id] = true; RS.selRow = r.id; RS.sel = { b: bid, z: rsMultiFloor(rsBld(bid)) ? r.zone : null };
+  RS.openTree[bid] = true; RS.openBld[bid] = true;
+  if (rsMultiFloor(rsBld(bid))) RS.openZone[rsZKey(bid, r.zone)] = true;
+  RS.openPerson[rsPKey(bid, z, p.id)] = true;
 }
-function removeRcPart(pid) {
-  const pt = rcParts.find(p => p.id === pid);
-  if (pt && pt.rows.some(r => rcScSvcList(r.svc).length) && !confirm('Remove ' + rcScTechName(pt.p) + ' and all their places from this contract?')) return;
-  rcParts = rcParts.filter(p => p.id !== pid); renderRcScope();
+/* --- acciones --- */
+function rsAddPerson(bid, z) {
+  const here = new Set(rsPeopleOn(bid, z).map(p => p.p));
+  const t = rcScTechs().find(t => !here.has(String(t.payrollId)));
+  if (!t) { showToast('Everyone on the Janitorial team is already here.'); return; }
+  const p = rsBlock(bid, String(t.payrollId));
+  const r = rsNewRow(z || 'F1');
+  p.rows.push(r); rsSelectNew(bid, z, p, r); renderRcScope();
 }
-function setRcPart(pid, field, v) {
-  const pt = rcParts.find(p => p.id === pid); if (!pt) return;
-  pt[field] = field === 'hours' ? (Number(v) || 0) : String(v);
+function rsAddRow(bid, pid, z) {
+  const p = RS.byBld[bid].find(x => x.id === pid);
+  const last = p.rows.filter(r => !z || r.zone === z).slice(-1)[0];
+  const r = rsNewRow(z || (last ? last.zone : 'F1'), last ? last.days : null);
+  p.rows.push(r); rsSelectNew(bid, z, p, r); renderRcScope();
+}
+function rsRemoveRow(rid) {
+  const { bid, p } = rsFind(rid); if (!p) return;
+  p.rows = p.rows.filter(r => r.id !== rid); rsCleanup(bid);
+  if (RS.selRow === rid) RS.selRow = null;
   renderRcScope();
 }
-function addRcRow(pid) {
-  const pt = rcParts.find(p => p.id === pid); if (!pt) return;
-  const last = pt.rows[pt.rows.length - 1];
-  /* Lugar nuevo: mismo piso y mismos dias que el de arriba (a la
-     vista y editable); el area se elige a mano. */
-  const r = { id: rcScId('r'), zone: last ? last.zone : 'F1', area: '', qty: 1, days: last ? last.days.slice() : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], svc: rcScEmptySvc() };
-  pt.rows.push(r); rcScOpen[r.id] = true;
+function rsSetPerson(bid, pid, z, payroll) {
+  const from = RS.byBld[bid].find(x => x.id === pid); if (!from) return;
+  const moving = z ? from.rows.filter(r => r.zone === z) : from.rows.slice();
+  from.rows = z ? from.rows.filter(r => r.zone !== z) : [];
+  rsBlock(bid, String(payroll)).rows.push(...moving);
+  rsCleanup(bid); renderRcScope();
+}
+function rsRemovePerson(bid, pid, z) {
+  const p = RS.byBld[bid].find(x => x.id === pid); if (!p) return;
+  const rows = z ? p.rows.filter(r => r.zone === z) : p.rows;
+  if (rows.some(r => rcScSvcList(r.svc).length) && !confirm('Remove ' + rcScTechName(p.p) + ' and their places here?')) return;
+  p.rows = z ? p.rows.filter(r => r.zone !== z) : [];
+  rsCleanup(bid); if (RS.selRow && !rsFind(RS.selRow).r) RS.selRow = null; renderRcScope();
+}
+function rsSetRow(rid, f, v) {
+  const { bid, r } = rsFind(rid); if (!r) return;
+  if (f === 'zone') { r.zone = v; if (r.area && rsScopeOfArea(r.area) !== (v === 'BLD' ? 'building' : v === 'EXT' ? 'exterior' : 'floor')) r.area = ''; }
+  else if (f === 'area') { r.area = v; if (!rsMultiFloor(rsBld(bid))) r.zone = rsScopeOfArea(v) === 'exterior' ? 'EXT' : 'F1'; }
+  else if (f === 'qty') r.qty = Math.max(1, parseInt(v, 10) || 1);
   renderRcScope();
 }
-function removeRcRow(rid) { const { pt } = rcScFind(rid); if (!pt) return; pt.rows = pt.rows.filter(r => r.id !== rid); delete rcScOpen[rid]; renderRcScope(); }
-function setRcRow(rid, field, v) {
-  const { r } = rcScFind(rid); if (!r) return;
-  if (field === 'zone') { r.zone = v; if (!RC_AREA_TYPES.find(t => t.name === r.area && t.scope === rcScScope(v))) r.area = ''; }
-  else if (field === 'qty') r.qty = Math.max(1, parseInt(v, 10) || 1);
-  else r[field] = v;
+function rsToggleDay(rid, d) { const { r } = rsFind(rid); if (!r) return; r.days = r.days.includes(d) ? r.days.filter(x => x !== d) : RC_DAY_KEYS.filter(x => x === d || r.days.includes(x)); renderRcScope(); }
+function rsSetHours(p, v) { RS.hours[p] = Number(v) || 0; rsUpdateTotal(); }
+function rsUpdateTotal() { const el = document.getElementById('rc-total-hours'); if (el && rcScopeOn) el.value = rsTeam().reduce((t, p) => t + (Number(RS.hours[p]) || 0), 0); }
+function rsSetFloors(bid, v) {
+  const b = rsBld(bid), n = Math.max(1, Math.min(80, parseInt(v, 10) || 1));
+  const rows = rsRowsAt(bid, null);
+  const lost = rows.filter(r => (r.zone[0] === 'F' && +r.zone.slice(1) > n) || (n === 1 && r.zone === 'BLD'));
+  if (lost.length && !confirm(lost.length + (lost.length === 1 ? ' place' : ' places') + ' above floor ' + n + ' will be removed. Continue?')) { renderRcScope(); return; }
+  (RS.byBld[bid] || []).forEach(p => { p.rows = p.rows.filter(r => !lost.includes(r)); });
+  rsCleanup(bid);
+  b.floors = n;
+  if (RS.sel.b === bid) RS.sel.z = rsMultiFloor(b) ? (rsZones(b).includes(RS.sel.z) ? RS.sel.z : 'F1') : null;
+  if (RS.selRow && !rsFind(RS.selRow).r) RS.selRow = null;
   renderRcScope();
 }
-function toggleRcRowDay(rid, d) {
-  const { r } = rcScFind(rid); if (!r) return;
-  r.days = r.days.includes(d) ? r.days.filter(x => x !== d) : RC_DAY_KEYS.filter(x => x === d || r.days.includes(x));
-  const el = document.getElementById('rc-sc-d-' + rid + '-' + d); if (el) el.classList.toggle('active', r.days.includes(d));
-  rcScUpdateBadges();
+function rsToggleTree(bid) { RS.openTree[bid] = !RS.openTree[bid]; renderRcScope(); }
+function rsToggleBld(bid) { RS.openBld[bid] = !RS.openBld[bid]; renderRcScope(); }
+function rsToggleZone(bid, z) { RS.openZone[rsZKey(bid, z)] = !RS.openZone[rsZKey(bid, z)]; renderRcScope(); }
+function rsTogglePerson(bid, z, pid, isOpen) { RS.openPerson[rsPKey(bid, z === 'null' ? null : z, pid)] = !isOpen; renderRcScope(); }
+function rsToggleRowOpen(rid) { RS.openRow[rid] = !RS.openRow[rid]; renderRcScope(); }
+function rsSelectZone(bid, z) { RS.sel = { b: bid, z: z }; RS.openTree[bid] = true; RS.selRow = (rsRowsAt(bid, z)[0] || {}).id || null; renderRcScope(); }
+function rsSelectRow(rid) { RS.selRow = rid; renderRcScope(); }
+function rsPersonOpen(bid, z, p, rows, count) {
+  const k = rsPKey(bid, z, p.id);
+  if (RS.openPerson[k] !== undefined) return RS.openPerson[k];
+  return count === 1 || rows.some(r => r.id === RS.selRow);
 }
-function toggleRcRowOpen(rid) { rcScOpen[rid] = !rcScOpen[rid]; renderRcScope(); }
-function setRcFloors(v) {
-  const n = Math.max(1, Math.min(60, parseInt(v, 10) || 1));
-  const lost = rcParts.flatMap(pt => pt.rows.filter(r => r.zone[0] === 'F' && +r.zone.slice(1) > n));
-  if (lost.length && !confirm(lost.length + (lost.length === 1 ? ' place' : ' places') + ' above floor ' + n + ' will be removed. Continue?')) {
-    document.getElementById('rc-floors').value = rcFloors; return;
-  }
-  rcParts.forEach(pt => { pt.rows = pt.rows.filter(r => !(r.zone[0] === 'F' && +r.zone.slice(1) > n)); });
-  rcFloors = n; renderRcScope();
+/* --- piezas de interfaz --- */
+function rsAreaOptions(bid, r, byZone) {
+  const scope = r.zone === 'BLD' ? 'building' : r.zone === 'EXT' ? 'exterior' : 'floor';
+  const groups = byZone ? RS_AREA_GROUPS.filter(g => g.scope === scope) : RS_AREA_GROUPS.filter(g => g.scope !== 'building');
+  return '<option value="">Area…</option>' + groups.map(g => '<optgroup label="' + escAttr(g.group) + '">' +
+    g.items.map(a => '<option' + (a === r.area ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</optgroup>').join('');
 }
-function rcScUpdateBadges() {
-  rcParts.forEach(pt => {
-    const s = document.getElementById('rc-sc-sum-' + pt.id); if (s) s.textContent = rcScPartSummary(pt);
-    pt.rows.forEach(r => {
-      const b = document.getElementById('rc-sc-cnt-' + r.id);
-      if (b) { const n = rcScSvcList(r.svc).length; b.innerHTML = rcScBadge(n); b.classList.toggle('warn', !n); }
-      const nm = document.getElementById('rc-sc-names-' + r.id); if (nm) nm.textContent = rcScNames(r);
-    });
+function rsDayPills(r, small) {
+  return RC_DAYS.map(([d, l]) => '<div class="day-pill' + (small ? ' sm' : '') + (r.days.includes(d) ? ' active' : '') + '" role="button" tabindex="0" title="' + RC_DAY_LONG[d] + '" aria-label="' + RC_DAY_LONG[d] + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click()}" onclick="event.stopPropagation();rsToggleDay(\'' + r.id + '\',\'' + d + '\')">' + l + '</div>').join('');
+}
+function rsPersonHead(bid, z, p, rows, open, peopleHere) {
+  const here = new Set(peopleHere.map(x => x.p));
+  const opts = rcScTechs().map(t => '<option value="' + escAttr(t.payrollId) + '"' + (String(t.payrollId) === p.p ? ' selected' : '') + (String(t.payrollId) !== p.p && here.has(String(t.payrollId)) ? ' disabled' : '') + '>' + esc((t.firstName + ' ' + t.lastName).trim()) + '</option>').join('');
+  const known = rcScTechs().some(t => String(t.payrollId) === p.p);
+  const days = [...new Set(rows.flatMap(r => r.days))];
+  const zq = z ? '\'' + z + '\'' : 'null';
+  return '<div class="sc-part-head pr-head" onclick="rsTogglePerson(\'' + bid + '\',\'' + (z || 'null') + '\',\'' + p.id + '\',' + open + ')">' +
+    '<select aria-label="Person" onclick="event.stopPropagation()" onchange="rsSetPerson(\'' + bid + '\',\'' + p.id + '\',' + zq + ',this.value)">' +
+    (known ? '' : '<option value="' + escAttr(p.p) + '" selected>' + esc(rcScTechName(p.p)) + '</option>') + opts + '</select>' +
+    '<span class="sc-part-sum">' + esc(rcScDaysText(days)) + ', ' + rows.length + (rows.length === 1 ? ' place' : ' places') + '</span>' +
+    '<span class="rc-arrow' + (open ? ' open' : '') + '">▸</span>' +
+    '<button type="button" class="sc-x" aria-label="Remove person" onclick="event.stopPropagation();rsRemovePerson(\'' + bid + '\',\'' + p.id + '\',' + zq + ')">✕</button></div>';
+}
+/* Celular: renglon completo con picker debajo (acordeon). */
+function rsRowFull(bid, r, byZone) {
+  const n = rcScSvcList(r.svc).length, open = !!RS.openRow[r.id];
+  return '<div class="sc-row"><div class="sc-row-main">' +
+    '<select class="sc-area" aria-label="Area" onchange="rsSetRow(\'' + r.id + '\',\'area\',this.value)">' + rsAreaOptions(bid, r, byZone) + '</select>' +
+    '<input class="sc-qty" type="number" min="1" value="' + r.qty + '" aria-label="How many" onchange="rsSetRow(\'' + r.id + '\',\'qty\',this.value)">' +
+    '<span class="sc-svc" role="button" tabindex="0" onclick="rsToggleRowOpen(\'' + r.id + '\')"><span class="rc-badge' + (n ? '' : ' warn') + '" id="rs-cnt-' + r.id + '">' + rcScBadge(n) + '</span>' +
+    '<span class="sc-svc-names" id="rs-names-' + r.id + '">' + esc(rsNames(r)) + '</span><span class="rc-arrow' + (open ? ' open' : '') + '">▸</span></span>' +
+    '<div class="sc-days">' + rsDayPills(r, true) + '</div>' +
+    '<button type="button" class="sc-x" aria-label="Remove place" onclick="rsRemoveRow(\'' + r.id + '\')">✕</button></div>' +
+    (open ? '<div class="sc-pick"><div class="sc-pick-inner" id="rs-pk-' + r.id + '"></div></div>' : '') + '</div>';
+}
+/* Columnas: linea corta (mismas .svc-assign-line de Scheduling). */
+function rsRowLine(bid, r, z, mode) {
+  const n = rcScSvcList(r.svc).length, act = r.id === RS.selRow;
+  const mini = '<span class="pl-days">' + RC_DAYS.map(([d, l]) => '<i class="' + (r.days.includes(d) ? 'on' : '') + '">' + l + '</i>').join('') + '</span>';
+  return '<div class="svc-assign-line can-open pl-line' + (act ? ' active' : '') + '" onclick="rsSelectRow(\'' + r.id + '\')">' +
+    '<span class="svc-assign-name">' + esc(r.area ? r.area + (r.qty > 1 ? ' \u00d7' + r.qty : '') + (!z && r.zone === 'EXT' ? ' (exterior)' : '') : 'New place…') + '</span>' +
+    '<span class="rc-badge' + (n ? '' : ' warn') + '" id="rs-cnt-' + r.id + '">' + rcScBadge(n) + '</span>' + mini + '</div>' +
+    (act && mode === 'c2' ? rsEditor(true) : '');
+}
+function rsPeopleHtml(bid, z, mode) {
+  const b = rsBld(bid);
+  const people = rsPeopleOn(bid, z);
+  const blocks = people.map(p => {
+    const rows = z ? p.rows.filter(r => r.zone === z) : p.rows;
+    const open = rsPersonOpen(bid, z, p, rows, people.length);
+    const body = mode === 'acc'
+      ? rows.map(r => rsRowFull(bid, r, rsMultiFloor(b))).join('')
+      : rows.map(r => rsRowLine(bid, r, z, mode)).join('');
+    const zq = z ? '\'' + z + '\'' : 'null';
+    return '<div class="sc-part">' + rsPersonHead(bid, z, p, rows, open, people) +
+      (open ? '<div class="sc-rows">' + body + '<div class="add-more-link" style="margin:8px 0 2px" onclick="rsAddRow(\'' + bid + '\',\'' + p.id + '\',' + zq + ')">+ Add place</div></div>' : '') + '</div>';
+  }).join('');
+  const zq = z ? '\'' + z + '\'' : 'null';
+  const addP = people.length < rcScTechs().length
+    ? '<div class="add-more-link" onclick="rsAddPerson(\'' + bid + '\',' + zq + ')">+ Add person to this ' + (z ? (z[0] === 'F' ? 'floor' : 'area') : 'building') + '</div>' : '';
+  return (blocks || '<p class="sc-note">Nobody works here yet.</p>') + addP;
+}
+function rsZoneSummary(bid, z) {
+  const people = rsPeopleOn(bid, z), rows = rsRowsAt(bid, z);
+  if (!rows.length) return 'No places yet';
+  const days = [...new Set(rows.flatMap(r => r.days))];
+  return rows.length + (rows.length === 1 ? ' place' : ' places') + ', ' + esc(rcScDaysText(days)) + ' — <b>' + esc(people.map(p => rcScTechName(p.p)).join(', ')) + '</b>';
+}
+function rsBldSummary(bid) {
+  const b = rsBld(bid), rows = rsRowsAt(bid, null), people = rsPeopleOn(bid, null);
+  const days = [...new Set(rows.flatMap(r => r.days))];
+  return (b.floors > 1 ? b.floors + ' floors, ' : '1 level, ') + rows.length + (rows.length === 1 ? ' place' : ' places') +
+    (days.length ? ', ' + esc(rcScDaysText(days)) : '') + (people.length ? ' — <b>' + esc(people.map(p => rcScTechName(p.p)).join(', ')) + '</b>' : '');
+}
+function rsFloorsCtl(b) {
+  return '<label class="bl-floors">Floors' + (rsMultiBld() ? ' in ' + esc(b.label) : ' in this building') +
+    ' <input type="number" min="1" max="80" value="' + b.floors + '" onchange="rsSetFloors(\'' + b.id + '\', this.value)"></label>';
+}
+function rsEditor(inline) {
+  const f = RS.selRow ? rsFind(RS.selRow) : {};
+  if (!f.r) return inline ? '' : '<div class="rs-ed"><p class="rs-ed-empty">Pick a place to edit it, or add one.</p></div>';
+  const { bid, p, r } = f, b = rsBld(bid);
+  return '<div class="rs-ed' + (inline ? ' inline' : '') + '" onclick="event.stopPropagation()"><div class="rs-ed-title">' + esc(rsLabelOf(bid, r)) + '</div>' +
+    '<div class="rs-ed-sub">' + esc(rcScTechName(p.p)) + ', ' + esc(rcScDaysText(r.days)) + '</div>' +
+    '<div class="field-row rs-ed-row"><div class="field-group"><label>Area</label><select onchange="rsSetRow(\'' + r.id + '\',\'area\',this.value)">' + rsAreaOptions(bid, r, rsMultiFloor(b)) + '</select></div>' +
+    '<div class="field-group"><label>How many</label><input type="number" min="1" value="' + r.qty + '" onchange="rsSetRow(\'' + r.id + '\',\'qty\',this.value)"></div></div>' +
+    '<div class="field-group" style="margin-bottom:6px"><label>Days</label></div><div class="day-pills rs-ed-days">' + rsDayPills(r, false) + '</div>' +
+    '<div class="field-group" style="margin-bottom:6px"><label>Services</label></div><div id="rs-pk-' + r.id + '"></div>' +
+    '<div class="rs-ed-actions"><span class="add-more-link" style="color:#B33A3A" onclick="rsRemoveRow(\'' + r.id + '\')">Remove this place</span></div></div>';
+}
+function rsTreeHtml() {
+  return '<div class="rs-tree">' + RS.buildings.map(b => {
+    const total = rsRowsAt(b.id, null).length;
+    if (!rsMultiFloor(b)) {
+      const act = RS.sel.b === b.id;
+      return '<div class="rs-tree-bld pick' + (act ? ' active' : '') + '" onclick="rsSelectZone(\'' + b.id + '\', null)">' + esc(b.label) + '<span>1 level, ' + total + (total === 1 ? ' place' : ' places') + '</span></div>';
+    }
+    const open = !!RS.openTree[b.id];
+    return '<div class="rs-tree-bld tog' + (RS.sel.b === b.id && !open ? ' has-sel' : '') + '" onclick="rsToggleTree(\'' + b.id + '\')">' +
+      '<div class="rs-tree-row"><div>' + esc(b.label) + '<span>' + b.floors + ' floors, ' + total + (total === 1 ? ' place' : ' places') + '</span></div>' +
+      '<span class="rc-arrow' + (open ? ' open' : '') + '">▸</span></div></div>' +
+      (open ? rsZones(b).map(z => {
+        const n = rsRowsAt(b.id, z).length, act = RS.sel.b === b.id && RS.sel.z === z;
+        return '<div class="rs-tree-line' + (act ? ' active' : '') + (n ? '' : ' empty') + '" onclick="rsSelectZone(\'' + b.id + '\',\'' + z + '\')">' + rsZoneLabel(z) +
+          '<span class="rs-tree-count">' + (n || '—') + '</span></div>';
+      }).join('') : '');
+  }).join('') + '</div>';
+}
+function rsColsHtml(mode) {
+  const b = rsBld(RS.sel.b), z = rsMultiFloor(b) ? RS.sel.z : null;
+  const noTree = !rsMultiBld() && !rsMultiFloor(RS.buildings[0]);
+  const where = (z ? rsZoneLabel(z) : 'All areas') + (rsMultiBld() ? ' — ' + b.label : '');
+  const left = noTree ? '' : '<div><p class="rs-col-title">Where</p>' + rsTreeHtml() + '</div>';
+  const mid = '<div class="rs-mid"><p class="rs-col-title">Who and what — ' + esc(where) + '</p>' + rsPeopleHtml(b.id, z, mode) + '</div>';
+  const right = mode === 'c3' ? '<div><p class="rs-col-title">Selected place</p>' + rsEditor(false) + '</div>' : '';
+  const cls = mode === 'c3' ? (noTree ? 'rs-cols two-wide' : 'rs-cols three') : (noTree ? 'rs-cols one' : 'rs-cols two');
+  return rsFloorsCtl(b) + '<div class="' + cls + '">' + left + mid + right + '</div>';
+}
+function rsAccHtml() {
+  return RS.buildings.map(b => {
+    const open = !!RS.openBld[b.id];
+    let inner;
+    if (rsMultiFloor(b)) {
+      inner = rsZones(b).map(z => {
+        const zOpen = !!RS.openZone[rsZKey(b.id, z)], n = rsRowsAt(b.id, z).length;
+        return '<div class="fl-sec' + (n ? '' : ' empty') + '"><div class="fl-head" onclick="rsToggleZone(\'' + b.id + '\',\'' + z + '\')">' +
+          '<span class="fl-name">' + rsZoneLabel(z) + '</span><span class="fl-sum">' + rsZoneSummary(b.id, z) + '</span>' +
+          '<span class="rc-arrow' + (zOpen ? ' open' : '') + '">▸</span></div>' +
+          (zOpen ? '<div class="fl-body">' + rsPeopleHtml(b.id, z, 'acc') + '</div>' : '') + '</div>';
+      }).join('');
+    } else inner = rsPeopleHtml(b.id, null, 'acc');
+    return '<div class="rc-card bl-card"><div class="rc-top" onclick="rsToggleBld(\'' + b.id + '\')">' +
+      '<div><div class="rc-name">' + esc(b.label) + '</div><div class="rc-meta">' + rsBldSummary(b.id) + '</div></div>' +
+      '<div class="rc-right"><span class="rc-arrow' + (open ? ' open' : '') + '">▸</span></div></div>' +
+      (open ? '<div class="rc-body open">' + rsFloorsCtl(b) + inner + '</div>' : '') + '</div>';
+  }).join('');
+}
+function rsLayoutMode() { const w = window.innerWidth; return w >= 1100 ? 'c3' : (w >= 768 ? 'c2' : 'acc'); }
+function rsMountPicker(r) {
+  const pid = 'rs-pk-' + r.id;
+  if (!document.getElementById(pid) || typeof GSServicePicker === 'undefined') return;
+  /* Mismas opciones que mountRcPicker -- sin "Select all" (por lugar
+     casi nunca aplica todo el catalogo). */
+  rsPickers[pid] = GSServicePicker.mount(pid, pid, {
+    catalog: servicesCache, division: 'Janitorial', mode: 'levels', groupByCategory: true, propertyType: 'Commercial',
+    initialSelected: r.svc.selected, initialLevels: r.svc.levels, initialQuantities: r.svc.qty,
+    onChange: function () {
+      const k = rsPickers[pid]; if (!k) return;
+      r.svc = { selected: k.getSelected(), levels: k.getLevels(), qty: k.getQuantities() };
+      const n = rcScSvcList(r.svc).length;
+      const c = document.getElementById('rs-cnt-' + r.id); if (c) { c.innerHTML = rcScBadge(n); c.classList.toggle('warn', !n); }
+      const nm = document.getElementById('rs-names-' + r.id); if (nm) nm.textContent = rsNames(r);
+    }
   });
 }
 function renderRcScope() {
   const box = document.getElementById('rc-sc-parts'); if (!box) return;
-  rcScDestroyPickers();
-  const techs = rcScTechs();
-  const used = new Set(rcParts.map(p => String(p.p)));
-  box.innerHTML = rcParts.map(pt => {
-    const known = techs.some(t => String(t.payrollId) === String(pt.p));
-    const opts = (known || !pt.p ? '' : '<option value="' + escAttr(pt.p) + '" selected>' + esc(rcScTechName(pt.p)) + '</option>') +
-      (pt.p ? '' : '<option value="" selected>Select…</option>') +
-      techs.map(t => '<option value="' + escAttr(t.payrollId) + '"' + (String(t.payrollId) === String(pt.p) ? ' selected' : '') +
-        (String(t.payrollId) !== String(pt.p) && used.has(String(t.payrollId)) ? ' disabled' : '') + '>' + esc((t.firstName + ' ' + t.lastName).trim()) + '</option>').join('');
-    const rows = pt.rows.map(r => {
-      const areaOpts = '<option value="">Area…</option>' + RC_AREA_TYPES.filter(t => t.scope === rcScScope(r.zone))
-        .map(t => '<option' + (t.name === r.area ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
-      const zoneOpts = rcScZoneKeys().map(z => '<option value="' + z + '"' + (z === r.zone ? ' selected' : '') + '>' + rcScZoneLabel(z) + '</option>').join('');
-      const n = rcScSvcList(r.svc).length, open = !!rcScOpen[r.id];
-      const pills = RC_DAYS.map(([d, l]) => '<div class="day-pill sm' + (r.days.includes(d) ? ' active' : '') + '" id="rc-sc-d-' + r.id + '-' + d + '" role="button" tabindex="0" title="' + RC_DAY_LONG[d] + '" aria-label="' + RC_DAY_LONG[d] + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click()}" onclick="toggleRcRowDay(\'' + r.id + '\',\'' + d + '\')">' + l + '</div>').join('');
-      return '<div class="sc-row"><div class="sc-row-main">' +
-        '<select class="sc-zone" aria-label="Where" onchange="setRcRow(\'' + r.id + '\',\'zone\',this.value)">' + zoneOpts + '</select>' +
-        '<select class="sc-area" aria-label="Area" onchange="setRcRow(\'' + r.id + '\',\'area\',this.value)">' + areaOpts + '</select>' +
-        '<input class="sc-qty" type="number" min="1" value="' + r.qty + '" aria-label="How many" title="How many" onchange="setRcRow(\'' + r.id + '\',\'qty\',this.value)">' +
-        '<span class="sc-svc" role="button" tabindex="0" onclick="toggleRcRowOpen(\'' + r.id + '\')"><span class="rc-badge' + (n ? '' : ' warn') + '" id="rc-sc-cnt-' + r.id + '">' + rcScBadge(n) + '</span>' +
-        '<span class="sc-svc-names" id="rc-sc-names-' + r.id + '">' + esc(rcScNames(r)) + '</span><span class="rc-arrow' + (open ? ' open' : '') + '">▸</span></span>' +
-        '<div class="sc-days">' + pills + '</div>' +
-        '<button type="button" class="sc-x" aria-label="Remove place" onclick="removeRcRow(\'' + r.id + '\')">✕</button></div>' +
-        (open ? '<div class="sc-pick"><div class="sc-pick-inner" id="rc-sc-pk-' + r.id + '"></div></div>' : '') + '</div>';
-    }).join('');
-    return '<div class="sc-part"><div class="sc-part-head">' +
-      '<select aria-label="Person" onchange="setRcPart(\'' + pt.id + '\',\'p\',this.value)">' + opts + '</select>' +
-      '<span class="sc-hlabel">Hours</span><input class="sc-hours" type="number" step="0.5" value="' + pt.hours + '" aria-label="Hours" onchange="setRcPart(\'' + pt.id + '\',\'hours\',this.value)">' +
-      '<span class="sc-part-sum" id="rc-sc-sum-' + pt.id + '">' + esc(rcScPartSummary(pt)) + '</span>' +
-      '<button type="button" class="sc-x" aria-label="Remove person" onclick="removeRcPart(\'' + pt.id + '\')">✕</button></div>' +
-      '<div class="sc-rows">' + (rows || '<p class="sc-note" style="margin:10px 0 0">No places yet.</p>') +
-      '<div class="add-more-link" style="margin:6px 0 0" onclick="addRcRow(\'' + pt.id + '\')">+ Add place</div></div></div>';
-  }).join('') || '<p class="empty-note">Add the first person.</p>';
-  if (typeof GSServicePicker === 'undefined') return;
-  rcParts.forEach(pt => pt.rows.forEach(r => {
-    if (!rcScOpen[r.id]) return;
-    const pid = 'rc-sc-' + r.id;
-    /* Mismas opciones que mountRcPicker -- sin "Select all" (por
-       lugar casi nunca aplica todo el catalogo). */
-    rcScPickers[pid] = GSServicePicker.mount(pid, 'rc-sc-pk-' + r.id, {
-      catalog: servicesCache, division: 'Janitorial', mode: 'levels', groupByCategory: true, propertyType: 'Commercial',
-      initialSelected: r.svc.selected, initialLevels: r.svc.levels, initialQuantities: r.svc.qty,
-      onChange: function () {
-        const p = rcScPickers[pid]; if (!p) return;
-        r.svc = { selected: p.getSelected(), levels: p.getLevels(), qty: p.getQuantities() };
-        rcScUpdateBadges();
-      }
-    });
-  }));
+  rsDestroyPickers();
+  if (!RS.buildings.length) rsReset(document.getElementById('rc-client').value);
+  const mode = rsLayoutMode(); RS.lastMode = mode;
+  const team = rsTeam();
+  document.getElementById('rc-team').innerHTML = team.length
+    ? team.map(p => {
+        if (RS.hours[p] == null) RS.hours[p] = 1;
+        const n = RS.buildings.filter(b => (RS.byBld[b.id] || []).some(x => x.p === p)).length;
+        return '<div class="rs-team-chip">' + esc(rcScTechName(p)) + (rsMultiBld() ? ' <span>' + n + (n === 1 ? ' building' : ' buildings') + '</span>' : '') +
+          '<input type="number" step="0.5" value="' + RS.hours[p] + '" aria-label="Hours for ' + escAttr(rcScTechName(p)) + '" onchange="rsSetHours(\'' + p + '\', this.value)"> h</div>';
+      }).join('')
+    : '<p class="sc-note" style="margin:0">People you add to a place show up here, with their hours for this contract.</p>';
+  rsUpdateTotal();
+  document.getElementById('rc-bl-title').textContent = rsMultiBld() ? 'Buildings' : 'Building';
+  box.innerHTML = mode === 'acc' ? rsAccHtml() : rsColsHtml(mode);
+  if (mode === 'acc') {
+    RS.buildings.forEach(b => { if (!RS.openBld[b.id]) return; rsRowsAt(b.id, null).forEach(r => {
+      if (!RS.openRow[r.id]) return;
+      if (rsMultiFloor(b) && !RS.openZone[rsZKey(b.id, r.zone)]) return;
+      rsMountPicker(r);
+    }); });
+  } else if (RS.selRow) {
+    const f = rsFind(RS.selRow); if (f.r) rsMountPicker(f.r);
+  }
 }
+window.addEventListener('resize', () => { if (rcScopeOn && document.getElementById('rc-sc-parts') && rsLayoutMode() !== RS.lastMode) renderRcScope(); });
 
-/* TEMPORAL (23/09/2026, pedido del dueno): boton "Fill with Equitable
-   (test)" -- rellena el formulario con el contrato real de Equitable
-   (del PDF: Lun-Vie 7am-12pm; pisos 1-3 lunes/miercoles/viernes, martes
-   solo 1-2, jueves 1-3 + oficina completa; elevadores todos los dias;
-   lunes revisar patio). 3 pisos por defecto.
-   NO guarda nada: deja el formulario lleno para revisarlo y darle
-   Create. Servicios: se buscan en el catalogo real por palabra clave;
-   gente: los primeros tecnicos Janitorial (cambiarlos a mano). Quitar
-   junto con el boton cuando ya no haga falta. */
-function fillEquitableTest() {
-  if (!rcScopeOn) setRcScopeMode(true);
-  const client = (clientsCache || []).find(c => /equitable/i.test(c.businessName || ''));
-  if (client) document.getElementById('rc-client').value = client.clientId;
-  const missing = [];
-  /* Primer patron que encuentre algo en el catalogo real gana (ej.
-     patio: "patio"/"litter" antes que un "sweep" generico). */
-  const pick = (res, label) => {
-    for (const re of [].concat(res)) { const s = (servicesCache || []).find(x => re.test(x.serviceName || '')); if (s) return s; }
-    missing.push(label); return null;
-  };
-  const SV = {
-    vacuum: pick(/vacuum/i, 'vacuum'), trash: pick(/trash|garbage/i, 'trash'), dust: pick(/dust/i, 'dust'),
-    elevator: pick(/elevator/i, 'elevator'),
-    office: pick(/office/i, 'office'), patio: pick([/patio|litter/i, /sweep/i], 'patio')
-  };
-  const svcOf = list => {
-    const svc = rcScEmptySvc();
-    list.filter(Boolean).forEach(x => {
-      const pt = x.propertyType || 'Commercial';
-      (svc.selected[pt] = svc.selected[pt] || {})[x.serviceName] = x.sku;
-      svc.levels[pt + '|' + x.serviceName] = 'Level 2';
-    });
-    return svc;
-  };
-  const row = (zone, area, days, list) => ({ id: rcScId('r'), zone, area, qty: 1, days: days.slice(), svc: svcOf(list) });
-  const MF = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  const floorSvc = [SV.vacuum, SV.trash, SV.dust];
-  const techs = rcScTechs();
-  const pA = techs[0] ? String(techs[0].payrollId) : '';
-  const pB = techs[1] ? String(techs[1].payrollId) : pA;
-  const rowsA = [row('F1', 'Hallway', MF, floorSvc), row('F2', 'Hallway', MF, floorSvc), row('F1', 'Office', ['Thu'], [SV.office])];
-  /* 3 pisos por defecto (pedido del dueno): los pisos 4-19 del jueves
-     no se rellenan -- si el edificio de verdad tiene mas, se sube
-     "Floors in this building" y se agregan con + Add place. El patio
-     del lunes va en Exterior (Courtyard), no depende de los pisos. */
-  const rowsB = [row('BLD', 'Elevator', MF, [SV.elevator]), row('F3', 'Hallway', ['Mon', 'Wed', 'Thu', 'Fri'], floorSvc),
-    row('EXT', 'Courtyard', ['Mon'], [SV.patio])];
-  rcParts = (pB && pB !== pA)
-    ? [{ id: rcScId('p'), p: pA, hours: 2.5, rows: rowsA }, { id: rcScId('p'), p: pB, hours: 2.5, rows: rowsB }]
-    : [{ id: rcScId('p'), p: pA, hours: 5, rows: rowsA.concat(rowsB) }];
-  rcScOpen = {};
-  rcFloors = 3;
-  document.getElementById('rc-floors').value = 3;
-  mountRcDateTimeFields('07:00', GSDateTimePicker.getDate('rc-expiration') || null);
-  document.getElementById('rc-total-hours').value = 5;
-  renderRcScope();
-  toggleRecurringCreateCard(true);
-  showToast('Equitable filled — review people and services, then Create.' +
-    (client ? '' : ' No client named Equitable was found, pick it by hand.') +
-    (missing.length ? ' Not in the catalog: ' + missing.join(', ') + '.' : ''));
-}
+/* ---- Guardar / cargar ---- */
 function rcScopeToServices() {
-  const out = [];
-  rcParts.forEach(pt => pt.rows.forEach(r => rcScSvcList(r.svc).forEach(x => out.push({
+  const out = [], multi = rsMultiBld();
+  RS.buildings.forEach(b => (RS.byBld[b.id] || []).forEach(p => p.rows.forEach(r => rcScSvcList(r.svc).forEach(x => out.push({
     sku: x.sku, serviceName: x.name, level: x.level, propertyType: x.pt,
-    zone: r.zone, area: r.area, qty: r.qty, days: r.days.slice(), payrollNumber: String(pt.p)
-  }))));
+    bld: b.id, bldLabel: b.label, floors: b.floors, multiBld: multi,
+    zone: r.zone, area: r.area, qty: r.qty, days: r.days.slice(), payrollNumber: String(p.p)
+  })))));
   return out;
 }
+function rcScopeAssignments() { return rsTeam().map(p => ({ payrollNumber: String(p), hoursAllocated: Number(RS.hours[p]) || 0 })); }
 function rcScopeValidate() {
-  if (!rcParts.length) return 'Add at least one person.';
-  for (const pt of rcParts) {
-    if (!pt.p) return 'Pick who each block is for.';
-    if (!pt.rows.length) return rcScTechName(pt.p) + ': add at least one place or remove the person.';
-    for (const r of pt.rows) {
+  const rows = rsAllRows();
+  if (!rows.length) return 'Add at least one place.';
+  for (const b of RS.buildings) for (const p of (RS.byBld[b.id] || [])) {
+    if (!p.p) return 'Pick who each block is for.';
+    for (const r of p.rows) {
       const miss = [];
       if (!r.area) miss.push('area');
       if (!rcScSvcList(r.svc).length) miss.push('services');
       if (!r.days.length) miss.push('days');
-      if (miss.length) return rcScTechName(pt.p) + ', ' + rcScPlaceLabel(r) + ': missing ' + miss.join(', ') + '.';
+      if (miss.length) return rcScTechName(p.p) + ', ' + rsLabelOf(b.id, r) + ': missing ' + miss.join(', ') + '.';
     }
   }
   return '';
 }
 function rcScIsPlaceList(list) { return (list || []).some(s => s && s.zone && s.area); }
-function rcScopeFromServices(list, assignments) {
-  rcParts = []; rcScOpen = {};
-  let maxFloor = 1;
+function rcScopeFromServices(list, assignments, clientId) {
+  rsReset(clientId || document.getElementById('rc-client').value);
   const hoursBy = {};
   (assignments || []).forEach(a => { hoursBy[String(a.payrollNumber)] = a.hoursAllocated; });
   list.filter(s => s && s.zone && s.area).forEach(s => {
-    const p = String(s.payrollNumber || '');
-    let pt = rcParts.find(x => x.p === p);
-    if (!pt) { pt = { id: rcScId('p'), p, hours: hoursBy[p] != null ? Number(hoursBy[p]) : 1, rows: [] }; rcParts.push(pt); }
+    const bid = String(s.bld || 'main');
+    let b = RS.buildings.find(x => x.id === bid);
+    if (!b) { b = { id: bid, label: s.bldLabel || 'Building', city: '', floors: 1 }; RS.buildings.push(b); RS.byBld[bid] = []; }
+    const fl = /^F\d+$/.test(s.zone) ? +s.zone.slice(1) : 1;
+    b.floors = Math.max(b.floors, Number(s.floors) || 1, fl, s.zone === 'BLD' ? 2 : 1);
+    const p = rsBlock(bid, String(s.payrollNumber || ''));
     const days = Array.isArray(s.days) ? s.days : [];
     const key = s.zone + '|' + s.area + '|' + (Number(s.qty) || 1) + '|' + days.join(',');
-    let r = pt.rows.find(x => x._key === key);
-    if (!r) { r = { id: rcScId('r'), _key: key, zone: s.zone, area: s.area, qty: Number(s.qty) || 1, days: days.slice(), svc: rcScEmptySvc() }; pt.rows.push(r); }
-    const ptype = s.propertyType || 'Commercial';
-    if (!r.svc.selected[ptype]) r.svc.selected[ptype] = {};
-    r.svc.selected[ptype][s.serviceName] = s.sku;
-    if (s.level) r.svc.levels[ptype + '|' + s.serviceName] = s.level;
-    if (/^F\d+$/.test(s.zone)) maxFloor = Math.max(maxFloor, +s.zone.slice(1));
+    let r = p.rows.find(x => x._key === key);
+    if (!r) { r = rsNewRow(s.zone, days); r.area = s.area; r.qty = Number(s.qty) || 1; r._key = key; p.rows.push(r); }
+    const pt = s.propertyType || 'Commercial';
+    (r.svc.selected[pt] = r.svc.selected[pt] || {})[s.serviceName] = s.sku;
+    if (s.level) r.svc.levels[pt + '|' + s.serviceName] = s.level;
   });
-  rcFloors = Math.max(maxFloor, 1);
-  const f = document.getElementById('rc-floors'); if (f) f.value = rcFloors;
+  rsTeam().forEach(p => { RS.hours[p] = hoursBy[p] != null ? Number(hoursBy[p]) : 1; });
+  const first = RS.buildings.find(b => rsRowsAt(b.id, null).length) || RS.buildings[0];
+  const r0 = rsRowsAt(first.id, null)[0];
+  RS.sel = { b: first.id, z: rsMultiFloor(first) ? (r0 ? r0.zone : 'F1') : null };
+  RS.selRow = r0 ? r0.id : null;
+  RS.openTree = {}; RS.openTree[first.id] = true; RS.openBld = {}; RS.openBld[first.id] = true;
+  if (r0 && rsMultiFloor(first)) RS.openZone[rsZKey(first.id, r0.zone)] = true;
   renderRcScope();
 }
 
 /* ---- Tarjeta del contrato + hoja de alcance para el cliente ---- */
-function rcScGroupContract(list) {
-  const people = [];
-  list.filter(s => s && s.zone && s.area).forEach(s => {
-    const p = String(s.payrollNumber || '');
-    let g = people.find(x => x.p === p); if (!g) { g = { p, places: [] }; people.push(g); }
-    const label = rcScPlaceLabel({ zone: s.zone, area: s.area, qty: Number(s.qty) || 1 });
-    const days = Array.isArray(s.days) ? s.days : [];
-    let pl = g.places.find(x => x.label === label && x.days.join() === days.join());
-    if (!pl) { pl = { label, days, svcs: [] }; g.places.push(pl); }
-    pl.svcs.push(s.serviceName + (s.level ? ' ' + rcScLv(s.level) : ''));
+function rsListCtx(list) {
+  const places = (list || []).filter(s => s && s.zone && s.area);
+  const blds = [...new Set(places.map(s => String(s.bld || 'main')))];
+  const floorsBy = {};
+  places.forEach(s => {
+    const bid = String(s.bld || 'main'), fl = /^F\d+$/.test(s.zone) ? +s.zone.slice(1) : 1;
+    floorsBy[bid] = Math.max(floorsBy[bid] || 1, Number(s.floors) || 1, fl, s.zone === 'BLD' ? 2 : 1);
   });
-  return people;
+  return { places, multi: blds.length > 1, floorsBy, blds };
+}
+function rsEntryLabel(s, ctx) {
+  const bid = String(s.bld || 'main');
+  return rsPlaceLabel({ multiBld: ctx.multi, bldLabel: s.bldLabel || 'Building', floors: ctx.floorsBy[bid], zone: s.zone, area: s.area, qty: s.qty });
 }
 function rcScContractWhoHtml(s, list) {
   const nameBy = {};
   (s.assignments || []).forEach(a => { nameBy[String(a.payrollNumber)] = a.name; });
-  return rcScGroupContract(list).map(g =>
-    '<div class="sc-who-card"><div class="sc-who-name">' + esc(nameBy[g.p] || rcScTechName(g.p)) + '</div>' +
+  const ctx = rsListCtx(list), people = [];
+  ctx.places.forEach(x => {
+    const p = String(x.payrollNumber || '');
+    let g = people.find(y => y.p === p); if (!g) { g = { p, places: [] }; people.push(g); }
+    const label = rsEntryLabel(x, ctx), days = Array.isArray(x.days) ? x.days : [];
+    let pl = g.places.find(y => y.label === label && y.days.join() === days.join());
+    if (!pl) { pl = { label, days, svcs: [] }; g.places.push(pl); }
+    pl.svcs.push(x.serviceName + (x.level ? ' ' + rcScLv(x.level) : ''));
+  });
+  return people.map(g => '<div class="sc-who-card"><div class="sc-who-name">' + esc(nameBy[g.p] || rcScTechName(g.p)) + '</div>' +
     g.places.map(pl => '<div class="sc-who-line">' + esc(pl.label) + ': ' + esc(pl.svcs.join(', ')) + ' <span>(' + esc(rcScDaysText(pl.days)) + ')</span></div>').join('') +
     '</div>').join('');
 }
@@ -6620,23 +6885,32 @@ function printScopeOfWork(id) {
   try { list = JSON.parse(s.servicesJson || '[]'); } catch (e) { list = []; }
   const client = clientsCache.find(c => c.clientId === s.clientId);
   const clientName = client ? client.businessName : s.clientId;
+  const ctx = rsListCtx(list);
   const zoneOrder = z => z === 'BLD' ? 1000 : z === 'EXT' ? 1001 : (+String(z).slice(1) || 0);
-  const zones = [...new Set(list.filter(x => x.zone && x.area).map(x => x.zone))].sort((a, b) => zoneOrder(a) - zoneOrder(b));
-  /* Un lugar sale UNA vez aunque lo compartan varias personas; cada
-     servicio con sus dias si no todos van los mismos dias. */
-  const sections = zones.map(z => {
-    const places = [];
-    list.filter(x => x.zone === z && x.area).forEach(x => {
-      const label = x.area + ((Number(x.qty) || 1) > 1 ? ' \u00d7' + x.qty : '');
-      let p = places.find(y => y.label === label); if (!p) { p = { label, svc: {} }; places.push(p); }
-      p.svc[x.serviceName] = [...new Set([...(p.svc[x.serviceName] || []), ...(x.days || [])])];
-    });
-    return '<h2>' + esc(rcScZoneLabel(z)) + '</h2><table>' + places.map(p => {
-      const names = Object.keys(p.svc), texts = names.map(n => rcScDaysText(p.svc[n])), same = texts.every(t => t === texts[0]);
-      return '<tr><td class="a">' + esc(p.label) + '</td><td>' +
-        (same ? names.map(esc).join(', ') : names.map((n, i) => esc(n) + ' <span class="g">(' + esc(texts[i]) + ')</span>').join(', ')) +
-        '</td><td class="g">' + esc(same ? texts[0] : rcScDaysText([...new Set(names.flatMap(n => p.svc[n]))])) + '</td></tr>';
-    }).join('') + '</table>';
+  /* Por edificio (si hay varios) y luego por piso; un lugar sale UNA
+     vez aunque lo compartan varias personas, cada servicio con sus dias
+     si no todos van los mismos dias. */
+  const sections = ctx.blds.map(bid => {
+    const inB = ctx.places.filter(x => String(x.bld || 'main') === bid);
+    const bLabel = (inB[0] && inB[0].bldLabel) || 'Building';
+    const zones = [...new Set(inB.map(x => x.zone))].sort((a, b) => zoneOrder(a) - zoneOrder(b));
+    const multiFloor = (ctx.floorsBy[bid] || 1) > 1;
+    const zoneHtml = zones.map(z => {
+      const places = [];
+      inB.filter(x => x.zone === z).forEach(x => {
+        const label = x.area + ((Number(x.qty) || 1) > 1 ? ' \u00d7' + x.qty : '');
+        let p = places.find(y => y.label === label); if (!p) { p = { label, svc: {} }; places.push(p); }
+        p.svc[x.serviceName] = [...new Set([...(p.svc[x.serviceName] || []), ...(x.days || [])])];
+      });
+      const head = (multiFloor || z === 'EXT' || z === 'BLD') ? '<h3>' + esc(rsZoneLabel(z)) + '</h3>' : '';
+      return head + '<table>' + places.map(p => {
+        const names = Object.keys(p.svc), texts = names.map(n => rcScDaysText(p.svc[n])), same = texts.every(t => t === texts[0]);
+        return '<tr><td class="a">' + esc(p.label) + '</td><td>' +
+          (same ? names.map(esc).join(', ') : names.map((n, i) => esc(n) + ' <span class="g">(' + esc(texts[i]) + ')</span>').join(', ')) +
+          '</td><td class="g">' + esc(same ? texts[0] : rcScDaysText([...new Set(names.flatMap(n => p.svc[n]))])) + '</td></tr>';
+      }).join('') + '</table>';
+    }).join('');
+    return (ctx.multi ? '<h2>' + esc(bLabel) + '</h2>' : '') + zoneHtml;
   }).join('');
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to print the scope of work.'); return; }
@@ -6644,11 +6918,11 @@ function printScopeOfWork(id) {
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">' +
     '<style>body{font-family:Inter,Arial,sans-serif;color:#111;max-width:820px;margin:32px auto;padding:0 20px}h1{font-family:"Cormorant Garamond",serif;font-size:30px;margin:0 0 4px}' +
-    '.sub{color:#6B6B6B;font-size:13px;margin-bottom:22px}h2{font-size:13px;margin:22px 0 6px;padding-bottom:6px;border-bottom:1px solid #111}' +
-    'table{width:100%;border-collapse:collapse;font-size:13px}td{padding:8px 10px 8px 0;border-bottom:1px solid #E0DDD6;vertical-align:top}td.a{width:28%;font-weight:600}' +
+    '.sub{color:#6B6B6B;font-size:13px;margin-bottom:22px}h2{font-family:"Cormorant Garamond",serif;font-size:22px;margin:26px 0 4px}h3{font-size:13px;margin:18px 0 6px;padding-bottom:6px;border-bottom:1px solid #111}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}td{padding:8px 10px 8px 0;border-bottom:1px solid #E0DDD6;vertical-align:top}td.a{width:28%;font-weight:600}' +
     '.g{color:#6B6B6B}td.g{width:22%;white-space:nowrap}.foot{margin-top:24px;padding-top:12px;border-top:1px solid #E0DDD6;font-size:13px}' +
     '@media print{body{margin:0}}</style></head><body>' +
-    '<h1>Scope of Work</h1><p class="sub">' + esc(clientName) + (s.buildingNumber ? ', ' + esc(s.buildingNumber) : '') + '. Janitorial common areas, ' +
+    '<h1>Scope of Work</h1><p class="sub">' + esc(clientName) + '. Janitorial common areas, ' +
     esc(rcScDaysText((s.daysOfWeek || '').split(',').filter(Boolean))) + (s.time ? ', ' + esc(rcScTime12(s.time)) : '') + '.</p>' +
     sections +
     '<p class="foot">Anything not listed above is outside this contract and will be quoted separately before the work is done.</p>' +
@@ -6656,10 +6930,75 @@ function printScopeOfWork(id) {
   w.document.close();
 }
 
+/* TEMPORAL (23/09/2026, pedido del dueño): boton "Fill with Equitable
+   (test)" -- rellena (NO guarda) el contrato de Equitable del PDF:
+   Lun-Vie 7:00, 5 h, 3 pisos por defecto; pisos 1-2 diario, piso 3
+   lun/mie/jue/vie, jueves oficina completa, elevadores diario, lunes
+   patio (Exterior / Courtyard). Servicios buscados en el catalogo real
+   por palabra clave (el aviso dice cuales no encontro); gente = los 2
+   primeros tecnicos Janitorial, a cambiar a mano. Quitar junto con el
+   boton cuando ya no haga falta. */
+function fillEquitableTest() {
+  if (!rcScopeOn) setRcScopeMode(true);
+  const client = (clientsCache || []).find(c => /equitable/i.test(c.businessName || ''));
+  if (client) document.getElementById('rc-client').value = client.clientId;
+  rsReset(client ? client.clientId : document.getElementById('rc-client').value);
+  const missing = [];
+  const pick = (res, label) => {
+    for (const re of [].concat(res)) { const s = (servicesCache || []).find(x => re.test(x.serviceName || '')); if (s) return s; }
+    missing.push(label); return null;
+  };
+  const SV = {
+    vacuum: pick(/vacuum/i, 'vacuum'), trash: pick(/trash|garbage/i, 'trash'), dust: pick(/dust/i, 'dust'),
+    elevator: pick(/elevator/i, 'elevator'), office: pick(/office/i, 'office'), patio: pick([/patio|litter/i, /sweep/i], 'patio')
+  };
+  const svcOf = list => {
+    const svc = rcScEmptySvc();
+    list.filter(Boolean).forEach(x => {
+      const pt = x.propertyType || 'Commercial';
+      (svc.selected[pt] = svc.selected[pt] || {})[x.serviceName] = x.sku;
+      svc.levels[pt + '|' + x.serviceName] = 'Level 2';
+    });
+    return svc;
+  };
+  const row = (zone, area, days, list) => { const r = rsNewRow(zone, days); r.area = area; r.svc = svcOf(list); return r; };
+  const floorSvc = [SV.vacuum, SV.trash, SV.dust];
+  const b = RS.buildings[0];
+  b.floors = 3;
+  const techs = rcScTechs();
+  const pA = techs[0] ? String(techs[0].payrollId) : '';
+  const pB = techs[1] ? String(techs[1].payrollId) : pA;
+  const rowsA = [row('F1', 'Hallway', RS_MF, floorSvc), row('F2', 'Hallway', RS_MF, floorSvc), row('F1', 'Office', ['Thu'], [SV.office])];
+  const rowsB = [row('BLD', 'Elevator', RS_MF, [SV.elevator]), row('F3', 'Hallway', ['Mon', 'Wed', 'Thu', 'Fri'], floorSvc), row('EXT', 'Courtyard', ['Mon'], [SV.patio])];
+  if (pB && pB !== pA) {
+    RS.byBld[b.id] = [{ id: rsId('p'), p: pA, rows: rowsA }, { id: rsId('p'), p: pB, rows: rowsB }];
+    RS.hours[pA] = 2.5; RS.hours[pB] = 2.5;
+  } else {
+    RS.byBld[b.id] = [{ id: rsId('p'), p: pA, rows: rowsA.concat(rowsB) }];
+    RS.hours[pA] = 5;
+  }
+  RS.sel = { b: b.id, z: 'F1' }; RS.selRow = rowsA[0].id; RS.openTree[b.id] = true; RS.openBld[b.id] = true; RS.openZone[rsZKey(b.id, 'F1')] = true;
+  mountRcDateTimeFields('07:00', GSDateTimePicker.getDate('rc-expiration') || null);
+  renderRcScope();
+  toggleRecurringCreateCard(true);
+  showToast('Equitable filled — review people and services, then Create.' +
+    (client ? '' : ' No client named Equitable was found, pick it by hand.') +
+    (missing.length ? ' Not in the catalog: ' + missing.join(', ') + '.' : ''));
+}
+
 /* ---- Active: orden recurrente por lugar ---- */
-function isPlaceOrderServices(services) { return (services || []).some(s => RC_PLACE_RE.test(String(s.Category || ''))); }
+/* Orden "por lugar": recurrente (RecurringServiceID) + Assign by
+   service -- asi nacen desde su contrato (lib/recurring-orders.js). El
+   texto del lugar ya no sirve para reconocerlas (un cliente de un solo
+   nivel se lee "Restroom" a secas); RC_PLACE_RE queda de respaldo para
+   las primeras que se generaron. */
+function isPlaceOrderId(orderId, services) {
+  const o = (allOrders || []).find(x => x.OrderID === orderId);
+  if (o) return !!(o.RecurringServiceID && (o.AssignByService === true || o.AssignByService === 'true'));
+  return (services || []).some(s => RC_PLACE_RE.test(String(s.Category || '')));
+}
 function placeWhoHtml(o, services, history) {
-  const assignments = (svcAssignCache[o.OrderID] || []).filter(a => RC_PLACE_RE.test(String(a.Category || '')));
+  const assignments = svcAssignCache[o.OrderID] || [];
   const levelBy = {};
   (services || []).forEach(s => { levelBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.Level || ''; });
   const people = [];
@@ -10139,7 +10478,7 @@ function svcAssignmentStatusRows(orderId, services) {
   /* Recurrentes "Who does what" por lugar: todos los lugares se
      trabajan AL MISMO TIEMPO (cada quien el suyo), no en fila como una
      remodelacion -- ninguno espera a que el anterior termine. */
-  const parallel = isPlaceOrderServices(services);
+  const parallel = isPlaceOrderId(orderId, services);
   return rows.map(row => {
     const { svc, a } = row;
     const scheduled = !!(a && a.AssignedTo && a.ScheduledDate);
@@ -10492,7 +10831,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           </div>
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
         </div>
-        ${isAssignByService && isPlaceOrderServices(services) ? placeWhoHtml(o, services, history) : ''}
+        ${isAssignByService && (o.RecurringServiceID || isPlaceOrderId(o.OrderID, services)) ? placeWhoHtml(o, services, history) : ''}
         <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
         <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>

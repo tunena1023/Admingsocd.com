@@ -398,6 +398,44 @@ archivo nuevo por separado.
 
 ---
 
+## SUBIDO (23/09/2026, tarde): Recurring con edificios + columnas + tarjeta nueva
+
+Rediseño aprobado en mini con el dueño ("Recurring — edificios y pisos
+según el cliente"), porque no todos los clientes son iguales: torre de
+19 pisos (Equitable), complejo de varias direcciones (INDIGO), negocio
+de un solo nivel (Bratney).
+
+- **Edificios = direcciones del cliente en Clients** (la principal +
+  ClientAddresses sin archivar). Con una sola dirección no hay nivel de
+  edificio; con 1 piso no hay nivel de piso. Pisos por edificio.
+- **Pantalla grande: 3 columnas** (menú Where con edificios que abren y
+  cierran sus pisos / Who and what con personas que se colapsan y
+  líneas cortas `.svc-assign-line` / Selected place con el picker real,
+  sticky). Mediana: 2 columnas con el editor bajo la línea. Celular:
+  acordeón (edificio > piso > persona > lugares). Horas en una fila
+  "Team" (una por persona para todo el contrato).
+- **ServicesJSON** ahora trae además `bld`, `bldLabel`, `floors`,
+  `multiBld` por renglón. El texto del lugar sale de `placeLabel()`
+  (lib/recurring-orders.js) con solo los niveles que aplican:
+  "1301 W 16th St S / Floor 2 / Hallway", "Floor 3 / Hallway",
+  "Restroom ×2". Mismas reglas en `rsPlaceLabel()` (admin.html) y en
+  ordersgsocd.com/get-my-recurring.js -- si cambian, cambiar las 3.
+  Renglones de antes (sin bld/floors) siguen funcionando.
+- **Una orden por lugar se reconoce por RecurringServiceID + Assign by
+  service** (`isPlaceOrderId` en Admin, `isPlaceOrder` en Tech,
+  `placeMode` en submit-service-complete solo en esas órdenes). Ya no
+  por el texto "Floor N /" (RC_PLACE_RE queda de respaldo).
+- **Tarjeta "New Recurring Contract" rediseñada**: título Cormorant,
+  "+" dorado y descripción en inglés.
+- **BUG REAL de antes arreglado (A/B en Puppeteer contra 1858c61):**
+  `loadInitialData()` corre en cada `loadAll()` (casi cualquier acción
+  en Admin) y dejaba el formulario de Recurring a medio llenar sin
+  cliente, con la hora en 6:00 AM y un renglón de empleado vacío de más
+  cada vez (que luego se guardaban como asignaciones extra). Ahora la
+  hora y el primer renglón solo se montan la primera vez, el select de
+  cliente conserva su valor y el picker simple se remonta con lo que
+  tenía.
+
 ## TEMPORAL (23/09/2026): boton "Fill with Equitable (test)" en el formulario de Recurring
 
 Pedido del dueño para probar el flujo completo con el caso real. Rellena
