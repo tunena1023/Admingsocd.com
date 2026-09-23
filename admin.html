@@ -1464,20 +1464,6 @@
     </div>
   </section>
 
-  <section id="portal-recurring-section" data-category="services">
-    <div class="order-card">
-      <div class="order-card-header" onclick="toggleDevCard(this); loadPortalRecurringClients()">
-        <div><div class="order-id">Recurring option in the client portal</div>
-        <div class="order-desc">Which clients see the Recurring / Units switch when they order. Everyone else only sees Units (rooms and packages).</div></div>
-        <span class="dev-chevron">▸</span>
-      </div>
-      <div class="appr-body" style="display:none">
-        <div style="max-width:460px;margin:16px 0 6px"><div id="portal-recurring-ms"></div></div>
-        <p class="section-sub" style="margin:6px 0 0">Saved as soon as you close the list.</p>
-      </div>
-    </div>
-  </section>
-
   <section id="pkg-contents-section" data-category="services">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this); loadPkgEditor()">
@@ -8197,35 +8183,6 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     });
   }
 
-  /* ===== Quien ve la opcion Recurring en el portal del cliente =====
-     Settings, Key portal_recurring_clients (JSON: lista de ClientID).
-     El portal pregunta por el suyo en get-services (recurringAllowed). */
-  let portalRecurringMs = null;
-  async function loadPortalRecurringClients() {
-    const box = document.getElementById('portal-recurring-ms');
-    if (!box || typeof GSMultiSelect === 'undefined') return;
-    let chosen = [];
-    try {
-      const res = await devApi('get-settings');
-      chosen = JSON.parse((res.settings || {}).portal_recurring_clients || '[]');
-      if (!Array.isArray(chosen)) chosen = [];
-    } catch (e) { chosen = []; }
-    const options = (allClients || []).filter(c => c.clientId).map(c => ({ value: c.clientId, label: c.businessName || c.clientId }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-    portalRecurringMs = GSMultiSelect.mount(box, {
-      options, selected: chosen, search: true, placeholder: 'Nobody yet — choose clients…',
-      onChange: async function (values) {
-        try {
-          await devApi('save-setting', { key: 'portal_recurring_clients', value: JSON.stringify(values) });
-          showToast(values.length ? values.length + (values.length === 1 ? ' client sees' : ' clients see') + ' Recurring now.' : 'Nobody sees Recurring now.');
-        } catch (e) {
-          showToast('Could not save: ' + e.message);
-          portalRecurringMs.set(chosen);
-        }
-      }
-    });
-  }
-
   /* ===== Developer > Package contents (paquetes como plantilla) ===== */
   let pkgEditItems = [];
   async function loadPkgEditor() {
@@ -9226,6 +9183,13 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         box.innerHTML = '<p class="empty-note">Loading…</p>';
         const res = await devApi('list-all-clients');
         allClientsCache = res.clients || [];
+        /* Quien ve la opcion Recurring en su portal (Settings,
+           portal_recurring_clients: lista de ClientID). */
+        try {
+          const st = await devApi('get-settings');
+          const list = JSON.parse((st.settings || {}).portal_recurring_clients || '[]');
+          portalRecurringSet = new Set(Array.isArray(list) ? list.map(String) : []);
+        } catch (e) { portalRecurringSet = new Set(); }
       }
       renderAllClientsTable();
     } catch (e) {
@@ -9248,6 +9212,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         '<td ' + td + '>' + esc(c.phone) + '</td><td ' + td + '>' + esc(c.email) + '</td>' +
         clientHoursRowCellsHtml(c, td) +
         '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (c.showEstimatedTime ? 'checked' : '') + ' onchange="toggleClientShowEstimatedTime(\'' + c.id + '\',this.checked)"></td>' +
+        '<td ' + td + ' style="text-align:center"><input type="checkbox" ' + (portalRecurringSet.has(String(c.clientId || '')) ? 'checked' : '') + (c.clientId ? '' : ' disabled') + ' onchange="toggleClientShowRecurring(\'' + escAttr(c.clientId || '') + '\',this.checked)"></td>' +
         '<td ' + td + '><button type="button" class="gs-ofp-btn-secondary" style="padding:3px 10px;font-size:11px' + (c.active === false ? ';color:#3F7D4F;border-color:#3F7D4F' : ';color:#B33A3A;border-color:#B33A3A') + '" onclick="toggleClientActive(\'' + c.id + '\',' + (c.active === false) + ')">' + (c.active === false ? 'Activate' : 'Deactivate') + '</button></td></tr>';
       html += (c.additionalAddresses || []).map(a => buildingHoursRowHtml(a, td)).join('');
       return html;
@@ -9269,6 +9234,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Entry<br>cushion</th>' +
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Exit<br>cushion</th>' +
       '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Est. Time</th>' +
+      '<th style="text-align:center;padding:6px;border:1px solid var(--border)">Show<br>Recurring</th>' +
       '<th style="text-align:left;padding:6px;border:1px solid var(--border)"></th></tr>' +
       rowsHtml + '</table></div>';
   }
@@ -9395,7 +9361,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-entryCushion"></td>' +
       '<td ' + td + '><input type="number" min="0" style="width:56px" value="' + (a.exitCushionMinutes || 0) + '" ' +
         'onchange="onBuildingHoursChange(\'' + esc(a.id) + '\')" id="bh-' + esc(a.id) + '-exitCushion"></td>' +
-      '<td ' + td + '></td></tr>';
+      '<td ' + td + '></td><td ' + td + '></td></tr>';
   }
 
   async function onBuildingHoursChange(buildingId) {
@@ -9432,6 +9398,22 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       renderAllClientsTable();
     } catch (e) {
       showToast('Could not update: ' + e.message);
+    }
+  }
+
+  /* Casilla "Show Recurring" (pedido del dueño, junto a "Show Est.
+     Time"): el cliente ve el toggle Recurring / Units al pedir en su
+     portal; los demas solo Units (cuartos + paquetes). */
+  let portalRecurringSet = new Set();
+  async function toggleClientShowRecurring(clientId, show) {
+    const next = new Set(portalRecurringSet);
+    if (show) next.add(clientId); else next.delete(clientId);
+    try {
+      await devApi('save-setting', { key: 'portal_recurring_clients', value: JSON.stringify(Array.from(next)) });
+      portalRecurringSet = next;
+    } catch (e) {
+      showToast('Could not update: ' + e.message);
+      renderAllClientsTable();
     }
   }
 
