@@ -1215,6 +1215,8 @@
     .acw-foot { flex-direction: column; align-items: stretch; padding: 12px; }
     #acw-apply { width: 100%; }
   }
+  .st-wrap { overflow-x: auto; }
+  #service-times-table th.st-new, #service-times-table td.st-new { background: #FFFCF3; }
   .st-adj { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .st-adj input { width: 56px; padding: 5px 6px; }
   .st-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
@@ -1775,10 +1777,10 @@
           <button class="gs-ofp-btn-secondary" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
         </div>
         <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
-        <table class="staff-table" id="service-times-table">
-          <thead><tr><th>Service</th><th>Division</th><th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Price (QuickBooks)</th><th>Level 2 price</th><th>Level 3 price</th></tr></thead>
+        <div class="st-wrap"><table class="staff-table" id="service-times-table">
+          <thead><tr><th>Service</th><th>Division</th><th>L1 min</th><th>L2 min</th><th>L3 min</th><th>Price (QuickBooks)</th><th class="st-new">Level 2 price</th><th class="st-new">Level 3 price</th></tr></thead>
           <tbody></tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   </section>
@@ -9175,19 +9177,23 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   function stMoney(n) { return '$' + (Math.round(n * 100) / 100).toFixed(Number(n) % 1 ? 2 : 0); }
   function stPriceCellsHtml(s, isJan) {
     const c = stCat(s.sku);
-    const base = c && c.price != null && c.price !== '' ? Number(c.price) : null;
-    if (base == null || isNaN(base)) return '<td style="color:var(--gray);font-size:11px">No price yet</td><td></td><td></td>';
-    if (!isJan) return '<td><b>' + stMoney(base) + '</b></td><td></td><td></td>';
-    const adj = (c && c.levelAdjust) || {};
+    const base = c && c.price != null && c.price !== '' && !isNaN(Number(c.price)) ? Number(c.price) : null;
+    const priceCell = base == null
+      ? '<td><span style="color:var(--gray);font-size:11px">No price yet</span><div style="font-size:10px;color:var(--gray)">comes from QuickBooks</div></td>'
+      : '<td><b>' + stMoney(base) + '</b> <span style="font-size:10px;color:var(--gray)">= Level 1</span></td>';
+    if (!isJan || !c) return priceCell + '<td class="st-new"></td><td class="st-new"></td>';
+    /* El ajuste se puede poner desde ya, aunque el servicio todavia no
+       tenga precio en QuickBooks: el resultado sale cuando llegue. */
+    const adj = c.levelAdjust || {};
     const cell = k => {
       const a = adj[k] || { t: '%', v: '' };
       const v = a.v === '' || a.v == null ? 0 : Number(a.v);
-      const res = a.t === '$' ? base + v : base * (1 + v / 100);
-      return '<td><div class="st-adj">+ <input type="number" min="0" step="1" value="' + (a.v === '' || a.v == null ? '' : a.v) + '" placeholder="0" onchange="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'v\',this.value)">' +
+      const res = base == null ? null : (a.t === '$' ? base + v : base * (1 + v / 100));
+      return '<td class="st-new"><div class="st-adj">+ <input type="number" min="0" step="1" value="' + (a.v === '' || a.v == null ? '' : a.v) + '" placeholder="0" onchange="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'v\',this.value)">' +
         '<span class="st-seg"><button type="button" class="' + (a.t !== '$' ? 'on' : '') + '" onclick="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'t\',\'%\')">%</button><button type="button" class="' + (a.t === '$' ? 'on' : '') + '" onclick="saveLevelPrice(\'' + escAttr(s.sku) + '\',\'' + k + '\',\'t\',\'$\')">$</button></span>' +
-        '<span class="st-res">= ' + stMoney(res) + '</span></div></td>';
+        '<span class="st-res">' + (res == null ? '' : '= ' + stMoney(res)) + '</span></div></td>';
     };
-    return '<td><b>' + stMoney(base) + '</b><div style="font-size:10px;color:var(--gray)">= Level 1</div></td>' + cell('l2') + cell('l3');
+    return priceCell + cell('l2') + cell('l3');
   }
   async function saveLevelPrice(sku, k, field, value) {
     const c = stCat(sku); if (!c) return;
