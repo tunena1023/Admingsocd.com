@@ -2458,9 +2458,7 @@ exports.handler = async (event) => {
         FriOpen: !!body.friOpen,
         SatOpen: !!body.satOpen,
         SunOpen: !!body.sunOpen,
-        OfficeHours: body.officeHours || '',
-        EntryCushionMinutes: Number(body.entryCushionMinutes) || 0,
-        ExitCushionMinutes: Number(body.exitCushionMinutes) || 0
+        OfficeHours: body.officeHours || ''
       });
       return jsonResponse(200, { success: true });
     }
@@ -2481,9 +2479,7 @@ exports.handler = async (event) => {
         FriOpen: !!body.friOpen,
         SatOpen: !!body.satOpen,
         SunOpen: !!body.sunOpen,
-        OfficeHours: body.officeHours || '',
-        EntryCushionMinutes: Number(body.entryCushionMinutes) || 0,
-        ExitCushionMinutes: Number(body.exitCushionMinutes) || 0
+        OfficeHours: body.officeHours || ''
       };
       try {
         await updateListItemByItemId(CLIENTS_LIST, clientItemId, patch);
