@@ -1224,6 +1224,11 @@
   .st-seg button + button { border-left: 1px solid var(--border); }
   .st-seg button.on { background: var(--gold); color: var(--black); }
   .st-res { font-size: 11px; font-weight: 700; color: var(--gold-dk); }
+  .pkg-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .pkg-chip { font-size: 12px; background: #FBF7EC; border: 1px solid rgba(201,168,76,.35); color: var(--black); padding: 4px 10px; border-radius: 14px; }
+  .pkg-chip b { color: var(--gold-dk); font-size: 10px; }
+  .pkg-chip.empty { background: var(--bg); border-color: var(--border); color: var(--gray); }
+  #pkg-edit-picker .gs-sp-accordion { grid-template-columns: 1fr; }
   .dev-grp-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray); margin: 18px 0 8px; }
   .dev-group-title:first-of-type .dev-grp-title { margin-top: 0; }
   #panel-recurring .rs-team { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1559,11 +1564,11 @@
           <select id="pkg-edit-select" onchange="renderPkgEditor()" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
           <span class="order-meta" id="pkg-edit-count"></span>
         </div>
-        <div id="pkg-edit-rows"></div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
-          <select id="pkg-edit-add" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
-          <button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:9px 14px;font-size:11px" onclick="pkgEditAdd()">+ Add service</button>
-          <button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:9px 16px;font-size:11px;margin-left:auto" onclick="pkgEditSave()">Save package</button>
+        <div id="pkg-edit-summary" class="pkg-summary"></div>
+        <p class="section-sub" style="margin:0 0 8px">Pick what the package includes, same as any order: a level on a service puts it in the package.</p>
+        <div id="pkg-edit-picker"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:9px 16px;font-size:11px" onclick="pkgEditSave()">Save package</button>
         </div>
       </div>
     </div>
@@ -8340,27 +8345,46 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     pkgEditItems = pkg && Array.isArray(pkg.packageItems) ? pkg.packageItems.map(x => ({ sku: x.sku, level: x.level })) : [];
     drawPkgEditor(pkg);
   }
+  /* El armador usa el MISMO picker que las ordenes (pedido del dueño):
+     todos los servicios activos, de cualquier division, por categoria;
+     ponerle nivel a un servicio = meterlo al paquete. */
+  let pkgEditPicker = null;
   function drawPkgEditor(pkg) {
-    const rows = document.getElementById('pkg-edit-rows');
-    const nameOf = k => { const r = allCatalogRows.find(x => x.sku === k); return r ? r.serviceName : k; };
-    document.getElementById('pkg-edit-count').textContent = pkgEditItems.length + (pkgEditItems.length === 1 ? ' service' : ' services');
-    rows.innerHTML = pkgEditItems.length ? pkgEditItems.map((x, i) =>
-      '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">' +
-      '<span style="flex:1;font-size:13px">' + esc(nameOf(x.sku)) + '</span>' +
-      '<select onchange="pkgEditItems[' + i + '].level=this.value" style="padding:6px 8px;border:1px solid var(--border);font-size:12px;font-family:inherit">' +
-      ['Level 1', 'Level 2', 'Level 3'].map(l => '<option' + (l === x.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
-      '<button type="button" class="sc-x" style="width:30px;height:30px;border:1px solid var(--border);background:var(--white);color:#B33A3A;cursor:pointer" aria-label="Remove" onclick="pkgEditItems.splice(' + i + ',1);drawPkgEditor()">✕</button></div>').join('')
-      : '<p class="empty-note">Nothing in this package yet — add its services below.</p>';
-    const pkgRow = pkg || allCatalogRows.find(r => r.sku === document.getElementById('pkg-edit-select').value);
-    const pool = allCatalogRows.filter(r => r.active && pkgRow && r.division === pkgRow.division && r.propertyType === pkgRow.propertyType &&
-      !/package/i.test(r.category || '') && !pkgEditItems.some(x => x.sku === r.sku)).sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-    document.getElementById('pkg-edit-add').innerHTML = '<option value="">Add a service…</option>' + pool.map(r => '<option value="' + escAttr(r.sku) + '">' + esc(r.serviceName) + '</option>').join('');
+    const box = document.getElementById('pkg-edit-picker');
+    if (!box || !pkg) { if (box) box.innerHTML = ''; return; }
+    const isPkg = r => /^packages?$/i.test(String(r.category || '')) || (Array.isArray(r.packageItems) && r.packageItems.length);
+    const catalog = allCatalogRows.filter(r => r.active && r.sku !== pkg.sku && !isPkg(r));
+    const bySku = {}; catalog.forEach(r => { bySku[String(r.sku)] = r; });
+    const initialSelected = {}, initialLevels = {};
+    pkgEditItems.forEach(x => {
+      const r = bySku[String(x.sku)]; if (!r) return;
+      (initialSelected[r.propertyType] = initialSelected[r.propertyType] || {})[r.serviceName] = r.sku;
+      if (x.level) initialLevels[r.propertyType + '|' + r.serviceName] = x.level;
+    });
+    if (pkgEditPicker) { try { pkgEditPicker.destroy(); } catch (e) { /* nada */ } }
+    pkgEditPicker = GSServicePicker.mount('pkg-edit', box, {
+      catalog, division: pkg.division || 'Janitorial', crossDivision: true, mode: 'levels', groupByCategory: true,
+      propertyType: pkg.propertyType || 'Commercial', initialSelected, initialLevels,
+      onChange: function (sel, lvl) {
+        const items = [];
+        Object.entries(sel || {}).forEach(([pt, svcs]) => Object.entries(svcs || {}).forEach(([name, s]) => {
+          const r = bySku[String(s)]; if (!r) return;
+          const level = (lvl || {})[pt + '|' + name] || (r.division === 'Janitorial' ? 'Level 2' : '');
+          items.push({ sku: r.sku, level });
+        }));
+        pkgEditItems = items;
+        drawPkgSummary();
+      }
+    });
+    drawPkgSummary();
   }
-  function pkgEditAdd() {
-    const v = document.getElementById('pkg-edit-add').value;
-    if (!v) return;
-    pkgEditItems.push({ sku: v, level: 'Level 2' });
-    drawPkgEditor();
+  function drawPkgSummary() {
+    const n = pkgEditItems.length;
+    document.getElementById('pkg-edit-count').textContent = n + (n === 1 ? ' service' : ' services');
+    const nameOf = k => { const r = allCatalogRows.find(x => x.sku === k); return r ? r.serviceName : k; };
+    document.getElementById('pkg-edit-summary').innerHTML = n
+      ? pkgEditItems.map(x => '<span class="pkg-chip">' + esc(nameOf(x.sku)) + (x.level ? ' <b>' + esc(String(x.level).replace('Level ', 'L')) + '</b>' : '') + '</span>').join('')
+      : '<span class="pkg-chip empty">Nothing in this package yet</span>';
   }
   async function pkgEditSave() {
     const sku = document.getElementById('pkg-edit-select').value;
