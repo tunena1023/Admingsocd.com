@@ -10688,9 +10688,28 @@ async function reopenAndFlashOrder(orderId, context) {
   }
 }
 
+/* BUG REAL (24/09/2026, el dueño: "en Active dentro de Recurring la
+   tarjeta no abre"). Active > Recurring pinta la visita mas proxima con
+   orderCard(o, 'active') -- el MISMO id ('order-active-<orden>') que ya
+   tiene esa orden en Active > All cuando la visita es de hoy (Assigned).
+   Con dos ids iguales, getElementById agarraba la del tab All (escondido)
+   y la de Recurring nunca se abria. Viene desde 20/09 (9e9a1ae). Ahora el
+   cuerpo se busca DENTRO de la tarjeta que se toco, y la gemela del otro
+   sub-tab se cierra y se vacia para no dejar ids repetidos adentro
+   (caja de servicios, Update, etc.). */
+function cardBodyFor(id, headerEl) {
+  const card = headerEl && headerEl.closest('.order-card');
+  const own = card && card.querySelector('#' + CSS.escape(id));
+  const body = own || document.getElementById(id);
+  if (body) document.querySelectorAll('[id="' + id + '"]').forEach(twin => {
+    if (twin !== body && twin.classList.contains('open')) { twin.classList.remove('open'); twin.innerHTML = ''; }
+  });
+  return body;
+}
+
 async function toggleOrder(orderId, context, headerEl) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
-  const body = document.getElementById(id);
+  const body = cardBodyFor(id, headerEl);
   if (!body) return;
   const st = cardOpenState(context);
 
@@ -10754,7 +10773,7 @@ function markOrderSeen(orderId) {
 
 async function pinOrder(orderId, context, headerEl) {
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
-  const body = document.getElementById(id);
+  const body = cardBodyFor(id, headerEl);
   if (!body) return;
   const st = cardOpenState(context);
   const pinEl = headerEl.querySelector('.order-pin');
