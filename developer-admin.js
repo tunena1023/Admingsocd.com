@@ -2488,9 +2488,7 @@ exports.handler = async (event) => {
           friOpen: it.fields.FriOpen === true || it.fields.FriOpen === 'true',
           satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
           sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
-          officeHours: it.fields.OfficeHours || '',
-          entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
-          exitCushionMinutes: Number(it.fields.ExitCushionMinutes) || 0
+          officeHours: it.fields.OfficeHours || ''
         });
       });
 
@@ -2522,8 +2520,6 @@ exports.handler = async (event) => {
           satOpen: it.fields.SatOpen === true || it.fields.SatOpen === 'true',
           sunOpen: it.fields.SunOpen === true || it.fields.SunOpen === 'true',
           officeHours: it.fields.OfficeHours || '',
-          entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
-          exitCushionMinutes: Number(it.fields.ExitCushionMinutes) || 0,
           /* Quien puede ver el tiempo estimado en sus ordenes desde
              Orders -- apagado por default (columna ShowEstimatedTime,
              Yes/No, default No en SharePoint). Se activa cliente por

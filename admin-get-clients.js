@@ -157,8 +157,6 @@ exports.handler = async (event) => {
         satOpen:        truthy(it.fields.SatOpen),
         sunOpen:        truthy(it.fields.SunOpen),
         officeHours:    it.fields.OfficeHours    || '',
-        entryCushionMinutes: Number(it.fields.EntryCushionMinutes) || 0,
-        exitCushionMinutes:  Number(it.fields.ExitCushionMinutes)  || 0,
         latitude:       it.fields.Latitude  != null ? Number(it.fields.Latitude)  : null,
         longitude:      it.fields.Longitude != null ? Number(it.fields.Longitude) : null,
         archived:       truthy(it.fields.Archived),
@@ -220,8 +218,6 @@ exports.handler = async (event) => {
           showEstimatedTime: truthy(f.ShowEstimatedTime),
           showRecurring: truthy(f.ShowRecurring),
           showPrices: truthy(f.ShowPrices),
-          entryCushionMinutes: Number(f.EntryCushionMinutes) || 0,
-          exitCushionMinutes:  Number(f.ExitCushionMinutes)  || 0,
           nowOpenStatus:  computeNowOpenStatus(
             { monOpen: f.MonOpen, tueOpen: f.TueOpen, wedOpen: f.WedOpen, thuOpen: f.ThuOpen, friOpen: f.FriOpen, satOpen: f.SatOpen, sunOpen: f.SunOpen, officeHours: f.OfficeHours },
             holidayChoiceByKey[cid + '|'], now
