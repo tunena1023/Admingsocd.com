@@ -1100,6 +1100,26 @@
   .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
   .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
   .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  /* Clients > Edit primary address / Edit building / Add building
+     (24/09/2026, el dueño: "podriamos implementar el estilo de las
+     tarjetas aqui"): cada seccion (datos, horario, festivos, contactos)
+     en su propia tarjeta blanca sobre el fondo del panel, en vez de
+     rayitas entre secciones. Mismo estilo de tarjeta de la idea 1 del
+     mini (https://claude.ai/artifact/SfyuVHP8tUH1BZNArt2g4C). */
+  .ctl-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .ctl-card-h { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin: 0 0 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; }
+  /* Desplegables (24/09/2026, el dueño: "tarjetas desplegables!!!" y
+     "que esten cerradas por defecto"): el titulo abre/cierra; TODAS
+     arrancan cerradas, en Edit primary, Edit building y Add building. */
+  .ctl-card-h::after { content: '\25BE'; font-size: 12px; color: var(--gold-dk); transition: transform .15s; }
+  .ctl-card.collapsed { padding-top: 14px; padding-bottom: 14px; }
+  .ctl-card.collapsed > .ctl-card-h { margin-bottom: 0; }
+  .ctl-card.collapsed > .ctl-card-h::after { transform: rotate(-90deg); }
+  .ctl-card.collapsed > :not(.ctl-card-h) { display: none !important; }
+  .ctl-card div:has(> .gs-ofp-day-pills) { row-gap: 16px !important; }
+  .ctl-card > :last-child, .ctl-card .gs-ofp-unitrow:last-child { margin-bottom: 0 !important; }
+  @media (max-width: 560px) { .ctl-card { padding: 14px; } }
   /* Celular (24/09/2026, el dueño: "en la version movil esos de colores
      se tienen que apilar, asi se ven feos"): las etiquetas de color del
      encabezado de cada tarjeta (Approvals, Review, Active, History,
@@ -3418,10 +3438,10 @@ const holSafe = (cid, buildingId) => cid + '_' + String(buildingId || 'primary')
 
 function holidaysSectionHtml(cid, buildingId) {
   const safe = holSafe(cid, buildingId);
-  return `<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Holidays</div>
+  return `<div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Holidays</p>
     <p style="font-size:11px;color:var(--gray);margin-bottom:10px">Choose which ones apply here, and whether it'll be open or closed.</p>
     <div id="hol-list-${safe}"><p class="empty-note" style="padding:8px 0">Loading…</p></div>
-    <div id="hol-add-${safe}" style="margin-top:8px"></div>`;
+    <div id="hol-add-${safe}" style="margin-top:8px"></div></div>`;
 }
 
 async function loadHolidaysInto(cid, clientId, buildingId) {
@@ -12770,7 +12790,7 @@ function openClientEdit(clientId) {
     const archivedCount = allContacts.filter(ct => ct.archived).length;
 
     control.innerHTML = `
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Edit primary address</div>
+      <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Edit primary address</p>
       <div class="gs-ofp-unitrow">
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-bname', c.businessName || '', 'bname', 'Business Name')}
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-cperson', c.contactPerson || '', 'cperson', 'Contact Person')}
@@ -12787,24 +12807,27 @@ function openClientEdit(clientId) {
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-city', c.city || '', 'city', 'City')}
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-zip', c.zip || '', 'zip', 'Zip')}
       </div>
+      </div>
 
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours at this address</div>
+      <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Office hours at this address</p>
       ${officeHoursFieldsHtml(cid, c)}
+      </div>
 
       ${holidaysSectionHtml(cid, '')}
 
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Contacts</div>
+      <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Contacts</p>
       <div id="${cid}-ctl-contacts">${contactsHtml}</div>
       <div id="${cid}-ctl-newcontacts"></div>
       <a onclick="addContactRow('${clientId}', false)" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin:4px 0 6px">+ Add another contact</a>
       ${archivedCount ? `<a onclick="toggleShowArchivedContacts('${clientId}'); openClientEdit('${clientId}')" style="font-size:11px;color:var(--gray);text-decoration:underline;cursor:pointer;display:block;margin-bottom:14px">${st.showArchivedContacts?'Hide':'Show'} archived contacts (${archivedCount})</a>` : ''}
+      </div>
 
       <button class="gs-ofp-btn-primary" style="width:100%" onclick="savePrimaryEdit('${clientId}')">Save</button>
       <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
   } else {
     const b = (c.buildings || []).find(x => x.id === st.selected) || {};
     control.innerHTML = `
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Edit ${esc(b.label||'building')}</div>
+      <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Edit ${esc(b.label||'building')}</p>
       <div class="gs-ofp-unitrow">
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-label', b.label || '', 'label', 'Label')}
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-building', b.buildingNumber || '', 'building', 'Building #')}
@@ -12817,8 +12840,10 @@ function openClientEdit(clientId) {
       <div class="gs-ofp-unitrow">
         ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-zip', b.zip || '', 'zip', 'Zip')}
       </div>
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours</div>
+      </div>
+      <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Office hours</p>
       ${officeHoursFieldsHtml(cid, b)}
+      </div>
       ${holidaysSectionHtml(cid, b.id)}
       <button class="gs-ofp-btn-primary" style="width:100%" onclick="saveBuildingEdit('${clientId}','${esc(b.id)}')">Save</button>
       <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
@@ -12964,7 +12989,7 @@ function startAddBuilding(clientId) {
   if (!control) return;
   control.classList.add('open');
   control.innerHTML = `
-    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin-bottom:12px">Add building</div>
+    <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Add building</p>
     <div class="gs-ofp-unitrow">
       ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-label', '', 'label', 'Label', { placeholder: 'e.g. Building A' })}
       ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-building', '', 'building', 'Building #', { placeholder: 'e.g. 5824' })}
@@ -12978,8 +13003,10 @@ function startAddBuilding(clientId) {
       ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-zip', '', 'zip', 'Zip')}
       ${GSOrderFormPremium.textFieldHtml(cid + '-ctl-phone', '', 'phone', 'Phone', { placeholder: 'Optional' })}
     </div>
-    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)">Office hours</div>
+    </div>
+    <div class="ctl-card collapsed"><p class="ctl-card-h" onclick="this.parentNode.classList.toggle('collapsed')">Office hours</p>
     ${officeHoursFieldsHtml(cid, {})}
+    </div>
     <button class="gs-ofp-btn-primary" style="width:100%" onclick="saveBuildingEdit('${clientId}', null)">Save</button>
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
