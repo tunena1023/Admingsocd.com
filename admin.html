@@ -1110,6 +1110,9 @@
     .hdr-badges { flex-direction: column; align-items: flex-end !important; gap: 6px !important; }
     .hdr-badges > * { white-space: nowrap; }
     .hdr-badges > span:empty { display: none; }
+    /* Nombres cortados a la mitad ("The Equitable Building (...") en
+       celular: aqui el nombre se parte en renglones en vez de cortarse. */
+    .order-card-header .gs-ordhdr-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
   }
   /* Recurrentes: persona -> pisos -> servicios (24/09/2026, mini aprobado) */
   .rp-list { margin: 0 -14px; }
