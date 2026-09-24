@@ -37,7 +37,7 @@ const { notifyOrderTechs } = require('./lib/push');
    confiando en el campo Division que ya venga en cada renglon) y, si
    aplica, la orden pasa a 'Mixed' de una vez, sin preguntar, con
    constancia en el historial. Confirmado con el dueño, 20/09/2026. */
-const { resolveOrderDivision, divisionChangeHistoryPayload } = require('gsocd-shared/lib/division-rules');
+const { resolveOrderDivision, divisionChangeHistoryPayload } = require('./lib/division-rules');
 
 const LIVE_STATUSES = ['Received', 'Assigned'];
 

@@ -51,7 +51,7 @@ const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
    admin-update-order.js. Aqui se necesita en Reassign/Reschedule,
    donde los servicios PROPUESTOS de un cambio pendiente se aplican
    de verdad por primera vez. */
-const { resolveOrderDivision, divisionChangeHistoryPayload } = require('gsocd-shared/lib/division-rules');
+const { resolveOrderDivision, divisionChangeHistoryPayload } = require('./lib/division-rules');
 
 const NEW_STATUSES    = ['Received'];
 const CHANGE_STATUSES = ['Change Requested'];
