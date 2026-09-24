@@ -1100,6 +1100,45 @@
   .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
   .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
   .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  /* Recurrentes: persona -> pisos -> servicios (24/09/2026, mini aprobado) */
+  .rp-list { margin: 0 -14px; }
+  .rp-row { border-top: 1px solid var(--border); }
+  .rp-head { display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; }
+  .rp-head:hover, .rp-fhead:hover { background: #FCFBF8; }
+  .rp-car { color: var(--gold-dk); font-size: 10px; width: 12px; flex-shrink: 0; transition: transform .15s; }
+  .rp-row.open > .rp-head .rp-car, .rp-floor.open > .rp-fhead .rp-car { transform: rotate(90deg); }
+  .rp-av { width: 34px; height: 34px; border-radius: 50%; background: #F3EAD0; color: var(--gold-dk); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rp-row.done .rp-av { background: #E3EFE6; color: #3E7A4C; }
+  .rp-who { flex: 1; min-width: 0; }
+  .rp-name { font-size: 14.5px; font-weight: 600; }
+  .rp-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 12px; color: var(--gray); }
+  .rp-facts span { display: inline-flex; align-items: center; gap: 5px; }
+  .rp-facts svg { width: 13px; height: 13px; stroke: var(--gold); flex-shrink: 0; }
+  .rp-facts .blue { color: #2E5FA3; font-weight: 600; }
+  .rp-act { flex-shrink: 0; }
+  .rp-act .pw-btn { padding: 8px 14px !important; }
+  .rp-done { font-size: 11px; font-weight: 700; color: #3E7A4C; background: #EAF3EC; padding: 5px 10px; border-radius: 12px; white-space: nowrap; }
+  .rp-body { display: none; padding: 0 14px 14px 60px; }
+  .rp-row.open > .rp-body { display: block; }
+  .rp-floor { border: 1px solid var(--border); border-radius: 8px; background: var(--white); margin-top: 8px; overflow: hidden; }
+  .rp-fhead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+  .rp-fname { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+  .rp-with { font-size: 11px; font-weight: 500; color: var(--gray); margin-left: 6px; }
+  .rp-fcount { font-size: 12px; color: var(--gray); white-space: nowrap; }
+  .rp-fbody { display: none; border-top: 1px solid #F0EDE6; padding: 4px 12px 8px 34px; }
+  .rp-floor.open > .rp-fbody { display: block; }
+  .rp-svc { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; }
+  .rp-svc + .rp-svc { border-top: 1px dashed #EEE9DD; }
+  .rp-sname { flex: 1; min-width: 0; }
+  .rp-lv { flex-shrink: 0; min-width: 30px; text-align: center; font-size: 10px; font-weight: 700; color: var(--gold-dk); background: #F6EFD9; border-radius: 9px; padding: 2px 7px; }
+  .rp-row.done .rp-sname { color: var(--gray); }
+  @media (max-width: 560px) {
+    .svc-cnt-people { display: none; }
+    .rp-head { flex-wrap: wrap; }
+    .rp-act { width: 100%; box-sizing: border-box; padding-left: 58px; }
+    .rp-body { padding: 0 12px 12px 12px; }
+    .rp-fbody { padding-left: 12px; }
+  }
   /* Services Requested -- rediseño opcion A, tarjetas (24/09/2026) */
   .sv-list { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
@@ -7273,7 +7312,7 @@ function isPlaceOrderId(orderId, services) {
   if (o) return !!(o.RecurringServiceID && (o.AssignByService === true || o.AssignByService === 'true'));
   return (services || []).some(s => RC_PLACE_RE.test(String(s.Category || '')));
 }
-function placeWhoHtml(o, services, history) {
+function placeWhoHtml(o, services, history, mode) {
   const assignments = svcAssignCache[o.OrderID] || [];
   const levelBy = {};
   (services || []).forEach(s => { levelBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.Level || ''; });
@@ -7338,22 +7377,55 @@ function placeWhoHtml(o, services, history) {
     (x.state === 'pending' && canAct ? '<div class="pw-extra-actions"><button class="gs-ofp-btn-primary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'approved\')">Approve as extra charge</button>' +
       '<button class="gs-ofp-btn-secondary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'declined\')">Decline</button></div>' : '') +
     '</div>').join('');
-  if (!people.length && !extrasHtml) return '';
-  return '<div class="pw-block">' + extrasHtml + '<p class="detail-label">Who does what</p>' +
-    people.map((g, i) => {
-      const st = personState(g);
-      const total = g.places.length, done = g.places.filter(pl => pl.items.every(it => itemDone(it, g.who))).length;
-      const sub = st === 'waiting' ? '<span class="svc-assign-assigned pw-sub-blue">' + esc(g.who) + ' marked their work done in Tech — confirm it.</span>'
-        : '<span class="svc-assign-assigned">' + done + ' of ' + total + (total === 1 ? ' place' : ' places') + ' done</span>';
-      const others = pl => { const o2 = []; pl.items.forEach(it => namesOf(it.AssignedTo).forEach(n => { if (n.toLowerCase() !== g.who.toLowerCase() && !hasName(o2, n)) o2.push(n); })); return o2; };
-      return '<div class="svc-assign-card' + (st === 'waiting' ? ' pw-card-waiting' : st === 'done' ? ' pw-card-done' : '') + '"><div class="svc-assign-header" style="flex-wrap:wrap"><span class="svc-assign-num">' + (i + 1) + '</span>' +
-        '<span class="svc-assign-name">' + esc(g.who) + '</span><span class="pw-action">' + personAction(g, st) + '</span>' + sub + '</div>' +
-        '<div class="svc-assign-editor">' + g.places.map(pl =>
-          '<div class="pw-loc-head"><span class="pw-loc">' + esc(pl.place) + '</span>' + placeStatus(pl, g.who) +
-          (others(pl).length ? '<span class="pw-with">with ' + esc(others(pl).map(n => n.split(' ')[0]).join(', ')) + '</span>' : '') + '</div><div class="pw-svcs">' +
-          pl.items.map(it => svcName(pl.place, it.ServiceName) + (levelBy[pl.place + '|' + it.ServiceName] ? ' <span class="lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '')).join('<br>') +
-          '</div>').join('') + '</div></div>';
-    }).join('') + '</div>';
+  /* REDISEÑO (24/09/2026, mini aprobado:
+     https://claude.ai/artifact/A8BTJRBKb3L98heaCSMi9N). Para ordenes
+     recurrentes/por lugar esto REEMPLAZA la lista de servicios y el
+     bloque aparte de "Who does what" (el dueño: "no tiene caso que esten
+     por separado"). Cerrado: una linea por persona (nombre, pisos,
+     servicios y su boton de completado ahi mismo). Al abrirla: un
+     renglon por piso con sus servicios en pastillitas, IGUAL al mini. Los
+     extras que pidio el cliente se regresan aparte (mode 'extras'). */
+  if (mode === 'extras') return extrasHtml ? '<div class="pw-block">' + extrasHtml + '</div>' : '';
+  if (!people.length) return '<p class="empty-note" style="padding:12px 0">No one assigned yet.</p>';
+  const initials = n => n.split(/\s+/).map(x => x[0] || '').slice(0, 2).join('').toUpperCase();
+  const RP_ICON = {
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+    cal: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+  };
+  const rpDate = v => { const d = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; };
+  const rpTime = v => { const m = String(v || '').match(/T(\d{2}):(\d{2})/); if (!m || (m[1] === '00' && m[2] === '00')) return ''; const h = +m[1]; return ((h % 12) || 12) + ':' + m[2] + ' ' + (h < 12 ? 'AM' : 'PM'); };
+  /* Mini aprobado (24/09/2026): https://claude.ai/artifact/HCs5fXHmkoZi4Hh443AsFq
+     Encabezado: quien, donde (sus pisos), cuando (fecha) y a que hora
+     (ventana de la orden, o la hora de su asignacion) + su boton.
+     Se abre -> nombres de los pisos; cada piso se abre -> sus servicios
+     con el nivel alineado a la derecha. */
+  return '<div class="rp-list">' + people.map(g => {
+    const st = personState(g);
+    const items = g.places.flatMap(pl => pl.items);
+    const floors = []; g.places.forEach(pl => { const k = String(pl.place || '').split(' / ')[0]; if (k && !floors.includes(k)) floors.push(k); });
+    const first = items.map(it => it.ScheduledDate).filter(Boolean).sort()[0] || o.DispatchDate || '';
+    const when = rpDate(first);
+    const time = o.ServiceWindow || rpTime(first);
+    const others = pl => { const o2 = []; pl.items.forEach(it => namesOf(it.AssignedTo).forEach(n => { if (n.toLowerCase() !== g.who.toLowerCase() && !hasName(o2, n)) o2.push(n); })); return o2; };
+    const act = st === 'done' ? '<span class="rp-done">✓ Completed</span>' : personAction(g, st);
+    return '<div class="rp-row' + (st === 'done' ? ' done' : '') + '">' +
+      '<div class="rp-head" onclick="if(!event.target.closest(\'button\'))this.parentNode.classList.toggle(\'open\')"><span class="rp-car">▶</span><span class="rp-av">' + esc(initials(g.who)) + '</span>' +
+      '<div class="rp-who"><div class="rp-name">' + esc(g.who) + '</div><div class="rp-facts">' +
+        (floors.length ? '<span>' + RP_ICON.pin + esc(floors.join(', ')) + '</span>' : '') +
+        (when ? '<span>' + RP_ICON.cal + esc(when) + '</span>' : '') +
+        (time ? '<span>' + RP_ICON.clock + esc(time) + '</span>' : '') +
+        (st === 'waiting' ? '<span class="blue">Marked done in Tech</span>' : '') + '</div></div>' +
+      '<div class="rp-act">' + act + '</div></div>' +
+      '<div class="rp-body">' + g.places.map(pl => {
+        const w = others(pl);
+        return '<div class="rp-floor"><div class="rp-fhead" onclick="this.parentNode.classList.toggle(\'open\')"><span class="rp-car">▶</span>' +
+          '<span class="rp-fname">' + esc(pl.place) + (w.length ? '<span class="rp-with">with ' + esc(w.map(n => n.split(' ')[0]).join(', ')) + '</span>' : '') + '</span>' +
+          '<span class="rp-fcount">' + pl.items.length + (pl.items.length === 1 ? ' service' : ' services') + '</span></div>' +
+          '<div class="rp-fbody">' + pl.items.map(it => '<div class="rp-svc"><span class="rp-sname">' + svcName(pl.place, it.ServiceName) + '</span>' +
+            (levelBy[pl.place + '|' + it.ServiceName] ? '<span class="rp-lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '') + '</div>').join('') + '</div></div>';
+      }).join('') + '</div></div>';
+  }).join('') + '</div>';
 }
 /* Un boton por persona (24/09/2026): cierra todo lo de esa persona en
    la orden, haya o no marcado algo en Tech. */
@@ -11388,6 +11460,12 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           '</div>';
       }).join('') + '</div>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
+  /* Recurrentes / por lugar: la caja de servicios muestra la vista POR
+     PERSONA (placeWhoHtml) y ya no hay bloque aparte de "Who does what". */
+  const isPlaceView = isAssignByService && (o.RecurringServiceID || isPlaceOrderId(o.OrderID, services));
+  const svcBoxInner = isPlaceView ? placeWhoHtml(o, services, history) : svcTableHtml;
+  const svcPeopleCount = isPlaceView ? new Set((svcAssignCache[o.OrderID] || []).flatMap(a => String(a.AssignedTo || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean))).size : 0;
+  svcBoxHtmlCache[o.OrderID] = svcBoxInner;
 
   return `
     <div class="detail-grid">
@@ -11422,12 +11500,12 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-btn-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px" onclick="event.stopPropagation();toggleActiveSvcUpdate('${esc(o.OrderID)}','${esc(o.Division||'')}')">Update</button>
               <button type="button" class="gs-ofp-btn-secondary" id="active-svc-cancel-${esc(o.OrderID)}" style="width:auto;padding:4px 12px;font-size:12px;display:none" onclick="event.stopPropagation();cancelActiveSvcUpdate('${esc(o.OrderID)}')">Cancel</button>
               `}
-              <span class="hist-toggle" id="active-svc-count-${esc(o.OrderID)}">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}</span>
+              <span class="hist-toggle" id="active-svc-count-${esc(o.OrderID)}">&#9660; ${svcRows.length} service${svcRows.length === 1 ? '' : 's'}${isPlaceView && svcPeopleCount ? '<span class="svc-cnt-people"> · ' + svcPeopleCount + ' ' + (svcPeopleCount === 1 ? 'person' : 'people') + '</span>' : ''}</span>
             </div>
           </div>
-          <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcTableHtml}</div>
+          <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcBoxInner}</div>
         </div>
-        ${isAssignByService && (o.RecurringServiceID || isPlaceOrderId(o.OrderID, services)) ? placeWhoHtml(o, services, history) : ''}
+        ${isPlaceView ? placeWhoHtml(o, services, history, 'extras') : ''}
         <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
         <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>
@@ -11634,6 +11712,9 @@ function activeFieldsChanged(orderId) {
     val('edit-delaynotes')      !== (orig.delaynotes || '');
 }
 
+/* Lo que se pinto en la caja de servicios al abrir la orden -- Cancel
+   en Update lo regresa tal cual (antes regresaba la tabla vieja). */
+var svcBoxHtmlCache = {};
 function activeSvcDomId(orderId) { return 'ro-svc-' + String(orderId).replace(/[^a-z0-9]/gi, '_'); }
 
 /* Tabla de solo-lectura de Services Requested, reconstruida desde el
@@ -11654,14 +11735,18 @@ function activeSvcReadOnlyHtml(orderId) {
     });
   });
   if (!rows.length) return '<p class="empty-note" style="padding:12px 0">No services.</p>';
-  return '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-    rows.map((r, i) => '<tr' + (i < rows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
-      '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, orderId) + '</td>' +
-      '<td style="padding:9px 0;color:var(--gray)">' + esc(r.lvl || (r.qty ? 'Qty: ' + r.qty : '')) + '</td>' +
-      '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
-      '</tr>').join('') +
-    '</table>';
+  /* Mismo estilo de tarjetas que la caja al abrir la orden (opcion A),
+     sin estatus: esto solo se ve un momento, hasta que loadAll vuelve a
+     pintar la orden con lo guardado. */
+  let lastCat = '';
+  return '<div class="sv-list">' + rows.map(r => {
+    lastCat = r.cat || lastCat;
+    const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
+    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+    return '<div class="sv-card"><div class="sv-main"><div class="sv-eyebrow">' + esc(lastCat) + '</div>' +
+      '<div class="sv-name">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + (lvTxt ? '<span class="sv-lv">' + esc(lvTxt) + '</span>' : '') + '</div>' +
+      (mins ? '<div class="sv-meta">' + esc(mins) + '</div>' : '') + '</div></div>';
+  }).join('') + '</div>';
 }
 
 /* Version EDITABLE de la misma lista -- cada renglon con su X para
@@ -11899,7 +11984,9 @@ function toggleActiveSvcUpdate(orderId, division) {
     }
     if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
     if (winDisplay) winDisplay.textContent = document.getElementById('edit-window-' + orderId)?.value || '—';
-    if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
+    /* Sin cambios: se regresa lo mismo que se veia. Con cambios, loadAll
+       vuelve a pintar la orden con lo guardado. */
+    if (listBox) listBox.innerHTML = (!changed && svcBoxHtmlCache[orderId]) || activeSvcReadOnlyHtml(orderId);
     if (reassignLink) reassignLink.style.display = 'none';
     if (histToggle) histToggle.style.display = 'none';
     if (histDetail) histDetail.classList.add('open');
@@ -11954,7 +12041,7 @@ function cancelActiveSvcUpdate(orderId) {
   window['adminNC_' + orderId] = JSON.parse(JSON.stringify(window['adminNCOriginal_' + orderId] || {}));
   if (dueDisplay) dueDisplay.textContent = fmtDate(o.DueDate);
   if (winDisplay) winDisplay.textContent = o.ServiceWindow ? o.ServiceWindow : '—';
-  if (listBox) listBox.innerHTML = activeSvcReadOnlyHtml(orderId);
+  if (listBox) listBox.innerHTML = svcBoxHtmlCache[orderId] || activeSvcReadOnlyHtml(orderId);
   if (reassignLink) reassignLink.style.display = 'none';
   if (histToggle) histToggle.style.display = 'none';
   if (histDetail) histDetail.classList.add('open');
