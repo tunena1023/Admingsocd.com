@@ -7,6 +7,21 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## Minis: SIEMPRE con el app real (24/09/2026, el dueño: "esmerate")
+
+Los minis sueltos (una cajita con estilos propios) no le sirven al dueño:
+no se parecen a lo que despues ve. El mini se arma con el admin.html REAL
+del repo (con el cambio ya puesto en la copia local), metiendo INLINE cada
+<script> de gsocd-shared en su version exacta (git show vX:ruta), quitando
+lo que el hosting de artifacts bloquea (sheetjs, qrcode, leaflet), y
+cambiando SOLO el login (msal falso + sessionStorage admin_account) y la
+API (window.fetch simulado para /api/* con datos de ordenes reales: Senior
+Lofts, Equitable, Ashok). Logo y fondo del nav: recortados de una captura
+del dueño (en el app salen de /api/site-image, que el sandbox no alcanza).
+Insertar lo extra antes del ULTIMO </body> (hay un '</body>' dentro de un
+string de impresion en admin.html). Probar con Playwright a 1280/375/320
+antes de mandarlo. Ejemplo aprobado: https://claude.ai/artifact/G3imRZQbjWGHcrr8X3VYq1
+
 ## 24/09/2026 -- en Preview (rama feat/package-edit-no-select-all), falta el "dale" a main
 
 - **Active > Recurring:** sin boton de completado por servicio (solo en
