@@ -1444,7 +1444,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.60.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.61.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -2657,6 +2657,7 @@ let recurringPendingCache = [];
 let orderDetailCache = {};
 let orderDetailCacheData = {};
 let createSelectedClient = null;
+let createClientSetsCache = {}; // clientId -> { usual, saved } (list-client-packages)
 let createSelected = new Map();   // sku -> fila del catalogo { serviceName, division, propertyType }
 let activeCatalogCache = null;    // ServicesCatalog activo, precargado en loadAll()
 let serviceTimesBySku = new Map(); // SKU -> {sku, serviceName, division, level1, level2, level3}, precargado en loadAll()
@@ -13929,11 +13930,17 @@ async function loadCreateServices() {
     try {
       const r = await api('/developer-admin', { body: { action: 'list-client-packages', email: adminUser.email, clientId: pkgClientId } });
       createClientPkgCache[pkgClientId] = r.packages || {};
+      /* Lo que el cliente hace seguido (picker v1.61.0): su "Your usual
+         order" (burbuja Most used) y sus paquetes guardados (My package). */
+      createClientSetsCache[pkgClientId] = { usual: r.usualSets || [], saved: r.savedSets || [] };
     } catch (e) { createClientPkgCache[pkgClientId] = {}; showToast('Could not load this client\'s packages.'); }
   }
   const pkgEdit = pkgClientId ? createPackageEditFor(pkgClientId) : null;
+  const pkgSets = createClientSetsCache[pkgClientId] || { usual: [], saved: [] };
   createPickerHandle = GSServicePicker.mount('create-order', 'create-services-list', {
     catalog: createCatalogFor(pkgClientId),
+    usualSets: pkgSets.usual.filter(u => !div || u.division === div || isMixed),
+    savedSets: pkgSets.saved.filter(u => !div || u.division === div || isMixed),
     packageEdit: pkgEdit,
     division: div,
     crossDivision: isMixed,

@@ -507,7 +507,27 @@ exports.handler = async (event) => {
     if (action === 'list-client-packages') {
       const clientId = String(body.clientId || '').trim();
       if (!clientId) return jsonResponse(400, { error: 'clientId is required' });
-      return jsonResponse(200, { packages: await clientPackages.clientPackagesFor(clientId) });
+      /* Tambien lo que el cliente hace seguido (24/09/2026, el dueño: "esos
+         los podemos ver nosotros en Admin para ver que piden"): su "usual
+         order" (Clients.UsualPackages) y sus paquetes guardados ("My
+         package" = sus Templates), para Create Order. Si algo falla, solo
+         no salen. */
+      let usualSets = [], savedSets = [];
+      try {
+        const { usualSetsFromFields } = require('./lib/usual-packages');
+        const esc = v => String(v).replace(/'/g, "''");
+        const [crows, trows] = await Promise.all([
+          queryList(CLIENTS_LIST, '$expand=fields&$top=5&$filter=' + encodeURIComponent("fields/ClientID eq '" + esc(clientId) + "'")),
+          queryList(SERVICE_TEMPLATES_LIST, '$expand=fields&$top=200&$filter=' + encodeURIComponent("fields/ClientID eq '" + esc(clientId) + "'"))
+        ]);
+        usualSets = usualSetsFromFields((crows[0] && crows[0].fields) || {}).map(u => Object.assign({}, u, { name: 'Usual order' })); // en Admin no es 'Your'
+        savedSets = trows.filter(t => t.fields).map(t => {
+          let sv = []; try { sv = JSON.parse(t.fields.ServicesJSON || '[]'); } catch (e) {}
+          return { key: String(t.id), name: t.fields.Title || 'Package', division: t.fields.Division || '',
+            items: sv.filter(x => x && x.SubOption).map(x => ({ sku: String(x.SubOption), level: x.Level || '' })) };
+        }).filter(t => t.items.length);
+      } catch (e) { console.error('usual/saved sets for ' + clientId + ':', e.message); }
+      return jsonResponse(200, { packages: await clientPackages.clientPackagesFor(clientId), usualSets, savedSets });
     }
     if (action === 'save-client-package' || action === 'reset-client-package') {
       const clientId = String(body.clientId || '').trim();
