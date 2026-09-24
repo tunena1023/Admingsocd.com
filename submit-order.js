@@ -716,8 +716,12 @@ exports.handler = async (event) => {
         historyWarning = 'The order was created, but its first history entry could not be saved: ' + e2.message;
       }
     }
-} catch (e) { console.error('Post-order write failed:', e.message); }
+    /* BUG REAL (24/09/2026): esta linea estaba DESPUES del try de arriba,
+       donde parsedServices ya no existe ('parsedServices is not defined'):
+       la orden SI se creaba pero la respuesta era error 500. Mismo bug
+       que en ordersgsocd.com/submit-order.js. Venia del 23/09. */
     await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
+} catch (e) { console.error('Post-order write failed:', e.message); }
     return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning });
 
   } catch (err) {

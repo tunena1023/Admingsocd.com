@@ -56,6 +56,12 @@ exports.handler = async (event) => {
     const { levelAdjustOf, levelPricesFor } = require('./lib/catalog-fields');
     const adjBySku = {};
     catalogRows.forEach(it => { if (it.fields && it.fields.SKU) adjBySku[it.fields.SKU] = levelAdjustOf(it.fields); });
+    /* BUG REAL (24/09/2026, lo encontro una revision de variables sin
+       definir): el 23/09 (9aabf4a) se borro por accidente este mapa de
+       precios junto con el viejo de Settings, y cada importacion a
+       QuickBooks tronaba con 'priceBySku is not defined'. */
+    const priceBySku = {};
+    catalogRows.forEach(it => { if (it.fields && it.fields.SKU) priceBySku[it.fields.SKU] = it.fields.Price; });
     const levelPrice = (sku, base, level) => {
       const lp = levelPricesFor(base, adjBySku[sku]);
       return lp && lp[level] != null ? lp[level] : base;
