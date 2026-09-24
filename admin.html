@@ -4961,7 +4961,7 @@ function approvalDetailHtml(card, o, services, history) {
       + 'onclick="cancelApprSvcUpdate(\'' + esc(card.OrderID) + '\')">Cancel</button>');
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
-    rows.push(reviewSvcTableHtml(services));
+    rows.push(reviewSvcTableHtml(services, card.OrderID));
     /* El preview antes/despues ya se muestra arriba, junto al diff de
        Added/Removed (mas natural verlo ahi primero) -- aqui solo se
        deja el total sencillo, para cuando no hay snapshot de servicios
@@ -5005,7 +5005,33 @@ function isCatalogSku(sub) {
   return (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
 }
 
-function reviewSvcTableHtml(services) {
+/* Tarjetas de SOLO LECTURA estilo opcion A (24/09/2026, el dueño: "mira
+   en Approvals que feo se ve") -- mismo look que Services Requested en
+   Active: categoria arriba, nombre con nivel en pastilla, tiempo, y el
+   paquete doblado en "What's included (N)". Lo usan Approvals, Review y
+   el repintado de Active. rows: [{cat, name, sku, lvl, qty, sub, note}] */
+function svReadOnlyCardsHtml(rows, orderId) {
+  let lastCat = '';
+  return '<div class="sv-list">' + rows.map((r, i) => {
+    lastCat = r.cat || lastCat;
+    const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
+    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+    const metaBits = [];
+    if (r.sub) metaBits.push(esc(r.sub));
+    if (mins) metaBits.push(esc(mins));
+    const incl = (orderId && pkgSnapshotFor(orderId, String(r.sku || ''))) || [];
+    const inclId = 'sv-ro-incl-' + String(orderId || '').replace(/[^a-z0-9]/gi, '_') + '-' + i;
+    return '<div class="sv-card"><div class="sv-main"><div class="sv-eyebrow">' + esc(lastCat) + '</div>' +
+      '<div class="sv-name">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + (lvTxt ? '<span class="sv-lv">' + esc(lvTxt) + '</span>' : '') + '</div>' +
+      (metaBits.length ? '<div class="sv-meta">' + metaBits.join('<span class="sv-sep">\u00b7</span>') + '</div>' : '') +
+      (r.note || '') +
+      (incl.length ? '<button type="button" class="sv-incl-toggle" onclick="this.classList.toggle(\'open\');document.getElementById(\'' + inclId + '\').classList.toggle(\'open\')"><span class="car">\u25B8</span>What\u2019s included (' + incl.length + ')</button>' : '') + '</div>' +
+      (incl.length ? '<div class="sv-incl" id="' + inclId + '">' + incl.map(x => '<div><span>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(x.sku, esc(x.serviceName || x.sku)) : esc(x.serviceName || x.sku)) + '</span>' + (x.level ? '<span class="sv-lv">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '') + '</div>').join('') + '</div>' : '') +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function reviewSvcTableHtml(services, orderId) {
   if (!services.length) return '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
   const byCat = {};
   services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
@@ -5013,22 +5039,13 @@ function reviewSvcTableHtml(services) {
   Object.entries(byCat).forEach(([cat, list]) => {
     list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), nc: s }));
   });
-  return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-    svcRows.map((r, i) => {
-      const nc = (r.nc.NotCompleted === true || String(r.nc.NotCompleted) === 'true');
-      const subTxt = (r.sub ? esc(r.sub) : (r.nc.Quantity ? 'Qty: ' + esc(r.nc.Quantity) : '—')) +
-        (nc ? ' <b style="color:#B06A2A">· not completed' +
-              (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</b>' : '');
-      const mins = svcMinutesLabel(r.nc.SubOption, r.nc.Level, r.nc.Quantity);
-      return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
-        '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, card.OrderID) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + subTxt + '</td>' +
-        '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (mins ? esc(mins) : '') + '</td>' +
-        '</tr>';
-    }).join('') +
-    '</table></div>';
+  /* Antes usaba card.OrderID (no existe aqui) y r.sku (nunca se lleno):
+     ahora recibe orderId y el SKU real va en SubOption. */
+  return svReadOnlyCardsHtml(svcRows.map(r => {
+    const nc = (r.nc.NotCompleted === true || String(r.nc.NotCompleted) === 'true');
+    return { cat: r.cat, name: r.name, sku: r.nc.SubOption, lvl: r.nc.Level, qty: r.nc.Quantity, sub: r.sub,
+      note: nc ? '<div class="sv-meta" style="color:#B06A2A;font-weight:600">Not completed' + (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</div>' : '' };
+  }), orderId);
 }
 
 /* Preview de tiempo antes/despues -- para cuando hay un cambio de
@@ -5086,15 +5103,8 @@ function apprReadOnlySvcHtml(orderId) {
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
-  return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-    svcRows.map((r, i) => '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
-      '<td style="padding:9px 14px 9px 10px;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, orderId) + '</td>' +
-      '<td style="padding:9px 10px 9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : '—') + '</td>' +
-      '<td style="padding:9px 10px 9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>' +
-      '</tr>').join('') +
-    '</table></div>' + estimatedTimeHtml(apprServicesArray(orderId));
+  return svReadOnlyCardsHtml(svcRows.map(r => ({ cat: r.cat, name: r.name, sku: r.sku, lvl: r.lvl, qty: r.qty,
+    sub: isCatalogSku(r.sku) ? '' : r.sub })), orderId) + estimatedTimeHtml(apprServicesArray(orderId));
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
