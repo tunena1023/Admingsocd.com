@@ -7,6 +7,23 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## 24/09/2026 -- en Preview (rama feat/package-edit-no-select-all), falta el "dale" a main
+
+- **Active > Recurring:** sin boton de completado por servicio (solo en
+  recurrentes). Sigue el boton POR PERSONA (mini aprobado:
+  https://claude.ai/artifact/8W4hpmzdFpsa8fF9vyepdL) -- necesita 2
+  columnas en ServiceAssignments (DoneBy, ConfirmedFor) y camara por
+  SERVICIO en Tech (facturan por servicio; la foto debe decir de que
+  servicio y lugar es). Aun no construido.
+- **Select all (L1/L2/L3) quitado de todos los pickers** (Admin y Orders).
+- **Edit de paquetes por cliente** construido: picker v1.57.0
+  (packageEdit), acciones list/save/reset-client-package en
+  developer-admin, lib/client-packages.js (Admin y Orders), el portal
+  muestra la version del cliente (get-services) y cada orden congela la
+  version del cliente (recordPackageSnapshots). Mini aprobado:
+  https://claude.ai/artifact/6NhneyVnNWVTkMwH5wgKCv. Se quedo el acomodo
+  de tarjetas de hoy (una debajo de otra), no la galeria del mini viejo.
+
 ## HANDOFF (23/09/2026, fin de sesión — chat lleno, sigue en uno nuevo)
 
 Sesión larga. Todo lo de abajo está SUBIDO y en producción salvo la

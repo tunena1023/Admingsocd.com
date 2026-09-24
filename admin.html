@@ -1336,7 +1336,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.56.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.57.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -6126,7 +6126,9 @@ function mountRcPicker(initialSelected, initialLevels, propertyType, initialQuan
       catalog: servicesCache,
       division: 'Janitorial',
       mode: 'levels',
-      showSelectAll: true,
+      /* Select all (L1/L2/L3) quitado de TODOS los pickers (pedido del
+         dueño 24/09/2026: "ahi no se ocupa... quitalo de todas partes"). */
+      showSelectAll: false,
       groupByCategory: true,
       propertyType: propertyType || 'Commercial',
       initialSelected: initialSelected || {},
@@ -13701,6 +13703,39 @@ function renumberCreateUnitCards() {
    chips -- nunca se muestra el SKU, solo el nombre. ===== */
 let createCatalogCache = null;   // filas de ServicesCatalog activas, cacheadas una vez
 let createPropertyType = 'Commercial';
+/* Paquetes por cliente (ClientPackages), cacheados por cliente. */
+var createClientPkgCache = createClientPkgCache || {};
+let createPickerHandle = null;
+function createCatalogFor(clientId) {
+  const own = (clientId && createClientPkgCache[clientId]) || {};
+  return (createCatalogCache || []).map(s => own[String(s.sku)] ? Object.assign({}, s, { packageItems: own[String(s.sku)] }) : s);
+}
+function createPackageEditFor(clientId) {
+  const pe = {
+    clientId,
+    customSkus: {},
+    onSave: async function (sku, items) {
+      try {
+        const r = await api('/developer-admin', { body: { action: 'save-client-package', email: adminUser.email, clientId, sku, items } });
+        createClientPkgCache[clientId] = r.packages || {};
+        pe.customSkus = Object.fromEntries(Object.keys(createClientPkgCache[clientId]).map(k => [k, true]));
+        if (createPickerHandle) createPickerHandle.setCatalog(createCatalogFor(clientId));
+        showToast('Saved for ' + clientId + '.');
+      } catch (e) { showToast('Could not save: ' + e.message); throw e; }
+    },
+    onReset: async function (sku) {
+      try {
+        const r = await api('/developer-admin', { body: { action: 'reset-client-package', email: adminUser.email, clientId, sku } });
+        createClientPkgCache[clientId] = r.packages || {};
+        pe.customSkus = Object.fromEntries(Object.keys(createClientPkgCache[clientId]).map(k => [k, true]));
+        if (createPickerHandle) createPickerHandle.setCatalog(createCatalogFor(clientId));
+        showToast('Back to the standard package.');
+      } catch (e) { showToast('Could not reset: ' + e.message); }
+    }
+  };
+  pe.customSkus = Object.fromEntries(Object.keys(createClientPkgCache[clientId] || {}).map(k => [k, true]));
+  return pe;
+}
 
 function setCreateDivision(div, el) {
   document.getElementById('create-division').value = div;
@@ -13724,12 +13759,25 @@ async function loadCreateServices() {
   const isMixed = div === 'Mixed';
   wrap.style.display = 'block';
   document.getElementById('create-est-time').innerHTML = '';
-  GSServicePicker.mount('create-order', 'create-services-list', {
-    catalog: createCatalogCache,
+  /* Paquetes por cliente (24/09/2026, mini aprobado): el catalogo de
+     este cliente trae SUS packageItems (lista ClientPackages) y el
+     paquete abierto trae Edit (picker v1.57.0, packageEdit). La orden
+     congela esa misma version en el servidor (lib/package-contents.js). */
+  const pkgClientId = createSelectedClient ? createSelectedClient.clientId : '';
+  if (pkgClientId && !createClientPkgCache[pkgClientId]) {
+    try {
+      const r = await api('/developer-admin', { body: { action: 'list-client-packages', email: adminUser.email, clientId: pkgClientId } });
+      createClientPkgCache[pkgClientId] = r.packages || {};
+    } catch (e) { createClientPkgCache[pkgClientId] = {}; showToast('Could not load this client\'s packages.'); }
+  }
+  const pkgEdit = pkgClientId ? createPackageEditFor(pkgClientId) : null;
+  createPickerHandle = GSServicePicker.mount('create-order', 'create-services-list', {
+    catalog: createCatalogFor(pkgClientId),
+    packageEdit: pkgEdit,
     division: div,
     crossDivision: isMixed,
     mode: (isJan || isMixed) ? 'levels' : 'toggle',
-    showSelectAll: isJan,
+    showSelectAll: false,
     groupByCategory: true,
     propertyType: createPropertyType,
     /* v1.52.0: toggle Recurring / Units; aqui arranca en Units (unidades

@@ -30,12 +30,13 @@ const {
   HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST,
   ORDERS_FOLDER, findFolderByPrefix, listChildren, deleteDriveItemById,
   ORDER_SEEN_BY_LIST,
-  graphFetch, siteListPath, queryList,
+  graphFetch, siteListPath, queryList, CLIENT_PACKAGES_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   jsonResponse
 } = require('./lib/graph');
 
 const { ensureRecurringOrders, propagateContractEdit } = require('./lib/recurring-orders');
+const clientPackages = require('./lib/client-packages');
 /* HOTFIX 22/09/2026 -- ver el mismo comentario en admin-get-orders.js:
    se copia aqui en vez de depender de gsocd-shared/lib/seen-tracking,
    que tumbo todo el backend de Admin en produccion. */
@@ -495,6 +496,46 @@ exports.handler = async (event) => {
         levelPrices: catalogFields.levelPricesFor(it.fields.Price, catalogFields.levelAdjustOf(it.fields))
       }));
       return jsonResponse(200, { services, areaNames: SERVICE_AREA_NAMES });
+    }
+
+    /* ===== Paquetes por cliente (24/09/2026, aprobado con mini) =====
+       Clients > Create Order > Edit en el paquete abierto. Lista
+       ClientPackages: un renglon por cliente+paquete. Cualquier staff
+       que puede crear ordenes en Admin puede editarlo (canView). Nada
+       de esto toca ordenes ya creadas: cada orden congela su copia al
+       crearse (lib/package-contents.js). */
+    if (action === 'list-client-packages') {
+      const clientId = String(body.clientId || '').trim();
+      if (!clientId) return jsonResponse(400, { error: 'clientId is required' });
+      return jsonResponse(200, { packages: await clientPackages.clientPackagesFor(clientId) });
+    }
+    if (action === 'save-client-package' || action === 'reset-client-package') {
+      const clientId = String(body.clientId || '').trim();
+      const sku = String(body.sku || '').trim();
+      if (!clientId || !sku) return jsonResponse(400, { error: 'clientId and sku are required' });
+      const existing = (await clientPackages.clientPackageRows(clientId)).filter(it => String(it.fields.PackageSKU || '').trim() === sku);
+      if (action === 'reset-client-package') {
+        await Promise.all(existing.map(it => deleteListItem(CLIENT_PACKAGES_LIST, it.id)));
+        return jsonResponse(200, { success: true, packages: await clientPackages.clientPackagesFor(clientId) });
+      }
+      const catalog = await fetchAll(SERVICES_CATALOG_LIST);
+      const bySku = {};
+      catalog.forEach(it => { if (it.fields && it.fields.SKU) bySku[String(it.fields.SKU).trim()] = it.fields; });
+      if (!bySku[sku]) return jsonResponse(404, { error: 'Package not found in the catalog.' });
+      const LV = ['Level 1', 'Level 2', 'Level 3'];
+      const seen = {};
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .map(x => ({ sku: String((x && x.sku) || '').trim(), level: LV.includes(x && x.level) ? x.level : 'Level 1' }))
+        .filter(x => x.sku && x.sku !== sku && bySku[x.sku] && !seen[x.sku] && (seen[x.sku] = true));
+      const fields = { Items: JSON.stringify(items) };
+      if (existing.length) {
+        await updateListItemByItemId(CLIENT_PACKAGES_LIST, existing[0].id, fields);
+        /* Por si alguna vez quedo duplicado: se queda uno solo. */
+        await Promise.all(existing.slice(1).map(it => deleteListItem(CLIENT_PACKAGES_LIST, it.id)));
+      } else {
+        await createListItem(CLIENT_PACKAGES_LIST, Object.assign({ Title: clientId + ' ' + sku, ClientID: clientId, PackageSKU: sku }, fields));
+      }
+      return jsonResponse(200, { success: true, packages: await clientPackages.clientPackagesFor(clientId) });
     }
 
     /* Areas de UN servicio (Developer > Service Catalog). Guarda el
