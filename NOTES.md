@@ -7,6 +7,157 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## HANDOFF (23/09/2026, fin de sesión — chat lleno, sigue en uno nuevo)
+
+Sesión larga. Todo lo de abajo está SUBIDO y en producción salvo la
+última entrada (paquetes por cliente), que es solo un mini aprobado,
+sin código. Entradas viejas ya resueltas se movieron a
+NOTES_ARCHIVE.md para no perder el hilo de lo que sigue vivo.
+
+### Pendiente inmediato, con mini YA APROBADO por el dueño -- empezar por aquí
+
+**Paquetes editables por cliente ("el botón de editar en Clients >
+Create Order").** Mini: https://claude.ai/artifact/CkLdB3Tmt2QBcN3H28Xghp
+("me gustó"). Construir:
+- En Clients > Create Order > tarjeta del cliente, sección Packages:
+  estilo **Gallery** -- el paquete elegido/abierto grande a la
+  izquierda, los demás cerrados en una columna a la derecha (clic en
+  uno cerrado = pasa a ser el abierto).
+- El paquete abierto trae un botón **Edit** (**solo visible en Admin**,
+  el cliente nunca lo ve): permite agregar/quitar servicios de ESE
+  paquete y cambiarles el nivel, usando el mismo picker/estilo de
+  siempre (L1/L2/L3, con el pool de servicios disponibles).
+- Al guardar (**Save for <ClientID>**), esa configuración queda
+  **específica de ese cliente** -- ese cliente (Admin y su portal) ve
+  su versión custom del paquete; los demás clientes siguen viendo la
+  versión general de Developer > Package contents. Se guarda en la
+  lista **ClientPackages** (columnas `ClientID`, `PackageSKU`, `Items`
+  -- ya existen en SharePoint, creadas por el dueño, AÚN SIN USAR).
+- Tarjeta marcada "Custom for <ClientID>" (verde) cuando el cliente
+  tiene su propia versión, con link **"Reset to standard"** para
+  volver a la general.
+- **Bug a corregir del mini** (no está en el código real, es del
+  preview): la etiqueta debe pasar a "Custom" solo AL GUARDAR (Save),
+  no apenas se entra a editar.
+- **3 supuestos que el dueño vio en el mini y no objetó explícitamente
+  -- confirmar con un "sí" antes de construir, no asumir silencio como
+  aprobación total:**
+  1. Si después se edita la versión GENERAL del paquete en Developer,
+     un cliente que ya tiene su propia versión custom **se queda con
+     la suya** (no se le actualiza solo).
+  2. "Reset to standard" tira la versión custom y vuelve a lo que haya
+     en Developer.
+  3. Cada ORDEN sigue congelando su propia copia el día que se crea
+     (Orders.PackageContents, sin cambios) -- editar aquí solo afecta
+     qué usarán las órdenes NUEVAS de ese cliente.
+- Relacionado, mencionado por el dueño y aún sin resolver: que
+  cualquier servicio (no solo categoría "Package") se pueda armar como
+  paquete desde su propia fila -- ej. "Janitorial Service (Part Time -
+  Day)" 111-33. Confirmar en qué pantalla antes de construir (Service
+  Catalog o Service Times -- la captura que mandó el dueño era de
+  Service Times).
+
+### Reglas ya confirmadas esta sesión, aplican a todo lo nuevo
+
+- **Commercial es el default en TODO picker/toggle nuevo** que se
+  agregue de aquí en adelante ("siempre deben estar en Commercial por
+  defecto, lo residencial es poco y opcional"). Ya se audito y
+  corrigio TODO lo existente (ver mas abajo) -- pero cualquier picker
+  NUEVO que se construya debe nacer asi, no hace falta que el dueño lo
+  vuelva a pedir.
+- **Antes de construir algo con layout/diseño nuevo, mini primero.**
+  Varias veces en esta sesión se construyó código sin mini y hubo que
+  revertir o corregir (ver "Aprendido" abajo). El dueño SÍ quiere
+  velocidad ("al mal paso, dale prisa") pero para BUGS y ajustes
+  puntuales, no para diseño nuevo.
+- **Antes de decidir DÓNDE va algo en la UI, preguntar.** El dueño lo
+  pidió explícitamente tras un error real (ver "Aprendido").
+
+### Aprendido esta sesión (para no repetir)
+
+- Se agregó una tarjeta nueva "Recurring option in the client portal"
+  en Developer sin preguntar dónde -- el dueño ya tenía un patrón
+  (casillas por cliente en All Clients, junto a "Show Est. Time") y
+  quería la opción AHÍ. Se revirtió y se rehizo en su lugar. Lección:
+  con features que tocan una pantalla que ya existe, preguntar "¿dónde
+  lo quieres?" ANTES de construir, no asumir el lugar "lógico".
+- El picker de servicios dentro de Package contents (Developer) se
+  construyó en modo simple sin el picker de tarjetas real (toggle,
+  niveles, columnas) -- el dueño lo notó de inmediato ("y los niveles?
+  pr que esta todo largo asi"). Se corrigió para usar el MISMO
+  GSServicePicker que todo lo demás.
+- El dropdown de paquetes en Package contents mezclaba Commercial y
+  Residential ordenados solo alfabéticamente -- si un Residential caía
+  primero en el alfabeto, la tarjeta abría ahí. Corregido: Commercial
+  siempre primero y default.
+- Las tarjetas de Developer se controlan por una lista de "elegibles
+  por rol" -- una tarjeta nueva (Package contents) se agregó sin
+  meterla a esa lista y quedó invisible para todos, sin que ningún
+  test lo detectara porque las pruebas abrían la tarjeta por código en
+  vez de navegar como un usuario real. Lección: probar features de
+  Developer entrando con un rol real y viendo qué se muestra, no solo
+  llamando las funciones directo.
+- La columna `Value` de la lista `Settings` en SharePoint no acepta
+  textos largos (JSON de áreas/paquetes tronaba con "Invalid request",
+  en silencio, en cada carga de Admin). Se resolvió DE RAÍZ pidiéndole
+  al dueño columnas reales en SharePoint (`Areas`, `PackageItems`,
+  `Level2Price`/`Level2Mode`, `Level3Price`/`Level3Mode` en
+  ServicesCatalog; `ShowRecurring`/`ShowPrices` en Clients;
+  `PackageContents` en Orders; lista `ClientPackages` nueva) en vez de
+  seguir partiendo JSON en pedazos. El dueño fue explícito: "si se
+  ocupan nuevas columnas, las hacemos, no vayas a revolver cosas" --
+  criterio a seguir para lo que sigue (paquetes por cliente
+  incluido: usar ClientPackages, no otro truco).
+
+### Dónde quedó cada pieza grande (todo en producción)
+
+- **Picker de servicios (gsocd-shared), v1.56.0 actual:**
+  toggle Recurring/Units, Common Areas en tarjetas por área (la del
+  lugar se abre sola), paquetes como plantilla en Units (aunque no
+  tengan contenido: "Contents not set yet"), precios opcionales
+  (`showPrices`, con precio por nivel si el servicio lo tiene).
+  `multi-select` v1.54.0 (dropdown con buscador, usado en Developer).
+- **Áreas, contenido de paquetes y precio por nivel:** vive en
+  columnas reales de ServicesCatalog (ver arriba). Se editan en
+  Developer > Service Catalog (Areas) y Developer > Package contents
+  (contenido + nada de precio ahí); precio por nivel en Developer >
+  Service Times (columnas Level 2 price / Level 3 price, +% o +$).
+- **Cada ORDEN congela su propia copia** de lo que incluía un paquete
+  el día que se creó (columna `Orders.PackageContents`) -- cambiar el
+  paquete después solo afecta órdenes nuevas. Las cotizaciones a
+  QuickBooks mandan esa copia en la descripción de la línea, con SKU.
+- **Clients > Create Order,** tarjeta de cada cliente: Client ID antes
+  del nombre; "+ Add Order" y el toggle **Custom** en la misma línea
+  del encabezado (arriba, no abajo). Custom abre oficina (días/horario,
+  con fichas redondas y barra del día) + lo que ve en su portal (Show
+  estimated time, Show Recurring, Show prices) -- se guarda solo al
+  tocarlo, en columnas de Clients.
+- **Developer > Customers > All Clients** = cambios en masa: 1) tarjeta
+  de QUÉ cambiar (con su propio valor y su propia selección de
+  clientes, no se pisan entre sí), 2) A QUIÉN, 3) "Apply N changes"
+  aplica todas las tarjetas armadas de un golpe.
+- **Developer > Settings** agrupado en Access / Imports / Tools.
+  Reports se quedó solo con el Recurring Scheduler.
+- **Auth:** Admin exige token de Microsoft válido en cada petición
+  (excepto site-image, quickbooks-callback, cron). Verificado sin
+  huecos (barrido Puppeteer de todas las pestañas).
+
+### Pendientes sueltos, sin resolver, mencionados pero no retomados
+
+- Auth: el mismo hueco (confiar en clientId/techId sin verificar)
+  sigue existiendo en Orders y Tech -- no tienen login de Microsoft.
+  Necesita su propia solución de sesión.
+- QuickBooks sigue en modo sandbox -- pasar a producción antes de
+  construir el sync automático App<->QuickBooks de clientes (ambas
+  direcciones, ya diseñado, no construido -- ver NOTES_ARCHIVE.md o
+  buscar "QuickBooks sync" en el historial del chat si hace falta el
+  detalle).
+- Botón temporal "Fill with Equitable (test)" en Recurring, sigue en
+  producción a propósito -- quitar cuando ya no sirva para probar.
+- Set real minutes / precios en servicios que hoy usan placeholders.
+
+---
+
 ## SUBIDO (23/09/2026): columnas reales (fin de los JSON en Settings)
 
 El dueño creó las columnas en SharePoint; el código ya las usa:
@@ -41,360 +192,6 @@ El dueño creó las columnas en SharePoint; el código ya las usa:
   `catalog_level_prices`). El portal muestra el precio del nivel elegido;
   las cotizaciones a QuickBooks mandan ese precio como precio de la
   línea (el artículo en QuickBooks nunca se reescribe).
-
-## SUBIDO Y DESPLEGADO (confirmado 13/09/2026): rediseño de "+ Add a Unit" en Admin
-
-Cambios en `admin.html` (función `addUnitFormHtml`, `submitAddBatchUnitAdmin`,
-nuevas `addUnitOfficeNeedState`/`setAddUnitOfficeNeed`, más CSS
-`.addunit-office-card`/`.addunit-dates-grid`) y en `submit-order.js` (bloque
-`AddUnitToBatch` ahora acepta y guarda `NeedsOfficeAccess`/`OfficeNeedNotes`,
-que antes no se persistían ahí para unidades agregadas a un PO existente).
-Aprobado en un mini interactivo tras varias iteraciones de ajuste visual.
-
-Resultado: mismos 6 campos y mismas acciones "Add Unit" (verde)/"Cancel" de
-siempre — solo con el look premium `gs-ofp-*` (ya cargado en la página,
-mismo componente que usa Create Order) en vez de inputs genéricos. Se agregó
-la tarjeta "Need anything from the office?" — versión MÁS DELGADA que la de
-Create Order (padding/fuente/íconos más chicos, aprobado así en el mini),
-con el toggle conectado de verdad.
-
-Confirmado en el repo real (13/09/2026): `admin.html` en `main` ya tiene
-`addUnitFormHtml`/`submitAddBatchUnitAdmin` con el look `gs-ofp-*`.
-
-**RESUELTO (confirmado 13/09/2026):** el mismo rediseño SÍ se portó a
-Orders — `ordersgsocd.com/customer.html` en `main` ya usa
-`addUnitFormHtml`/`toggleAddUnitForm`/`submitAddBatchUnit` con look
-`gs-ofp-*` (vía `GSOrderFormPremium.unitDetailPanelHtml`), sin rastro del
-modal viejo `addunit-dialog`. Ver el NOTES.md de `ordersgsocd.com` para el
-detalle completo (ahí el flujo de carga de buildings terminó siendo
-distinto: Building # es texto libre, no un select).
-
-## SUBIDO Y DESPLEGADO (14/09/2026): diff de servicios en Active > Edit y Approvals > Update
-
-A petición del dueño: mismo look que el "Request a Change" nuevo del
-cliente (lista + selector + diff, `gsocd-shared/service-change-panel`),
-pero aquí la oficina sigue aplicando DIRECTO con Save/Update — sin
-Pending Review y sin nota obligatoria por quitado (el diff es
-informativo). Se usa `GSServiceChangePanel.diffHtml()`/`namesOf()`
-sobre el picker que ya existía:
-- Active > Edit: caja de diff entre el picker y "Selected for this
-  order", contra `adminSvcOriginal_` (snapshot que ya existía para
-  Request Confirmation).
-- Approvals > Update: nuevo snapshot `apprSvcOriginal_` al pintar la
-  tarjeta, misma caja en el editor.
-La lista (nombre + nota "not completed" + cámara) y el tiempo estimado
-no cambian. Ojo al probar: el picker de Admin usa
-`filterMode:'selected-plus-search'` — un servicio nuevo se agrega
-BUSCÁNDOLO, no aparece su categoría sola.
-
-**Pendiente relacionado:** el cliente ahora puede pedir agregar/quitar
-servicios en una orden normal (Processing). Eso llega al historial como
-`Services Change Requested` / `Requested Services`
-(`NewValue = {services, removedNotes}`), igual que las fechas llegan como
-`Reschedule Requested`. Falta que Review lo muestre y que
-`admin-approve-order` lo aplique al aprobar (hoy solo se guarda).
-Las de Recurring (`Source: Client`) sí se ven ya en Review, badge
-"Recurring Change", con ➕/➖ — `renderRecurringChangeReview()` ya lo
-manejaba.
-
-## SUBIDO Y DESPLEGADO (13/09/2026): Preview de foto al pasar el mouse (1s, tamaño máximo, sin clic)
-
-Aprobado con mini antes de tocar código real. Reemplaza el viejo
-`.order-photo-thumb:hover { transform: scale(2.4) }` por un preview tipo
-lightbox: al quedarse 1 segundo con el mouse sobre una miniatura de foto,
-esta crece al tamaño máximo posible en pantalla — sin necesidad de clic.
-Se cierra en cuanto el mouse SALE de la miniatura (no por micro-
-movimientos naturales mientras sigue encima de la misma foto — decisión
-explícita confirmada con el mini, se sentiría roto exigir inmovilidad
-total).
-
-Implementado con **delegación de eventos** (`mouseover`/`mouseout` en
-`document`, revisando `closest('.order-photo-thumb')`) en vez de
-`addEventListener` directo sobre cada miniatura — necesario porque estas
-se insertan y reinsertan constantemente vía `innerHTML` cada vez que se
-refresca cualquier tab. `setupOrderPhotoHoverPreview()` se conecta una
-sola vez, en el punto que corre sin importar el camino de autenticación
-(stored session o MSAL fresco).
-
-**A petición explícita del dueño ("en todos los tabs... las fotos siempre
-deben ser visibles desde cualquier orden")**, se extendió a TODOS los
-lugares que muestran una orden real con `OrderID` y podrían tener fotos —
-se mapeó cada uno con `orderPhotoStripHtml()`:
-- Approvals (2 tipos de tarjeta), Active, History — ya lo tenían.
-- **Agregados en esta sesión:** Schedule (cola por agendar +
-  "Already scheduled, waiting for Approve") y Review (sección "Materials
-  Ready" + asignaciones huérfanas por técnico desactivado).
-- Dejado FUERA a propósito: la sección "Recurring Change" de Review — son
-  cambios a un contrato recurrente, no órdenes individuales con
-  `OrderID`/fotos propias.
-
-También se extendió el MISMO preview a Gallery (`.gs-gal-ph`, componente
-compartido `gallery-groups.js`) — a diferencia de `.order-photo-thumb`
-(un `<img>` directo), `.gs-gal-ph` es un `<div>` que envuelve un `<img>`
-adentro, y también se usa para videos (`.gs-gal-ph.video`) — los videos
-se excluyen del hover-preview (un video pausado agrandado no da el mismo
-vistazo rápido que una foto). El clic en Gallery sigue abriendo el
-lightbox normal con navegación prev/next, sin cambios ahí.
-
-**RESUELTO (13/09/2026):** portado después a `ordersgsocd.com`
-(Processing/History + Gallery nueva ahí — ver su NOTES.md para el detalle
-completo, incluyendo una lección real sobre por qué Gallery ahí tuvo que
-construirse como panel interno de `customer.html` y no como página
-separada). Y el plan de moverlo a `gsocd-shared` YA se hizo el mismo
-día: nuevo componente `photo-hover-preview` (tag `v1.26.0`, ver NOTES.md
-de `gsocd-shared` para el detalle completo). Este archivo (`admin.html`)
-ya usa `GSPhotoHoverPreview.setup()`/`GSPhotoHoverPreview.stripHtml()` en
-vez de su propia copia local — el CSS y `setupOrderPhotoHoverPreview()`
-completos se quitaron de aquí. **YA se conectó también en
-`tech.gsocd.com`** (`employee.html`/`supervisor.html`, mismo día) —
-resulta que Tech YA tenía Gallery completo y funcionando
-(`get-my-gallery.js` + `GSGalleryGroups`), solo le faltaba el
-hover-preview mismo. Los 3 repos quedan conectados al mismo componente
-compartido, sin ninguna copia local en ningún lado — ver el NOTES.md de
-`ordersgsocd.com` para el detalle completo de los 3.
-
-
-
-- **Fechas heredadas + resplandor en "+ Add a Unit"**: se había acordado
-  (pensando que era Orders) que Entry/Due date de la unidad nueva
-  vinieran pre-llenadas con las fechas del PO, con un resplandor dorado
-  suave mientras no se tocaran. Al construir la version real de Admin
-  esto se quedó fuera (las fechas quedan vacías, "Pick a date"). El
-  dueño decidió NO resolverlo ahora — queda pendiente de confirmar si
-  se agrega, y en Admin, Orders, o ambos. Revisar cuando el dueño diga
-  "ya acabé" con el resto del proyecto.
-
-## En local, sin subir (12/09/2026): Building # pasó de select a texto libre
-
-Corrección sobre el rediseño de "+ Add a Unit" documentado arriba: el campo
-Building dejó de ser un `<select>` de direcciones guardadas
-(`CLIENT_ADDRESSES_LIST`) y ahora es texto libre y OPCIONAL, igual que
-"Building #" en el modo Single de crear orden. La unidad nueva SIEMPRE usa
-la dirección del cliente (`Clients` list) — ya no elige entre varias
-propiedades guardadas. Si se deja vacío, el backend (`submit-order.js`,
-bloque `AddUnitToBatch`) autorellena con los dígitos iniciales de esa
-dirección (`"4720 NW 59th Ave"` → `"4720"`), regex `/^\s*(\d+)/`.
-
-Las coordenadas para Routing ya no vienen de un building ligado (ya no
-existe ese concepto aquí) — se reutilizó `resolveOrderCoordinates()`, que
-ya existía en el archivo para el flujo normal, pasándole `null` como
-buildingId para que geocodifique la dirección de texto directo.
-
-**Aviso dado en el chat, no confirmado explícitamente:** si un cliente
-maneja varias propiedades distintas y el PO original se creó bajo una
-dirección que NO es la default del cliente, las unidades agregadas por
-este formulario de todos modos van a ir a la dirección default del
-cliente, no a la del PO. No se bloqueó por esto porque el dueño ya dio la
-instrucción explícita; queda anotado por si se vuelve un problema real.
-
-## SUBIDO Y DESPLEGADO (12/09/2026): Office Access unificado en gsocd-shared
-
-Se reemplazaron las 2 tarjetas duplicadas de "Need anything from the
-office?" en este repo (flujo de crear orden y formulario de Add Unit)
-por llamadas al componente unificado en `gsocd-shared/order-form-premium`
-(ver su NOTES.md nuevo para el detalle completo). Se quitaron
-`createOfficeNeedYes`/`setCreateOfficeNeed` y
-`addUnitOfficeNeedState`/`setAddUnitOfficeNeed` locales — ahora se lee/
-escribe con `GSOrderFormPremium.getOfficeNeedValue(dom)`/
-`getOfficeNeedNotes(dom)`/`setOfficeNeed(dom, yes)`. `<script src>`
-actualizado a `gsocd-shared@v1.25.0`.
-
-Detalle importante que se agregó en `startCreateOrderFor()`: el reset del
-toggle (`GSOrderFormPremium.setOfficeNeed('create', false)`) se movió a
-DESPUÉS de que el HTML nuevo ya exista en el DOM (antes solo se ponía en
-`false` una variable local, ahora hay que tocar elementos reales que
-todavía no existen si se hace antes de `content.innerHTML = ...`).
-Probado con jsdom que reabrir el formulario para un cliente distinto no
-arrastra el estado (toggle prendido / nota escrita) del cliente anterior
-(7/7).
-
-Título/label/placeholder nuevos confirmados con jsdom sobre el código
-real de `admin.html` (no solo el componente aislado): 14/14 en Add Unit.
-
-**Estado real (12/09/2026, verificado con fetch directo a producción):**
-`gsocd-shared@v1.25.0` se subió primero (repo + tag), luego este repo.
-`admin.html` en producción ya referencia `gsocd-shared@v1.25.0` en su
-`<script src>`, y el archivo servido ya no trae ningún rastro del texto
-viejo ("Need anything from the office?", "What do we need from the
-office?", "Keys for the mailroom...") ni del CSS huérfano (`.field-sub`).
-Deployment en Vercel: `READY`, sin errores nuevos en runtime logs.
-
-## Proyecto grande (15/09/2026): cámara propia + cola offline real
-
-Ver `gsocd-shared/NOTES.md` para el contexto completo (origen, por qué
-`camera-capture.html` vive por dominio, los 9 puntos totales en los 3
-repos). Aquí solo lo que le tocó a **Admin específicamente**:
-
-- Único punto de captura en este repo: la foto de "Not Completed" en
-  Active > Update Services (`startServicePhoto`).
-- **`Admingsocd.com/camera-capture.html`** (nuevo) -- sin MSAL a
-  propósito: `/upload-service-photo` no necesita saber el actor (solo
-  `orderId`/`serviceName`/`imageBase64`), así que no valía la pena cargar
-  toda la librería de login solo para esta página chica. Solo checa que
-  exista `sessionStorage.getItem('admin_account')` antes de dejar entrar
-  (mismo criterio rápido que `admin.html` ya usaba antes de inicializar
-  MSAL de verdad).
-- Se quitó por completo el mecanismo viejo (`svcPhotoPending`,
-  `uploadPendingServicePhotos`, `hasPendingServicePhotos`) -- la foto ya
-  no espera a "Save Changes", se guarda y sube al momento de tomarla,
-  totalmente separada del guardado de servicios (confirmado con el
-  dueño: "son cosas diferentes... si en lugar de dar clic en Save se da
-  clic en Cancel, igual se guardan").
-- **Efecto secundario real:** como esto navega fuera de `admin.html` por
-  completo, y el panel de "Update Services" de Active SÍ tiene edición
-  sin guardar que solo vive en memoria (`adminSvc_`/`adminNC_`/
-  `adminLevel_` + los campos del formulario), se agregó
-  `saveAdminEditSnapshot()`/`restoreAdminEditSnapshotIfAny()` --
-  `sessionStorage` guarda un snapshot completo justo antes de ir a la
-  cámara, y al volver reabre la MISMA orden, abre su panel de Update, y
-  pisa el estado recién inicializado (fresco del servidor) con lo que de
-  verdad tenía el usuario sin guardar -- incluyendo el puntito visual de
-  "ya tiene foto" en el ícono de cámara de ese servicio.
-- Se revisó `get-admin-gallery.js` antes de subir por una duda real: ¿el
-  orden foto-antes-de-nota rompe algo en cómo Gallery arma la
-  descripción? No -- la descripción se arma EN VIVO cada vez que se ve
-  la Galería (cruza el nombre de archivo contra el `NotCompletedReason`
-  ACTUAL de ese servicio, no un valor congelado al momento de subir), así
-  que no importa el orden en que lleguen foto y nota.
-
-## Cómo funciona hoy: Recurring Services Scheduler (Developer > Services)
-
-Tabla editable para crear y mantener contratos recurrentes en lote, sin
-pasar uno por uno por el formulario normal de "Recurring". Vive junto a
-"Import Recurring Contracts" (misma tarjeta la sube, la de abajo la
-edita).
-
-**Cómo se llena:**
-- **Import Recurring Contracts** — sube un `.xlsx` con columnas en
-  inglés: `Contract #, Client, Frequency, Mon…Sun, Hours, Target,
-  Tech 1, Tech 1 Hours/Day, Tech 2, Tech 2 Hours/Day…` (tantos pares de
-  Tech como haga falta). Los días se marcan con `X` (mayúscula o
-  minúscula). Las horas van como duración en formato `xx:xx` — 8 horas
-  es `"08:00"`, 4.5 horas es `"04:30"` (no es hora del día).
-- **Contract #** se rellena solo: si la celda viene vacía (caso normal
-  la primera vez), se calcula al momento de agregar la fila. Es el
-  ClientID real del cliente (`GS-1001`) una vez que su nombre logra
-  cruzar contra la lista real de Clientes — si ese mismo cliente ya
-  tiene otro edificio en la matriz, se le agrega una letra
-  (`GS-1001-A`, `GS-1001-B`…) para distinguirlos. Mientras el Client de
-  una fila no tenga cruce, Contract # se queda vacío hasta que se elija
-  el cliente a mano en el dropdown de esa fila — en ese momento se
-  calcula y se guarda solo.
-- También se puede simplemente dar clic en **Save** en cualquier fila
-  ya cargada, sin volver a subir ningún archivo — cada campo se guarda
-  automáticamente en cuanto se edita (autosave), Save nomás confirma
-  que el contrato real ya se creó/actualizó en `RecurringServices`.
-
-**Botón "Download Report (.xlsx)"** — baja exactamente lo que está
-cargado en la tabla en ese momento, mismas columnas y mismo formato que
-espera Import Recurring Contracts (Contract # ya con su ClientID/letra
-puestos, días en `X`, horas en `xx:xx`). Sirve para tener una copia de
-respaldo, o para volver a subir ese mismo archivo más adelante sin
-perder nada — un archivo ya descargado con su Contract # puesto se
-reconoce como "ya existe" al volver a subirlo, no se duplica.
-
-**Técnicos:** el selector de "Tech" en cada fila sale de `allTechs`
-(Developer > Settings > Techs & Roles), filtrado a división Janitorial
-o Mixed y activos — no de una lista aparte. Un técnico que no tenga
-`PayrollID` real (como un Contractor recién agregado a mano) no
-funciona aquí todavía porque el cruce del picker necesita un sku/id
-real para reconocer la selección ya hecha.
-
-**Mobile:** cada contrato se ve como tarjeta (Contract #/Client/
-Frequency apilados con su etiqueta, Days+Hours+Target juntos en una
-sola línea con mini-etiquetas arriba de cada uno). Desktop se queda
-exactamente con la tabla de columnas de siempre — son 2 renderizados
-distintos que arma la misma función según el ancho de pantalla.
-
-**Pendiente:**
-- Solo se pueden crear contratos con Frequency **Weekly** desde aquí —
-  Biweekly/Monthly se pueden seleccionar en la tabla pero el botón Save
-  se queda bloqueado (falta la fecha ancla real y esa lógica no está
-  terminada para este flujo en lote).
-- **Resuelto en parte (16/09/2026):** el cruce de Client por nombre ya
-  ignora mayúsculas, acentos, espacios dobles y puntuación común
-  (`. , ' " &`) — `"St. John's Lutheran Church"` cruza contra
-  `"St Johns Lutheran Church"`, `"D&K Products"` contra
-  `"D & K Products"`, etc. (`normalizeForClientMatch()`, junto a los
-  demás helpers del parser). Lo que sigue sin cruzar solo, a propósito,
-  porque no hay forma segura de resolverlo sin arriesgar cruzar al
-  cliente equivocado: un **apodo** que no comparte texto real con el
-  nombre del negocio (`"Viejitos Southridge"` vs `"Southridge Senior
-  Lofts"`), o un nombre **acortado** (`"D&K"` vs `"D&K Products"`) — esos
-  siguen necesitando corregirse a mano en el dropdown de esa fila.
-- Ningún tech sin `PayrollID` real (Contractors agregados a mano)
-  aparece asignable aquí todavía de forma completamente confiable — la
-  lista sí los incluye (si son Janitorial o Mixed), pero como no traen
-  un sku propio, el picker los reconoce por nombre, no por id — mismo
-  comportamiento que ya tienen los técnicos de Recurring en general
-  (ver el "quirk" documentado en `gsocd-shared/service-change-panel`),
-  no algo exclusivo de Contractors.
-
-## Cómo funciona hoy: Subcontratistas (Developer > Settings > Techs & Roles)
-
-Un subcontratista es, para el sistema, un técnico más — se le asigna
-trabajo exactamente igual que a cualquier empleado. En Active > Edit y
-Approvals eso ya era cierto de entrada (el campo "Supervisor" es texto
-libre, cualquier nombre ahí ya funciona). En **Scheduling** — donde se
-elige quién va a hacer una orden nueva — el selector de candidatos no
-salía de ahí sino de una lista curada (empleados reales, con sus horas
-de la semana); un Contractor no aparecía y no se le podía asignar
-trabajo por ese camino. Ya se corrigió: ahora aparece en la misma
-lista, junto a los empleados reales, solo que sin las estadísticas de
-horas (no se les da seguimiento ahí).
-
-**Cómo se da de alta:** botón **"+ Add Person Manually"** junto al
-buscador de Techs & Roles — pide Nombre, Apellido, Teléfono, División y
-Rol (con "Contractor" ya preseleccionado). El teléfono es obligatorio
-porque de sus últimos 4 dígitos sale el código temporal con el que la
-persona reclama su propio dispositivo — sin eso no se le puede generar
-el QR para que entre a `tech.gsocd.com` y vea sus órdenes asignadas,
-igual que cualquier técnico.
-
-Una vez creado, aparece en la tabla con su propio botón "Generate QR"
-(el mismo mecanismo que ya existía para todos los técnicos, sin ningún
-cambio ahí) y con **"Contractor — no payroll"** en la columna de nómina
-en vez de la alarma naranja de "falta payroll" que sale para todos los
-demás — para un Contractor eso es lo esperado, no algo por resolver.
-
-**División "Mixed"** — para alguien que puede trabajar en las 3
-divisiones (Janitorial, Renovations, Exteriors) en vez de estar atado a
-una sola. Donde el sistema necesita filtrar por una división exacta
-(hoy, el único lugar real es el selector de técnicos del Recurring
-Scheduler, que es Janitorial nomás), Mixed cuenta igual que si fuera
-esa división.
-
-**Mobile:** tanto Techs & Roles como Staff & Roles (la tabla de quién
-tiene acceso a Developer) se ven como tarjetas apiladas, una persona
-por tarjeta con su propia etiqueta arriba de cada campo. El formulario
-de "Add Person Manually" usa los mismos campos (`.field-group`/
-`.field-row`) que ya usa el resto de los formularios de Developer, así
-que hereda su mismo comportamiento mobile sin nada aparte.
-
-**Pendiente:**
-- Un Contractor no puede iniciar sesión en `tech.gsocd.com` sin que
-  alguien de oficina le genere el QR primero desde aquí y se lo
-  comparta — no hay (ni se pidió) un flujo de auto-registro para ellos
-  como sí lo tienen los empleados reales.
-- No hay todavía ninguna vista que junte "las órdenes que se le han
-  asignado a este subcontratista" en un solo lugar dentro de Admin —
-  su trabajo se ve orden por orden (igual que cualquier Supervisor), no
-  hay un resumen tipo "Active > By Employee" armado específicamente
-  para Contractors.
-
-## Estado del repaso de mobile (Admin)
-
-Se revisó Admin de punta a punta (los 8 tabs principales + las 6
-categorías de Developer con sus tarjetas) renderizando cada uno a
-375px real, no adivinando. Quedaron corregidos: las filas de filtro
-"pill" que se cortaban en Active > By Employee/History/Schedule, y las
-3 tablas de Developer que no tenían ninguna versión mobile (Recurring
-Services Scheduler, Techs & Roles, Staff & Roles). El resto de Admin ya
-estaba bien.
-
-**Pendiente:** el mismo repaso todavía no se ha hecho en los otros 2
-repos (`ordersgsocd.com` y `tech.gsocd.com`) — quedó ofrecido, no
-empezado.
 
 ## Regla nueva (21/09/2026): los Previews de Vercel NO le sirven al dueño para probar -- login de Azure lo rechaza
 
@@ -656,82 +453,12 @@ router cargado de verdad, y admin.html real en Puppeteer con login y API
 simulados (crear, editar lugar/viejo, cancelar, Active con Confirm y
 extras, 375px sin scroll horizontal).
 
-## 23/09/2026 -- (DESCARTADO, ver arriba) Diseño en curso: Recurring detallado por piso/amenidad
+## DESCARTADO (23/09/2026): diseño viejo de Recurring por piso/amenidad (38 amenidades)
 
-Disparado por un contrato real difícil de capturar (Equitable Building,
-PDF adjunto: 5 horas, Lun-Vie 7am-12pm, con tareas que cambian por día --
-lunes Pisos 1,2,3; martes solo 1&2; jueves además limpieza completa de
-oficina 1 vez/semana -- y tareas fijas por zona como Elevadores/Pasillos
-"todos los dias"). El sistema actual de Recurring solo entiende UNA
-lista de servicios plana, igual para todos los dias del contrato --
-Equitable no cabe ahi.
+Reemplazado el mismo día por "Recurring 'Who does what' por lugar" (ver
+arriba): lugares con building/floor/zona en vez de una lista fija de 38
+amenidades. Se dejó de diseñar a medio camino (pendientes sin resolver:
+si Elevators/Stairs eran la única excepción "de todo el edificio", y si
+el equipo propio vive por día o por piso) — no se retomó y no hace falta
+retomarlo salvo que el dueño lo pida explícitamente.
 
-**Rechazado en el camino (2 minis construidos y rechazados, ver
-Artifact tool para los links si hacen falta):**
-- Un mini con "líneas" (días + servicios en texto libre por línea) --
-  rechazado por texto libre: el sistema factura via SKU real, cada
-  servicio debe venir del catálogo real, nunca texto escrito a mano.
-- Un segundo mini con GSServicePicker real (sin texto libre) pero
-  organizado en "líneas" con nombre libre -- rechazado también: el
-  dueño ya había dicho que cada DÍA debe ser su propio toggle
-  (como Assign by Service), no un concepto nuevo de "líneas".
-
-**Diseño actual acordado (aún sin construir, seguir aquí la próxima
-sesión):**
-
-1. Catálogo de amenidades: 38 tipos reales, sacados investigando en
-   internet ~30 clientes reales de GS Solutions (complejos de
-   apartamentos de Iowa, de `All-Clients-2026-09-23.xlsx`) -- NO
-   inventado. Lista completa: Clubhouse, Playground, Basketball Court,
-   RV Storage, Dog Park, Fitness Center/Gym, Movie Theater/Cinema,
-   Business Center, Community Room, Pool, Garages, Storage Units,
-   Laundry Facilities, Elevator, Controlled Access, Villas con garage,
-   Gazebo, Pond, Pet Wash Station, Pet Play Area, Planned Social
-   Activities, Computer Center, TV Room, Coffee Bar, Courtyard, Bike
-   Storage, Conference Room, Guest Suite, Key Fob Access, Lobby, Media
-   Room, Package Receiving, Pool Table, Shuffleboard, Yoga Studio,
-   Rooftop Patio/Terrace, Skywalk Connection, Grill/BBQ Area, Picnic
-   Area.
-
-2. El selector de CLIENTE no es nuevo -- ya existe, es la lista de
-   Clients de Admin. No construir nada aparte para esto (ya se
-   confundió una vez en esta misma sesión, ojo).
-
-3. Jerarquía real de captura, nada se infiere, todo se marca a mano:
-   - Al edificio se le pone cuántos PISOS tiene (número real).
-   - Excepción: Elevadores y Escaleras se registran UNA VEZ por
-     edificio (no piso por piso) -- son una sola pieza física que
-     atraviesa varios pisos, con puerta en cada uno. Se captura
-     cuántos hay (ej. "2 elevadores") y el sistema ya sabe que cuentan
-     para todos los pisos del edificio -- NO se pregunta piso por piso
-     si "tiene elevador".
-   - PENDIENTE SIN RESOLVER: ¿Elevadores/Escaleras son las ÚNICAS 2
-     excepciones "de todo el edificio", o hay otras de las 38 que
-     también funcionan así? No se alcanzó a contestar antes de que el
-     dueño cortara la sesión.
-   - Cada PISO (que no sea la excepción de arriba) se marca a mano con
-     qué amenidades tiene, del catálogo de 38 -- nada se copia de un
-     piso a otro ni se asume.
-   - Dentro de cada amenidad de un piso, se elige qué SERVICIO se hace
-     ahí -- el selector real (GSServicePicker de gsocd-shared, con
-     niveles L1/L2/L3), nunca texto libre.
-   - Un total (cuántos pasillos hay en todo el edificio, por ejemplo)
-     sale solo de contar cuántos pisos lo tienen marcado -- no se
-     vuelve a capturar aparte.
-
-4. Del lado del contrato recurrente: 7 toggles, uno por día de la
-   semana (Dom-Sáb), igual que Assign by Service pero por día en vez
-   de por servicio. Prender el toggle de un día muestra un selector
-   para elegir QUÉ PISO(S) le tocan ese día -- y al elegir un piso,
-   salen las amenidades/servicios que ESE piso ya trae configurados
-   (del paso 3), no una lista genérica. Cada día es 100% independiente
-   -- si lunes/miércoles/viernes llevan lo mismo, se captura 3 veces,
-   nada se comparte entre días (decisión explícita del dueño).
-
-5. Equipo asignado: por default es el del contrato completo, pero
-   puede haber equipo propio distinto -- AÚN SIN RESOLVER si esto vive
-   a nivel día, a nivel piso, o ambos.
-
-**No se ha escrito ni una línea de código de esto.** Es puro diseño
-hablado, sujeto a seguir cambiando. Antes de construir nada: confirmar
-el pendiente del punto 3, y el del punto 5.
