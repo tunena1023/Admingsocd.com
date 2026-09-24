@@ -190,6 +190,15 @@ general de "asi trabajamos" no cuenta como luz verde para subir algo
 especifico. Si el dueño pide varios ajustes seguidos, se acumulan en
 local (ver regla 4 de arriba) hasta que diga que los suba.
 
+## Cambio del dueño (24/09/2026): el Preview de Vercel YA NO SIRVE -- no mandar Previews
+
+Desde que el dueño conecto QuickBooks, el Preview de Vercel no le funciona
+para probar. Cuando el dueño dice "sube a deploy" / "dale" / "subelo", se
+sube DIRECTO a main (produccion) -- no se arma rama de Preview ni se le
+manda un link de Preview. La regla de abajo queda solo como historial.
+Lo demas sigue igual: nada se sube sin su permiso explicito, mini antes de
+UI nueva, y revision de punta a punta antes de subir.
+
 ## Regla nueva (19/09/2026): probar en un Preview de Vercel ANTES de pedir el "dale" a main -- no solo prometer que se probo
 
 Motivo: una sesion anterior subio cambios directo a main sin permiso del
