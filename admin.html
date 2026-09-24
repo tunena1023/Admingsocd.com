@@ -11297,7 +11297,13 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
     ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
       svcRows.map((r, i) => {
         const sr = r.statusRow;
-        const canComplete = isAssignByService && sr && sr.scheduled && sr.workStatus !== 'Completed';
+        /* Pedido del dueño (24/09/2026, con captura real de Active >
+           Recurring): en las RECURRENTES ya no va un boton de completado
+           por cada servicio ("ese monton de botones"). Aqui solo se
+           quitan; el completado por persona (1 boton por tecnico en
+           "Who does what") es el paso que sigue, con mini ya aprobado.
+           Las ordenes normales con Assign by service no cambian. */
+        const canComplete = isAssignByService && !o.RecurringServiceID && sr && sr.scheduled && sr.workStatus !== 'Completed';
         const isPendingReview = sr && sr.workStatus === 'Pending Review';
         /* BUG REAL reportado por el dueño en vivo, con captura real de
            mobile: esta ultima columna tenia white-space:nowrap, y en
