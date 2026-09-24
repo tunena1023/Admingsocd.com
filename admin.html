@@ -5930,18 +5930,14 @@ function batchOrderGroupCard(batchId, units, context) {
    grupo de lote -- mas simple porque el contenido ya esta armado
    inline (sin fetch), igual que toggleBatchCard de abajo. */
 function reopenAndFlashBatch(batchId, context) {
-  const groupOrderId = 'batch-' + batchId;
-  const id = 'order-' + groupOrderId.replace(/[^a-z0-9]/gi,'_');
-  const body = document.getElementById(id);
-  if (!body) return;
-  closeOtherCards(context, groupOrderId);
-  body.classList.add('open');
-  cardOpenState(context).open = groupOrderId;
-  const card = body.closest('.order-card');
-  if (card) {
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    GSLiveRefresh.flashElement(card);
-  }
+  /* REGLA DEL DUEÑO (24/09/2026): cuando una orden cambia de tab (o se
+     repinta despues de una accion) se va a su tab, se desplaza hasta ella
+     y BRILLA -- pero ya NO se abre sola, en ningun lado ("lo del brillo
+     si es bueno, pero eso de que se abran ya me cayo gordo"). Antes solo
+     History se quedaba cerrada. Si vive dentro de un grupo de PO cerrado,
+     brilla el grupo (la unidad de adentro no se veria). */
+  const body = document.getElementById('order-' + ('batch-' + batchId).replace(/[^a-z0-9]/gi,'_'));
+  flashCardOnly(body ? body.closest('.order-card') : null);
 }
 
 /* Version simple de toggleOrder para el grupo de PO -- no hace fetch
@@ -10563,17 +10559,26 @@ async function loadOrderBody(orderId, context, body) {
    Active/History (orderCard/toggleOrder). El contenido ya esta
    precargado al pintar la lista (loadApprovalDetail), asi que abrir
    es solo mostrar, sin fetch de por medio. */
+/* Desplaza y hace brillar una tarjeta SIN abrirla (ver regla abajo). Si
+   esta dentro de un grupo de PO, brilla el grupo que la contiene. */
+function flashCardOnly(card) {
+  if (!card) return;
+  const group = card.parentElement ? card.parentElement.closest('.order-card[data-order-id^="batch-"]') : null;
+  const target = group || card;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  GSLiveRefresh.flashElement(target);
+}
+
 function reopenAndFlashApprCard(orderId, context) {
+  /* REGLA DEL DUEÑO (24/09/2026): cuando una orden cambia de tab (o se
+     repinta despues de una accion) se va a su tab, se desplaza hasta ella
+     y BRILLA -- pero ya NO se abre sola, en ningun lado ("lo del brillo
+     si es bueno, pero eso de que se abran ya me cayo gordo"). Antes solo
+     History se quedaba cerrada. Si vive dentro de un grupo de PO cerrado,
+     brilla el grupo (la unidad de adentro no se veria). */
   const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
   if (!listEl) return;
-  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(orderId) + '"]');
-  if (!card) return;
-  closeOtherApprCards(context, orderId);
-  const body = card.querySelector('.appr-body');
-  if (body) body.style.display = '';
-  cardOpenState(context).open = orderId;
-  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  GSLiveRefresh.flashElement(card);
+  flashCardOnly(listEl.querySelector('.order-card[data-order-id="' + CSS.escape(orderId) + '"]'));
 }
 
 /* BUG REAL arreglado (22/09/2026, reportado por el dueño): crear una
@@ -10588,17 +10593,15 @@ function reopenAndFlashApprCard(orderId, context) {
    apprDomId(), no .order-body con la clase 'open'), asi que esta es
    la version equivalente para ese sistema. */
 function reopenAndFlashApprBatch(batchId, context) {
-  const groupOrderId = 'batch-' + batchId;
+  /* REGLA DEL DUEÑO (24/09/2026): cuando una orden cambia de tab (o se
+     repinta despues de una accion) se va a su tab, se desplaza hasta ella
+     y BRILLA -- pero ya NO se abre sola, en ningun lado ("lo del brillo
+     si es bueno, pero eso de que se abran ya me cayo gordo"). Antes solo
+     History se quedaba cerrada. Si vive dentro de un grupo de PO cerrado,
+     brilla el grupo (la unidad de adentro no se veria). */
   const listEl = document.getElementById(context === 'approvals' ? 'approvals-list' : 'review-list');
   if (!listEl) return;
-  const card = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(groupOrderId) + '"]');
-  if (!card) return;
-  closeOtherApprCards(context, groupOrderId);
-  const body = card.querySelector('.appr-body');
-  if (body) body.style.display = '';
-  cardOpenState(context).open = groupOrderId;
-  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  GSLiveRefresh.flashElement(card);
+  flashCardOnly(listEl.querySelector('.order-card[data-order-id="' + CSS.escape('batch-' + batchId) + '"]'));
 }
 
 /* Sigue a una orden a donde sea que haya quedado despues de una
@@ -10630,55 +10633,17 @@ async function showOrderWherever(orderId) {
 }
 
 async function reopenAndFlashOrder(orderId, context) {
+  /* REGLA DEL DUEÑO (24/09/2026): cuando una orden cambia de tab (o se
+     repinta despues de una accion) se va a su tab, se desplaza hasta ella
+     y BRILLA -- pero ya NO se abre sola, en ningun lado ("lo del brillo
+     si es bueno, pero eso de que se abran ya me cayo gordo"). Antes solo
+     History se quedaba cerrada. Si vive dentro de un grupo de PO cerrado,
+     brilla el grupo (la unidad de adentro no se veria). */
   const id = 'order-' + context + '-' + orderId.replace(/[^a-z0-9]/gi,'_');
-  const body = document.getElementById(id);
+  const listEl = document.getElementById(context + '-list');
+  const body = (listEl && listEl.querySelector('#' + CSS.escape(id))) || document.getElementById(id);
   if (!body) return;
-  /* En History, a peticion del dueño (22/09/2026), NO se abre sola --
-     solo se destella cerrada. Motivo real: abrirla aqui no la marca
-     como vista (eso solo pasa cuando el usuario mismo le da clic para
-     abrir) -- como ya llegaba "abierta" sin que markOrderSeen hubiera
-     corrido, el primer clic del usuario la CERRABA (ya estaba
-     "abierta" por dentro) sin quitarle el destello, y hacia falta un
-     SEGUNDO clic para que de verdad se marcara vista. Dejandola
-     cerrada, el primer clic real del usuario abre Y marca vista en
-     un solo paso, como en cualquier otra tarjeta. Active/Approvals
-     siguen abriendo solas como siempre -- el dueño confirmo que ahi
-     se queda igual. */
-  if (context === 'history') {
-    const card = body.closest('.order-card');
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      GSLiveRefresh.flashElement(card);
-    }
-    return;
-  }
-  const st = cardOpenState(context);
-  closeOtherCards(context, orderId);
-  body.classList.add('open');
-  st.open = orderId;
-  await loadOrderBody(orderId, context, body);
-  const card = body.closest('.order-card');
-  if (card) {
-    /* BUG REAL encontrado en produccion (22/09/2026, originalmente en
-       History -- ahi ya no aplica, History regresa antes de llegar
-       aqui, ver arriba; se queda vigente para Active, que sigue
-       abriendo sola): si esta orden vive DENTRO de un grupo de PO,
-       esto solo abria la unidad de adentro -- el grupo que la
-       contiene se quedaba cerrado
-       (su propio .order-body nunca recibia la clase 'open'), asi
-       que visualmente no se veia nada abierto, aunque por dentro la
-       unidad si tuviera la clase. Se busca un ancestro MAS ALLA de
-       la propia tarjeta (card.parentElement.closest, no card.closest
-       -- ese se encontraria a si misma) que sea un grupo de PO
-       (data-order-id empieza con "batch-") y se abre tambien. */
-    const groupCard = card.parentElement ? card.parentElement.closest('.order-card[data-order-id^="batch-"]') : null;
-    if (groupCard) {
-      const groupBody = groupCard.querySelector(':scope > .order-body');
-      if (groupBody) groupBody.classList.add('open');
-    }
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    GSLiveRefresh.flashElement(card);
-  }
+  flashCardOnly(body.closest('.order-card'));
 }
 
 /* BUG REAL (24/09/2026, el dueño: "en Active dentro de Recurring la
@@ -14483,13 +14448,11 @@ let pendingDirectLinkOrderId = null;
      la tarjeta siempre arranca cerrada, asi que llamarlo aqui la
      abre de verdad, nunca la cierra por accidente. */
   function reopenAndFlashQueueOrder(orderId) {
-    toggleOrderCard(orderId);
+    /* Ya no se abre sola (regla del dueño 24/09/2026, ver
+       flashCardOnly): solo se desplaza y brilla. */
     const body = document.getElementById('order-body-' + orderId);
-    const card = body ? body.closest('.order-card') : null;
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      GSLiveRefresh.flashElement(card);
-    }
+    const card = body ? body.closest('.order-card') : document.querySelector('.order-card[data-order="' + CSS.escape(orderId) + '"]');
+    flashCardOnly(card);
   }
 
   /* Misma lista de candidatos que assignFormHtml calcula abajo (para
