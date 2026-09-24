@@ -267,7 +267,9 @@ exports.handler = async (event) => {
         AssignedTo: it.fields.AssignedTo || '',
         ScheduledDate: it.fields.ScheduledDate || '',
         WorkStatus: it.fields.WorkStatus || 'Not Started',
-        CompletedDate: it.fields.CompletedDate || ''
+        CompletedDate: it.fields.CompletedDate || '',
+      /* Completado POR PERSONA (24/09/2026): nombres, mismo formato que AssignedTo */
+      DoneBy: it.fields.DoneBy || '', ConfirmedFor: it.fields.ConfirmedFor || ''
       }))
       .sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0));
 

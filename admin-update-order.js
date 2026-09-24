@@ -22,7 +22,7 @@
    aqui: se genera cuando el director aprueba el cambio, no antes.
 */
 const {
-  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST,
+  ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST, SERVICE_ASSIGNMENTS_LIST,
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
@@ -635,6 +635,27 @@ exports.handler = async (event) => {
     }
 
     if (statusChanged && status === 'Completed') {
+      /* Cerrar la orden cierra tambien lo que le quedaba a cada quien
+         (24/09/2026): en Active el Completed siempre esta, aunque nadie
+         haya marcado nada todavia -- cada servicio que faltaba queda
+         Completed y confirmado para todos sus nombres. Nunca tumba el
+         cierre de la orden. */
+      try {
+        const saFilter = encodeURIComponent(`fields/OrderID eq '${orderId}'`);
+        let saUrl = siteListPath(SERVICE_ASSIGNMENTS_LIST) + `?$expand=fields&$top=200&$filter=${saFilter}`;
+        const saRows = [];
+        while (saUrl) {
+          const d = await graphFetch(saUrl, { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
+          saRows.push(...(d.value || []));
+          saUrl = d['@odata.nextLink'] || null;
+        }
+        const closeIso = completedDate || new Date().toISOString();
+        await Promise.all(saRows.filter(it => it.fields && it.fields.WorkStatus !== 'Completed').map(it =>
+          updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, it.id, {
+            WorkStatus: 'Completed', CompletedDate: closeIso, ConfirmedFor: it.fields.AssignedTo || ''
+          })));
+      } catch (e) { console.error('Closing service assignments for ' + orderId + ':', e.message); }
+
       notifyOrderTechs(orderId, {
         title: 'Order marked Completed',
         body: 'Order ' + orderId + ' was marked as Completed.',

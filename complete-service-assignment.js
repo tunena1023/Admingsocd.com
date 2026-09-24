@@ -44,6 +44,68 @@ async function fetchByOrderId(listName, orderId) {
   return out;
 }
 
+/* ---- Completado por persona ---- */
+function namesOf(v) { return String(v || '').split(',').map(x => x.trim()).filter(Boolean); }
+function hasName(list, name) { const n = String(name).trim().toLowerCase(); return list.some(x => x.toLowerCase() === n); }
+
+async function completePerson(b) {
+  const [assignmentRows, orderSvcRows] = await Promise.all([
+    fetchByOrderId(SERVICE_ASSIGNMENTS_LIST, b.orderId),
+    fetchByOrderId(ORDER_SERVICES_LIST, b.orderId)
+  ]);
+  const person = String(b.person).trim();
+  const mine = assignmentRows.filter(it => it.fields && hasName(namesOf(it.fields.AssignedTo), person));
+  if (!mine.length) return jsonResponse(400, { error: person + ' has no work assigned in this order.' });
+  const nowIso = new Date().toISOString();
+  const nowCompleted = new Set();
+  let cameFromTech = false;
+  await Promise.all(mine.map(it => {
+    const f = it.fields;
+    const assigned = namesOf(f.AssignedTo);
+    if (hasName(namesOf(f.DoneBy), person) || f.WorkStatus === 'Pending Review') cameFromTech = true;
+    const confirmed = namesOf(f.ConfirmedFor);
+    /* Se guarda el nombre tal como esta en AssignedTo. */
+    if (!hasName(confirmed, person)) confirmed.push(assigned.find(n => n.toLowerCase() === person.toLowerCase()) || person);
+    const patch = { ConfirmedFor: confirmed.join(', ') };
+    if (f.WorkStatus !== 'Completed' && assigned.every(n => hasName(confirmed, n))) {
+      patch.WorkStatus = 'Completed'; patch.CompletedDate = nowIso; nowCompleted.add(it.id);
+    }
+    return updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, it.id, patch);
+  }));
+  await createListItem(ORDER_HISTORY_LIST, {
+    Title: b.orderId + '-svc-completed-' + Date.now(),
+    OrderID: b.orderId,
+    ChangeType: 'Service Completed',
+    ChangedBy: b.changedBy,
+    ChangeDate: nowIso,
+    Notes: '',
+    NewValue: JSON.stringify({
+      serviceName: 'All of ' + person + "'s work", completedBy: person, finishedText: nowIso,
+      services: mine.map(it => (it.fields.Category ? it.fields.Category + ' · ' : '') + it.fields.ServiceName),
+      confirmedNote: cameFromTech ? ('Confirmed by office after ' + person + ' marked it done') : ''
+    })
+  });
+
+  const doneKeys = new Set(assignmentRows
+    .filter(it => it.fields && (it.fields.WorkStatus === 'Completed' || nowCompleted.has(it.id)))
+    .map(it => it.fields.Category + '|' + it.fields.ServiceName));
+  const allSvcKeys = orderSvcRows.filter(it => it.fields).map(it => (it.fields.Category || '') + '|' + (it.fields.ServiceName || ''));
+  const allDone = allSvcKeys.length > 0 && allSvcKeys.every(k => doneKeys.has(k));
+  if (allDone) {
+    await createListItem(ORDER_HISTORY_LIST, {
+      Title: b.orderId + '-recap-' + Date.now(),
+      OrderID: b.orderId,
+      ChangeType: 'Completed',
+      FieldChanged: 'PerServiceRecap',
+      ChangedBy: b.changedBy,
+      ChangeDate: nowIso,
+      Notes: '',
+      NewValue: JSON.stringify({ recap: assignmentRows.filter(it => it.fields).map(it => ({ serviceName: it.fields.ServiceName, completedBy: it.fields.AssignedTo })) })
+    });
+  }
+  return jsonResponse(200, { success: true, allDone });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
@@ -55,8 +117,17 @@ exports.handler = async (event) => {
        y una foto del lugar. Sin placeMode, todo igual que siempre: un
        servicio por llamada. */
     const placeMode = b.placeMode === true;
-    const required = placeMode ? ['orderId', 'category', 'changedBy'] : ['orderId', 'category', 'serviceName', 'changedBy'];
+    /* Por PERSONA (recurrentes, 24/09/2026, mini aprobado): la oficina
+       cierra de un jalon TODO lo que le toca a esa persona en la orden,
+       en cualquier momento -- haya o no marcado algo el tecnico en Tech.
+       Un servicio compartido (AssignedTo "A, B") solo queda Completed
+       cuando la oficina ya confirmo a TODOS sus nombres (columna
+       ConfirmedFor); DoneBy la llena Tech cuando el tecnico termina. */
+    const personMode = b.personMode === true;
+    const required = personMode ? ['orderId', 'person', 'changedBy']
+      : placeMode ? ['orderId', 'category', 'changedBy'] : ['orderId', 'category', 'serviceName', 'changedBy'];
     for (const k of required) if (!b[k]) return jsonResponse(400, { error: k + ' is required' });
+    if (personMode) return await completePerson(b);
 
     const [assignmentRows, orderSvcRows] = await Promise.all([
       fetchByOrderId(SERVICE_ASSIGNMENTS_LIST, b.orderId),

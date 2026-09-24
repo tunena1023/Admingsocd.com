@@ -1100,6 +1100,14 @@
   .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
   .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
   .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  /* Boton por persona en "Who does what" (24/09/2026) */
+  .pw-action { margin-left: auto; }
+  .pw-btn { width: auto !important; padding: 9px 16px !important; font-size: 11px !important; }
+  .pw-btn-blue { background: linear-gradient(155deg,#6D96D6 0%,#2E5FA3 55%,#1F4580 100%) !important; color: #fff !important; }
+  .pw-sub-blue { color: #2E5FA3; }
+  .svc-assign-card.pw-card-waiting { border-color: #C7DBFB; }
+  .svc-assign-card.pw-card-done { border-color: #CFE3D4; }
+  .pw-with { font-size: 11px; color: var(--gold-dk); }
   .pw-confirm { font-size: 11px; color: var(--gold-dk); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font-family: inherit; }
   .pw-extra { border: 1px solid #EDDCB4; background: #FBF3E1; padding: 12px 14px; margin-bottom: 12px; font-size: 12px; border-radius: 6px; }
   .pw-extra b { display: block; margin-bottom: 4px; }
@@ -7245,27 +7253,45 @@ function placeWhoHtml(o, services, history) {
   const skuBy = {};
   (services || []).forEach(s => { skuBy[(s.Category || '') + '|' + (s.ServiceName || '')] = s.SubOption || ''; });
   const svcName = (place, name) => window.GSServiceTooltip ? GSServiceTooltip.nameHtml(skuBy[place + '|' + name], esc(name)) : esc(name);
+  /* Completado POR PERSONA (24/09/2026, mini aprobado:
+     https://claude.ai/artifact/8W4hpmzdFpsa8fF9vyepdL). Un grupo por
+     cada NOMBRE (un servicio compartido "A, B" sale con los dos). Cada
+     persona trae UN boton, siempre: dorado "Mark completed" (la oficina
+     cierra su parte cuando quiera) o azul "Confirm" cuando el tecnico
+     ya marco en Tech (DoneBy, o el Pending Review de antes). Ya no hay
+     Confirm por lugar. Estado por persona: ConfirmedFor / DoneBy. */
+  const namesOf = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+  const hasName = (list, n) => list.some(x => x.toLowerCase() === String(n).toLowerCase());
   const people = [];
   assignments.forEach(a => {
-    const who = String(a.AssignedTo || 'Unassigned');
-    let g = people.find(x => x.who === who); if (!g) { g = { who, places: [] }; people.push(g); }
-    let pl = g.places.find(x => x.place === a.Category); if (!pl) { pl = { place: a.Category, items: [] }; g.places.push(pl); }
-    pl.items.push(a);
+    const names = namesOf(a.AssignedTo);
+    (names.length ? names : ['Unassigned']).forEach(who => {
+      let g = people.find(x => x.who.toLowerCase() === who.toLowerCase()); if (!g) { g = { who, places: [] }; people.push(g); }
+      let pl = g.places.find(x => x.place === a.Category); if (!pl) { pl = { place: a.Category, items: [] }; g.places.push(pl); }
+      pl.items.push(a);
+    });
   });
   const canAct = !['Completed', 'Cancelled'].includes(o.Status);
-  const placeStatus = pl => {
-    const st = pl.items.map(i => i.WorkStatus || 'Not Started');
-    if (st.every(x => x === 'Completed')) return '<span class="pw-st done">Completed</span>';
-    const pend = st.some(x => x === 'Pending Review');
-    return (pend ? '<span class="pw-st pending">Waiting on office</span>' : '<span class="pw-st open">To do</span>') +
-      (canAct && pend ? '<button type="button" class="pw-confirm" onclick="confirmPlaceDone(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(pl.place) + '\')">Confirm</button>' : '');
+  const itemDone = (it, who) => it.WorkStatus === 'Completed' || hasName(namesOf(it.ConfirmedFor), who);
+  const itemTechDone = (it, who) => it.WorkStatus === 'Pending Review' || hasName(namesOf(it.DoneBy), who);
+  const personState = g => {
+    const items = g.places.flatMap(pl => pl.items);
+    if (items.length && items.every(it => itemDone(it, g.who))) return 'done';
+    if (items.length && items.every(it => itemDone(it, g.who) || itemTechDone(it, g.who))) return 'waiting';
+    return items.some(it => itemDone(it, g.who) || itemTechDone(it, g.who)) ? 'progress' : 'todo';
   };
-  const personBadge = g => {
-    const all = g.places.flatMap(pl => pl.items.map(i => i.WorkStatus || 'Not Started'));
-    if (all.length && all.every(x => x === 'Completed')) return '<span class="status-badge status-completed">Completed</span>';
-    if (all.length && all.every(x => x === 'Completed' || x === 'Pending Review')) return '<span class="status-badge status-working">Waiting on office</span>';
-    if (all.some(x => x !== 'Not Started')) return '<span class="status-badge status-working">In progress</span>';
-    return '<span class="status-badge status-assigned">Assigned</span>';
+  const placeStatus = (pl, who) => {
+    if (pl.items.every(it => itemDone(it, who))) return '<span class="pw-st done">Completed</span>';
+    if (pl.items.every(it => itemDone(it, who) || itemTechDone(it, who))) return '<span class="pw-st pending">Waiting on office</span>';
+    return '<span class="pw-st open">To do</span>';
+  };
+  const personAction = (g, st) => {
+    if (st === 'done') return '<span class="status-badge status-completed">Completed</span>';
+    if (!canAct || g.who === 'Unassigned') return '';
+    const call = 'completePersonWork(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(g.who) + '\')';
+    return st === 'waiting'
+      ? '<button type="button" class="gs-ofp-btn-primary pw-btn pw-btn-blue" onclick="' + call + '">✓ Confirm</button>'
+      : '<button type="button" class="gs-ofp-btn-primary pw-btn" onclick="' + call + '">Mark completed</button>';
   };
   /* Extras que el cliente le pidio al tecnico (Tech, "The client asked
      for something not on my list") -- viven en el historial real. */
@@ -7288,22 +7314,29 @@ function placeWhoHtml(o, services, history) {
   if (!people.length && !extrasHtml) return '';
   return '<div class="pw-block">' + extrasHtml + '<p class="detail-label">Who does what</p>' +
     people.map((g, i) => {
-      const total = g.places.length, done = g.places.filter(pl => pl.items.every(it => it.WorkStatus === 'Completed')).length;
-      return '<div class="svc-assign-card"><div class="svc-assign-header" style="flex-wrap:wrap"><span class="svc-assign-num">' + (i + 1) + '</span>' +
-        '<span class="svc-assign-name">' + esc(g.who) + '</span>' + personBadge(g) +
-        '<span class="svc-assign-assigned">' + done + ' of ' + total + (total === 1 ? ' place' : ' places') + ' done</span></div>' +
+      const st = personState(g);
+      const total = g.places.length, done = g.places.filter(pl => pl.items.every(it => itemDone(it, g.who))).length;
+      const sub = st === 'waiting' ? '<span class="svc-assign-assigned pw-sub-blue">' + esc(g.who) + ' marked their work done in Tech — confirm it.</span>'
+        : '<span class="svc-assign-assigned">' + done + ' of ' + total + (total === 1 ? ' place' : ' places') + ' done</span>';
+      const others = pl => { const o2 = []; pl.items.forEach(it => namesOf(it.AssignedTo).forEach(n => { if (n.toLowerCase() !== g.who.toLowerCase() && !hasName(o2, n)) o2.push(n); })); return o2; };
+      return '<div class="svc-assign-card' + (st === 'waiting' ? ' pw-card-waiting' : st === 'done' ? ' pw-card-done' : '') + '"><div class="svc-assign-header" style="flex-wrap:wrap"><span class="svc-assign-num">' + (i + 1) + '</span>' +
+        '<span class="svc-assign-name">' + esc(g.who) + '</span><span class="pw-action">' + personAction(g, st) + '</span>' + sub + '</div>' +
         '<div class="svc-assign-editor">' + g.places.map(pl =>
-          '<div class="pw-loc-head"><span class="pw-loc">' + esc(pl.place) + '</span>' + placeStatus(pl) + '</div><div class="pw-svcs">' +
+          '<div class="pw-loc-head"><span class="pw-loc">' + esc(pl.place) + '</span>' + placeStatus(pl, g.who) +
+          (others(pl).length ? '<span class="pw-with">with ' + esc(others(pl).map(n => n.split(' ')[0]).join(', ')) + '</span>' : '') + '</div><div class="pw-svcs">' +
           pl.items.map(it => svcName(pl.place, it.ServiceName) + (levelBy[pl.place + '|' + it.ServiceName] ? ' <span class="lv">' + esc(rcScLv(levelBy[pl.place + '|' + it.ServiceName])) + '</span>' : '')).join('<br>') +
           '</div>').join('') + '</div></div>';
     }).join('') + '</div>';
 }
-async function confirmPlaceDone(orderId, place) {
-  showLoadingOverlay('Confirming ' + place + '…');
+/* Un boton por persona (24/09/2026): cierra todo lo de esa persona en
+   la orden, haya o no marcado algo en Tech. */
+async function completePersonWork(orderId, person) {
+  showLoadingOverlay('Completing ' + person + '…');
   try {
-    await api('/complete-service-assignment', { body: { orderId, category: place, placeMode: true, changedBy: getActorName() } });
-    showToast(place + ' confirmed.');
+    await api('/complete-service-assignment', { body: { orderId, person, personMode: true, changedBy: getActorName() } });
+    showToast(person + "'s work is completed.");
     await loadAll();
+    await showOrderWherever(orderId);
     GSLoadingSplash.hide();
   } catch (e) {
     GSLoadingSplash.hide();
@@ -11188,29 +11221,17 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
     ? GSPrintButton.html(o, { storedDoc: o.Status === 'Completed' ? storedCompletionDoc : storedDoc })
     : '<button class="gs-ofp-btn-secondary" disabled>Print</button>';
 
-  /* Una recurrente que todavia no le toca su dia (Status 'Recurring
-     Scheduled') no muestra Print/Completed/Cancelled -- no tiene
-     sentido poder marcar como completada o cancelada una visita que
-     ni siquiera ha pasado. Aparecen solo una vez que el motor la
-     asciende de verdad a 'Assigned', igual que cualquier otra orden. */
-  /* "Assign by service" (corregido 21/09/2026 en vivo -- cambio
-     confirmado sobre lo aprobado en el mini): completar cada
-     servicio YA NO pasa por este boton compartido -- cada servicio
-     que ya tiene tecnico+fecha trae su PROPIO boton junto a el en la
-     tabla de "Services Requested" (mas abajo, svcTableHtml), sin
-     importar cual sea "su turno". Este boton de aqui se queda SOLO
-     para cerrar la orden formalmente una vez que TODOS los servicios
-     ya estan Completed -- mientras falte alguno, no aparece nada
-     aqui (nada que hacer en este boton todavia). */
-  let completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`;
-  if (isAssignByService) {
-    const allDone = svcAssignmentStatusRows(o.OrderID, services).every(r => r.workStatus === 'Completed');
-    completedBtnHtml = allDone
-      ? `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed</button>`
-      : '';
-  }
+  /* REGLA DEL DUEÑO (24/09/2026): en Active TODA orden -- recurrentes
+     incluidas, llegue o no su fecha, haya o no marcado algo el tecnico
+     en Tech -- trae SIEMPRE su boton Completed (y Print/Cancelled).
+     Antes habia notas que decian lo contrario ("solo cuando llega la
+     fecha", "solo cuando todos los servicios ya estan Completed", y un
+     TEMPORAL para regresar a 'solo si Working'): eran incorrectas y se
+     quitaron -- NO regresar esos candados. Cerrar la orden cierra
+     tambien lo que le quedaba a cada quien (admin-update-order.js). */
+  const completedBtnHtml = `<button class="gs-ofp-btn-primary" onclick="markCompleted('${esc(o.OrderID)}')">Completed${o.TechMarkedComplete ? ' ✓ (tech marked done)' : ''}</button>`;
 
-  const statusBar = (contextCan(context, 'edit') && o.Status !== 'Recurring Scheduled') ? `
+  const statusBar = contextCan(context, 'edit') ? `
     <div class="eo-status-bar">
       <div class="eo-status-info">
         <span class="eo-status-dot"></span>
@@ -11218,13 +11239,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       </div>
       <div class="eo-status-actions">
         ${printOrderHtml}
-        <!-- TEMPORAL (19/09/2026, a peticion del dueno "para hacer pruebas"):
-             antes solo salia si displayStatus(o) === 'Working'. Se
-             quito ese condicionamiento para que el boton siempre se
-             vea, sin importar el estatus real -- avisar cuando el
-             dueno diga que ya termino de probar, para regresarlo a
-             la regla original (evita marcar Completed antes de que
-             arranque el servicio). -->
+        <!-- Completed SIEMPRE visible en Active (regla del dueño, 24/09/2026). -->
         ${completedBtnHtml}
         <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
       </div>
