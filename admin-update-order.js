@@ -650,7 +650,43 @@ exports.handler = async (event) => {
           saUrl = d['@odata.nextLink'] || null;
         }
         const closeIso = completedDate || new Date().toISOString();
-        await Promise.all(saRows.filter(it => it.fields && it.fields.WorkStatus !== 'Completed').map(it =>
+        const pending = saRows.filter(it => it.fields && it.fields.WorkStatus !== 'Completed');
+        /* Historial (24/09/2026, pedido del dueño): cada persona que
+           todavia tenia algo pendiente queda registrada como que termino,
+           con la LISTA de todo lo suyo (lugar + servicio + nivel) --
+           mismo evento 'Work Completed' que el boton por persona. Quien
+           ya se habia cerrado con su boton no se repite. */
+        const nm = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+        const confirmedFor = (it, n) => nm(it.fields.ConfirmedFor).some(x => x.toLowerCase() === n.toLowerCase());
+        const people = [];
+        pending.forEach(it => nm(it.fields.AssignedTo).forEach(n => {
+          if (!confirmedFor(it, n) && !people.some(x => x.toLowerCase() === n.toLowerCase())) people.push(n);
+        }));
+        if (people.length) {
+          let levelOf = {};
+          try {
+            (await fetchByOrderId(ORDER_SERVICES_LIST, orderId)).forEach(it => { if (it.fields) levelOf[(it.fields.Category || '') + '|' + (it.fields.ServiceName || '')] = it.fields.Level || ''; });
+          } catch (e) { levelOf = {}; }
+          /* UN solo evento con todas las personas, cada una por separado
+             (el dueño: "en un mismo evento, pero si por separado"). */
+          await createListItem(ORDER_HISTORY_LIST, {
+            Title: orderId + '-work-completed-' + Date.now(),
+            OrderID: orderId,
+            ChangeType: 'Work Completed',
+            ChangedBy: actor,
+            ChangeDate: closeIso,
+            Notes: '',
+            NewValue: JSON.stringify({
+              finishedText: closeIso, confirmedNote: 'Closed with the whole order',
+              people: people.map(person => ({
+                person,
+                items: saRows.filter(it => it.fields && nm(it.fields.AssignedTo).some(x => x.toLowerCase() === person.toLowerCase()))
+                  .map(it => ({ place: it.fields.Category || '', service: it.fields.ServiceName || '', level: levelOf[(it.fields.Category || '') + '|' + (it.fields.ServiceName || '')] || '' }))
+              }))
+            })
+          });
+        }
+        await Promise.all(pending.map(it =>
           updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, it.id, {
             WorkStatus: 'Completed', CompletedDate: closeIso, ConfirmedFor: it.fields.AssignedTo || ''
           })));

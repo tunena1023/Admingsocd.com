@@ -72,17 +72,24 @@ async function completePerson(b) {
     }
     return updateListItemByItemId(SERVICE_ASSIGNMENTS_LIST, it.id, patch);
   }));
+  /* Historial (24/09/2026, pedido del dueño): quien termino y la LISTA
+     de lo que hizo (lugar + servicio + nivel), no solo "All of X's
+     work". ChangeType propio para que un componente viejo no pinte
+     "undefined": gsocd-shared/order-history v1.58.0 lo dibuja. */
+  const levelOf = {};
+  orderSvcRows.forEach(it => { if (it.fields) levelOf[(it.fields.Category || '') + '|' + (it.fields.ServiceName || '')] = it.fields.Level || ''; });
+  const canonical = (namesOf(mine[0].fields.AssignedTo).find(n => n.toLowerCase() === person.toLowerCase())) || person;
   await createListItem(ORDER_HISTORY_LIST, {
-    Title: b.orderId + '-svc-completed-' + Date.now(),
+    Title: b.orderId + '-work-completed-' + Date.now(),
     OrderID: b.orderId,
-    ChangeType: 'Service Completed',
+    ChangeType: 'Work Completed',
     ChangedBy: b.changedBy,
     ChangeDate: nowIso,
     Notes: '',
     NewValue: JSON.stringify({
-      serviceName: 'All of ' + person + "'s work", completedBy: person, finishedText: nowIso,
-      services: mine.map(it => (it.fields.Category ? it.fields.Category + ' · ' : '') + it.fields.ServiceName),
-      confirmedNote: cameFromTech ? ('Confirmed by office after ' + person + ' marked it done') : ''
+      person: canonical, finishedText: nowIso,
+      items: mine.map(it => ({ place: it.fields.Category || '', service: it.fields.ServiceName || '', level: levelOf[(it.fields.Category || '') + '|' + (it.fields.ServiceName || '')] || '' })),
+      confirmedNote: cameFromTech ? ('Confirmed by the office after ' + canonical + ' marked it done in Tech') : ''
     })
   });
 
