@@ -1100,6 +1100,17 @@
   .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
   .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
   .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  /* Celular (24/09/2026, el dueño: "en la version movil esos de colores
+     se tienen que apilar, asi se ven feos"): las etiquetas de color del
+     encabezado de cada tarjeta (Approvals, Review, Active, History,
+     Recurring, QuickBooks) se apilan una debajo de otra a la derecha,
+     en vez de ir en fila apretando el nombre de la orden. */
+  @media (max-width: 560px) {
+    .order-card-header > div:first-child { min-width: 0; }
+    .hdr-badges { flex-direction: column; align-items: flex-end !important; gap: 6px !important; }
+    .hdr-badges > * { white-space: nowrap; }
+    .hdr-badges > span:empty { display: none; }
+  }
   /* Recurrentes: persona -> pisos -> servicios (24/09/2026, mini aprobado) */
   .rp-list { margin: 0 -14px; }
   .rp-row { border-top: 1px solid var(--border); }
@@ -4245,7 +4256,7 @@ function newOrderApprovalCard(o) {
           })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="hdr-badges" style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password"></span>
@@ -4458,7 +4469,7 @@ function approvalCard(o) {
           })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="hdr-badges" style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
           <span class="pw-badge" id="${dom}-pwbadge" title="Requires the Operations Director's password">${isCancelSync ? passwordBadgeHtml() : ''}</span>
@@ -10476,7 +10487,7 @@ function orderCard(o, context, qbInfo) {
     <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
       <div class="order-card-header" onclick="toggleOrder('${esc(o.OrderID)}','${context}',this)" ondblclick="pinOrder('${esc(o.OrderID)}','${context}',this)">
         ${qbInfo ? `<div style="display:flex;align-items:center;gap:12px">${qbSelector}${infoBlock}</div>` : infoBlock}
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="hdr-badges" style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           ${GSOrderBadges.occupied(o)}${GSOrderBadges.officeNeed(o)}${GSOrderBadges.nowOpen(o)}
           <span class="order-pin"></span>
           <span class="status-badge ${statusClass(displayStatus(o))}">${esc(displayStatus(o))}</span>
