@@ -1100,6 +1100,33 @@
   .pw-st.open { background: var(--bg); color: var(--gray); border: 1px solid var(--border); }
   .pw-st.pending { background: #E3ECF7; color: #2E5FA3; }
   .pw-st.done { background: #EAF3EC; color: #3E7A4C; }
+  /* Services Requested -- rediseño opcion A, tarjetas (24/09/2026) */
+  .sv-list { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+  .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
+  .sv-card.done { background: #FAFCFA; border-color: #D5E6D9; }
+  .sv-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--gold); }
+  .sv-name { font-size: 15px; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sv-meta { font-size: 12px; color: var(--gray); margin-top: 3px; line-height: 1.5; }
+  .sv-sep { margin: 0 6px; color: #C9C3B6; }
+  .sv-lv { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 18px; padding: 0 6px; border-radius: 9px; font-size: 10px; font-weight: 700; color: var(--gold-dk); background: #F6EFD9; flex-shrink: 0; }
+  .sv-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .sv-st { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--gray); }
+  .sv-st i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .sv-st.assigned { color: #9A7B24; } .sv-st.waiting { color: #2E5FA3; } .sv-st.done { color: #3E7A4C; } .sv-st.needs { color: var(--red); }
+  .sv-act { font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border-radius: 6px; padding: 7px 12px; cursor: pointer; white-space: nowrap; background: var(--white); color: var(--gold-dk); border: 1.5px solid #D8C68F; }
+  .sv-act:hover { background: #FBF6E8; border-color: var(--gold); }
+  .sv-act.blue { color: #2E5FA3; border-color: #AFC6EC; } .sv-act.blue:hover { background: #F2F6FC; }
+  .sv-done { font-size: 11px; font-weight: 700; color: #3E7A4C; white-space: nowrap; }
+  .sv-incl-toggle { font-family: inherit; font-size: 12px; color: var(--gold-dk); background: none; border: none; cursor: pointer; padding: 0; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; }
+  .sv-incl-toggle .car { display: inline-block; transition: transform .15s; }
+  .sv-incl-toggle.open .car { transform: rotate(90deg); }
+  .sv-incl { display: none; grid-column: 1 / -1; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--border); grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 18px; }
+  .sv-incl.open { display: grid; }
+  .sv-incl div { font-size: 12.5px; display: flex; justify-content: space-between; gap: 8px; }
+  @media (max-width: 560px) {
+    .sv-card { grid-template-columns: minmax(0,1fr); }
+    .sv-right { flex-direction: row; align-items: center; justify-content: space-between; margin-top: 8px; }
+  }
   /* Boton por persona en "Who does what" (24/09/2026) */
   .pw-action { margin-left: auto; }
   .pw-btn { width: auto !important; padding: 9px 16px !important; font-size: 11px !important; }
@@ -11310,56 +11337,56 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
      mismo, sin importar el orden (se puede completar cualquiera,
      no solo el que esta "activo"). Sigue sin poder completarse uno
      que todavia no tiene gente+fecha (nada que confirmar). */
+  /* REDISEÑO (24/09/2026, mini aprobado por el dueño, opcion A
+     "Cards": https://claude.ai/artifact/5xxunaLQsBkZu1imeee5Pu). Cada
+     servicio es su propia tarjeta: categoria arriba en chiquito, nombre
+     grande con su nivel en pastilla, quien/cuando/tiempo abajo, y a la
+     derecha el estatus (puntito de color) + boton ligero. El paquete se
+     dobla en "What's included (N)". Solo cambia como se ve: mismos
+     datos y mismas acciones que la tabla de antes, y el mismo orden
+     (Sequence en ordenes por servicio -- nunca se reagrupa). En
+     recurrentes no hay boton por servicio (su completado vive en "Who
+     does what", por persona). */
+  const svShortDate = v => { const d = String(v || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return ''; return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const svStatusCls = sr => !sr ? '' : sr.workStatus === 'Completed' || sr.cls === 'status-completed' ? 'done'
+    : sr.workStatus === 'Pending Review' ? 'waiting' : sr.label === 'Assigned' ? 'assigned'
+    : sr.label === 'Needs scheduling' ? 'needs' : 'idle';
+  let svLastCat = 'General';
   const svcTableHtml = svcRows.length
-    ? '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-      svcRows.map((r, i) => {
+    ? '<div class="sv-list">' + svcRows.map(r => {
         const sr = r.statusRow;
-        /* Pedido del dueño (24/09/2026, con captura real de Active >
-           Recurring): en las RECURRENTES ya no va un boton de completado
-           por cada servicio ("ese monton de botones"). Aqui solo se
-           quitan; el completado por persona (1 boton por tecnico en
-           "Who does what") es el paso que sigue, con mini ya aprobado.
-           Las ordenes normales con Assign by service no cambian. */
+        const cat = (sr && sr.svc && sr.svc.Category) || r.cat || svLastCat;
+        svLastCat = cat;
         const canComplete = isAssignByService && !o.RecurringServiceID && sr && sr.scheduled && sr.workStatus !== 'Completed';
         const isPendingReview = sr && sr.workStatus === 'Pending Review';
-        /* BUG REAL reportado por el dueño en vivo, con captura real de
-           mobile: esta ultima columna tenia white-space:nowrap, y en
-           cuanto el badge de estatus Y el boton nuevo ("Mark
-           completed"/"Confirm") tenian que caber juntos en una
-           pantalla angosta, el nowrap forzaba TODA la tabla (y la
-           pagina) a ensancharse mas alla del viewport -- se veia
-           cortado por la derecha, sin poder arreglarse con scroll ni
-           zoom (nada dentro tenia a donde envolverse). Se quita el
-           nowrap de esta columna especificamente y el boton se
-           mueve a su propio renglon (block, no inline) cuando existe
-           -- en vez de pelear por espacio junto al badge en la misma
-           linea, en mobile se acomodan uno debajo del otro solos. */
-        const completeBtnHtml = canComplete
-          ? `<div style="margin-top:4px"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:4px 12px;font-size:11px${isPendingReview ? ';background:#2E5FA3;border-color:#2E5FA3' : ''}" onclick="completeServiceAssignment('${jsStr(o.OrderID)}','${jsStr((sr.svc && sr.svc.Category) || '')}','${jsStr(r.name)}')">${isPendingReview ? '✓ Confirm' : 'Mark completed'}</button></div>`
-          : '';
-        return '<tr' + (i < svcRows.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
-        '<td style="padding:9px 14px 9px 0;color:var(--gold);font-weight:600;width:36%">' + esc(r.cat) + '</td>' +
-        '<td style="padding:9px 10px 9px 0;width:32%">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + pkgIncludesHtml(r.sku, o.OrderID) + '</td>' +
-        '<td style="padding:9px 0;color:' + (r.sub ? 'var(--black)' : 'var(--gray)') + '">' + (r.sub ? esc(r.sub) : (r.lvl ? esc(r.lvl) : (r.qty ? 'Qty: ' + esc(r.qty) : '—'))) + '</td>' +
-        (isAssignByService
-          ? '<td style="padding:9px 0 9px 10px;text-align:right">' + (sr ? (
-              /* A peticion del dueño (22/09/2026): el badge "Needs
-                 scheduling" ahora es clickeable -- manda directo a
-                 Scheduling con ESTA orden ya abierta y lista para
-                 elegir tecnico, reusando goToScheduleForOrder()
-                 (la misma funcion que ya existia para este fin,
-                 nunca hacia falta construir nada nuevo). Los demas
-                 estatus (Completed/Scheduled/Not started) se quedan
-                 como span de solo lectura, no tiene sentido navegar
-                 desde esos. */
-              sr.label === 'Needs scheduling'
-                ? '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap;cursor:pointer;text-decoration:underline" onclick="goToScheduleForOrder(\'' + jsStr(o.OrderID) + '\',\'' + jsStr((sr.svc && sr.svc.Category) || '') + '\',\'' + jsStr((sr.svc && sr.svc.ServiceName) || '') + '\')" title="Go to Scheduling">' + esc(sr.label) + '</span>'
-                : '<span class="status-badge ' + sr.cls + '" style="white-space:nowrap">' + esc(sr.label) + '</span>'
-            ) : '') + completeBtnHtml + '</td>'
-          : '<td style="padding:9px 0 9px 10px;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + (svcMinutesLabel(r.sku, r.lvl, r.qty) ? esc(svcMinutesLabel(r.sku, r.lvl, r.qty)) : '') + '</td>') +
-        '</tr>';
-      }).join('') +
-      '</table>'
+        const isDone = sr && sr.workStatus === 'Completed';
+        const stc = svStatusCls(sr);
+        const who = sr && sr.a && sr.a.AssignedTo ? String(sr.a.AssignedTo) : '';
+        const when = sr && sr.a ? svShortDate(sr.a.ScheduledDate) : '';
+        const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+        const metaBits = [];
+        if (r.sub) metaBits.push(esc(r.sub));
+        if (isAssignByService) metaBits.push(who ? esc(who) : 'No one assigned yet');
+        if (when) metaBits.push(esc(when));
+        if (mins) metaBits.push(esc(mins));
+        const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
+        const incl = pkgSnapshotFor(o.OrderID, String(r.sku || '')) || [];
+        const inclId = 'sv-incl-' + String(o.OrderID || '').replace(/[^a-z0-9]/gi, '_') + '-' + String(r.sku || r.name).replace(/[^a-z0-9]/gi, '_');
+        const status = !sr ? '' : sr.label === 'Needs scheduling'
+          ? '<span class="sv-st needs" style="cursor:pointer;text-decoration:underline" title="Go to Scheduling" onclick="goToScheduleForOrder(\'' + jsStr(o.OrderID) + '\',\'' + jsStr((sr.svc && sr.svc.Category) || '') + '\',\'' + jsStr((sr.svc && sr.svc.ServiceName) || '') + '\')"><i></i>Needs scheduling</span>'
+          : '<span class="sv-st ' + stc + '"><i></i>' + esc(isPendingReview ? 'Waiting on office' : sr.label) + '</span>';
+        const action = isDone ? '<span class="sv-done">\u2713 Done</span>'
+          : canComplete ? '<button type="button" class="sv-act' + (isPendingReview ? ' blue' : '') + '" onclick="completeServiceAssignment(\'' + jsStr(o.OrderID) + '\',\'' + jsStr((sr.svc && sr.svc.Category) || '') + '\',\'' + jsStr(r.name) + '\')">' + (isPendingReview ? '\u2713 Confirm' : 'Mark completed') + '</button>' : '';
+        const right = status + action;
+        return '<div class="sv-card' + (isDone ? ' done' : '') + '">' +
+          '<div class="sv-main"><div class="sv-eyebrow">' + esc(cat) + '</div>' +
+          '<div class="sv-name">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + (lvTxt ? '<span class="sv-lv">' + esc(lvTxt) + '</span>' : '') + '</div>' +
+          (metaBits.length ? '<div class="sv-meta">' + metaBits.join('<span class="sv-sep">\u00b7</span>') + '</div>' : '') +
+          (incl.length ? '<button type="button" class="sv-incl-toggle" onclick="this.classList.toggle(\'open\');document.getElementById(\'' + inclId + '\').classList.toggle(\'open\')"><span class="car">\u25B8</span>What\u2019s included (' + incl.length + ')</button>' : '') + '</div>' +
+          (right ? '<div class="sv-right">' + right + '</div>' : '') +
+          (incl.length ? '<div class="sv-incl" id="' + inclId + '">' + incl.map(x => '<div><span>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(x.sku, esc(x.serviceName || x.sku)) : esc(x.serviceName || x.sku)) + '</span>' + (x.level ? '<span class="sv-lv">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '') + '</div>').join('') + '</div>' : '') +
+          '</div>';
+      }).join('') + '</div>'
     : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
   return `
