@@ -412,7 +412,7 @@ exports.handler = async (event) => {
           })
         ]);
       } catch (e) { console.error('Post-order write failed:', e.message); }
-      await recordPackageSnapshots(orderId, svcSource, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
+      await recordPackageSnapshots(orderId, svcSource, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID, null, null, b.PackageLevels);
 
       try {
         await Promise.all(draftServiceRows.map(row => deleteListItem(DRAFTS_LIST, row.id)));
@@ -605,7 +605,7 @@ exports.handler = async (event) => {
             OldValue:   '',
             NewValue:   'SERVICES:' + JSON.stringify({ services: parsedServices, dirtLevel: unit.dirtLevel || b.DirtLevel || '', entryDate: unitFields.EntryDate || '', dueDate: unitFields.DueDate || '' })
           });
-          await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
+          await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID, null, null, b.PackageLevels);
         } catch (e) {
           /* Mismo criterio que el Flujo C: un problema al escribir
              servicios/historial no debe tumbar la orden completa. */
@@ -720,7 +720,7 @@ exports.handler = async (event) => {
        donde parsedServices ya no existe ('parsedServices is not defined'):
        la orden SI se creaba pero la respuesta era error 500. Mismo bug
        que en ordersgsocd.com/submit-order.js. Venia del 23/09. */
-    await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID);
+    await recordPackageSnapshots(orderId, parsedServices, (b.OfficeCreated && b.ChangedBy) ? b.ChangedBy : b.ClientID, null, null, b.PackageLevels);
 } catch (e) { console.error('Post-order write failed:', e.message); }
     return jsonResponse(200, { success: true, orderId, id: result.id, historyWarning });
 

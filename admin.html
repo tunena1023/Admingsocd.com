@@ -1444,7 +1444,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.57.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.60.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -6230,6 +6230,7 @@ function refreshAssignRowOptions() {
 
 function mountRcPicker(initialSelected, initialLevels, propertyType, initialQuantities) {
     rcPicker = GSServicePicker.mount('rc-services', 'rc-svc-picker-mount', {
+      packageItemLevels: false, /* v1.60.0: aqui no se guarda el nivel por servicio de adentro del paquete */
       catalog: servicesCache,
       division: 'Janitorial',
       mode: 'levels',
@@ -7089,6 +7090,7 @@ function rsMountPicker(r) {
   /* Mismas opciones que mountRcPicker -- sin "Select all" (por lugar
      casi nunca aplica todo el catalogo). */
   rsPickers[pid] = GSServicePicker.mount(pid, pid, {
+      packageItemLevels: false, /* v1.60.0: aqui no se guarda el nivel por servicio de adentro del paquete */
     catalog: servicesCache, division: 'Janitorial', mode: 'levels', groupByCategory: true, propertyType: 'Commercial',
     /* v1.51.0: toggle Recurring / Units; aqui arranca en Recurring con
        la tarjeta de este lugar abierta primero. */
@@ -8539,6 +8541,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     });
     if (pkgEditPicker) { try { pkgEditPicker.destroy(); } catch (e) { /* nada */ } }
     pkgEditPicker = GSServicePicker.mount('pkg-edit', box, {
+      packageItemLevels: false, /* v1.60.0: aqui no se guarda el nivel por servicio de adentro del paquete */
       catalog, division: pkg.division || 'Janitorial', crossDivision: true, mode: 'levels', groupByCategory: true,
       /* El mismo picker de tarjetas que en todos lados: toggle Recurring /
          Units (areas comunes por tarjeta, o categorias por cuarto). */
@@ -9010,6 +9013,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     if (!catalog.length) { container.innerHTML = '<p class="empty-note">No services in the catalog yet.</p>'; return; }
     const isMixed = tplAdminCurrentDiv === 'Mixed';
     GSServicePicker.mount('tpl-admin', container, {
+      packageItemLevels: false, /* v1.60.0: aqui no se guarda el nivel por servicio de adentro del paquete */
       catalog: catalog,
       division: tplAdminCurrentDiv,
       crossDivision: isMixed,
@@ -13985,6 +13989,10 @@ async function submitCreateOrder() {
     Requester:      createSelectedClient.contactPerson || createSelectedClient.businessName,
     Division:       division,
     Services:       services,
+    /* picker v1.60.0: nivel escogido para cada servicio de adentro de
+       cada paquete (mix & match); se guarda en la copia del paquete de
+       ESTA orden. */
+    PackageLevels:  (createPickerHandle && createPickerHandle.getPackageLevels) ? createPickerHandle.getPackageLevels() : {},
     Address:        createSelectedClient.address || '',
     Suite:          createSelectedClient.suite || '',
     City:           createSelectedClient.city || '',
