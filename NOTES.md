@@ -57,18 +57,23 @@ entra con Client ID; Tech con QR/DeviceToken). Sus previews normales, de letras 
 azar, sí funcionan; solo piden la cuenta de Vercel.
 
 **Variables de Preview (los 3 proyectos):** `NOTIFY_MODE=test`,
-`NOTIFY_TEST_TO=orders@gsocd.com`. Cualquier correo que salga de un preview llega
-a orders@ con `[TEST → destinatario real]` en el asunto. Nunca poner `live` en
+`NOTIFY_TEST_TO=CFO@gsocd.com`. Cualquier correo que salga de un preview le llega
+solo a CFO@ con `[TEST → destinatario real]` en el asunto. Nunca poner `live` en
 Preview: usa el MISMO SharePoint que producción.
 
 ## SUBIDO A PRODUCCIÓN (25/09/2026): correos de notificación (reemplaza Power Automate)
 
-**Estado en Vercel al subir:** producción y Preview con `NOTIFY_MODE=live` y
-`NOTIFY_FROM=noreply@gsocd.com`. El dueño confirmó que todavía NO hay clientes
-reales: todos los emails del SharePoint son suyos. **En cuanto entre el primer
-cliente real, Preview debe regresar a `NOTIFY_MODE=test`** (con `NOTIFY_TEST_TO`,
-hoy CFO@gsocd.com), porque Preview usa el mismo SharePoint. Probado de verdad en
-Preview: "We received your order" (cliente) y "Client request" (oficina) llegaron.
+**Así quedó Vercel (25/09/2026, final, los 3 proyectos):**
+- **Producción:** `NOTIFY_MODE=live`, `NOTIFY_FROM=noreply@gsocd.com`. Los correos
+  les llegan a los clientes de verdad (el dueño le pasa el portal al primer
+  cliente real el 26/09/2026).
+- **Preview:** `NOTIFY_MODE=test`, `NOTIFY_TEST_TO=CFO@gsocd.com`. SIEMPRE en test:
+  Preview usa el mismo SharePoint que producción, así que tocar una orden real en
+  un preview le mandaría un correo al cliente. En test, todo lo que sale de un
+  preview le llega solo a CFO@ con `[TEST → destinatario real]` en el asunto.
+  Nunca poner `live` en Preview.
+- Si cambias una variable en Vercel, los deploys que ya existen no la ven: hay que
+  volver a desplegar (y reasignar test-admin.gsocd.com si hace falta).
 orders@ es un grupo: sus correos caen en las bandejas de CFO@, Admin@, Service@ y
 customercare@, no tiene bandeja propia. La pantalla nueva de "Order received" en
 customer.html también se subió el mismo día ("así mero", mini con el portal
