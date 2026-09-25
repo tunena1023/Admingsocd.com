@@ -509,6 +509,8 @@
     .qb-count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 9px; background: var(--gold); color: #fff; font-size: 10px; line-height: 16px; text-align: center; letter-spacing: 0; }
     .acw-qb { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
     .acw-qbupd { border: 1px solid var(--border); background: var(--white); border-radius: 3px; font: 600 10px 'Inter', sans-serif; padding: 3px 8px; cursor: pointer; }
+    .qb-count-muted { background: var(--gray); }
+    .qb-sent-doc { background: #EEF9F0; color: #2A7A4A; flex-shrink: 0; align-self: center; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
     .qb-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
     .qb-tag-ok { background: #EEF9F0; color: #2A7A4A; }
     .qb-tag-diff { background: #FFF4DE; color: #8A5A00; }
@@ -1773,11 +1775,16 @@
   <!-- Estimates | New clients (25/09/2026, pedido del dueño) -->
   <div class="subtabs qb-subtabs" role="tablist" aria-label="QuickBooks sections">
     <button class="subtab qb-subtab active" role="tab" aria-selected="true" data-qbtab="estimates" onclick="showQbSubTab('estimates')">Orders</button>
+    <button class="subtab qb-subtab" role="tab" aria-selected="false" data-qbtab="sent" onclick="showQbSubTab('sent')">Sent<span class="qb-count qb-count-muted" id="qb-sent-count" hidden></span></button>
     <button class="subtab qb-subtab" role="tab" aria-selected="false" data-qbtab="clients" onclick="showQbSubTab('clients')">Clients<span class="qb-count" id="qb-clients-count" hidden></span></button>
   </div>
   <div class="subpanel qb-subpanel active" id="qbsub-estimates">
     <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks.</p>
     <div id="qb-panel-body">Loading…</div>
+  </div>
+  <div class="subpanel qb-subpanel" id="qbsub-sent">
+    <p class="section-sub">Orders already sent to QuickBooks. Deleting one removes the estimate or invoice in QuickBooks and moves the order back to Orders so it can be sent again. It needs the same password as Wipe Test Data.</p>
+    <div id="qb-sent-body"><p class="empty-note">Loading…</p></div>
   </div>
   <div class="subpanel qb-subpanel" id="qbsub-clients">
     <p class="section-sub">Your app clients compared with QuickBooks. Create the ones that are missing, or update the ones whose details are different. Both need the Operations Director's password.</p>
@@ -3021,9 +3028,13 @@ async function renderQuickBooksPanel() {
        mostraba cualquier orden que no fuera Cancelled/Incomplete
        (Received, Assigned, Active, etc.), pero el flujo real es
        facturar hasta que el trabajo ya se termino. */
-    const eligible = (allOrders || []).filter(o => o.Status === 'Completed');
+    const completed = (allOrders || []).filter(o => o.Status === 'Completed');
+    /* 25/09/2026 (el dueño: "deberia haber un tab a donde se vayan para
+       poder distinguirlos"): las que ya se mandaron se van a Sent. */
+    const eligible = completed.filter(o => !imported[o.OrderID]);
+    renderQbSent(imported);
     if (!eligible.length) {
-      box.innerHTML = '<p class="empty-note">No orders to show.</p>';
+      box.innerHTML = qbSetupHtml(status) + '<p class="empty-note">' + (completed.length ? 'Every completed order is already in QuickBooks. See Sent.' : 'No completed orders yet.') + '</p>';
       return;
     }
     /* orderCard(o, 'quickbooks', {imported}) -- misma pieza que ya
@@ -3042,6 +3053,52 @@ async function renderQuickBooksPanel() {
       '</div>';
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+  }
+}
+
+/* Tab Sent: lo que ya esta en QuickBooks, con su numero, y el boton de
+   borrar (password de Wipe Test Data, revisado en el servidor --
+   quickbooks-delete-doc.js). */
+let qbImportedCache = {};
+function renderQbSent(imported) {
+  qbImportedCache = imported || {};
+  const box = document.getElementById('qb-sent-body');
+  const count = document.getElementById('qb-sent-count');
+  if (!box) return;
+  const ids = Object.keys(qbImportedCache).sort((a, b) => String(qbImportedCache[b].date || '').localeCompare(String(qbImportedCache[a].date || '')));
+  count.hidden = !ids.length;
+  count.textContent = ids.length;
+  if (!ids.length) { box.innerHTML = '<p class="empty-note">Nothing has been sent to QuickBooks yet.</p>'; return; }
+  box.innerHTML = ids.map(id => {
+    const e = qbImportedCache[id];
+    const o = (allOrders || []).find(x => x.OrderID === id);
+    const kind = e.type === 'invoice' ? 'Invoice' : 'Estimate';
+    const what = [o && o.BusinessName, o && o.UnitNumber ? 'Unit ' + o.UnitNumber : '', o && o.Division].filter(Boolean).join(' · ');
+    return '<div class="order-card"><div class="qb-client">' +
+      '<span class="badge qb-sent-doc">' + kind + ' ' + esc(e.docNumber || ('#' + (e.estimateId || ''))) + '</span>' +
+      '<div class="qb-client-main"><div class="order-id">' + esc(id) + '</div>' +
+      '<div class="qb-client-line">' + esc(what || 'Order not loaded in this view') + '</div>' +
+      '<div class="qb-client-line">Sent ' + esc(fmtDateTime(e.date)) + '</div></div>' +
+      '<button type="button" class="gs-ofp-btn-danger qb-upd" onclick="deleteQbDoc(\'' + escAttr(id) + '\')">Delete from QuickBooks</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function deleteQbDoc(orderId) {
+  const e = qbImportedCache[orderId] || {};
+  const label = (e.type === 'invoice' ? 'Invoice' : 'Estimate') + ' ' + (e.docNumber || '');
+  if (!confirm('Delete ' + label.trim() + ' (order ' + orderId + ') in QuickBooks? The order goes back to Orders so it can be sent again.')) return;
+  const pw = window.prompt('Type the Wipe Test Data password to delete it:');
+  if (pw === null) return;
+  showLoadingOverlay('Deleting in QuickBooks…');
+  try {
+    const res = await api('/quickbooks-delete-doc', { body: { orderId, password: pw } });
+    GSLoadingSplash.hide();
+    showToast(res.how === 'deleted' ? res.label + ' deleted in QuickBooks.' : res.label + ' was already gone in QuickBooks. The order is back in Orders.');
+    await renderQuickBooksPanel();
+  } catch (err) {
+    GSLoadingSplash.hide();
+    showToast(err.message);
   }
 }
 

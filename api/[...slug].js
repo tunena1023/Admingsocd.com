@@ -30,6 +30,7 @@ const handlers = {
   'quickbooks-status':   require('../quickbooks-status').handler,
   'quickbooks-import-estimates': require('../quickbooks-import-estimates').handler,
   'quickbooks-clients':  require('../quickbooks-clients').handler,
+  'quickbooks-delete-doc': require('../quickbooks-delete-doc').handler,
   'cron-recurring-orders': require('../cron-recurring-orders').handler,
   'toggle-assign-by-service': require('../toggle-assign-by-service').handler,
   'get-service-assignments': require('../get-service-assignments').handler,

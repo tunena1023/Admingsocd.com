@@ -2456,7 +2456,7 @@ exports.handler = async (event) => {
 
     if (action === 'wipe-test-data') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
-      if (String(body.password || '') !== 'BorraTodoYnoDejesNada') {
+      if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
 
@@ -2540,7 +2540,7 @@ exports.handler = async (event) => {
        Clients. Mismo candado (rol Developer + password exacta). */
     if (action === 'wipe-clients-only') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
-      if (String(body.password || '') !== 'BorraTodoYnoDejesNada') {
+      if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
 
