@@ -645,6 +645,14 @@
        en Active) -- el editor completo (candidatos + fecha) se movio
        a la columna derecha, un solo panel que reacciona a cual
        servicio este abierto. */
+    .svc-check { width: 16px; height: 16px; border: 1.5px solid var(--border); border-radius: 4px; flex: none; display: inline-grid; place-items: center; background: var(--white); }
+    .svc-check.on { background: var(--gold); border-color: var(--gold); }
+    .svc-check.on::after { content: ''; width: 8px; height: 4px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+    .svc-check.off { visibility: hidden; }
+    .svc-sel-all { all: unset; cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--gold-dk); }
+    .svc-sel-all:hover, .svc-sel-all:focus-visible { text-decoration: underline; }
+    .svc-sel-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+    .svc-sel-chips span { font-size: 11.5px; background: #F3ECD8; color: #6B5518; border-radius: 99px; padding: 3px 9px; }
     .svc-assign-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
     .svc-assign-line:last-child { border-bottom: none; }
     .svc-assign-line.can-open { cursor: pointer; }
@@ -15482,6 +15490,26 @@ let pendingDirectLinkOrderId = null;
   let svcAssignCache = {};
   let svcDraftCache = {};
   let svcOpenKey = null;
+  /* Varios servicios a la misma persona (25/09/2026, pedido del dueño:
+     "3 servicios a uno y otros 2 a otra"). svcSelCache: orderId -> Set
+     de keys marcadas. La gente y la fecha se escogen una vez para todo
+     lo marcado (borrador en svcDraftCache[orderId + '|*']). Se respeta
+     la cola: un servicio se puede marcar si todos los de antes ya estan
+     programados o tambien estan marcados. svcOpenKey sigue sirviendo
+     para llegar desde otra pestaña con un servicio ya marcado. */
+  let svcSelCache = {};
+  function svcSelOf(orderId) { return svcSelCache[orderId] || (svcSelCache[orderId] = new Set()); }
+  function svcMultiKey(orderId) { return orderId + '|*'; }
+  function svcDateInputId(orderId) { return 'svc-date-' + String(orderId).replace(/[^a-z0-9]/gi, '_'); }
+  function svcNamesToIds(order, assignedTo) {
+    const names = String(assignedTo || '').split(',').map(s2 => s2.trim()).filter(Boolean);
+    const { candidates: rc, techCandidates: rtc } = richCandidatesFor(order.Division);
+    const allRc = rc.concat(rtc);
+    return names.map(n => {
+      const found = allRc.find(c => (c.name || (c.firstName + ' ' + c.lastName).trim()) === n);
+      return found ? (found.payrollNumber || ('tech:' + found.id)) : null;
+    }).filter(Boolean);
+  }
 
   function svcKeyOf(orderId, cat, name) { return orderId + '|' + cat + '|' + name; }
 
@@ -15536,8 +15564,11 @@ let pendingDirectLinkOrderId = null;
       return { svc: s, a, seq: (a && a.Sequence) || (i + 1) };
     }).sort((x, y) => x.seq - y.seq);
 
+    const sel = svcSelOf(orderId);
+    if (svcOpenKey && svcOpenKey.split('|')[0] === orderId) { sel.add(svcOpenKey); svcOpenKey = null; }
     let prevScheduled = true; // el #1 siempre puede programarse
-    let openRow = null; // la fila cuyo picker esta abierto (si hay una)
+    let prevOk = true;        // ...o marcarse junto con los de antes
+    const selectedRows = [];
 
     const leftRowsHtml = rows.map((row, i) => {
       const { svc, a } = row;
@@ -15547,33 +15578,13 @@ let pendingDirectLinkOrderId = null;
       const canSchedule = prevScheduled;
       const statusLabel = isDone ? 'Completed' : (scheduled ? 'Scheduled' : (canSchedule ? 'Needs scheduling' : 'Not started'));
       const statusClass = isDone ? 'status-completed' : (scheduled ? 'status-assigned' : (canSchedule ? 'status-pending' : ''));
-      const canOpen = canSchedule && !isDone;
+      const canOpen = !isDone && prevOk;
+      if (!canOpen) sel.delete(key); // ya no se vale (se desmarco uno de antes)
+      const isSel = sel.has(key);
+      if (isSel) selectedRows.push({ svc, a, key, scheduled });
       prevScheduled = scheduled; // el siguiente solo se puede programar si ESTE ya tiene gente+fecha
-
-      const isOpen = svcOpenKey === key;
-      if (isOpen && canOpen) {
-        openRow = { svc, a, key, scheduled };
-        if (!svcDraftCache[key]) {
-          /* BUG REAL encontrado con Puppeteer antes de subir: AssignedTo
-             guarda NOMBRES (texto), pero los candidatos se identifican
-             por payrollNumber/'tech:id' -- al reabrir un servicio YA
-             asignado para reasignar, comparar el nombre contra el id
-             nunca hacia match, asi que nadie salia resaltado como ya
-             elegido. Se convierten los nombres a sus ids reales aqui,
-             buscando contra la misma lista rica de candidatos. */
-          let preIds = [];
-          if (a && a.AssignedTo) {
-            const names = String(a.AssignedTo).split(',').map(s2 => s2.trim()).filter(Boolean);
-            const { candidates: rc, techCandidates: rtc } = richCandidatesFor(order.Division);
-            const allRc = rc.concat(rtc);
-            preIds = names.map(n => {
-              const found = allRc.find(c => (c.name || (c.firstName + ' ' + c.lastName).trim()) === n);
-              return found ? (found.payrollNumber || ('tech:' + found.id)) : null;
-            }).filter(Boolean);
-          }
-          svcDraftCache[key] = { ids: preIds, date: a ? a.ScheduledDate : '' };
-        }
-      }
+      prevOk = scheduled || isSel;
+      const isOpen = isSel;
 
       const assignedLineHtml = a && a.AssignedTo
         ? `<div class="svc-assign-assigned">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
@@ -15598,8 +15609,9 @@ let pendingDirectLinkOrderId = null;
         : `<span class="svc-drag-handle" title="Drag to reorder">⠿⠿</span>`);
 
       return `
-        <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${dragAttrs} ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')"` : ''}>
+        <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${dragAttrs} ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')" role="checkbox" aria-checked="${isSel}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}"` : ''}>
           ${reorderHtml}
+          ${canOpen ? `<span class="svc-check${isSel ? ' on' : ''}" aria-hidden="true"></span>` : '<span class="svc-check off" aria-hidden="true"></span>'}
           <span class="svc-assign-num">${i + 1}</span>
           <span class="svc-assign-name">${esc(svc.ServiceName)}</span>
           <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -15608,11 +15620,18 @@ let pendingDirectLinkOrderId = null;
     }).join('');
 
     let rightHtml;
-    if (!openRow) {
-      rightHtml = `<p class="empty-note" style="padding:20px 0">Click a service on the left to assign it.</p>`;
+    if (!selectedRows.length) {
+      rightHtml = `<p class="empty-note" style="padding:20px 0">Check one or more services on the left to assign them to the same person.</p>`;
     } else {
-      const { svc, key, scheduled } = openRow;
-      const draft = svcDraftCache[key];
+      const dkey = svcMultiKey(orderId);
+      if (!svcDraftCache[dkey]) {
+        /* Si lo primero que se marco ya tenia gente/fecha (reasignar),
+           arranca con eso -- mismo criterio de antes (AssignedTo guarda
+           nombres; los candidatos se identifican por id). */
+        const first = selectedRows[0].a;
+        svcDraftCache[dkey] = { ids: first && first.AssignedTo ? svcNamesToIds(order, first.AssignedTo) : [], date: first ? (first.ScheduledDate || '') : '' };
+      }
+      const draft = svcDraftCache[dkey];
       const { candidates, techCandidates } = richCandidatesFor(order.Division);
       const idOf = c => c.payrollNumber || ('tech:' + c.id);
       const nameOf = c => c.name || (c.firstName + ' ' + c.lastName).trim();
@@ -15625,26 +15644,32 @@ let pendingDirectLinkOrderId = null;
             const statLine = c.hoursThisWeek != null
               ? `<span class="candidate-stat">Hours this week: <b>${c.hoursThisWeek.toFixed(1)}</b></span><span class="candidate-stat">Orders this week: <b>${c.assignedOrdersThisWeek}</b></span>`
               : `<span class="candidate-stat">${esc(c.role || '')}${c.division === 'Mixed' ? ' — Mixed' : ''}</span>`;
-            return `<div class="candidate-row${picked ? ' selected' : ''}" onclick="toggleSvcDraftCandidate('${jsStr(key)}','${jsStr(id)}')">
+            return `<div class="candidate-row${picked ? ' selected' : ''}" onclick="toggleSvcDraftCandidate('${jsStr(dkey)}','${jsStr(id)}')">
               <span class="candidate-name">${esc(nameOf(c))}</span>
               ${statLine}
             </div>`;
           }).join('');
-
+      const n = selectedRows.length;
+      const allScheduled = selectedRows.every(r => r.scheduled);
       rightHtml = `
-        <p class="detail-label">Assign — ${esc(svc.ServiceName)}</p>
+        <p class="detail-label">Assign — ${n === 1 ? esc(selectedRows[0].svc.ServiceName) : n + ' services'}</p>
+        ${n > 1 ? '<div class="svc-sel-chips">' + selectedRows.map(r => '<span>' + esc(r.svc.ServiceName) + '</span>').join('') + '</div>' : ''}
         <div style="max-height:280px;overflow-y:auto;margin-bottom:14px">${candRowsHtml}</div>
         <div class="field-group" style="max-width:220px">
           <label>Date</label>
-          ${GSDateTimePicker.dateHtml('svc-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(order.EntryDate), max: dateInputValue(order.DueDate) })}
+          ${GSDateTimePicker.dateHtml(svcDateInputId(orderId), draft.date || null, 'Pick a date', { min: dateInputValue(order.EntryDate), max: dateInputValue(order.DueDate) })}
         </div>
-        <button class="gs-ofp-btn-primary" style="width:auto;margin-top:12px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')">${scheduled ? 'Update schedule' : 'Save schedule'}</button>`;
+        <button class="gs-ofp-btn-primary" style="width:auto;margin-top:12px" ${(draft.ids.length && draft.date) ? '' : 'disabled'} onclick="saveServiceSchedule('${jsStr(orderId)}')">${allScheduled ? 'Update schedule' : 'Save schedule'}${n > 1 ? ' (' + n + ' services)' : ''}</button>`;
     }
+
+    const selectableLeft = rows.some(r => !svcHasSchedule(r.a) && !(r.a && r.a.WorkStatus === 'Completed'));
+    const selAllHtml = selectableLeft
+      ? `<button type="button" class="svc-sel-all" onclick="svcSelectAllPending('${jsStr(orderId)}')">Select all not scheduled</button>` : '';
 
     box.innerHTML = `
       <div class="detail-grid" style="margin:0">
         <div>
-          <p class="detail-label">Services</p>
+          <p class="detail-label" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Services ${selAllHtml}</p>
           ${leftRowsHtml}
         </div>
         <div>
@@ -15768,10 +15793,21 @@ let pendingDirectLinkOrderId = null;
     await loadServiceAssignmentQueue(orderId);
   }
 
+  /* Clic en un servicio: lo marca o lo desmarca (antes abria uno solo). */
   window.toggleSvcPickerOpen = function(orderId, cat, name) {
     const key = svcKeyOf(orderId, cat, name);
-    svcOpenKey = (svcOpenKey === key) ? null : key;
-    if (svcOpenKey) delete svcDraftCache[key]; // arranca fresco cada vez que se abre
+    const sel = svcSelOf(orderId);
+    if (sel.has(key)) sel.delete(key); else sel.add(key);
+    if (!sel.size) delete svcDraftCache[svcMultiKey(orderId)]; // arranca fresco la proxima vez
+    renderServiceAssignmentQueue(orderId);
+  };
+
+  window.svcSelectAllPending = function(orderId) {
+    const sel = svcSelOf(orderId);
+    currentServiceQueueOrder(orderId).forEach(s2 => {
+      const a = (svcAssignCache[orderId] || []).find(x => x.Category === s2.category && x.ServiceName === s2.serviceName);
+      if (!s2.isDone && !svcHasSchedule(a)) sel.add(svcKeyOf(orderId, s2.category, s2.serviceName));
+    });
     renderServiceAssignmentQueue(orderId);
   };
 
@@ -15804,29 +15840,42 @@ let pendingDirectLinkOrderId = null;
       if (order) loadApprovalDetail(order);
       return;
     }
-    if (!id.startsWith('svc-date-') || !svcOpenKey) return;
-    const d = svcDraftCache[svcOpenKey] || { ids: [], date: '' };
+    if (!id.startsWith('svc-date-')) return;
+    const orderId = Object.keys(svcSelCache).find(oid => svcDateInputId(oid) === id);
+    if (!orderId) return;
+    const dkey = svcMultiKey(orderId);
+    const d = svcDraftCache[dkey] || { ids: [], date: '' };
     d.date = GSDateTimePicker.getDate(id) || '';
-    svcDraftCache[svcOpenKey] = d;
-    renderServiceAssignmentQueue(svcOpenKey.split('|')[0]);
+    svcDraftCache[dkey] = d;
+    renderServiceAssignmentQueue(orderId);
   });
 
-  window.saveServiceSchedule = async function(orderId, cat, name) {
-    const key = svcKeyOf(orderId, cat, name);
-    const draft = svcDraftCache[key];
-    if (!draft || !draft.ids.length || !draft.date) return;
+  /* Guarda la misma gente + fecha en TODOS los servicios marcados, uno
+     por uno en el orden de la cola (el backend exige que el de antes ya
+     este programado). Si uno falla, se para ahi y avisa cual. */
+  window.saveServiceSchedule = async function(orderId) {
+    const dkey = svcMultiKey(orderId);
+    const draft = svcDraftCache[dkey];
+    const sel = svcSelOf(orderId);
+    if (!draft || !draft.ids.length || !draft.date || !sel.size) return;
     const candidates = simpleCandidateNamesFor((ordersQueueCache.find(o => o.OrderID === orderId) || {}).Division);
     const names = draft.ids.map(id => (candidates.find(c => c.id === id) || {}).name).filter(Boolean).join(', ');
-    try {
-      await api('/save-service-assignment', {
-        body: { orderId, category: cat, serviceName: name, assignedTo: names, scheduledDate: draft.date, changedBy: adminUser.name || adminUser.email }
-      });
-    } catch (e) {
-      showToast('Could not save this: ' + e.message);
-      return;
+    const todo = currentServiceQueueOrder(orderId).filter(s2 => sel.has(svcKeyOf(orderId, s2.category, s2.serviceName)));
+    let done = 0;
+    for (const s2 of todo) {
+      try {
+        await api('/save-service-assignment', {
+          body: { orderId, category: s2.category, serviceName: s2.serviceName, assignedTo: names, scheduledDate: draft.date, changedBy: adminUser.name || adminUser.email }
+        });
+        done++;
+      } catch (e) {
+        showToast('Could not save ' + s2.serviceName + ': ' + e.message + (done ? ' (' + done + ' saved before it)' : ''));
+        break;
+      }
     }
-    svcOpenKey = null;
-    delete svcDraftCache[key];
+    if (done === todo.length && done > 1) showToast(done + ' services assigned to ' + names + '.');
+    sel.clear();
+    delete svcDraftCache[dkey];
     /* BUG REAL encontrado en produccion (21/09/2026, reportado por el
        dueño -- "el servicio se va a Active pero no se pone como
        asignado, y si me regreso a Scheduling no se guardo"): estos 2
