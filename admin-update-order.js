@@ -29,6 +29,10 @@ const {
 const { recordPackageSnapshots } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
+/* Correos al cliente (lib/notify.js, copia de gsocd-shared, 25/09/2026).
+   Nunca truena: si el correo falla, la orden ya quedo guardada igual. */
+const graph = require('./lib/graph');
+const { notifyClient, fmtDay, serviceLine } = require('./lib/notify');
 /* gsocd-shared v1.34.0+ -- primera pieza de BACKEND (Node) de ese
    repo, instalada como dependencia real de git (ver package.json),
    no cargada con <script> como el resto de gsocd-shared. Detecta si
@@ -138,6 +142,24 @@ function servicesDiffer(oldList, newList) {
     if (!(k in a) || !(k in b) || a[k] !== b[k]) return true;
   }
   return false;
+}
+
+/* Lo que cambio, en palabras del cliente, para el correo. Solo lo que
+   el cliente ve (mismo criterio que isClientVisible mas abajo):
+   servicios, fechas y ventana. Supervisor/inspeccion nunca salen. */
+function clientDiffRows(oldF, newF, oldServices, newServices, servicesChanged) {
+  const rows = [];
+  if (servicesChanged) {
+    rows.push({ label: 'Services', old: (oldServices || []).map(serviceLine).join('\n'), next: (newServices || []).map(serviceLine).join('\n') });
+  }
+  [['dispatchDate', 'Date', true], ['serviceWindow', 'Arrival window', false],
+   ['entryDate', 'Entry date', true], ['dueDate', 'Due date', true]].forEach(([k, label, isDate]) => {
+    const o = oldF[k] || '';
+    const n = newF[k] || '';
+    if (o === n) return;
+    rows.push({ label, old: isDate ? fmtDay(o) : o, next: isDate ? fmtDay(n) : n });
+  });
+  return rows;
 }
 
 function snapshotServices(svcRows, division) {
@@ -295,6 +317,21 @@ exports.handler = async (event) => {
         OldValue:     'SERVICES:' + JSON.stringify({ services: oldServices, dirtLevel: f.DirtLevel || '', fields: oldFieldsSnap, status: f.Status || '' }),
         NewValue:     'SERVICES:' + JSON.stringify({ services: newServices, dirtLevel: f.DirtLevel || '', fields: newFieldsSnap })
       });
+
+      /* "Send to client" = el cliente tiene que confirmar: ese correo
+         sale SIEMPRE, aunque tenga las notificaciones apagadas. Un
+         cambio de oficina sin sendToClient no manda nada todavia: el
+         cliente se entera cuando el director lo aprueba
+         (admin-approve-order.js). */
+      if (sendToClient) {
+        await notifyClient(graph, {
+          event: 'confirm',
+          order: Object.assign({}, f, requestPatch, { OrderID: orderId }),
+          reason: requestReason && String(requestReason).trim(),
+          diff: clientDiffRows(oldFieldsSnap, newFieldsSnap, oldServices, newServices,
+            servicesDiffer(oldServices, newServices))
+        });
+      }
 
       return jsonResponse(200, { success: true, status: 'Change Requested' });
     }
@@ -514,6 +551,10 @@ exports.handler = async (event) => {
         body: 'Order ' + orderId + ' was just assigned to you.',
         url: '/employee.html'
       });
+      /* Mismo momento que ve el cliente como "Scheduled": primera
+         asignacion, o de nuevo despues de un Reschedule (que deja los 3
+         campos en blanco). */
+      await notifyClient(graph, { event: 'scheduled', order: Object.assign({}, f, patch, { OrderID: orderId }) });
     }
 
     let servicesChanged = false;
@@ -634,6 +675,7 @@ exports.handler = async (event) => {
       }));
     }
 
+    let completionDoc = null;
     if (statusChanged && status === 'Completed') {
       /* Cerrar la orden cierra tambien lo que le quedaba a cada quien
          (24/09/2026): en Active el Completed siempre esta, aunque nadie
@@ -709,7 +751,7 @@ exports.handler = async (event) => {
           fetchByOrderId(ORDER_SERVICES_LIST, orderId),
           fetchByOrderId(ORDER_HISTORY_LIST, orderId)
         ]);
-        const completion = await generateAndSaveCompletionPdf({
+        const completion = completionDoc = await generateAndSaveCompletionPdf({
           order: merged,
           services: freshSvc.filter(r => r.fields).map(r => r.fields),
           history: freshHist.filter(r => r.fields).map(r => r.fields)
@@ -732,6 +774,40 @@ exports.handler = async (event) => {
             : ('The completion document could not be generated: ' + completion.error)
         }));
       } catch (e) { /* nunca tumbar el guardado de la orden por esto */ }
+    }
+
+    /* Correo "Completed" al cliente, con el documento de completacion
+       adjunto si se genero (si pesa demasiado, sale sin adjunto y con
+       el enlace a sus fotos). Solo cuando la OFICINA la cierra -- que
+       el tecnico la marque como hecha solo avisa a la oficina (dueño,
+       25/09/2026). */
+    if (statusChanged && status === 'Completed') {
+      await notifyClient(graph, {
+        event: 'completed',
+        order: Object.assign({}, f, patch, { OrderID: orderId }),
+        completedAt: completedDate || new Date().toISOString(),
+        attachment: completionDoc && completionDoc.ok && completionDoc.buffer
+          ? { name: completionDoc.fileName, buffer: completionDoc.buffer } : null
+      });
+    } else if (!wasUnassigned) {
+      /* Una orden YA asignada a la que se le mueve la fecha o la
+         ventana de forma directa (Scheduling, o "Site not ready" que la
+         regresa a Scheduling): el cliente se entera. Cambios de
+         Supervisor/inspeccion/notas internas no mandan nada. */
+      const clientLabels = { 'Dispatch Date': 'Date', 'Service Window': 'Arrival window', 'Due Date': 'Due date' };
+      const diff = changes.filter(c => clientLabels[c.label]).map(c => ({
+        label: clientLabels[c.label],
+        old: c.label === 'Service Window' ? c.old : fmtDay(c.old),
+        next: c.label === 'Service Window' ? c.next : fmtDay(c.next)
+      }));
+      if (diff.length) {
+        await notifyClient(graph, {
+          event: 'changed',
+          order: Object.assign({}, f, patch, { OrderID: orderId }),
+          diff,
+          backToScheduling: isNotReadyReport && realDateChanged
+        });
+      }
     }
 
     /* ------------------------------------------------------------------

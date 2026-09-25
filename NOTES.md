@@ -7,6 +7,54 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## PENDIENTE DE "SÚBELO" (25/09/2026): correos de notificación (reemplaza Power Automate)
+
+El envío vive en `lib/notify.js`, que es una COPIA de `gsocd-shared/lib/notify.js`
+(mismo criterio que division-rules: Vercel no reinstala tags nuevos). Manda desde
+orders@gsocd.com por Graph `sendMail`. La app GSPortal ya tiene `Mail.Send`
+(Application) con admin consent (dueño, 25/09/2026). Vista previa aprobada:
+https://claude.ai/artifact/2VhdVbEYgSsxDwRuvbTNbv
+
+**Variables en Vercel (por proyecto, Admin + Orders + Tech):**
+- `NOTIFY_MODE`: `off` (default, no sale nada) / `test` (todo a `NOTIFY_TEST_TO`,
+  con el destinatario real en el asunto) / `live`. Preview usa el MISMO SharePoint
+  que producción: probar SIEMPRE en `test`, nunca en `live`.
+- `NOTIFY_TEST_TO`, `NOTIFY_FROM` (default orders@gsocd.com),
+  `NOTIFY_OFFICE_TO` (default orders@gsocd.com, varios con coma).
+
+**Lista opcional `NotificationLog`** (bitácora de cada intento; si no existe, se
+ignora): Title, OrderID, Event, Recipient, Subject, Result (Sent/Skipped/Failed),
+Detail, Mode. Todas de texto.
+
+**Qué sale y de dónde:**
+- Cliente. **Confirmations** salen SIEMPRE: "Send to client" (`admin-update-order` requestOnly) y
+  pedir reactivación (`admin-approve-order`). **Changes**: fecha/ventana movida en una
+  orden ya asignada (`admin-update-order` directo); decisiones del director
+  (cancelación aprobada; rechazo solo si lo pidió el cliente; Reassign/Reschedule
+  aplicados); orden reactivada. **Updates**: orden recibida (`submit-order` flujos
+  A/C/D/E y `add-batch-unit` en Orders; un PO = 1 correo); programada (primera
+  asignación, `Order Assigned`); Completed (con el PDF de completación adjunto si
+  pesa menos de 2.8 MB).
+- Oficina (`NOTIFY_OFFICE_TO`): orden nueva, edición, cambio, cancelación o nuevas
+  fechas pedidas por el cliente; cliente confirmó cambio o reactivación; técnico
+  marcó su orden o un servicio como hecho (por lugar de recurrente NO); formulario
+  de contacto (Reply-To = quien escribió).
+- Recuperar Client ID: siempre, sin el candado de "una vez en la vida"; freno de
+  10 min entre correos al mismo email.
+- Nunca sale: cambios internos (Supervisor, inspección, Office Change (Internal)),
+  aprobación de orden nueva (ya salió "Scheduled"), técnico terminó (al cliente).
+- A quién: contacto de la orden → contacto del edificio (se empareja por dirección
+  y # de edificio, la orden no guarda el id) → contacto marcado "recibe
+  notificaciones" → Clients.Contact → Orders.Email. Contactos Phone se saltan.
+
+**Antes de `live`:** apagar los flows viejos de Power Automate sobre ContactMessages
+e IdRecovery si existen (si no, correos dobles), y la Application Access Policy
+para que GSPortal solo pueda mandar como orders@.
+
+**No cubierto todavía:** modo "Assign by service" (cada servicio con su propia
+fecha: no manda "Scheduled"), órdenes creadas desde Admin (`submit-order` de Admin
+no manda "received"), SMS.
+
 ## Minis: SIEMPRE con el app real (24/09/2026, el dueño: "esmerate")
 
 Los minis sueltos (una cajita con estilos propios) no le sirven al dueño:

@@ -47,6 +47,10 @@ const {
 } = require('./lib/graph');
 const { recordPackageSnapshots } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
+/* Correos al cliente (lib/notify.js, copia de gsocd-shared, 25/09/2026).
+   Nunca truena: si el correo falla, la decision ya quedo guardada. */
+const graph = require('./lib/graph');
+const { notifyClient, fmtDay, serviceLine } = require('./lib/notify');
 /* gsocd-shared v1.34.0+ -- ver el comentario completo en
    admin-update-order.js. Aqui se necesita en Reassign/Reschedule,
    donde los servicios PROPUESTOS de un cambio pendiente se aplican
@@ -223,6 +227,13 @@ function truthy(v) {
   return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
 }
 
+/* La solicitud la mando el cliente desde su portal: Orders guarda su
+   ClientID en ChangedBy (request-change.js, submit-order.js). */
+function originRowIsClient(row, clientId) {
+  const by = String((row && row.ChangedBy) || '').trim().toLowerCase();
+  return !!by && by === String(clientId || '').trim().toLowerCase();
+}
+
 /* Fechas que el cliente propuso al pedir el cambio. Se guardaron en el
    historial como JSON, no en la orden: hasta aqui no eran mas que una
    peticion. Aprobar es lo que las vuelve reales. */
@@ -314,6 +325,13 @@ exports.handler = async (event) => {
         Title: nextAdminLabel(), ChangeType: 'Cancellation Reversed', FieldChanged: 'Status',
         Notes: notes || ('Reactivated by ' + actor + '.'), OldValue: 'Cancelled', NewValue: restoredStatus
       }));
+      /* El cliente ya recibio el correo de "cancelada": avisarle que
+         la orden vuelve a estar activa. */
+      await notifyClient(graph, {
+        event: 'changed',
+        order: Object.assign({}, f, { Status: restoredStatus, OrderID: orderId }),
+        diff: [{ label: 'Status', old: 'Cancelled', next: 'Active again' }]
+      });
       return jsonResponse(200, { success: true, status: restoredStatus, archived: false });
     }
 
@@ -366,6 +384,13 @@ exports.handler = async (event) => {
         OldValue:     JSON.stringify({ reactivation: true, restoreTo: restoreTo }),
         NewValue:     'Change Requested'
       }));
+      /* El cliente puede confirmarla desde su portal
+         (confirm-reactivation.js): es una Confirmation, sale siempre. */
+      await notifyClient(graph, {
+        event: 'reactivation-confirm',
+        order: Object.assign({}, f, { Status: 'Change Requested', OrderID: orderId }),
+        reason: notes && String(notes).trim()
+      });
       return jsonResponse(200, { success: true, status: 'Change Requested' });
     }
 
@@ -404,6 +429,13 @@ exports.handler = async (event) => {
         OldValue:     'Change Requested',
         NewValue:     restoredStatus
       }));
+      /* Al cliente se le pidio confirmar por correo; si el director la
+         aprueba primero, avisarle que ya quedo activa. */
+      await notifyClient(graph, {
+        event: 'changed',
+        order: Object.assign({}, f, { Status: restoredStatus, OrderID: orderId }),
+        diff: [{ label: 'Status', old: 'Cancelled', next: 'Active again' }]
+      });
       return jsonResponse(200, { success: true, status: restoredStatus });
     }
 
@@ -750,6 +782,45 @@ exports.handler = async (event) => {
       OldValue:     current,
       NewValue:     newStatus
     }));
+
+    /* --- Correo al cliente sobre la decision (25/09/2026) ---
+       - Orden nueva aprobada: nada aqui (el correo "Scheduled" ya salio
+         al asignarla, en admin-update-order.js).
+       - Cancelacion aprobada: siempre (la orden se cancelo, la haya
+         pedido el cliente o la oficina).
+       - Rechazos: solo si lo pidio el CLIENTE (ChangedBy = su ClientID);
+         si lo pidio la oficina, el cliente nunca vio la solicitud.
+       - Cambio aplicado (Reassign/Reschedule): si lo pidio el cliente,
+         "aprobado"; si fue de la oficina, "actualizamos tu orden". Un
+         cambio interno (Office Change (Internal)) nunca manda nada. */
+    const byClient = originRowIsClient(isChange || isCancel ? lastRequestRow(history) : null, f.ClientID);
+    const mergedForMail = Object.assign({}, f, patch, { OrderID: orderId });
+    const decisionDiff = dateLogs.map(([field, oldVal, newVal]) => ({
+      label: field === 'Service Window' ? 'Arrival window' : field.replace(' Date', ' date'),
+      old: field === 'Service Window' ? oldVal : fmtDay(oldVal),
+      next: field === 'Service Window' ? newVal : fmtDay(newVal)
+    }));
+    if (isChange && (decision === 'reassign' || decision === 'reschedule')) {
+      const proposed = lastRequestedSnapshot(history);
+      const oldSvc = svcRows.filter(r => r.fields).map(r => serviceLine(r.fields)).join('\n');
+      const newSvc = proposed && proposed.services && proposed.services.length
+        ? proposed.services.map(serviceLine).join('\n') : oldSvc;
+      if (newSvc !== oldSvc) decisionDiff.unshift({ label: 'Services', old: oldSvc, next: newSvc });
+      if (decision === 'reschedule' && f.DispatchDate) {
+        decisionDiff.push({ label: 'Date', old: fmtDay(f.DispatchDate), next: 'To be scheduled' });
+      }
+    }
+    if (decision === 'approve' && isCancel) {
+      await notifyClient(graph, { event: 'request-decision', order: mergedForMail, kind: 'cancel', approved: true, byOffice: !byClient, notes: notes && String(notes).trim() });
+    } else if (decision === 'reject' && byClient) {
+      await notifyClient(graph, { event: 'request-decision', order: mergedForMail, kind: isCancel ? 'cancel' : 'change', approved: false, notes: String(notes || '').trim() });
+    } else if ((decision === 'reassign' || decision === 'reschedule') && !wasInternal) {
+      if (byClient) {
+        await notifyClient(graph, { event: 'request-decision', order: mergedForMail, kind: 'change', approved: true, diff: decisionDiff, backToScheduling: decision === 'reschedule' });
+      } else if (decisionDiff.length) {
+        await notifyClient(graph, { event: 'changed', order: mergedForMail, diff: decisionDiff, backToScheduling: decision === 'reschedule' });
+      }
+    }
 
     /* --- PDF: solo al aprobar (orden nueva o cambio). Nunca en cancelacion --- */
     let pdf = null;
