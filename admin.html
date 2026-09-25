@@ -11129,11 +11129,11 @@ function unseenActiveCardHtml(o, services, history) {
     </div>
     <p class="detail-label" style="margin-bottom:6px">Services Requested</p>
     ${svcHtml}
-    <!-- 24/09/2026 (dueño): "Mark as Seen" ya no le gusto -> "Send to Tech" (corto), y
-         "el pequeño, y el blanco abajo pero que diga Reschedule": los dos chicos,
-         uno debajo del otro. Por dentro hacen lo mismo de siempre (Approve / ir a
-         Scheduling con esa orden). -->
-    <div style="margin-top:20px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+    <!-- 24/09/2026 (dueño): "Mark as Seen" ya no le gusto -> "Send to Tech" (corto), el
+         blanco dice "Reschedule", los dos chicos y EN LA MISMA LINEA ("ya vi que si
+         deberian estar en la misma linea, no apilados"). Por dentro hacen lo mismo de
+         siempre (Approve / ir a Scheduling con esa orden). -->
+    <div style="margin-top:20px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
       <button class="gs-ofp-btn-primary" style="width:auto;padding:10px 22px" onclick="markSeen('${esc(o.OrderID)}')">Send to Tech</button>
       <button class="gs-ofp-btn-secondary" style="width:auto;padding:10px 22px" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reschedule</button>
     </div>
