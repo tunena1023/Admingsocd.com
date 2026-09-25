@@ -1197,11 +1197,8 @@
   .sv-sec-body .sv-list { padding: 10px 0 12px; }
   .sv-sec-foot { display: flex; justify-content: flex-end; }
   .sv-sec-total { font-size: 12px; color: var(--gray); margin: 0 2px 8px; }
-  .sv-add-div { all: unset; cursor: pointer; font-size: 12px; color: var(--gold-dk); margin: 10px 2px 0; display: inline-block; }
-  .sv-add-div:hover, .sv-add-div:focus-visible { text-decoration: underline; }
-  .sv-edit-title { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid var(--gold); }
-  .sv-other-div { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-dk); background: #F3ECD8; border-radius: 99px; padding: 2px 7px; margin-left: 6px; white-space: nowrap; }
-  .sv-edit-title span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); margin-left: 6px; }
+  .sv-sec-editing { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-dk); background: #F3ECD8; border-radius: 99px; padding: 2px 8px; }
+  .sv-sec-body.editing { background: var(--white); padding: 4px 14px 12px; }
   @media (prefers-reduced-motion: reduce) { .sv-sec-wrap, .sv-sec-chev { transition: none; } }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
   .sv-card.done { background: #FAFCFA; border-color: #D5E6D9; }
@@ -5187,10 +5184,7 @@ function svCollapsibleHtml(rows, orderId, opts) {
       '<div class="sv-sec-wrap" id="' + bodyId + '"><div><div class="sv-sec-body">' + svReadOnlyCardsHtml(byDiv[d], orderId) + upd + '</div></div></div>' +
     '</div>';
   }).join('');
-  const addDiv = opts.editable
-    ? '<button type="button" class="sv-add-div" onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(opts.orderDivision || '') + '\',\'\')">+ Add services from another division</button>'
-    : '';
-  return (multi ? '<div class="sv-sec-total">' + count(rows.length) + (total ? ' \u00b7 ' + esc(total) : '') + ' total</div>' : '') + sections + addDiv;
+  return (multi ? '<div class="sv-sec-total">' + count(rows.length) + (total ? ' \u00b7 ' + esc(total) : '') + ' total</div>' : '') + sections;
 }
 let svCollSeq = 0;
 function toggleSvColl(btn) {
@@ -5276,7 +5270,7 @@ function apprReadOnlySvcHtml(orderId) {
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>' +
-    '<button type="button" class="sv-add-div" onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(orderDiv) + '\',\'\')">+ Add services</button>';
+    '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:4px 12px;font-size:12px" onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(orderDiv) + '\',\'\')">Update</button>';
   /* 25/09/2026: desplegable y por division -- el tiempo total ya va en el
      encabezado, por eso aqui ya no se repite el recuadro de abajo. */
   return svCollapsibleHtml(svcRows.map(r => Object.assign({}, r, { sub: svcSubText(r.sku) ? r.sub : '' })), orderId, { editable: true, orderDivision: orderDiv });
@@ -5325,8 +5319,8 @@ function buildApprServicesPayload(orderId) {
 }
 
 /* editDiv (25/09/2026): la division que se esta editando -- cada
-   division de la lista trae su propio Update. '' = todas (el link
-   "+ Add services from another division"). Guardar siempre manda la
+   division de la lista trae su propio Update. '' = orden sin
+   servicios todavia (su boton Update). Guardar siempre manda la
    orden completa: las otras divisiones van tal cual estaban. */
 function apprEditDiv(orderId) { return window['apprEditDiv_' + orderId] || ''; }
 function apprRowInEditDiv(orderId, sku) {
@@ -5522,7 +5516,7 @@ function renderApprSvcEditable(orderId) {
       '</div>';
   }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
-  return '<div class="sv-edit-title">' + esc(editDiv || 'All services') + '<span>editing</span></div>' + listHtml +
+  return listHtml +
     '<div style="padding:12px 0 4px">' +
       '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="' + 'Search the catalog to add a service…' + '" ' +
         'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
@@ -5605,9 +5599,9 @@ function addApprSvc(orderId, category, serviceName, sku, division) {
      que se vea donde quedo. */
   const editDiv = apprEditDiv(orderId);
   const newDiv = svcDivisionOf(sku, division, window['apprDiv_' + orderId] || '');
-  if (editDiv && newDiv !== editDiv) {
+  if (newDiv !== editDiv) {
     window['apprEditDiv_' + orderId] = newDiv;
-    showToast(serviceName + ' added to ' + newDiv + '.');
+    if (editDiv) showToast(serviceName + ' added to ' + newDiv + '.');
   }
   refreshApprSvcUI(orderId);
 }
@@ -5615,6 +5609,15 @@ function addApprSvc(orderId, category, serviceName, sku, division) {
 /* Repinta todo lo que depende de la seleccion -- mismo patron que
    refreshActiveSvcUI. */
 function refreshApprSvcUI(orderId) {
+  /* Se repinta el editor completo: con las secciones por division
+     cambian los conteos/tiempos de cada encabezado y, al agregar algo
+     de otra division, cual seccion esta abierta. */
+  const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
+  if (editorBox && editorBox.style.display === 'block') {
+    editorBox.innerHTML = apprServiceEditorHtml(orderId, window['apprDiv_' + orderId] || '');
+    apprSvcButtons(orderId, true);
+    return;
+  }
   const listBox = document.getElementById(apprDomId(orderId) + '-svc-list');
   if (listBox) listBox.innerHTML = renderApprSvcEditable(orderId);
   const diffBox = document.getElementById('appr-svc-diff-' + orderId);
@@ -5624,11 +5627,53 @@ function refreshApprSvcUI(orderId) {
   apprSvcButtons(orderId, true);
 }
 
+/* Editor de Approvals con la misma forma de la lista (25/09/2026):
+   una tarjeta por division; la que se edita esta abierta con el editor
+   adentro y las demas cerradas. Tocar otra division la abre para
+   editar (y cierra la actual) -- sin pasos extra. Si desde el buscador
+   se agrega un servicio de otra division, addApprSvc cambia a esa
+   division: se cierra la que no es y se abre la que si, con el
+   servicio ya puesto. */
 function apprServiceEditorHtml(orderId, division) {
   const dom = apprDomId(orderId);
-  return `<div id="${dom}-svc-list">${renderApprSvcEditable(orderId)}</div>
-    <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
-    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}).filter(r => apprRowInEditDiv(orderId, r.SubOption)), orderId)}</div>`;
+  const orderDiv = window['apprDiv_' + orderId] || '';
+  const editDiv = apprEditDiv(orderId);
+  const all = flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {});
+  const divs = [];
+  const byDiv = {};
+  all.forEach(r => {
+    const d = svcDivisionOf(r.SubOption, '', orderDiv);
+    if (!byDiv[d]) { byDiv[d] = []; divs.push(d); }
+    byDiv[d].push(r);
+  });
+  if (editDiv && !byDiv[editDiv]) { byDiv[editDiv] = []; divs.push(editDiv); }
+  if (!divs.length) divs.push('');
+  const chev = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const count = n => n + (n === 1 ? ' service' : ' services');
+  return divs.map(d => {
+    const list = byDiv[d] || [];
+    const res = list.length ? calcOrderEstimatedMinutes(list, orderId) : null;
+    const meta = count(list.length) + (res ? ' \u00b7 ' + fmtDuration(res.totalMinutes) : '');
+    const isOpen = d === editDiv;
+    const head = '<button type="button" class="sv-sec-head" aria-expanded="' + isOpen + '"' +
+      (isOpen ? '' : ' onclick="switchApprEditDiv(\'' + jsStr(orderId) + '\',\'' + jsStr(d) + '\')"') + '>' +
+      '<span class="sv-sec-bar"></span><span class="sv-sec-txt"><span class="sv-sec-name">' + esc(d || 'Services') + '</span>' +
+      '<span class="sv-sec-meta">' + meta + '</span>' + (isOpen ? '<span class="sv-sec-editing">Editing</span>' : '') + '</span>' +
+      '<span class="sv-sec-chev">' + chev + '</span></button>';
+    const body = isOpen
+      ? '<div class="sv-sec-wrap"><div><div class="sv-sec-body editing">' +
+          '<div id="' + dom + '-svc-list">' + renderApprSvcEditable(orderId) + '</div>' +
+          '<div id="appr-svc-diff-' + orderId + '">' + apprSvcDiffHtml(orderId) + '</div>' +
+          '<div id="appr-est-time-' + orderId + '">' + estimatedTimeHtml(all.filter(r => apprRowInEditDiv(orderId, r.SubOption)), orderId) + '</div>' +
+        '</div></div></div>'
+      : '';
+    return '<div class="sv-sec' + (isOpen ? ' open' : '') + '">' + head + body + '</div>';
+  }).join('');
+}
+
+function switchApprEditDiv(orderId, d) {
+  window['apprEditDiv_' + orderId] = d;
+  refreshApprSvcUI(orderId);
 }
 
 /* ============================================================
