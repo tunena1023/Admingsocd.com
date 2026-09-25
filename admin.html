@@ -11129,11 +11129,15 @@ function unseenActiveCardHtml(o, services, history) {
     </div>
     <p class="detail-label" style="margin-bottom:6px">Services Requested</p>
     ${svcHtml}
-    <div class="btn-actions" style="margin-top:20px">
-      <button class="gs-ofp-btn-primary" onclick="markSeen('${esc(o.OrderID)}')">Mark as Seen</button>
-      <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Not right? Reassign in Scheduling</button>
+    <!-- 24/09/2026 (dueño): "Mark as Seen" ya no le gusto -> "Send to Tech" (corto), y
+         "el pequeño, y el blanco abajo pero que diga Reschedule": los dos chicos,
+         uno debajo del otro. Por dentro hacen lo mismo de siempre (Approve / ir a
+         Scheduling con esa orden). -->
+    <div style="margin-top:20px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+      <button class="gs-ofp-btn-primary" style="width:auto;padding:10px 22px" onclick="markSeen('${esc(o.OrderID)}')">Send to Tech</button>
+      <button class="gs-ofp-btn-secondary" style="width:auto;padding:10px 22px" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reschedule</button>
     </div>
-    <p class="appr-hint">Marking this as seen saves the order document and the client receives it by email.</p>`;
+    <p class="appr-hint">Sending it lets the tech see the order, saves the order document and emails it to the client.</p>`;
 
   return '<div class="detail-grid">' +
     '<div>' + leftCol + '</div>' +
@@ -11142,12 +11146,12 @@ function unseenActiveCardHtml(o, services, history) {
 }
 
 async function markSeen(orderId) {
-  showLoadingOverlay('Marking order ' + orderId + ' as seen…');
+  showLoadingOverlay('Sending order ' + orderId + ' to the tech…');
   try {
     await api('/admin-approve-order', {
       body: { orderId, decision: 'approve', approvedBy: getActorName() }
     });
-    showToast('Order ' + orderId + ' marked as seen.');
+    showToast('Order ' + orderId + ' sent to the tech.');
     await loadAll();
     await showOrderWherever(orderId);
     GSLoadingSplash.hide(); // hasta que la orden ya se movio y se reabrio
