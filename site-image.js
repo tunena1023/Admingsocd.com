@@ -66,6 +66,18 @@ async function cachedChildren(folderPath) {
   return kids;
 }
 
+/* SEGURIDAD (25/09/2026): esta funcion es PUBLICA (no pide sesion).
+   Antes ?name= pasaba el texto directo a driveItemByPath, asi que con una
+   ruta ('TechPhotos/<cliente>/<orden>/Photos/x.jpg', PDFs de ordenes...)
+   se podia bajar CUALQUIER archivo del SharePoint. Ahora cada nombre es un
+   solo segmento (sin '/', '\\' ni '..') y ?name= solo entrega imagenes de
+   la raiz (Logo.jpg, NavBackground.jpg, LoginBackground.jpg). */
+function safeSegment(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s || s.length > 120 || /[\\/]|\.\.|[\u0000-\u001f]/.test(s)) return null;
+  return s;
+}
+
 /* ===== Modos ===== */
 
 /* ?cat=Categoria — Assets/CategoryImages/{Categoria}-Image.* */
@@ -118,6 +130,9 @@ exports.handler = async (event) => {
 
   const p = event.queryStringParameters || {};
   try {
+    const bad = ['cat', 'name', 'svc', 'gallery-list', 'gallery', 'file'].some(k => p[k] != null && !safeSegment(p[k]));
+    if (bad) return notFound();
+    if (p.name && !/^image\//.test(typeOf(String(p.name))) ) return notFound();
     if (p.cat) return await serveCategory(p.cat);
     if (p.name) return await serveRootFile(p.name);
     if (p.svc) return await serveServiceImage(p.svc);

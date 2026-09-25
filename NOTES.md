@@ -7,6 +7,15 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## EN PREVIEW (25/09/2026): site-image ya no entrega cualquier archivo
+
+`site-image.js` es PÚBLICA (no pide sesión). `?name=` pasaba el texto directo a
+`driveItemByPath`, así que con una ruta se podía bajar CUALQUIER archivo del
+SharePoint (fotos y PDFs de órdenes). Ahora cada parámetro es un solo segmento
+(sin `/`, `\` ni `..`) y `?name=` solo entrega imágenes de la raíz (Logo.jpg,
+NavBackground.jpg, LoginBackground.jpg). Probado: esas 3 siguen funcionando; una
+ruta o un .pdf da 404.
+
 ## REGLA FIJA (25/09/2026): cómo se prueba Admin en Preview -- SIEMPRE en test-admin.gsocd.com
 
 Reemplaza la regla del 21/09/2026 de más abajo ("los Previews no le sirven al
