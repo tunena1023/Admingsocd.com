@@ -190,7 +190,19 @@ general de "asi trabajamos" no cuenta como luz verde para subir algo
 especifico. Si el dueño pide varios ajustes seguidos, se acumulan en
 local (ver regla 4 de arriba) hasta que diga que los suba.
 
-## Cambio del dueño (24/09/2026): el Preview de Vercel YA NO SIRVE -- no mandar Previews
+## Previews de Admin (25/09/2026): SOLO en https://test-admin.gsocd.com
+
+Lo de abajo (24/09/2026) ya se resolvió: el Preview no servía porque el login de
+Microsoft rechaza cada dirección nueva de Vercel (AADSTS50011), no por
+QuickBooks. Ahora existe UNA dirección fija de pruebas, test-admin.gsocd.com,
+ligada a la rama `preview` y registrada en Azure. Para que el dueño pruebe algo
+de Admin: `git push --force origin <tu-rama>:preview` y se le da SOLO ese link.
+Nunca un link de preview con letras al azar o `-git-<rama>`, y nunca registrar
+en Azure la dirección de una rama nueva. Detalle completo (DNS, URIs de Azure,
+qué hacer si Vercel no redespliega): NOTES.md, "REGLA FIJA (25/09/2026)".
+Orders y Tech no tienen este problema: sus previews normales sí funcionan.
+
+## HISTORIAL -- ya no aplica, ver arriba -- Cambio del dueño (24/09/2026): el Preview de Vercel YA NO SIRVE -- no mandar Previews
 
 Desde que el dueño conecto QuickBooks, el Preview de Vercel no le funciona
 para probar. Cuando el dueño dice "sube a deploy" / "dale" / "subelo", se

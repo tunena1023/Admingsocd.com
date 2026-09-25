@@ -7,6 +7,60 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## REGLA FIJA (25/09/2026): cómo se prueba Admin en Preview -- SIEMPRE en test-admin.gsocd.com
+
+Reemplaza la regla del 21/09/2026 de más abajo ("los Previews no le sirven al
+dueño"): eso ya se arregló, pero la forma de usarlos cambió.
+
+**El problema:** el login de Microsoft (MSAL, app de Azure
+`18dfcf2e-0059-40f5-831c-69d13b9091fc`) solo deja regresar a direcciones
+registradas en Azure. Cada preview de Vercel tiene una dirección distinta
+(`admingsocd-<letras>-gs-solutions1.vercel.app` o
+`admingsocd-com-git-<rama>-gs-solutions1.vercel.app`), así que Microsoft la
+rechaza con `AADSTS50011: redirect URI ... does not match`.
+
+**La solución (hecha con el dueño, 25/09/2026):** una sola dirección fija de pruebas:
+- **https://test-admin.gsocd.com** es un dominio del proyecto `admingsocd-com`
+  en Vercel, ligado a la rama **`preview`**. En GoDaddy es un CNAME `test-admin`
+  que apunta a `199c536b2aeeae0a.vercel-dns-017.com` (el mismo destino que `admin`).
+- En Azure (app `18dfcf2e-...` → Authentication → Single-page application) están
+  registradas las 2 que hacen falta: `https://test-admin.gsocd.com/` (la usa
+  index.html) y `https://test-admin.gsocd.com/index.html` (admin.html,
+  calendar.html y camera-capture.html).
+
+**Cómo se usa de aquí en adelante:**
+1. El trabajo se hace en su rama de siempre (la que toque en la sesión).
+2. Para que el dueño lo pruebe, esa rama se manda ENCIMA de `preview`:
+   `git push --force origin <tu-rama>:preview`. El dueño confirmó (25/09/2026)
+   que `preview` no guarda nada suyo y se puede sobrescribir. `main` NUNCA se toca
+   con esto.
+3. Vercel despliega `preview` solo y test-admin.gsocd.com pasa al deploy nuevo.
+   **Ojo:** si ese commit exacto ya se había desplegado desde otra rama, Vercel NO
+   vuelve a desplegar y el dominio se queda en lo anterior. En ese caso hay que
+   asignarlo a mano (Vercel `assign_alias` del deploy de ese commit a
+   `test-admin.gsocd.com`), como se hizo el 25/09/2026.
+4. Al dueño se le da SOLO **https://test-admin.gsocd.com**. Pide primero la cuenta
+   de Vercel (protección normal de previews) y luego el login de Microsoft de
+   siempre.
+5. Solo cabe UNA cosa a la vez en `preview`: subir otra rama reemplaza lo que el
+   dueño estaba probando. Avísale antes si todavía no terminaba.
+
+**Nunca:**
+- Darle al dueño un link de preview de Admin con letras al azar o `-git-<rama>`:
+  siempre falla con AADSTS50011.
+- Registrar en Azure la dirección de cada rama nueva (así se hizo una vez para
+  QuickBooks; no escala y es lo que confundía).
+- Crear otro dominio de pruebas: con test-admin basta.
+
+**Orders y Tech no tienen este problema:** no usan login de Microsoft (Orders
+entra con Client ID; Tech con QR/DeviceToken). Sus previews normales, de letras al
+azar, sí funcionan; solo piden la cuenta de Vercel.
+
+**Variables de Preview (los 3 proyectos):** `NOTIFY_MODE=test`,
+`NOTIFY_TEST_TO=orders@gsocd.com`. Cualquier correo que salga de un preview llega
+a orders@ con `[TEST → destinatario real]` en el asunto. Nunca poner `live` en
+Preview: usa el MISMO SharePoint que producción.
+
 ## PENDIENTE DE "SÚBELO" (25/09/2026): correos de notificación (reemplaza Power Automate)
 
 El envío vive en `lib/notify.js`, que es una COPIA de `gsocd-shared/lib/notify.js`
@@ -273,7 +327,7 @@ El dueño creó las columnas en SharePoint; el código ya las usa:
   las cotizaciones a QuickBooks mandan ese precio como precio de la
   línea (el artículo en QuickBooks nunca se reescribe).
 
-## Regla nueva (21/09/2026): los Previews de Vercel NO le sirven al dueño para probar -- login de Azure lo rechaza
+## REEMPLAZADA por la regla del 25/09/2026 de arriba -- (21/09/2026): los Previews de Vercel NO le sirven al dueño para probar -- login de Azure lo rechaza
 
 El login de MSAL (Azure AD) solo tiene registradas las redirect URIs de
 producción (`admin.gsocd.com` y las alias fijas de Vercel) -- una URL de
