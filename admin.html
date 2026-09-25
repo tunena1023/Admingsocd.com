@@ -1683,14 +1683,16 @@
       </div>
       <div class="appr-body" style="display:none">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px">
-          <select id="pkg-edit-select" onchange="renderPkgEditor()" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
+          <select id="pkg-edit-select" onfocus="this.dataset.prev=this.value" onchange="pkgEditSwitch(this)" style="padding:9px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;min-width:240px"></select>
           <span class="order-meta" id="pkg-edit-count"></span>
         </div>
         <div id="pkg-edit-summary" class="pkg-summary"></div>
         <p class="section-sub" style="margin:0 0 8px">Pick what the package includes, same as any order: a level on a service puts it in the package.</p>
         <div id="pkg-edit-picker"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:12px">
-          <button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:9px 16px;font-size:11px" onclick="pkgEditSave()">Save package</button>
+        <!-- 24/09/2026 (dueño): faltaba Cancel. Los dos se prenden solo cuando hay un cambio sin guardar. -->
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+          <button type="button" id="pkg-edit-cancel" class="gs-ofp-btn-secondary" style="width:auto;padding:9px 16px;font-size:11px" onclick="pkgEditCancel()" disabled>Cancel</button>
+          <button type="button" id="pkg-edit-save" class="gs-ofp-btn-primary" style="width:auto;padding:9px 16px;font-size:11px" onclick="pkgEditSave()" disabled>Save package</button>
         </div>
       </div>
     </div>
@@ -8604,7 +8606,40 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     });
     drawPkgSummary();
   }
+  /* Cancel (24/09/2026, el dueño: "nomas tiene boton de Save pero no de
+     Cancel"): tira los cambios sin guardar y vuelve a lo guardado. Save y
+     Cancel solo se prenden si hay algo distinto a lo guardado; cambiar de
+     paquete con cambios pendientes pregunta antes de tirarlos. */
+  function pkgEditSavedItems() {
+    const sku = document.getElementById('pkg-edit-select').value;
+    const pkg = allCatalogRows.find(r => r.sku === sku);
+    return pkg && Array.isArray(pkg.packageItems) ? pkg.packageItems : [];
+  }
+  function pkgEditKey(items) { return JSON.stringify((items || []).map(x => String(x.sku) + '|' + (x.level || '')).sort()); }
+  function pkgEditDirty() { return pkgEditKey(pkgEditItems) !== pkgEditKey(pkgEditSavedItems()); }
+  function pkgEditButtons() {
+    const d = pkgEditDirty();
+    ['pkg-edit-save', 'pkg-edit-cancel'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !d; });
+  }
+  function pkgEditCancel() {
+    if (!pkgEditDirty()) return;
+    renderPkgEditor();
+    showToast('Changes discarded.');
+  }
+  function pkgEditSwitch(sel) {
+    const prev = sel.dataset.prev;
+    if (prev && prev !== sel.value) {
+      const prevPkg = allCatalogRows.find(r => r.sku === prev);
+      const prevSaved = prevPkg && Array.isArray(prevPkg.packageItems) ? prevPkg.packageItems : [];
+      if (pkgEditKey(pkgEditItems) !== pkgEditKey(prevSaved) && !confirm('You have unsaved changes in this package. Discard them?')) { sel.value = prev; return; }
+    }
+    sel.dataset.prev = sel.value;
+    renderPkgEditor();
+  }
+  window.pkgEditCancel = pkgEditCancel;
+  window.pkgEditSwitch = pkgEditSwitch;
   function drawPkgSummary() {
+    pkgEditButtons();
     const n = pkgEditItems.length;
     document.getElementById('pkg-edit-count').textContent = n + (n === 1 ? ' service' : ' services');
     const nameOf = k => { const r = allCatalogRows.find(x => x.sku === k); return r ? r.serviceName : k; };
@@ -8619,6 +8654,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       const res = await devApi('save-package-contents', { sku, items: pkgEditItems });
       allCatalogRows.filter(r => r.sku === sku).forEach(r => { r.packageItems = res.items; });
       (activeCatalogCache || []).filter(r => r.sku === sku).forEach(r => { r.packageItems = res.items; });
+      pkgEditItems = (res.items || []).map(x => ({ sku: x.sku, level: x.level }));
+      pkgEditButtons();
       showToast('Package saved.');
     } catch (e) {
       showToast('Could not save: ' + e.message);
