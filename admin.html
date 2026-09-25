@@ -5591,6 +5591,14 @@ function addApprSvc(orderId, category, serviceName, sku, division) {
     if (!window['apprLevel_' + orderId]) window['apprLevel_' + orderId] = {};
     window['apprLevel_' + orderId][ncKey(category, serviceName)] = 'Level 1';
   }
+  /* Servicio que pide cantidad: arranca en 1. Sin Quantity, SharePoint
+     truena al guardar y se pueden perder servicios (ver el BUG REAL de
+     buildApprServicesPayload). */
+  const cat = (activeCatalogCache || []).find(x => String(x.sku) === String(sku));
+  if (cat && cat.requiresQuantity) {
+    if (!window['apprQty_' + orderId]) window['apprQty_' + orderId] = {};
+    if (!window['apprQty_' + orderId][ncKey(category, serviceName)]) window['apprQty_' + orderId][ncKey(category, serviceName)] = 1;
+  }
   const searchEl = document.getElementById(apprSvcSearchDomId(orderId));
   if (searchEl) searchEl.value = '';
   const resultsEl = document.getElementById(apprSvcSearchDomId(orderId) + '-results');
