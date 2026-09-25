@@ -1196,6 +1196,19 @@
   .sv-incl { display: none; grid-column: 1 / -1; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--border); grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 18px; }
   .sv-incl.open { display: grid; }
   .sv-incl div { font-size: 12.5px; display: flex; justify-content: space-between; gap: 8px; }
+  /* 24/09/2026 (el dueño, captura de Active: "estos hazlos en una sola
+     linea, no le pongas eso de Commercial ni nada"): cada servicio en UN
+     renglon -- sin la categoria de arriba; nombre, nivel, tiempo (y quien
+     /cuando si aplica) y "What's included" en la misma linea; estatus y
+     boton a la derecha. Aplica en Approvals, Review y Active. */
+  .sv-list { gap: 6px; padding: 10px 0; }
+  .sv-card { padding: 9px 14px; align-items: center; }
+  .sv-eyebrow { display: none; }
+  .sv-main { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+  .sv-name { margin-top: 0; font-size: 14px; }
+  .sv-meta { margin-top: 0; }
+  .sv-incl-toggle { margin-top: 0; }
+  .sv-right { flex-direction: row; align-items: center; gap: 10px; }
   @media (max-width: 560px) {
     .sv-card { grid-template-columns: minmax(0,1fr); }
     .sv-right { flex-direction: row; align-items: center; justify-content: space-between; margin-top: 8px; }
@@ -5030,6 +5043,13 @@ function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 function isCatalogSku(sub) {
   return (activeCatalogCache || []).some(s => String(s.sku) === String(sub));
 }
+/* 24/09/2026 (el dueño: "que no muestre el SKU, eso no se debe ver
+   nunca"): el texto gris de abajo del servicio salia con el SubOption
+   cuando no estaba en el catalogo cargado (servicio inactivo, catalogo
+   aun cargando...) -- y eso es un SKU. Ahora solo se enseña si es texto
+   viejo de verdad (no parece SKU y no esta en el catalogo). */
+function looksLikeSku(v) { return /^[A-Za-z0-9]{1,6}-[A-Za-z0-9]{1,6}$/.test(String(v || '').trim()); }
+function svcSubText(sub) { return (!sub || isCatalogSku(sub) || looksLikeSku(sub)) ? '' : String(sub); }
 
 /* Tarjetas de SOLO LECTURA estilo opcion A (24/09/2026, el dueño: "mira
    en Approvals que feo se ve") -- mismo look que Services Requested en
@@ -5063,7 +5083,7 @@ function reviewSvcTableHtml(services, orderId) {
   services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''), nc: s }));
+    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: svcSubText(s.SubOption), nc: s }));
   });
   /* Antes usaba card.OrderID (no existe aqui) y r.sku (nunca se lleno):
      ahora recibe orderId y el SKU real va en SubOption. */
@@ -5124,13 +5144,13 @@ function apprReadOnlySvcHtml(orderId) {
     Object.entries(svcs).forEach(([svcName, sub], i) => {
       const lvl = levelState[ncKey(cat, svcName)];
       const qty = qtyState[ncKey(cat, svcName)];
-      const subTxt = isCatalogSku(sub) ? (lvl || (qty ? 'Qty: ' + qty : '')) : (sub || '');
+      const subTxt = isCatalogSku(sub) || looksLikeSku(sub) ? (lvl || (qty ? 'Qty: ' + qty : '')) : (sub || '');
       svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt, sku: sub, lvl: lvl, qty: qty });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
   return svReadOnlyCardsHtml(svcRows.map(r => ({ cat: r.cat, name: r.name, sku: r.sku, lvl: r.lvl, qty: r.qty,
-    sub: isCatalogSku(r.sku) ? '' : r.sub })), orderId) + estimatedTimeHtml(apprServicesArray(orderId));
+    sub: svcSubText(r.sku) ? r.sub : '' })), orderId) + estimatedTimeHtml(apprServicesArray(orderId));
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
@@ -10945,14 +10965,14 @@ function historyChangeLines(h) {
   newSvcs.forEach(s => {
     const k = keyOf(s);
     const sub = s.SubOption || '';
-    const subTxt = isCatalogSku(sub) ? '' : sub;
+    const subTxt = svcSubText(sub);
     if (!(k in oldMap)) {
       lines.push(addedRowHtml('&#10133;', s.ServiceName || '', subTxt ? esc(subTxt) : ''));
       return;
     }
     const prev = oldMap[k];
     if ((prev.SubOption || '') !== sub) {
-      if (isCatalogSku(sub) || isCatalogSku(prev.SubOption || '')) {
+      if (isCatalogSku(sub) || isCatalogSku(prev.SubOption || '') || looksLikeSku(sub) || looksLikeSku(prev.SubOption || '')) {
         lines.push(changeRowHtml('&#128260;', s.ServiceName || '', 'previous option', 'new option'));
       } else {
         lines.push(changeRowHtml('&#128260;', s.ServiceName || '', esc(prev.SubOption || '(none)'), esc(sub || '(none)')));
@@ -11419,14 +11439,14 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
   const svcRows = [];
   if (isAssignByService) {
     orderedServices.forEach(s => svcRows.push({
-      cat: s.Category || 'General', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
+      cat: s.Category || 'General', name: s.ServiceName || '', sub: svcSubText(s.SubOption),
       sku: s.SubOption, lvl: s.Level, qty: s.Quantity,
       statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
     }));
   } else {
     Object.entries(byCat).forEach(([cat, list]) => {
       list.forEach((s, i) => svcRows.push({
-        cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: isCatalogSku(s.SubOption) ? '' : (s.SubOption || ''),
+        cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: svcSubText(s.SubOption),
         sku: s.SubOption, lvl: s.Level, qty: s.Quantity,
         statusRow: svcStatusByKey[(s.Category || '') + '|' + (s.ServiceName || '')] || null
       }));
