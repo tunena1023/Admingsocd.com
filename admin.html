@@ -1177,20 +1177,31 @@
   .sv-list { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
   /* Lista de servicios desplegable + por division (25/09/2026, pedido
      del dueño con captura de Approvals). */
-  .sv-coll-head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-                  border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 12px 14px; font-size: 13px; }
-  .sv-coll-head:hover, .sv-coll-head:focus-visible { border-color: var(--gold); }
-  .sv-coll-head .car { display: inline-block; color: var(--gold-dk); transition: transform .15s; }
-  .sv-coll-head[aria-expanded="true"] .car { transform: rotate(90deg); }
-  .sv-coll-head b { font-weight: 600; }
-  .sv-coll-head .sv-coll-time { color: var(--gray, #6B6B6B); }
-  .sv-coll-name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-  .sv-coll-head .sv-coll-time { margin-left: auto; font-size: 12px; }
-  .sv-coll-head + .sv-coll-body, .sv-coll-body + .sv-coll-head { margin-top: 8px; }
-  .sv-coll-total { font-size: 12px; color: var(--gray, #6B6B6B); margin: 0 2px 8px; }
-  .sv-coll-body { display: none; }
-  .sv-coll-body.open { display: block; }
-  @media (prefers-reduced-motion: reduce) { .sv-coll-head .car { transition: none; } }
+  .sv-sec { border: 1px solid var(--border); border-radius: 10px; background: var(--white); overflow: hidden; }
+  .sv-sec + .sv-sec { margin-top: 8px; }
+  .sv-sec.open { border-color: #D8CBA4; }
+  .sv-sec-head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .sv-sec-head:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 10px; }
+  .sv-sec-head:hover .sv-sec-name { color: var(--gold-dk); }
+  .sv-sec-bar { width: 3px; align-self: stretch; border-radius: 2px; background: var(--gold); flex: none; }
+  .sv-sec-txt { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+  .sv-sec-name { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--black); transition: color .15s; }
+  .sv-sec-meta { font-size: 12px; color: var(--gray); }
+  .sv-sec-chev { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); color: var(--gold-dk); transition: transform .2s, background .15s; }
+  .sv-sec-chev svg { width: 12px; height: 12px; }
+  .sv-sec.open .sv-sec-chev { transform: rotate(180deg); background: #F3ECD8; }
+  .sv-sec-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+  .sv-sec.open .sv-sec-wrap { grid-template-rows: 1fr; }
+  .sv-sec-wrap > div { overflow: hidden; }
+  .sv-sec-body { border-top: 1px solid var(--border); background: var(--bg); padding: 2px 12px 12px; }
+  .sv-sec-body .sv-list { padding: 10px 0 12px; }
+  .sv-sec-foot { display: flex; justify-content: flex-end; }
+  .sv-sec-total { font-size: 12px; color: var(--gray); margin: 0 2px 8px; }
+  .sv-add-div { all: unset; cursor: pointer; font-size: 12px; color: var(--gold-dk); margin: 10px 2px 0; display: inline-block; }
+  .sv-add-div:hover, .sv-add-div:focus-visible { text-decoration: underline; }
+  .sv-edit-title { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid var(--gold); }
+  .sv-edit-title span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); margin-left: 6px; }
+  @media (prefers-reduced-motion: reduce) { .sv-sec-wrap, .sv-sec-chev { transition: none; } }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
   .sv-card.done { background: #FAFCFA; border-color: #D5E6D9; }
   .sv-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--gold); }
@@ -5035,11 +5046,14 @@ function approvalDetailHtml(card, o, services, history) {
     window['apprLevelOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(levelSeed));
     window['apprQtyOriginal_' + card.OrderID] = JSON.parse(JSON.stringify(qtySeed));
     rows.push('<div id="' + dom + '-svcreadonly">' + apprReadOnlySvcHtml(card.OrderID) + '</div>');
-    rows.push('<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svcbtn" style="margin-top:10px;padding:4px 12px;font-size:12px" '
+    /* El editor va ANTES de Save/Cancel (25/09/2026): con el Update por
+       division el editor ocupa el lugar de la lista y los botones
+       quedan abajo, donde terminas de editar. */
+    rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:4px"></div>');
+    rows.push('<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svcbtn" style="margin-top:10px;padding:4px 12px;font-size:12px;display:none" '
       + 'onclick="toggleApprSvcUpdate(\'' + esc(card.OrderID) + '\',\'' + esc(o.Division || '') + '\')">Update</button>'
       + '<button type="button" class="gs-ofp-btn-secondary" id="' + dom + '-svccancel" style="margin-top:10px;margin-left:8px;padding:4px 12px;font-size:12px;display:none" '
       + 'onclick="cancelApprSvcUpdate(\'' + esc(card.OrderID) + '\')">Cancel</button>');
-    rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
     /* El total estimado ya va en el encabezado de la lista desplegable
        (25/09/2026); el antes/despues de un cambio se sigue viendo arriba,
@@ -5135,7 +5149,8 @@ function svcDivisionOf(sku, rowDivision, orderDivision) {
 /* rows: filas de svReadOnlyCardsHtml con .div y .svc (el servicio en
    forma {Category, ServiceName, SubOption, Level, Quantity} para el
    tiempo). */
-function svCollapsibleHtml(rows, orderId) {
+function svCollapsibleHtml(rows, orderId, opts) {
+  opts = opts || {};
   const order = [];
   const byDiv = {};
   rows.forEach(r => {
@@ -5150,25 +5165,37 @@ function svCollapsibleHtml(rows, orderId) {
   const multi = order.length > 1;
   const total = multi ? timeOf(rows) : '';
   const count = n => n + (n === 1 ? ' service' : ' services');
+  const chev = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   /* Una seccion desplegable por division, todas cerradas (pedido del
      dueño: "donde dice Janitorial y Renovations de ahi que sea
-     desplegable"). En Mixed arriba va el total de toda la orden. */
+     desplegable", y el Update por division). En Mixed arriba va el
+     total de toda la orden. opts.editable (solo Approvals): cada
+     seccion trae su Update, que abre el editor solo con esa division. */
   const sections = order.map(d => {
     const t = timeOf(byDiv[d]);
     const bodyId = 'sv-coll-' + String(orderId || '').replace(/[^a-z0-9]/gi, '_') + '-' + (++svCollSeq);
-    return '<button type="button" class="sv-coll-head" aria-expanded="false" aria-controls="' + bodyId + '" onclick="toggleSvColl(this)">' +
-      '<span class="car">\u25B8</span><b class="sv-coll-name">' + esc(d) + '</b>' +
-      '<span class="sv-coll-time">' + count(byDiv[d].length) + (t ? ' \u00b7 ' + esc(t) : '') + '</span></button>' +
-      '<div class="sv-coll-body" id="' + bodyId + '">' + svReadOnlyCardsHtml(byDiv[d], orderId) + '</div>';
+    const upd = opts.editable
+      ? '<div class="sv-sec-foot"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:4px 12px;font-size:12px" ' +
+        'onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(opts.orderDivision || '') + '\',\'' + jsStr(d) + '\')">Update ' + esc(d) + '</button></div>'
+      : '';
+    return '<div class="sv-sec">' +
+      '<button type="button" class="sv-sec-head" aria-expanded="false" aria-controls="' + bodyId + '" onclick="toggleSvColl(this)">' +
+        '<span class="sv-sec-bar"></span><span class="sv-sec-txt"><span class="sv-sec-name">' + esc(d) + '</span>' +
+        '<span class="sv-sec-meta">' + count(byDiv[d].length) + (t ? ' \u00b7 ' + esc(t) : '') + '</span></span>' +
+        '<span class="sv-sec-chev">' + chev + '</span></button>' +
+      '<div class="sv-sec-wrap" id="' + bodyId + '"><div><div class="sv-sec-body">' + svReadOnlyCardsHtml(byDiv[d], orderId) + upd + '</div></div></div>' +
+    '</div>';
   }).join('');
-  return (multi ? '<div class="sv-coll-total">' + count(rows.length) + (total ? ' \u00b7 ' + esc(total) : '') + ' total</div>' : '') + sections;
+  const addDiv = opts.editable
+    ? '<button type="button" class="sv-add-div" onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(opts.orderDivision || '') + '\',\'\')">+ Add services from another division</button>'
+    : '';
+  return (multi ? '<div class="sv-sec-total">' + count(rows.length) + (total ? ' \u00b7 ' + esc(total) : '') + ' total</div>' : '') + sections + addDiv;
 }
 let svCollSeq = 0;
 function toggleSvColl(btn) {
   const open = btn.getAttribute('aria-expanded') !== 'true';
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  const body = document.getElementById(btn.getAttribute('aria-controls'));
-  if (body) body.classList.toggle('open', open);
+  btn.parentElement.classList.toggle('open', open);
 }
 
 function reviewSvcTableHtml(services, orderId) {
@@ -5247,10 +5274,11 @@ function apprReadOnlySvcHtml(orderId) {
         svc: { Category: cat, ServiceName: svcName, SubOption: sub, Level: lvl || '', Quantity: qty || '' } });
     });
   });
-  if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
+  if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>' +
+    '<button type="button" class="sv-add-div" onclick="toggleApprSvcUpdate(\'' + jsStr(orderId) + '\',\'' + jsStr(orderDiv) + '\',\'\')">+ Add services</button>';
   /* 25/09/2026: desplegable y por division -- el tiempo total ya va en el
      encabezado, por eso aqui ya no se repite el recuadro de abajo. */
-  return svCollapsibleHtml(svcRows.map(r => Object.assign({}, r, { sub: svcSubText(r.sku) ? r.sub : '' })), orderId);
+  return svCollapsibleHtml(svcRows.map(r => Object.assign({}, r, { sub: svcSubText(r.sku) ? r.sub : '' })), orderId, { editable: true, orderDivision: orderDiv });
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
@@ -5295,7 +5323,17 @@ function buildApprServicesPayload(orderId) {
   return services;
 }
 
-async function toggleApprSvcUpdate(orderId, division) {
+/* editDiv (25/09/2026): la division que se esta editando -- cada
+   division de la lista trae su propio Update. '' = todas (el link
+   "+ Add services from another division"). Guardar siempre manda la
+   orden completa: las otras divisiones van tal cual estaban. */
+function apprEditDiv(orderId) { return window['apprEditDiv_' + orderId] || ''; }
+function apprRowInEditDiv(orderId, sku) {
+  const d = apprEditDiv(orderId);
+  return !d || svcDivisionOf(sku, '', window['apprDiv_' + orderId] || '') === d;
+}
+
+async function toggleApprSvcUpdate(orderId, division, editDiv) {
   const editorBox = document.getElementById(apprDomId(orderId) + '-svceditor');
   const readonlyBox = document.getElementById(apprDomId(orderId) + '-svcreadonly');
   if (!editorBox) return;
@@ -5326,6 +5364,7 @@ async function toggleApprSvcUpdate(orderId, division) {
       showToast('Could not save: ' + e.message);
     }
     editorBox.style.display = 'none';
+    window['apprEditDiv_' + orderId] = '';
     if (readonlyBox) {
       readonlyBox.style.display = '';
       readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId);
@@ -5344,6 +5383,7 @@ async function toggleApprSvcUpdate(orderId, division) {
     showToast('No catalog imported yet — import it in Service Catalog first.');
     return;
   }
+  window['apprEditDiv_' + orderId] = editDiv || '';
   editorBox.innerHTML = apprServiceEditorHtml(orderId, division);
   editorBox.style.display = 'block';
   if (readonlyBox) readonlyBox.style.display = 'none';
@@ -5359,6 +5399,8 @@ function apprSvcButtons(orderId, open) {
   const cancel = document.getElementById(dom + '-svccancel');
   if (!btn) return;
   if (!open) {
+    /* Cerrado ya no se ve: cada division trae su propio Update. */
+    btn.style.display = 'none';
     btn.textContent = 'Update';
     btn.disabled = false;
     btn.classList.remove('gs-ofp-btn-primary'); btn.classList.add('gs-ofp-btn-secondary');
@@ -5366,6 +5408,7 @@ function apprSvcButtons(orderId, open) {
     return;
   }
   const changed = apprSvcHasChanges(orderId);
+  btn.style.display = '';
   btn.textContent = 'Save';
   btn.disabled = !changed;
   btn.style.opacity = changed ? '' : '.5';
@@ -5409,6 +5452,7 @@ function cancelApprSvcUpdate(orderId) {
   window['apprSvc_' + orderId] = JSON.parse(JSON.stringify(window['apprSvcOriginal_' + orderId] || {}));
   window['apprLevel_' + orderId] = JSON.parse(JSON.stringify(window['apprLevelOriginal_' + orderId] || {}));
   window['apprQty_' + orderId] = JSON.parse(JSON.stringify(window['apprQtyOriginal_' + orderId] || {}));
+  window['apprEditDiv_' + orderId] = '';
   if (editorBox) { editorBox.style.display = 'none'; editorBox.innerHTML = ''; }
   if (readonlyBox) { readonlyBox.style.display = ''; readonlyBox.innerHTML = apprReadOnlySvcHtml(orderId); }
   apprSvcButtons(orderId, false);
@@ -5453,8 +5497,9 @@ function renderApprSvcEditable(orderId) {
   const qtyState = window['apprQty_' + orderId] || {};
   const rows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sku]) => rows.push({ cat, svcName, sku }));
+    Object.entries(svcs).forEach(([svcName, sku]) => { if (apprRowInEditDiv(orderId, sku)) rows.push({ cat, svcName, sku }); });
   });
+  const editDiv = apprEditDiv(orderId);
   const listHtml = rows.length ? rows.map(r => {
     const catalogEntry = (activeCatalogCache || []).find(s => s.serviceName === r.svcName);
     const isJan = String((catalogEntry || {}).division || '').toLowerCase() === 'janitorial';
@@ -5476,9 +5521,9 @@ function renderApprSvcEditable(orderId) {
       '</div>';
   }).join('') : '<p class="empty-note" style="padding:12px 0">No services.</p>';
 
-  return listHtml +
+  return '<div class="sv-edit-title">' + esc(editDiv || 'All services') + '<span>editing</span></div>' + listHtml +
     '<div style="padding:12px 0 4px">' +
-      '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="Search the catalog to add a service…" ' +
+      '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="' + escAttr(editDiv ? 'Search ' + editDiv + ' services to add…' : 'Search the catalog to add a service…') + '" ' +
         'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
         'oninput="filterApprCatalog(\'' + jsStr(orderId) + '\', this.value)">' +
       '<div id="' + apprSvcSearchDomId(orderId) + '-results" style="margin-top:8px"></div>' +
@@ -5527,7 +5572,8 @@ function filterApprCatalog(orderId, q) {
   const already = new Set();
   Object.values(sel).forEach(svcs => Object.keys(svcs).forEach(n => already.add(n)));
   const matches = (activeCatalogCache || []).filter(s =>
-    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName)
+    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName) &&
+    (!apprEditDiv(orderId) || s.division === apprEditDiv(orderId))
   ).slice(0, 15);
   box.innerHTML = matches.length
     ? matches.map(s => '<div style="padding:7px 10px;font-size:12.5px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between" ' +
@@ -5560,7 +5606,7 @@ function refreshApprSvcUI(orderId) {
   const diffBox = document.getElementById('appr-svc-diff-' + orderId);
   if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
   const estBox = document.getElementById('appr-est-time-' + orderId);
-  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}), orderId);
+  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}).filter(r => apprRowInEditDiv(orderId, r.SubOption)), orderId);
   apprSvcButtons(orderId, true);
 }
 
@@ -5568,7 +5614,7 @@ function apprServiceEditorHtml(orderId, division) {
   const dom = apprDomId(orderId);
   return `<div id="${dom}-svc-list">${renderApprSvcEditable(orderId)}</div>
     <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
-    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}), orderId)}</div>`;
+    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}).filter(r => apprRowInEditDiv(orderId, r.SubOption)), orderId)}</div>`;
 }
 
 /* ============================================================
