@@ -10131,7 +10131,9 @@ async function resolveExtraRequest(orderId, requestId, decision) {
           </label>
         </td>
         <td data-label="Device">
-          ${t.hasActiveDevice
+          ${t.role === 'Contractor'
+            ? '<span style="font-size:11px;color:var(--gray);display:block" title="Contractors are assigned in the system but don\'t use the tech app">No app access</span>'
+            : t.hasActiveDevice
             ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:2px">● Device active</span>' +
               (t.alertsOn
                 ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">🔔 Alerts on</span>'

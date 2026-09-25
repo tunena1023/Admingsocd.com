@@ -1398,6 +1398,11 @@ exports.handler = async (event) => {
     if (action === 'generate-device-qr') {
       const techId = String(body.techId || '').trim();
       if (!techId) return jsonResponse(400, { error: 'techId is required' });
+      /* C13 (25/09/2026): los Contractors no usan la app de tecnicos. */
+      const qrTech = (await fetchAll(TECHS_LIST)).find(it => it.id === techId);
+      if (qrTech && qrTech.fields && qrTech.fields.Role === 'Contractor') {
+        return jsonResponse(400, { error: 'Contractors don\'t use the tech app, so they don\'t need a QR.' });
+      }
       const setupToken = require('crypto').randomBytes(16).toString('hex');
       await createListItem(TECH_DEVICE_TOKENS_LIST, {
         Title: techId,
