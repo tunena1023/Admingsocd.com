@@ -653,6 +653,8 @@
     .svc-sel-all:hover, .svc-sel-all:focus-visible { text-decoration: underline; }
     .svc-todo-h { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin: 4px 0 2px; }
     .svc-person { margin-top: 8px; }
+    .sv-date-h { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-dk); margin: 12px 2px 0; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+    .sv-date-h span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); }
     .svc-person-body { background: var(--white); padding: 0 12px; }
     .svc-person-body .svc-assign-line:last-child { border-bottom: none; }
     .svc-person.one-date .svc-assign-assigned { display: none; } /* misma fecha: ya va en el encabezado */
@@ -12020,6 +12022,49 @@ function currentSvcAssignmentRow(orderId, services) {
   return rows.find(r => r.current) || null;
 }
 
+/* Tarjetas de servicio agrupadas por persona (y por fecha dentro de la
+   persona si va en dias distintos). cards[i] es el HTML de cada
+   servicio y meta[i] = { who, date, done }. Lo que no tiene gente va
+   primero, suelto. Mismo estilo que las tarjetas por division. */
+const svPersonOpen = {};
+function toggleSvPerson(btn, key) {
+  const open = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btn.parentElement.classList.toggle('open', open);
+  svPersonOpen[key] = open;
+}
+function svPersonGroupsHtml(cards, meta, orderId) {
+  const loose = [];
+  const people = {}, order = [];
+  cards.forEach((html, i) => {
+    const m = meta[i] || {};
+    const who = String(m.who || '').trim();
+    if (!who) { loose.push(html); return; }
+    if (!people[who]) { people[who] = { byDate: {}, dates: [], n: 0, done: 0 }; order.push(who); }
+    const p = people[who];
+    if (!p.byDate[m.date]) { p.byDate[m.date] = []; p.dates.push(m.date); }
+    p.byDate[m.date].push(html); p.n++; if (m.done) p.done++;
+  });
+  const shortDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date';
+  const chev = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const peopleHtml = order.map(who => {
+    const p = people[who];
+    const key = orderId + '|' + who;
+    const open = !!svPersonOpen[key];
+    const meta = p.n + (p.n === 1 ? ' service' : ' services') + ' · ' + p.dates.map(d => shortDate(d)).join(', ') + (p.done ? ' · ' + p.done + ' done' : '');
+    const body = p.dates.length > 1
+      ? p.dates.map(d => '<div class="sv-date-h">' + esc(shortDate(d)) + '<span>' + p.byDate[d].length + (p.byDate[d].length === 1 ? ' service' : ' services') + '</span></div><div class="sv-list">' + p.byDate[d].join('') + '</div>').join('')
+      : '<div class="sv-list">' + p.byDate[p.dates[0]].join('') + '</div>';
+    return '<div class="sv-sec svc-person' + (open ? ' open' : '') + '">' +
+      '<button type="button" class="sv-sec-head" aria-expanded="' + open + '" onclick="toggleSvPerson(this,\'' + jsStr(key) + '\')">' +
+        '<span class="sv-sec-bar"></span><span class="sv-sec-txt"><span class="sv-sec-name">👤 ' + esc(who) + '</span>' +
+        '<span class="sv-sec-meta">' + esc(meta) + '</span></span><span class="sv-sec-chev">' + chev + '</span></button>' +
+      '<div class="sv-sec-wrap"><div><div class="sv-sec-body">' + body + '</div></div></div></div>';
+  }).join('');
+  return (loose.length ? '<div class="svc-todo-h">Not scheduled yet</div><div class="sv-list">' + loose.join('') + '</div>' : '') +
+    (peopleHtml ? '<div class="svc-todo-h" style="margin-top:' + (loose.length ? '14px' : '4px') + '">By person</div>' + peopleHtml : '');
+}
+
 function renderOrderDetail(o, services, history, context, storedDoc, storedCompletionDoc) {
   if (context === 'active' && o.Status === 'Received') {
     return unseenActiveCardHtml(o, services, history);
@@ -12250,8 +12295,14 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
     : sr.workStatus === 'Pending Review' ? 'waiting' : sr.label === 'Assigned' ? 'assigned'
     : sr.label === 'Needs scheduling' ? 'needs' : 'idle';
   let svLastCat = 'General';
-  const svcTableHtml = svcRows.length
-    ? '<div class="sv-list">' + svcRows.map(r => {
+  /* Por persona (25/09/2026, pedido del dueño): en una orden "Assign by
+     service" ya programada, los servicios se agrupan en una tarjeta por
+     persona (y por fecha si la misma persona va en dias distintos). Lo
+     que no tiene gente sigue suelto arriba. svPersonMeta guarda quien/
+     cuando de cada tarjeta para agrupar despues. */
+  const svGroupByPerson = isAssignByService && !o.RecurringServiceID;
+  const svPersonMeta = [];
+  const svcCardsHtml = svcRows.map(r => {
         const sr = r.statusRow;
         const cat = (sr && sr.svc && sr.svc.Category) || r.cat || svLastCat;
         svLastCat = cat;
@@ -12264,8 +12315,10 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         const mins = svcMinutesLabel(r.sku, r.lvl, r.qty, o.OrderID) || '';
         const metaBits = [];
         if (r.sub) metaBits.push(esc(r.sub));
-        if (isAssignByService) metaBits.push(who ? esc(who) : 'No one assigned yet');
-        if (when) metaBits.push(esc(when));
+        svPersonMeta.push({ who, date: sr && sr.a ? String(sr.a.ScheduledDate || '').slice(0, 10) : '', done: !!isDone });
+        if (isAssignByService && !svGroupByPerson) metaBits.push(who ? esc(who) : 'No one assigned yet');
+        if (isAssignByService && svGroupByPerson && !who) metaBits.push('No one assigned yet');
+        if (when && !svGroupByPerson) metaBits.push(esc(when));
         if (mins) metaBits.push(esc(mins));
         const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
         const incl = pkgSnapshotFor(o.OrderID, String(r.sku || '')) || [];
@@ -12284,8 +12337,11 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           (right ? '<div class="sv-right">' + right + '</div>' : '') +
           (incl.length ? '<div class="sv-incl" id="' + inclId + '">' + incl.map(x => '<div><span>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(x.sku, esc(x.serviceName || x.sku)) : esc(x.serviceName || x.sku)) + '</span>' + (x.level ? '<span class="sv-lv">' + esc(String(x.level).replace('Level ', 'L')) + '</span>' : '') + '</div>').join('') + '</div>' : '') +
           '</div>';
-      }).join('') + '</div>'
-    : '<p class="empty-note" style="padding:12px 0">No services.</p>';
+      });
+  const svcTableHtml = !svcRows.length
+    ? '<p class="empty-note" style="padding:12px 0">No services.</p>'
+    : svGroupByPerson ? svPersonGroupsHtml(svcCardsHtml, svPersonMeta, o.OrderID)
+    : '<div class="sv-list">' + svcCardsHtml.join('') + '</div>';
   /* Recurrentes / por lugar: la caja de servicios muestra la vista POR
      PERSONA (placeWhoHtml) y ya no hay bloque aparte de "Who does what". */
   const isPlaceView = isAssignByService && (o.RecurringServiceID || isPlaceOrderId(o.OrderID, services));
