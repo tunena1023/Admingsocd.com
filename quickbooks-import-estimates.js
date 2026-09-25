@@ -202,7 +202,21 @@ exports.handler = async (event) => {
         }
         if (customNums) doc.DocNumber = await nextDocNumber(sendAs);
 
-        const estimate = await createSalesDoc(sendAs, doc);
+        /* Si QuickBooks rechaza los campos personalizados, el documento
+           se crea sin ellos (nunca en la descripcion) y se avisa para
+           llenarlos a mano. */
+        let estimate, fieldsWarning = '';
+        try {
+          estimate = await createSalesDoc(sendAs, doc);
+        } catch (e) {
+          if (!doc.CustomField || !/custom ?field|definition/i.test(e.message)) throw e;
+          delete doc.CustomField;
+          estimate = await createSalesDoc(sendAs, doc);
+          fieldsWarning = 'Unit #, Bedrooms and Bathrooms could not be filled (' + e.message + ') — add them by hand in QuickBooks.';
+        }
+        if (!fieldsWarning && !cf.length && (o.UnitNumber || o.BuildingNumber || o.Bedrooms || o.Bathrooms)) {
+          fieldsWarning = 'Unit #, Bedrooms and Bathrooms were not found in QuickBooks — add them by hand.';
+        }
 
         await Promise.all([
           markOrderImported(o.OrderID, estimate.Id, estimate.DocNumber || '', sendAs),
@@ -217,7 +231,7 @@ exports.handler = async (event) => {
         ]);
         already[o.OrderID] = { docNumber: estimate.DocNumber || '' };
 
-        results.push({ orderId: o.OrderID, success: true, type: sendAs, estimateId: estimate.Id, docNumber: estimate.DocNumber || '' });
+        results.push({ orderId: o.OrderID, success: true, type: sendAs, estimateId: estimate.Id, docNumber: estimate.DocNumber || '', warning: fieldsWarning });
       } catch (err) {
         results.push({ orderId: o.OrderID, success: false, error: err.message });
       }
