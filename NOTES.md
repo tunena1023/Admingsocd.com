@@ -73,8 +73,13 @@ https://claude.ai/artifact/2VhdVbEYgSsxDwRuvbTNbv
 - `NOTIFY_MODE`: `off` (default, no sale nada) / `test` (todo a `NOTIFY_TEST_TO`,
   con el destinatario real en el asunto) / `live`. Preview usa el MISMO SharePoint
   que producción: probar SIEMPRE en `test`, nunca en `live`.
-- `NOTIFY_TEST_TO`, `NOTIFY_FROM` (default orders@gsocd.com),
-  `NOTIFY_OFFICE_TO` (default orders@gsocd.com, varios con coma).
+- `NOTIFY_TEST_TO`, `NOTIFY_OFFICE_TO` (default orders@gsocd.com, varios con coma).
+- `NOTIFY_FROM=noreply@gsocd.com` (puesto en Vercel, 25/09/2026): el buzón
+  COMPARTIDO "GS Solutions". orders@gsocd.com es un GRUPO de distribución y Graph
+  no puede mandar desde un grupo ("The requested user 'orders@gsocd.com' is
+  invalid", primera prueba real en Preview). Las respuestas de los clientes van
+  a orders@ por Reply-To (`NOTIFY_REPLY_TO`, default orders@gsocd.com). Si se
+  arma la Application Access Policy, el buzón que va en el grupo es noreply@.
 
 **Lista opcional `NotificationLog`** (bitácora de cada intento; si no existe, se
 ignora): Title, OrderID, Event, Recipient, Subject, Result (Sent/Skipped/Failed),
