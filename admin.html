@@ -13214,6 +13214,14 @@ function startServicePhoto(orderId, cat, svc) {
 
 /* Abre el PDF GUARDADO de la orden. Nunca genera: si no hay documento,
    el boton esta deshabilitado porque la orden no ha sido aprobada. */
+/* 25/09/2026: el boton compartido (GSPrintButton, gsocd-shared) abre
+   /api/get-order-document SIN el token de Admin -- el servidor lo
+   rechazaba y Print daba error (en Completed, History, Active). Aqui se
+   reemplaza su open() por el de Admin, que si manda el token. */
+if (window.GSPrintButton) {
+  GSPrintButton.open = (orderId, status) => openOrderDocument(orderId, status === 'Completed' ? 'completion' : undefined);
+}
+
 function openOrderDocument(orderId, kind) {
   let url = '/api/get-order-document?orderId=' + encodeURIComponent(orderId);
   if (kind) url += '&kind=' + encodeURIComponent(kind);

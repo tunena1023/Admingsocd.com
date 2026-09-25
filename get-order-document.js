@@ -99,11 +99,13 @@ exports.handler = async (event) => {
 
     let result;
     if (kind === 'completion') {
-      const [freshSvc, freshHist, photos] = await Promise.all([
+      /* Las fotos las baja generateAndSaveCompletionPdf (antes se bajaban
+         dos veces en el mismo clic). */
+      const [freshSvc, freshHist] = await Promise.all([
         fetchByField(ORDER_SERVICES_LIST, 'OrderID', orderId),
-        fetchByField(ORDER_HISTORY_LIST, 'OrderID', orderId),
-        fetchOrderPhotoBuffers(merged)
+        fetchByField(ORDER_HISTORY_LIST, 'OrderID', orderId)
       ]);
+      const photos = undefined;
       result = await generateAndSaveCompletionPdf({
         order: merged,
         services: freshSvc,
