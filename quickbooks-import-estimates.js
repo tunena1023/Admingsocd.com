@@ -256,7 +256,7 @@ exports.handler = async (event) => {
             ChangeType: 'QuickBooks ' + docLabel + ' Created',
             ChangedBy: 'Admin',
             ChangeDate: new Date().toISOString(),
-            Notes: docLabel + ' ' + (estimate.DocNumber || ('#' + estimate.Id)) + ' created in QuickBooks.'
+            Notes: docLabel + ' ' + (estimate.DocNumber || ('#' + estimate.Id)) + ' created in QuickBooks.' + (estimate._tid ? ' intuit_tid ' + estimate._tid : '')
           })
         ]);
         already[o.OrderID] = { docNumber: estimate.DocNumber || '' };
