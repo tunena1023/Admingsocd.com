@@ -1511,35 +1511,52 @@ exports.handler = async (event) => {
       return jsonResponse(200, { success: true });
     }
 
-    /* Rellena con numeros de PRUEBA coherentes (no reales) cualquier
-       servicio del catalogo que todavia no tenga tiempo asignado --
-       nunca pisa uno que ya se haya puesto de verdad. Sirve para ver
-       el calculo de duracion funcionando mientras se miden los
-       tiempos reales; se debe sobreescribir cuando lleguen. */
-    if (action === 'seed-placeholder-service-times') {
-      const [catalog, times] = await Promise.all([
-        fetchAll(SERVICES_CATALOG_LIST),
-        fetchAll(SERVICE_TIMES_LIST)
-      ]);
-      const skusWithTime = new Set(times.filter(it => it.fields && it.fields.SKU).map(it => String(it.fields.SKU).trim()));
+    /* 24/09/2026 (el dueño: "hazme un boton para subir un reporte con esos
+       numeros, y boton para borrar todas las cantidades; el boton que ya
+       esta que llena los numeros quitalo"). Se fue 'seed-placeholder-
+       service-times' (llenaba numeros de PRUEBA). Estas dos lo reemplazan:
 
-      let seeded = 0;
-      const tasks = [];
-      catalog.filter(it => it.fields && it.fields.SKU && !skusWithTime.has(String(it.fields.SKU).trim())).forEach(it => {
-        const f = it.fields;
-        const sku = String(f.SKU).trim();
-        const isJan = String(f.Division || '') === 'Janitorial';
-        const level1 = isJan ? 30 : 45;
-        const level2 = isJan ? Math.round(level1 * 1.35) : null;
-        const level3 = isJan ? Math.round(level2 * 1.20) : null;
-        tasks.push(createListItem(SERVICE_TIMES_LIST, {
-          Title: sku, SKU: sku, ServiceName: f.ServiceName || '', Division: f.Division || '',
-          Level1Minutes: level1, Level2Minutes: level2, Level3Minutes: level3
+       import-service-times: { rows: [{ sku, level1, level2, level3 }] } --
+       guarda muchos de un jalon (una sola lectura de la lista, luego crea o
+       actualiza cada SKU). Solo SKUs que existen en el catalogo; minutos
+       enteros >= 0 o vacio. Servicios que no son Janitorial solo guardan
+       level1. */
+    if (action === 'import-service-times') {
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse(400, { error: 'Nothing to import.' });
+      const [catalog, times] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), fetchAll(SERVICE_TIMES_LIST)]);
+      const catBySku = {}; catalog.forEach(it => { if (it.fields && it.fields.SKU) catBySku[String(it.fields.SKU).trim()] = it.fields; });
+      const timeBySku = {}; times.forEach(it => { if (it.fields && it.fields.SKU) timeBySku[String(it.fields.SKU).trim()] = it; });
+      const num = v => (v === '' || v == null || isNaN(Number(v)) || Number(v) < 0) ? null : Math.round(Number(v));
+      let saved = 0; const skipped = [];
+      for (let i = 0; i < rows.length; i += 8) {
+        await Promise.all(rows.slice(i, i + 8).map(async r => {
+          const sku = String((r && r.sku) || '').trim();
+          const c = catBySku[sku];
+          if (!c) { skipped.push(sku || '(empty)'); return; }
+          const isJan = String(c.Division || '') === 'Janitorial';
+          const fields = { Title: sku, SKU: sku, ServiceName: c.ServiceName || '', Division: c.Division || '',
+            Level1Minutes: num(r.level1), Level2Minutes: isJan ? num(r.level2) : null, Level3Minutes: isJan ? num(r.level3) : null };
+          if (timeBySku[sku]) await updateListItemByItemId(SERVICE_TIMES_LIST, timeBySku[sku].id, fields);
+          else await createListItem(SERVICE_TIMES_LIST, fields);
+          saved++;
         }));
-        seeded++;
-      });
-      await Promise.all(tasks);
-      return jsonResponse(200, { success: true, seeded });
+      }
+      return jsonResponse(200, { success: true, saved, skipped });
+    }
+
+    /* clear-service-times: borra TODOS los minutos (L1/L2/L3 vacios) de
+       todos los servicios. Pide confirm:'CLEAR' para que no se dispare por
+       accidente. No borra los renglones, solo los numeros. */
+    if (action === 'clear-service-times') {
+      if (body.confirm !== 'CLEAR') return jsonResponse(400, { error: 'Confirmation missing.' });
+      const times = await fetchAll(SERVICE_TIMES_LIST);
+      const withNumbers = times.filter(it => it.fields && (it.fields.Level1Minutes != null || it.fields.Level2Minutes != null || it.fields.Level3Minutes != null));
+      for (let i = 0; i < withNumbers.length; i += 8) {
+        await Promise.all(withNumbers.slice(i, i + 8).map(it =>
+          updateListItemByItemId(SERVICE_TIMES_LIST, it.id, { Level1Minutes: null, Level2Minutes: null, Level3Minutes: null })));
+      }
+      return jsonResponse(200, { success: true, cleared: withNumbers.length });
     }
 
     if (action === 'list-staff') {

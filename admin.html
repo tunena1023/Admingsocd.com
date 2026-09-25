@@ -1342,6 +1342,23 @@
   }
   .st-wrap { overflow-x: auto; }
   #service-times-table th.st-new, #service-times-table td.st-new { background: #FFFCF3; }
+  /* Importar reporte de tiempos (24/09/2026) */
+  .st-danger { color: #A6362D !important; border-color: #E7C4C0 !important; }
+  .st-danger:hover { background: #FBEAEA !important; }
+  #st-import { border: 1px solid #E6D3A0; background: #FFFDF7; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+  #st-import .st-imp-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  #st-import .st-imp-h b { font-size: 14px; }
+  #st-import .st-imp-sum { font-size: 12px; color: var(--gray); }
+  #st-import table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  #st-import th { text-align: left; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  #st-import td { padding: 6px 8px; border-bottom: 1px dashed #EFE6CF; vertical-align: middle; }
+  #st-import select { font-family: inherit; font-size: 12.5px; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; max-width: 280px; width: 100%; }
+  #st-import tr.guess select { border-color: #E6B35C; background: #FFF6E5; }
+  #st-import tr.skip td { color: #B5AFA3; }
+  #st-import .raw { color: var(--gray); font-size: 11px; }
+  #st-import .st-imp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  #st-import .st-imp-foot button { width: auto; padding: 10px 18px; }
+  .st-wrap-imp { overflow-x: auto; }
   .st-adj { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .st-adj input { width: 56px; padding: 5px 6px; }
   .st-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
@@ -1884,8 +1901,14 @@
         <p class="section-sub" style="margin-top:16px">How long each service takes, in minutes — used in Scheduling to estimate how long an order will take based on the services chosen. Janitorial has its own time per level (the jump between levels is not a fixed percentage — it varies per service); Renovations/Exteriors use one time only.</p>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
           <input type="text" id="service-times-search" placeholder="Search by service name or SKU…" oninput="renderServiceTimes()" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:3px;font-size:13px;font-family:inherit">
-          <button class="gs-ofp-btn-secondary" onclick="seedPlaceholderServiceTimes()">Fill missing with placeholder times</button>
+          <!-- 24/09/2026 (dueño): subir un reporte con los tiempos, borrar todos, y
+               fuera el boton que llenaba numeros de prueba. -->
+          <button class="gs-ofp-btn-secondary" onclick="downloadServiceTimesTemplate()" title="Excel with every service (SKU) and its current times, ready to fill in">Download template</button>
+          <button class="gs-ofp-btn-primary" style="width:auto" onclick="document.getElementById('st-report-file').click()">Upload report</button>
+          <button class="gs-ofp-btn-secondary st-danger" onclick="clearAllServiceTimes()">Clear all times</button>
+          <input type="file" id="st-report-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="readServiceTimesReport(this.files[0]); this.value='';">
         </div>
+        <div id="st-import" style="display:none"></div>
         <p id="service-times-note" style="font-size:12px;color:var(--gray);margin-bottom:12px;display:none"></p>
         <div class="st-wrap"><table class="staff-table" id="service-times-table">
           <thead><tr><th>Service</th><th>Division</th><th>L1 min</th><th>L2 min</th><th>L3 min</th><th>Price (QuickBooks)</th><th class="st-new">Level 2 price</th><th class="st-new">Level 3 price</th></tr></thead>
@@ -9412,7 +9435,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const note = document.getElementById('service-times-note');
     if (missing) {
       note.style.display = 'block';
-      note.textContent = missing + ' service' + (missing === 1 ? '' : 's') + ' still without a time — use "Fill missing with placeholder times" to test with something, or set them by hand below.';
+      note.textContent = missing + ' service' + (missing === 1 ? '' : 's') + ' still without a time — upload a report or set them by hand below.';
     } else {
       note.style.display = 'none';
     }
@@ -9484,16 +9507,172 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     }
   }
 
-  async function seedPlaceholderServiceTimes() {
-    if (!confirm('This fills in a placeholder time (not real) for every service that has none yet, so you can test the calculation. It never overwrites a time you already set. Continue?')) return;
-    try {
-      const res = await devApi('seed-placeholder-service-times');
-      showToast(res.seeded + ' placeholder time(s) added.');
-      loadServiceTimes();
-    } catch (e) {
-      showToast('Error: ' + e.message);
-    }
+  /* ===== Tiempos: plantilla, subir reporte y borrar todo (24/09/2026) =====
+     El dueño: "hazme un boton para poder subir un reporte con esos
+     numeros, y boton para borrar todas las cantidades; el que llena los
+     numeros quitalo". Flujo:
+     - Download template: Excel con TODOS los servicios (SKU, nombre,
+       division) y sus minutos actuales, listo para llenar.
+     - Upload report: .xlsx/.csv. Busca las columnas (SKU opcional,
+       Service/Servicio, Level 1/Nivel 1/L1, Level 2, Level 3). Cada renglon
+       se empareja con su servicio: por SKU si viene; si no, por nombre
+       (igual, o el mas parecido -> marcado para revisar). Entiende rangos
+       ("25-30" = 28, el de en medio) y horas ("1 hora", "2 horas", "1:30",
+       "1 30"). Antes de guardar se ve TODO en una tabla para corregir el
+       servicio de cada renglon o saltarlo. Guarda con import-service-times.
+     - Clear all times: borra todos los minutos (pide escribir CLEAR). */
+  let stImport = null;
+  function stNorm(v) {
+    return String(v || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ')
+      .split(/\s+/).filter(w => w && !['and', 'the', 'of', 'cleaning', 'clean', 'service', 'services'].includes(w))
+      .map(w => w.replace(/(ies)$/, 'y').replace(/(es|s)$/, '')).join(' ').trim();
   }
+  function stMinutes(v) {
+    if (v == null) return null;
+    let t = String(v).trim().toLowerCase();
+    if (!t) return null;
+    if (/^\d+(\.\d+)?$/.test(t)) return Math.round(Number(t));
+    const range = t.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    if (range) return Math.round((Number(range[1]) + Number(range[2])) / 2);
+    const hm = t.match(/^(\d+)\s*[:h]\s*(\d{1,2})\s*(min)?$/) || t.match(/^(\d)\s+(\d{2})$/);
+    if (hm) return Number(hm[1]) * 60 + Number(hm[2]);
+    const hrs = t.match(/^(\d+(\.\d+)?)\s*(h|hr|hrs|hora|horas|hour|hours)\b/);
+    if (hrs) return Math.round(Number(hrs[1]) * 60);
+    const mins = t.match(/^(\d+)\s*(m|min|mins|minutos?)\b/);
+    if (mins) return Number(mins[1]);
+    return NaN;
+  }
+  function stBestMatch(name, taken) {
+    const n = stNorm(name);
+    if (!n) return { sku: '', how: 'none' };
+    const exact = allServiceTimes.find(s => stNorm(s.serviceName) === n);
+    if (exact) return { sku: exact.sku, how: 'name' };
+    if (taken === undefined) return { sku: '', how: 'later' };
+    const words = n.split(' ');
+    let best = null, bestScore = 0;
+    allServiceTimes.forEach(s => {
+      if (taken[s.sku]) return; // ya lo usa otro renglon del reporte
+      const sw = stNorm(s.serviceName).split(' ');
+      const common = words.filter(w => sw.some(x => x === w || (w.length > 3 && (x.startsWith(w) || w.startsWith(x))))).length;
+      const score = common / Math.max(words.length, sw.length);
+      if (score > bestScore) { bestScore = score; best = s; }
+    });
+    return best && bestScore >= 0.34 ? { sku: best.sku, how: 'guess' } : { sku: '', how: 'none' };
+  }
+  function downloadServiceTimesTemplate() {
+    const rows = allServiceTimes.map(s => ({ SKU: s.sku, Service: s.serviceName, Division: s.division,
+      'Level 1': s.level1 != null ? s.level1 : '', 'Level 2': s.division === 'Janitorial' && s.level2 != null ? s.level2 : '',
+      'Level 3': s.division === 'Janitorial' && s.level3 != null ? s.level3 : '' }));
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['SKU', 'Service', 'Division', 'Level 1', 'Level 2', 'Level 3'] });
+    ws['!cols'] = [{ wch: 10 }, { wch: 40 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 9 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Service Times');
+    XLSX.writeFile(wb, 'service-times-template.xlsx');
+  }
+  function readServiceTimesReport(file) {
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+        /* Encabezado: el primer renglon que tenga una columna de servicio y al menos un nivel. */
+        const isSvc = h => /^(service|servicio|name|nombre)/i.test(h);
+        const lvlIdx = (row, k) => row.findIndex(h => new RegExp('^(level|nivel|l)\\s*' + k + '\\b', 'i').test(String(h).trim()));
+        let hi = -1, cols = null;
+        for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+          const row = aoa[i].map(x => String(x).trim());
+          const sv = row.findIndex(isSvc), l1 = lvlIdx(row, 1);
+          if (sv > -1 && l1 > -1) { hi = i; cols = { sku: row.findIndex(h => /^sku$/i.test(h)), svc: sv, l1, l2: lvlIdx(row, 2), l3: lvlIdx(row, 3) }; break; }
+        }
+        if (hi < 0) { showToast('Could not find the columns. The report needs a "Service" column and "Level 1" (Level 2 and 3 optional). Use "Download template" to see the format.'); return; }
+        const rows = [];
+        aoa.slice(hi + 1).forEach(r => {
+          const name = String(r[cols.svc] || '').trim();
+          const skuIn = cols.sku > -1 ? String(r[cols.sku] || '').trim() : '';
+          if (!name && !skuIn) return;
+          const raw = [cols.l1, cols.l2, cols.l3].map(c => c > -1 ? String(r[c] == null ? '' : r[c]).trim() : '');
+          const mins = raw.map(stMinutes);
+          let m = { sku: '', how: 'none' };
+          if (skuIn && allServiceTimes.some(s => String(s.sku) === skuIn)) m = { sku: skuIn, how: 'sku' };
+          else m = stBestMatch(name);
+          rows.push({ name, raw, mins, sku: m.sku, how: m.how });
+        });
+        /* Segunda pasada: los que no empataron exacto se adivinan SIN usar
+           un servicio que ya tomo otro renglon (para no juntar dos en uno). */
+        const taken = {}; rows.forEach(r => { if (r.sku) taken[r.sku] = true; });
+        rows.forEach(r => { if (r.how === 'later') { const g = stBestMatch(r.name, taken); r.sku = g.sku; r.how = g.how; if (g.sku) taken[g.sku] = true; } });
+        if (!rows.length) { showToast('The report has no rows under the header.'); return; }
+        stImport = { file: file.name, rows };
+        renderStImport();
+      } catch (e) { showToast('Could not read the file: ' + e.message); }
+    };
+    fr.readAsArrayBuffer(file);
+  }
+  function renderStImport() {
+    const box = document.getElementById('st-import');
+    if (!stImport) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const opts = sel => '<option value="">— Skip this row —</option>' + allServiceTimes.map(s =>
+      '<option value="' + escAttr(s.sku) + '"' + (String(s.sku) === String(sel) ? ' selected' : '') + '>' + esc(s.serviceName) + ' (' + esc(s.sku) + ')</option>').join('');
+    const cell = (v, raw) => isNaN(v) ? '<span style="color:#A6362D" title="Could not read this value">?' + (raw ? ' ' + esc(raw) : '') + '</span>'
+      : (v == null ? '<span class="raw">—</span>' : '<b>' + v + '</b>' + (raw && String(v) !== raw ? ' <span class="raw">(' + esc(raw) + ')</span>' : ''));
+    const cur = sku => { const s = allServiceTimes.find(x => String(x.sku) === String(sku)); return s ? [s.level1, s.level2, s.level3].map(v => v == null ? '—' : v).join(' / ') : ''; };
+    const ok = stImport.rows.filter(r => r.sku), guess = ok.filter(r => r.how === 'guess').length;
+    const useCount = {}; ok.forEach(r => { useCount[r.sku] = (useCount[r.sku] || 0) + 1; });
+    const dups = ok.filter(r => useCount[r.sku] > 1).length;
+    const bad = stImport.rows.filter(r => r.sku && r.mins.some(v => typeof v === 'number' && isNaN(v))).length;
+    box.style.display = 'block';
+    box.innerHTML = '<div class="st-imp-h"><div><b>Review before saving</b> <span class="st-imp-sum">· ' + esc(stImport.file) + ' · ' +
+        ok.length + ' of ' + stImport.rows.length + ' rows matched' + (guess ? ' · <span style="color:#B06A2A">' + guess + ' to check (orange)</span>' : '') +
+        (bad ? ' · <span style="color:#A6362D">' + bad + ' with a value that could not be read</span>' : '') +
+        (dups ? ' · <span style="color:#A6362D">' + dups + ' rows point to the same service (only the last one is saved)</span>' : '') + '</span></div></div>' +
+      '<div class="st-wrap-imp"><table><thead><tr><th>In the report</th><th>Service it updates</th><th>L1</th><th>L2</th><th>L3</th><th>Now</th></tr></thead><tbody>' +
+      stImport.rows.map((r, i) => '<tr class="' + (!r.sku ? 'skip' : r.how === 'guess' ? 'guess' : '') + '"' + (r.sku && useCount[r.sku] > 1 ? ' style="background:#FBEAEA"' : '') + '><td>' + esc(r.name || '(no name)') + '</td>' +
+        '<td><select onchange="stSetRowSku(' + i + ',this.value)">' + opts(r.sku) + '</select></td>' +
+        '<td>' + cell(r.mins[0], r.raw[0]) + '</td><td>' + cell(r.mins[1], r.raw[1]) + '</td><td>' + cell(r.mins[2], r.raw[2]) + '</td>' +
+        '<td class="raw">' + cur(r.sku) + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      '<p class="raw" style="margin-top:8px">Ranges use the middle ("25-30" → 28). Hours are turned into minutes ("1 hora" → 60, "1:30" → 90). Only the rows with a service are saved; the rest are skipped.</p>' +
+      '<div class="st-imp-foot"><button class="gs-ofp-btn-secondary" onclick="stCancelImport()">Cancel</button>' +
+      '<button class="gs-ofp-btn-primary" onclick="saveStImport()"' + (ok.length ? '' : ' disabled') + '>Save ' + ok.length + ' service' + (ok.length === 1 ? '' : 's') + '</button></div>';
+  }
+  async function saveStImport() {
+    const rows = stImport.rows.filter(r => r.sku);
+    if (rows.some(r => r.mins.some(v => typeof v === 'number' && isNaN(v)))) {
+      if (!confirm('Some values could not be read (marked with ?). Those levels will be left empty. Save anyway?')) return;
+    }
+    /* Un SKU repetido en el reporte: gana el ultimo renglon. */
+    const bySku = {};
+    rows.forEach(r => { bySku[r.sku] = { sku: r.sku, level1: fin(r.mins[0]), level2: fin(r.mins[1]), level3: fin(r.mins[2]) }; });
+    function fin(v) { return typeof v === 'number' && !isNaN(v) ? v : ''; }
+    showLoadingOverlay('Saving service times…');
+    try {
+      const res = await devApi('import-service-times', { rows: Object.values(bySku) });
+      GSLoadingSplash.hide();
+      showToast(res.saved + ' service time(s) saved.' + (res.skipped && res.skipped.length ? ' Skipped: ' + res.skipped.join(', ') : ''));
+      stImport = null; renderStImport();
+      await loadServiceTimes();
+    } catch (e) { GSLoadingSplash.hide(); showToast('Could not save: ' + e.message); }
+  }
+  async function clearAllServiceTimes() {
+    const withTimes = allServiceTimes.filter(s => s.level1 != null || s.level2 != null || s.level3 != null).length;
+    const typed = prompt('This erases the minutes of ALL services (' + withTimes + ' with times today). Estimated times will show nothing until new times are uploaded.\n\nType CLEAR to confirm.');
+    if (typed == null) return;
+    if (typed.trim().toUpperCase() !== 'CLEAR') { showToast('Nothing was erased (you did not type CLEAR).'); return; }
+    showLoadingOverlay('Erasing all service times…');
+    try {
+      const res = await devApi('clear-service-times', { confirm: 'CLEAR' });
+      GSLoadingSplash.hide();
+      showToast('All service times erased (' + res.cleared + ').');
+      await loadServiceTimes();
+    } catch (e) { GSLoadingSplash.hide(); showToast('Could not erase: ' + e.message); }
+  }
+  window.downloadServiceTimesTemplate = downloadServiceTimesTemplate;
+  window.readServiceTimesReport = readServiceTimesReport;
+  window.renderStImport = renderStImport;
+  window.saveStImport = saveStImport;
+  window.clearAllServiceTimes = clearAllServiceTimes;
+  window.stSetRowSku = function (i, v) { if (!stImport) return; stImport.rows[i].sku = v; stImport.rows[i].how = v ? 'picked' : 'none'; renderStImport(); };
+  window.stCancelImport = function () { stImport = null; renderStImport(); };
 
   function renderStaff() {
     document.getElementById('staff-count-badge').textContent = allStaff.length ? allStaff.length + ' people' : '';
