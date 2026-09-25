@@ -1444,7 +1444,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.61.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.62.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -13951,6 +13951,7 @@ async function loadCreateServices() {
     /* v1.52.0: toggle Recurring / Units; aqui arranca en Units (unidades
        vacias: paquetes como plantilla + categorias por cuarto). */
     workToggle: isJan || isMixed, workMode: 'units',
+    showPackages: true, /* v1.62.0: Usual order / My package del cliente en TODAS las divisiones */
     onChange: function (sel, lvl, propType, qty) {
       createPropertyType = propType;
       createSelected = new Map();
