@@ -496,6 +496,16 @@
     .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; }
     .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
     .qb-count[hidden] { display: none; }
+    .qb-setup { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--white); }
+    .qb-send { display: flex; align-items: center; gap: 10px; }
+    .qb-send-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
+    .qb-segs { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .qb-seg { border: 0; background: none; padding: 8px 16px; font: 600 13px 'Inter', sans-serif; color: var(--gray); cursor: pointer; }
+    .qb-seg + .qb-seg { border-left: 1px solid var(--border); }
+    .qb-seg.on { background: var(--black); color: #fff; }
+    .qb-seg:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+    .qb-notes { flex: 1; min-width: 240px; display: grid; gap: 4px; font-size: 13px; color: var(--gray); }
+    .qb-warn { color: #9A6B00; }
     .qb-count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 9px; background: var(--gold); color: #fff; font-size: 10px; line-height: 16px; text-align: center; letter-spacing: 0; }
     .qb-client { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; }
     .qb-client input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
@@ -1734,11 +1744,11 @@
   <h2 class="section-title">QuickBooks</h2>
   <!-- Estimates | New clients (25/09/2026, pedido del dueño) -->
   <div class="subtabs qb-subtabs" role="tablist" aria-label="QuickBooks sections">
-    <button class="subtab qb-subtab active" role="tab" aria-selected="true" data-qbtab="estimates" onclick="showQbSubTab('estimates')">Estimates</button>
+    <button class="subtab qb-subtab active" role="tab" aria-selected="true" data-qbtab="estimates" onclick="showQbSubTab('estimates')">Orders</button>
     <button class="subtab qb-subtab" role="tab" aria-selected="false" data-qbtab="clients" onclick="showQbSubTab('clients')">New clients<span class="qb-count" id="qb-clients-count" hidden></span></button>
   </div>
   <div class="subpanel qb-subpanel active" id="qbsub-estimates">
-    <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks como Estimate.</p>
+    <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks.</p>
     <div id="qb-panel-body">Loading…</div>
   </div>
   <div class="subpanel qb-subpanel" id="qbsub-clients">
@@ -2905,6 +2915,49 @@ function showTab(tab) {
    duplicar el mismo Estimate sin querer). Ver quickbooks-status.js
    / quickbooks-import-estimates.js. */
 let qbSelected = new Set();
+let qbSendAs = 'estimate';
+
+/* Arriba de la lista (25/09/2026): Estimate | Invoice (el dueño quiere
+   poder cambiar de uno a otro; hoy mandan Estimate y alla crean el
+   Invoice) y lo que se leyo de la compania de QuickBooks, para ver
+   antes de mandar si la unidad / recamaras / baños van a caer en su
+   lugar. Ver quickbooks-import-estimates.js (MAPEO). */
+function qbSetupHtml(status) {
+  const st = status.setup || {};
+  const seg = v => '<button type="button" class="qb-seg' + (qbSendAs === v ? ' on' : '') + '" aria-pressed="' + (qbSendAs === v) + '" onclick="setQbSendAs(\'' + v + '\')">' + (v === 'invoice' ? 'Invoice' : 'Estimate') + '</button>';
+  const rows = [];
+  if (status.environment !== 'production') rows.push('<span class="qb-warn">Test company (sandbox) — nothing reaches your real QuickBooks yet.</span>');
+  if (st.error) rows.push('<span class="qb-warn">Could not read the QuickBooks setup: ' + esc(st.error) + '</span>');
+  else {
+    const names = (st.customFields || []).map(f => f.name);
+    const has = re => names.some(n => re.test(n));
+    const missing = [[/unit/i, 'Unit #'], [/bed/i, 'Bedrooms'], [/bath/i, 'Bathrooms']].filter(([re]) => !has(re)).map(x => x[1]);
+    rows.push(missing.length
+      ? '<span class="qb-warn">Custom fields missing in QuickBooks: ' + esc(missing.join(', ')) + '. They won\'t show on the document until they\'re added (Settings › Sales › Custom fields).</span>'
+      : '<span>Unit #, Bedrooms and Bathrooms go to their custom fields.</span>');
+    rows.push('<span>Each line is dated the day that service was completed; the document is dated the day it\'s created.</span>');
+    rows.push('<span>' + (st.customNumbers ? 'Numbers continue from the highest one already in QuickBooks.' : 'QuickBooks gives each one the next number.') + '</span>');
+  }
+  return '<div class="qb-setup"><div class="qb-send"><span class="qb-send-label">Send as</span><div class="qb-segs" role="group" aria-label="Send as">' + seg('estimate') + seg('invoice') + '</div></div>' +
+    '<div class="qb-notes">' + rows.join('') + '</div></div>';
+}
+
+async function setQbSendAs(v) {
+  if (v === qbSendAs) return;
+  const prev = qbSendAs;
+  qbSendAs = v;
+  document.querySelectorAll('.qb-seg').forEach(b => { const on = b.textContent.toLowerCase() === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  const btn = document.getElementById('qb-import-btn');
+  if (btn) btn.textContent = 'Import Selected as ' + (v === 'invoice' ? 'Invoice' : 'Estimate');
+  try {
+    await api('/quickbooks-status', { body: { sendAs: v } });
+    showToast('QuickBooks: new orders will be sent as ' + (v === 'invoice' ? 'Invoices' : 'Estimates') + '.');
+  } catch (e) {
+    showToast('Could not save: ' + e.message);
+    qbSendAs = prev;
+    renderQuickBooksPanel();
+  }
+}
 
 async function renderQuickBooksPanel() {
   const box = document.getElementById('qb-panel-body');
@@ -2923,6 +2976,7 @@ async function renderQuickBooksPanel() {
       return;
     }
     const imported = status.imported || {};
+    qbSendAs = status.sendAs === 'invoice' ? 'invoice' : 'estimate';
     /* Solo Completed -- a peticion del dueno (19/09/2026): antes
        mostraba cualquier orden que no fuera Cancelled/Incomplete
        (Received, Assigned, Active, etc.), pero el flujo real es
@@ -2938,13 +2992,13 @@ async function renderQuickBooksPanel() {
        peticion del dueno, 19/09/2026). El 3er argumento le agrega el
        checkbox de seleccion (o el badge "Imported" si ya se mando),
        sin tocar el comportamiento de los demas usos de orderCard. */
-    box.innerHTML =
+    box.innerHTML = qbSetupHtml(status) +
       '<div id="quickbooks-list">' +
       eligible.map(o => orderCard(o, 'quickbooks', { imported: imported[o.OrderID] })).join('') +
       '</div>' +
       '<div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:14px 0;margin-top:16px;display:flex;justify-content:flex-end;gap:10px">' +
       '<span id="qb-selected-count" style="align-self:center;font-size:12px;color:var(--gray)">0 selected</span>' +
-      '<button type="button" class="gs-ofp-btn-primary" id="qb-import-btn" disabled onclick="importSelectedEstimates()">Import Selected as Estimate</button>' +
+      '<button type="button" class="gs-ofp-btn-primary" id="qb-import-btn" disabled onclick="importSelectedEstimates()">Import Selected as ' + (qbSendAs === 'invoice' ? 'Invoice' : 'Estimate') + '</button>' +
       '</div>';
   } catch (e) {
     box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
@@ -2973,7 +3027,7 @@ async function importSelectedEstimates() {
     const okCount = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
     GSLoadingSplash.hide(); // no llama loadAll(), no se apaga sola
-    if (okCount) showToast(okCount + ' order' + (okCount === 1 ? '' : 's') + ' imported to QuickBooks.');
+    if (okCount) showToast(okCount + ' ' + (res.sendAs === 'invoice' ? 'invoice' : 'estimate') + (okCount === 1 ? '' : 's') + ' created in QuickBooks: ' + results.filter(r => r.success).map(r => '#' + (r.docNumber || r.estimateId)).join(', ') + '.');
     failed.forEach(r => showToast(r.orderId + ': ' + r.error));
     await renderQuickBooksPanel();
   } catch (e) {
@@ -11635,7 +11689,7 @@ function orderCard(o, context, qbInfo) {
      hermano suelto, el space-between lo separa raro. */
   const qbSelector = !qbInfo ? '' :
     qbInfo.imported
-      ? '<span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">Imported' + (qbInfo.imported.docNumber ? ' — ' + esc(qbInfo.imported.docNumber) : '') + '</span>'
+      ? '<span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">' + (qbInfo.imported.type === 'invoice' ? 'Invoice' : 'Estimate') + (qbInfo.imported.docNumber ? ' ' + esc(qbInfo.imported.docNumber) : ' created') + '</span>'
       : '<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleQbOrder(\'' + escAttr(o.OrderID) + '\', this.checked)" ' + (qbSelected.has(o.OrderID) ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0">';
   const infoBlock = `<div>
           ${GSOrderCardHeader.html({

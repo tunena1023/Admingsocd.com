@@ -16,15 +16,59 @@
 ============================================================ */
 
 const {
-  ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST,
+  ORDER_HISTORY_LIST, SERVICES_CATALOG_LIST, SERVICE_ASSIGNMENTS_LIST,
   createListItem, queryList, ORDERS_LIST,
   jsonResponse
 } = require('./lib/graph');
+const lq = require('./lib/list-query');
 
 const {
-  isConnected, findItemIdBySku, findOrCreateCustomerId, createEstimate,
-  markOrderImported
+  isConnected, findItemBySku, findOrCreateCustomerId, createSalesDoc,
+  markOrderImported, getImportedOrders, getSendAs, getCompanySetup,
+  usesCustomTxnNumbers, nextDocNumber
 } = require('./lib/quickbooks');
+
+/* ============================================================
+   MAPEO AL DOCUMENTO DE QUICKBOOKS (25/09/2026), copiado del invoice
+   real #5177 que mando el dueño:
+   - Fecha del documento (TxnDate) = el dia en que se crea (hoy, hora
+     de Iowa).
+   - Fecha de cada linea (ServiceDate) = el dia en que se completo ESE
+     servicio (ServiceAssignments.CompletedDate si se asigno por
+     servicio; si no, Orders.CompletedDate).
+   - UNIT # / BEDROOMS / BATHROOMS = los campos personalizados de la
+     compania, buscados por nombre (getCompanySetup). Si un campo no
+     existe en esa compania, simplemente no se manda.
+   - Ship To = direccion de la propiedad de la orden.
+   - Impuesto: cada linea cobra impuesto si el articulo de QuickBooks
+     es Taxable (las "T" del invoice real).
+   - Numero: el siguiente al ultimo que ya hay (ver nextDocNumber).
+   - Nota interna (PrivateNote): el numero de orden de la app.
+   - Estimate o Invoice segun el boton del panel (qb_send_as).
+   Solo se CREAN documentos; nunca se edita uno que ya exista.
+============================================================ */
+const TZ = 'America/Chicago';
+const STATE = process.env.QUICKBOOKS_DEFAULT_STATE || 'IA';
+const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+const isoDay = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : ymd(d); };
+const low = v => String(v || '').trim().toLowerCase();
+
+function customFieldsFor(setup, o) {
+  const unit = String(o.UnitNumber || '').trim() || String(o.BuildingNumber || '').trim();
+  const want = [
+    [/unit/i, unit],
+    [/bed/i, o.Bedrooms],
+    [/bath/i, o.Bathrooms]
+  ];
+  const out = [];
+  want.forEach(([re, val]) => {
+    const f = setup.customFields.find(x => re.test(x.name));
+    if (f && val != null && String(val).trim() !== '') {
+      out.push({ DefinitionId: f.definitionId, Name: f.name, Type: 'StringType', StringValue: String(val).trim().slice(0, 31) });
+    }
+  });
+  return out;
+}
 
 /* "Includes: 111-59 Dusting (L3), 111-23 Kitchen appliance wipe-down (L2)…" */
 function pkgIncludesText(snap, sku) {
@@ -46,6 +90,12 @@ exports.handler = async (event) => {
     if (!(await isConnected())) {
       return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
     }
+
+    const [sendAs, setup, customNums, already] = await Promise.all([
+      getSendAs(), getCompanySetup(), usesCustomTxnNumbers(), getImportedOrders()
+    ]);
+    const docLabel = sendAs === 'invoice' ? 'Invoice' : 'Estimate';
+    const today = ymd(new Date());
 
     /* Precio actual de cada SKU -- una sola pasada al catalogo
        completo, no una consulta por servicio por orden. */
@@ -71,6 +121,8 @@ exports.handler = async (event) => {
 
     for (const o of orders) {
       try {
+        /* Nunca dos documentos para la misma orden. */
+        if (already[o.OrderID]) throw new Error('Already sent to QuickBooks' + (already[o.OrderID].docNumber ? ' (#' + already[o.OrderID].docNumber + ')' : '') + '.');
         const services = o.ServicesDetailed || [];
         if (!services.length) throw new Error('This order has no services to import.');
 
@@ -93,21 +145,35 @@ exports.handler = async (event) => {
         services.forEach(s => {
           const items = pkgSnap[String(s.SubOption || '')];
           if (Array.isArray(items) && items.length) {
-            items.forEach(x => expanded.push({ ServiceName: x.serviceName || x.sku, SubOption: x.sku, Level: x.level || '', Quantity: s.Quantity || '', fromPackage: s.ServiceName }));
+            items.forEach(x => expanded.push({ ServiceName: x.serviceName || x.sku, SubOption: x.sku, Level: x.level || '', Quantity: s.Quantity || '', fromPackage: s.ServiceName, parentKey: low(s.Category) + '|' + low(s.ServiceName) }));
           } else expanded.push(s);
         });
+        /* Dia en que se completo cada servicio. */
+        const doneBy = {};
+        try {
+          const sa = await lq.fetchByValues(SERVICE_ASSIGNMENTS_LIST, 'OrderID', [o.OrderID]);
+          sa.forEach(it => {
+            const f = it.fields || {};
+            if (f.CompletedDate) doneBy[low(f.Category) + '|' + low(f.ServiceName)] = f.CompletedDate;
+          });
+        } catch (e) { /* sin asignaciones por servicio: se usa la fecha de la orden */ }
+        const orderDone = isoDay(o.CompletedDate);
+
         const lines = [];
         for (const s of expanded) {
           const sku = s.SubOption;
           if (!sku) throw new Error('Service "' + s.ServiceName + '" has no SKU on file.');
-          const itemId = await findItemIdBySku(sku);
-          if (!itemId) throw new Error('Service "' + s.ServiceName + '" (SKU ' + sku + ') was not found in QuickBooks.');
+          const item = await findItemBySku(sku);
+          if (!item) throw new Error('Service "' + s.ServiceName + '" (SKU ' + sku + ') was not found in QuickBooks.');
           const price = priceBySku[sku] != null ? levelPrice(sku, Number(priceBySku[sku]), s.Level) : 0;
           const qty = Number(s.Quantity) || 1;
+          const serviceDate = isoDay(doneBy[low(s.Category) + '|' + low(s.ServiceName)] || doneBy[s.parentKey]) || orderDone;
+          const detail = { ItemRef: { value: item.id }, Qty: qty, UnitPrice: price, TaxCodeRef: { value: item.taxable ? 'TAX' : 'NON' } };
+          if (serviceDate) detail.ServiceDate = serviceDate;
           lines.push({
             Amount: price * qty,
             DetailType: 'SalesItemLineDetail',
-            SalesItemLineDetail: { ItemRef: { value: itemId }, Qty: qty, UnitPrice: price },
+            SalesItemLineDetail: detail,
             Description: s.ServiceName + (s.Level ? ' — ' + s.Level : '') + (s.fromPackage ? ' (' + s.fromPackage + ')' : '')
           });
         }
@@ -116,28 +182,42 @@ exports.handler = async (event) => {
           address: o.Address, city: o.City, zip: o.Zip
         });
 
-        const estimateRes = await createEstimate({ CustomerRef: { value: customerId }, Line: lines });
-        const estimate = estimateRes.Estimate;
+        const doc = {
+          CustomerRef: { value: customerId },
+          TxnDate: today,
+          Line: lines,
+          PrivateNote: 'GS app order ' + o.OrderID
+        };
+        const cf = customFieldsFor(setup, o);
+        if (cf.length) doc.CustomField = cf;
+        if (o.Address) {
+          doc.ShipAddr = { Line1: o.Address, City: o.City || '', CountrySubDivisionCode: STATE, PostalCode: o.Zip || '' };
+          if (o.Suite) doc.ShipAddr.Line2 = o.Suite;
+        }
+        if (customNums) doc.DocNumber = await nextDocNumber(sendAs);
+
+        const estimate = await createSalesDoc(sendAs, doc);
 
         await Promise.all([
-          markOrderImported(o.OrderID, estimate.Id, estimate.DocNumber || ''),
+          markOrderImported(o.OrderID, estimate.Id, estimate.DocNumber || '', sendAs),
           createListItem(ORDER_HISTORY_LIST, {
-            Title: o.OrderID + '-qbestimate',
+            Title: o.OrderID + '-qb' + sendAs,
             OrderID: o.OrderID,
-            ChangeType: 'QuickBooks Estimate Created',
+            ChangeType: 'QuickBooks ' + docLabel + ' Created',
             ChangedBy: 'Admin',
             ChangeDate: new Date().toISOString(),
-            Notes: 'Estimate ' + (estimate.DocNumber || ('#' + estimate.Id)) + ' created in QuickBooks.'
+            Notes: docLabel + ' ' + (estimate.DocNumber || ('#' + estimate.Id)) + ' created in QuickBooks.'
           })
         ]);
+        already[o.OrderID] = { docNumber: estimate.DocNumber || '' };
 
-        results.push({ orderId: o.OrderID, success: true, estimateId: estimate.Id, docNumber: estimate.DocNumber || '' });
+        results.push({ orderId: o.OrderID, success: true, type: sendAs, estimateId: estimate.Id, docNumber: estimate.DocNumber || '' });
       } catch (err) {
         results.push({ orderId: o.OrderID, success: false, error: err.message });
       }
     }
 
-    return jsonResponse(200, { results });
+    return jsonResponse(200, { results, sendAs });
 
   } catch (err) {
     return jsonResponse(500, { error: err.message });
