@@ -1200,6 +1200,7 @@
   .sv-add-div { all: unset; cursor: pointer; font-size: 12px; color: var(--gold-dk); margin: 10px 2px 0; display: inline-block; }
   .sv-add-div:hover, .sv-add-div:focus-visible { text-decoration: underline; }
   .sv-edit-title { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid var(--gold); }
+  .sv-other-div { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-dk); background: #F3ECD8; border-radius: 99px; padding: 2px 7px; margin-left: 6px; white-space: nowrap; }
   .sv-edit-title span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray); margin-left: 6px; }
   @media (prefers-reduced-motion: reduce) { .sv-sec-wrap, .sv-sec-chev { transition: none; } }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
@@ -5523,7 +5524,7 @@ function renderApprSvcEditable(orderId) {
 
   return '<div class="sv-edit-title">' + esc(editDiv || 'All services') + '<span>editing</span></div>' + listHtml +
     '<div style="padding:12px 0 4px">' +
-      '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="' + escAttr(editDiv ? 'Search ' + editDiv + ' services to add…' : 'Search the catalog to add a service…') + '" ' +
+      '<input type="text" id="' + apprSvcSearchDomId(orderId) + '" placeholder="' + 'Search the catalog to add a service…' + '" ' +
         'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:\'Inter\',sans-serif" ' +
         'oninput="filterApprCatalog(\'' + jsStr(orderId) + '\', this.value)">' +
       '<div id="' + apprSvcSearchDomId(orderId) + '-results" style="margin-top:8px"></div>' +
@@ -5571,15 +5572,20 @@ function filterApprCatalog(orderId, q) {
   const sel = window['apprSvc_' + orderId] || {};
   const already = new Set();
   Object.values(sel).forEach(svcs => Object.keys(svcs).forEach(n => already.add(n)));
+  /* Editando una division: primero salen los de esa division; los de
+     otras divisiones tambien salen, con su etiqueta, para no toparse
+     con "No matches" cuando el servicio si existe (pedido del dueño,
+     25/09/2026). Al agregarlo, el editor se cambia a su division. */
+  const editDiv = apprEditDiv(orderId);
   const matches = (activeCatalogCache || []).filter(s =>
-    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName) &&
-    (!apprEditDiv(orderId) || s.division === apprEditDiv(orderId))
-  ).slice(0, 15);
+    s.serviceName && s.serviceName.toLowerCase().indexOf(q) !== -1 && !already.has(s.serviceName)
+  ).sort((a, b) => (editDiv ? (a.division === editDiv ? 0 : 1) - (b.division === editDiv ? 0 : 1) : 0)).slice(0, 15);
   box.innerHTML = matches.length
-    ? matches.map(s => '<div style="padding:7px 10px;font-size:12.5px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between" ' +
+    ? matches.map(s => '<div style="padding:7px 10px;font-size:12.5px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;gap:10px" ' +
         'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'" ' +
         'onclick="addApprSvc(\'' + jsStr(orderId) + '\',\'' + jsStr(s.category || '') + '\',\'' + jsStr(s.serviceName) + '\',\'' + jsStr(s.sku) + '\',\'' + jsStr(s.division || '') + '\')">' +
-        '<span>' + esc(s.serviceName) + '</span><span style="color:var(--green);font-weight:700;font-size:11px">+ add</span></div>').join('')
+        '<span>' + esc(s.serviceName) + (editDiv && s.division && s.division !== editDiv ? ' <span class="sv-other-div">' + esc(s.division) + '</span>' : '') + '</span>' +
+        '<span style="color:var(--green);font-weight:700;font-size:11px;white-space:nowrap">+ add</span></div>').join('')
     : '<div style="font-size:12px;color:#C9C5BA;font-style:italic;padding:4px 10px">No matches.</div>';
 }
 
@@ -5595,6 +5601,14 @@ function addApprSvc(orderId, category, serviceName, sku, division) {
   if (searchEl) searchEl.value = '';
   const resultsEl = document.getElementById(apprSvcSearchDomId(orderId) + '-results');
   if (resultsEl) resultsEl.innerHTML = '';
+  /* Si era de otra division, el editor se cambia a esa division para
+     que se vea donde quedo. */
+  const editDiv = apprEditDiv(orderId);
+  const newDiv = svcDivisionOf(sku, division, window['apprDiv_' + orderId] || '');
+  if (editDiv && newDiv !== editDiv) {
+    window['apprEditDiv_' + orderId] = newDiv;
+    showToast(serviceName + ' added to ' + newDiv + '.');
+  }
   refreshApprSvcUI(orderId);
 }
 
