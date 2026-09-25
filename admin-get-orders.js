@@ -52,6 +52,37 @@ async function fetchSeenMap(viewerId) {
   return map;
 }
 
+/* Velocidad (25/09/2026). scope:
+     'all'    (default, como siempre) -- todas las ordenes.
+     'live'   -- todo menos Completed y Cancelled ya archivadas. Es lo que
+                 pide Admin al abrir y en la revision de cada 30 s. Incluye
+                 tambien las cerradas que comparten BatchId con una viva,
+                 para que el agrupado por serie salga igual que antes.
+     'closed' -- Completed y Cancelled (History / QuickBooks), se piden
+                 una vez en segundo plano.
+   Servicios y asignaciones por servicio se piden solo de esas ordenes.
+   lib/list-query.js cae sola a la lista completa si un filtro falla. */
+const lq = require('./lib/list-query');
+const isClosed = f => f.Status === 'Completed' || (f.Status === 'Cancelled' && (f.Archived === true || f.Archived === 'true'));
+
+async function ordersForScope(scope) {
+  if (scope === 'closed') {
+    const c = lq.statusIn(['Completed', 'Cancelled']);
+    return lq.fetchWhere(ORDERS_LIST, c.filter, c.test);
+  }
+  if (scope === 'live') {
+    const rows = (await lq.fetchWhere(ORDERS_LIST, "fields/Status ne 'Completed'", f => f.Status !== 'Completed'))
+      .filter(it => it.fields && !isClosed(it.fields));
+    const batchIds = [...new Set(rows.map(it => it.fields.BatchId).filter(Boolean))];
+    if (batchIds.length) {
+      const have = new Set(rows.map(it => it.id));
+      (await lq.fetchByValues(ORDERS_LIST, 'BatchId', batchIds)).forEach(it => { if (!have.has(it.id)) { have.add(it.id); rows.push(it); } });
+    }
+    return rows;
+  }
+  return lq.fetchAll(ORDERS_LIST);
+}
+
 function truthy(v) { return v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes'; }
 
 async function fetchAll(listName) {
@@ -153,14 +184,18 @@ function computeNowOpenStatus(place, holidayToday, now) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
   try {
-    const viewerId = String(JSON.parse(event.body || '{}').viewerId || '').trim();
-    const [rows, svcRows, clientRows, buildingRows, holidayRows, choiceRows, assignmentRows, seenMap] = await Promise.all([
-      fetchAll(ORDERS_LIST),
-      fetchAll(ORDER_SERVICES_LIST),
-      fetchAll(CLIENTS_LIST),
-      fetchAll(CLIENT_ADDRESSES_LIST),
-      fetchAll(HOLIDAYS_LIST),
-      fetchAll(CLIENT_HOLIDAYS_LIST),
+    const body = JSON.parse(event.body || '{}');
+    const viewerId = String(body.viewerId || '').trim();
+    const scope = ['live', 'closed'].includes(body.scope) ? body.scope : 'all';
+    const rows = await ordersForScope(scope);
+    const ids = rows.filter(it => it.fields).map(it => it.fields.OrderID || it.fields.Title);
+    const byOrder = list => scope === 'all' ? fetchAll(list) : lq.fetchByValues(list, 'OrderID', ids);
+    const [svcRows, clientRows, buildingRows, holidayRows, choiceRows, assignmentRows, seenMap] = await Promise.all([
+      byOrder(ORDER_SERVICES_LIST),
+      lq.fetchAllCached(CLIENTS_LIST),
+      lq.fetchAllCached(CLIENT_ADDRESSES_LIST),
+      lq.fetchAllCached(HOLIDAYS_LIST),
+      lq.fetchAllCached(CLIENT_HOLIDAYS_LIST),
       /* "Assign by service" (21/09/2026) -- para que Scheduling sepa
          cuales ordenes YA se fueron a Active (Status: 'Assigned')
          pero TODAVIA tienen algun servicio sin programar, y las siga
@@ -168,7 +203,7 @@ exports.handler = async (event) => {
          varias veces durante el mini: la cola de Scheduling nunca
          deja de mostrar una orden solo porque su primer servicio ya
          la mando a Active, mientras le falte algo por programar. */
-      fetchAll(SERVICE_ASSIGNMENTS_LIST).catch(err => { console.error('admin-get-orders: fetch de ServiceAssignments fallo (no fatal):', err); return []; }),
+      byOrder(SERVICE_ASSIGNMENTS_LIST).catch(err => { console.error('admin-get-orders: fetch de ServiceAssignments fallo (no fatal):', err); return []; }),
       fetchSeenMap(viewerId).catch(err => { console.error('admin-get-orders: fetch de OrderSeenBy fallo (no fatal):', err); return {}; })
     ]);
 

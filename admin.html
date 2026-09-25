@@ -2788,6 +2788,29 @@ async function api(path, opts = {}) {
    STATE
 ============================================================ */
 let allOrders = [];
+/* Velocidad (25/09/2026): Admin pide solo las ordenes VIVAS al abrir y en
+   la revision de cada 30 s (admin-get-orders scope 'live'); las cerradas
+   (Completed / Cancelled archivadas) se piden una vez en segundo plano
+   (scope 'closed') y se juntan aqui. allOrders sigue siendo "todas", como
+   siempre, para el resto de la pagina. */
+let liveOrdersCache = [];
+let closedOrdersCache = [];
+let closedOrdersLoaded = false;
+function mergeAllOrders() {
+  const byId = new Map();
+  closedOrdersCache.forEach(o => byId.set(o.OrderID, o));
+  liveOrdersCache.forEach(o => byId.set(o.OrderID, o));
+  return [...byId.values()].sort((a, b) => String(b.createdDateTime).localeCompare(String(a.createdDateTime)));
+}
+let closedOrdersPromise = null;
+function loadClosedOrders() {
+  closedOrdersPromise = api('/admin-get-orders', { body: { viewerId: adminUser.email, scope: 'closed' } }).then(res => {
+    closedOrdersCache = res.orders || [];
+    closedOrdersLoaded = true;
+    allOrders = mergeAllOrders();
+  });
+  return closedOrdersPromise;
+}
 let allClients = [];
 let allTechs = [];
 let recurringPendingCache = [];
@@ -2854,6 +2877,8 @@ let qbSelected = new Set();
 async function renderQuickBooksPanel() {
   const box = document.getElementById('qb-panel-body');
   box.innerHTML = '<p class="empty-note">Loading…</p>';
+  /* Las Completed llegan en segundo plano (loadClosedOrders). */
+  if (!closedOrdersLoaded && closedOrdersPromise) { try { await closedOrdersPromise; } catch (e) { /* abajo sale vacio */ } }
   qbSelected = new Set();
   try {
     const status = await api('/quickbooks-status', { method: 'GET' });
@@ -3024,7 +3049,7 @@ function showHistorySubTab(tab) {
 async function loadAll() {
   try {
     const [ordersRes, clientsRes, newCatalogRes, techsRes, recurringPendingRes, serviceTimesRes, galleryRes] = await Promise.all([
-      api('/admin-get-orders', { body: { viewerId: adminUser.email } }),
+      api('/admin-get-orders', { body: { viewerId: adminUser.email, scope: 'live' } }),
       api('/admin-get-clients', { body: {} }),
       api('/developer-admin', { body: { action: 'list-catalog', email: adminUser.email } }).catch(() => ({ services: [] })),
       api('/developer-admin', { body: { action: 'list-techs', email: adminUser.email } }).catch(() => ({ techs: [] })),
@@ -3043,7 +3068,8 @@ async function loadAll() {
          simplemente no muestran fotos -- no bloquea nada mas. */
       api('/get-admin-gallery', { body: { statusFilter: 'all' } }).catch(() => ({ groups: [] }))
     ]);
-    allOrders = ordersRes.orders || [];
+    liveOrdersCache = ordersRes.orders || [];
+    allOrders = mergeAllOrders();
     /* Ya no hace falta recalcular ninguna firma aqui a mano --
        GSLiveRefresh.watch() (startOrderActivityPolling) establece su
        propia base sola en su primera revision, la primera vez que se
@@ -3077,6 +3103,16 @@ async function loadAll() {
     loadInitialData();
     init();
     GSNavPremium.refresh('gsNav');
+    /* Cerradas en segundo plano (History / QuickBooks). */
+    loadClosedOrders().then(() => {
+      renderHistory();
+      if (typeof updateAllTabBadges === 'function') updateAllTabBadges();
+      const qb = document.getElementById('qb-panel-body');
+      if (qb && qb.offsetParent !== null) renderQuickBooksPanel();
+    }).catch(e => {
+      const box = document.getElementById('history-list');
+      if (box) box.innerHTML = '<p class="empty-note">Could not load completed orders: ' + esc(e.message) + '</p>';
+    });
   } catch (e) {
     showToast('Error loading data: ' + e.message);
   }
@@ -3346,8 +3382,20 @@ function startOrderActivityPolling() {
   liveRefreshWatcher = GSLiveRefresh.watch({
     intervalMs: 30000,
     checkFn: async () => {
-      const res = await api('/admin-get-orders', { body: { viewerId: adminUser.email } });
-      return { sig: buildOrderActivitySignature(res.orders || []), orders: res.orders || [] };
+      const res = await api('/admin-get-orders', { body: { viewerId: adminUser.email, scope: 'live' } });
+      const live = res.orders || [];
+      /* Una orden viva que desaparecio de 'live' se cerro (Completed /
+         archivada): se vuelven a pedir las cerradas para que llegue con
+         su estatus nuevo y la pantalla la mueva a History como antes. */
+      const nowIds = new Set(live.map(o => o.OrderID));
+      const gone = liveOrdersCache.some(o => !nowIds.has(o.OrderID));
+      liveOrdersCache = live;
+      if (gone && closedOrdersLoaded) { try { await loadClosedOrders(); } catch (e) { /* la siguiente vuelta lo intenta */ } }
+      /* La primera vuelta espera a las cerradas, para que no cuenten como
+         "cambios" cuando llegan. */
+      if (!closedOrdersLoaded && closedOrdersPromise) { try { await closedOrdersPromise; } catch (e) { /* sigue con las vivas */ } }
+      const merged = mergeAllOrders();
+      return { sig: buildOrderActivitySignature(merged), orders: merged };
     },
     hasChanged: (oldSnap, newSnap) => {
       for (const [id, val] of newSnap.sig) {
@@ -6654,6 +6702,7 @@ function historyOf(q) {
 function paintHistory(list) {
   const box = document.getElementById('history-list');
   if (!box) return;
+  if (!closedOrdersLoaded) { box.innerHTML = '<p class="empty-note">Loading…</p>'; return; }
   if (!list.length) { box.innerHTML = '<p class="empty-note">No orders found.</p>'; return; }
   const { standalone, groupsMap, groupOrder } = groupByBatch(list);
   box.innerHTML =
@@ -15350,7 +15399,7 @@ let pendingDirectLinkOrderId = null;
     box.innerHTML = '<p class="empty-note">Loading…</p>';
     try {
       const [ordersRes, schedulingRes, hoursRes] = await Promise.all([
-        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } }),
+        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email, scope: 'live' } }),
         api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } }),
         api('/developer-admin', { body: { action: 'get-hours-overview', email: adminUser.email } })
       ]);
@@ -15405,7 +15454,9 @@ let pendingDirectLinkOrderId = null;
         companionOrderIds = pendingRoutingBlockIds.slice(1);
         pendingRoutingBlockIds = null;
       }
-      directLinkOrder = linkedId ? (ordersRes.orders || []).find(o => o.OrderID === linkedId) || null : null;
+      /* El link directo puede ser de cualquier estatus: si no esta entre
+         las vivas, se busca en todas las que ya tiene Admin. */
+      directLinkOrder = linkedId ? ((ordersRes.orders || []).find(o => o.OrderID === linkedId) || (allOrders || []).find(o => o.OrderID === linkedId) || null) : null;
       pendingDirectLinkOrderId = null;
 
       renderOrdersQueue();
@@ -16363,9 +16414,10 @@ let pendingDirectLinkOrderId = null;
     try {
       const [reviewRes, ordersRes] = await Promise.all([
         api('/developer-admin', { body: { action: 'list-orphaned-assignments', email: adminUser.email } }),
-        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } })
+        api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email, scope: 'live' } })
       ]);
       const orderById = {};
+      (allOrders || []).forEach(o => { orderById[o.OrderID] = o; });
       (ordersRes.orders || []).forEach(o => { orderById[o.OrderID] = o; });
 
       const orphaned = reviewRes.orphaned || [];
@@ -16456,7 +16508,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 async function loadRouting() {
   try {
     const [ordersRes, schedulingRes] = await Promise.all([
-      api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email } }),
+      api('/admin-get-orders', { method: 'POST', body: { viewerId: adminUser.email, scope: 'live' } }),
       api('/developer-admin', { body: { action: 'list-scheduling', email: adminUser.email } })
     ]);
     const scheduledIds = new Set((schedulingRes.items || []).map(s => s.OrderID));
