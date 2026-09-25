@@ -37,7 +37,8 @@ const handlers = {
   'resolve-extra-request': require('../resolve-extra-request').handler,
   'resolve-service-change-request': require('../resolve-service-change-request').handler,
   'reorder-service-queue': require('../reorder-service-queue').handler,
-  'admin-mark-order-seen': require('../admin-mark-order-seen').handler
+  'admin-mark-order-seen': require('../admin-mark-order-seen').handler,
+  'order-docs': require('../order-docs').handler
 };
 
 const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders']);
@@ -73,7 +74,7 @@ module.exports = async (req, res) => {
        developer-admin decide permisos por body.email, y "visto por"
        usa viewerId. Ningun otro endpoint usa esos campos para otra
        cosa (revisado: el correo de clientes/contactos va en otros). */
-    const IDENTITY_FIELD = { 'developer-admin': 'email', 'admin-get-orders': 'viewerId', 'admin-mark-order-seen': 'viewerId' };
+    const IDENTITY_FIELD = { 'developer-admin': 'email', 'admin-get-orders': 'viewerId', 'admin-mark-order-seen': 'viewerId', 'order-docs': 'email' };
     const field = IDENTITY_FIELD[slug];
     if (field) {
       let b = req.body;

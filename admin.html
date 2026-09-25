@@ -1540,6 +1540,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.49.0/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@f9af97cecb79115d4a7d51705609b674d513bb89/gallery-groups/gallery-groups.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@3a752aba65890da6b375d3c9ee4bad034cf29dc1/doc-viewer/doc-viewer.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
@@ -1704,9 +1705,21 @@
 <!-- GALLERY -->
 <div class="panel" id="panel-gallery">
   <h2 style="font-family:'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin-bottom:4px">Gallery</h2>
-  <p class="section-sub" style="margin-bottom:20px">Photos and videos taken across all orders, grouped by order.</p>
-  <div id="gallery-search-wrap"></div>
-  <div id="gallery-groups-list"><p class="empty-note">Loading…</p></div>
+  <!-- Gallery | Docs (25/09/2026, pedido del dueño) -->
+  <div class="subtabs gallery-subtabs" role="tablist" aria-label="Gallery sections">
+    <button class="subtab gallery-subtab active" role="tab" aria-selected="true" data-gallerytab="photos" onclick="showGallerySubTab('photos')">Gallery</button>
+    <button class="subtab gallery-subtab" role="tab" aria-selected="false" data-gallerytab="docs" onclick="showGallerySubTab('docs')">Docs</button>
+  </div>
+  <div class="subpanel gallery-subpanel active" id="gallerysub-photos">
+    <p class="section-sub" style="margin-bottom:20px">Photos and videos taken across all orders, grouped by order.</p>
+    <div id="gallery-search-wrap"></div>
+    <div id="gallery-groups-list"><p class="empty-note">Loading…</p></div>
+  </div>
+  <div class="subpanel gallery-subpanel" id="gallerysub-docs">
+    <p class="section-sub" style="margin-bottom:20px">PDF, Word and text files from all orders. Clients see every document on their orders. Add one from any order with "Upload document".</p>
+    <div id="docs-search-wrap"></div>
+    <div id="docs-groups-list"><p class="empty-note">Loading…</p></div>
+  </div>
 </div>
 
 <!-- QUICKBOOKS -->
@@ -3051,6 +3064,9 @@ async function loadAll() {
     orderPhotosMap = {};
     allGalleryGroups = galleryRes.groups || [];
     allGalleryGroups.forEach(g => { orderPhotosMap[g.orderId] = g.photos || []; });
+    allDocGroups = galleryRes.docGroups || [];
+    renderDocsPanel();
+    hydrateOrderDocs();
     renderApprovals();
     renderReview();
     renderActive();
@@ -4425,6 +4441,7 @@ function newOrderApprovalCard(o, context) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
+        ${orderDocsBoxHtml(o.OrderID)}
         ${readOnlyBlock}
         ${o.Status === 'Inspection' || o.Status === 'Inspected' ? '' : `
         <div class="appr-bar">
@@ -4913,6 +4930,7 @@ function approvalCard(o) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
+        ${orderDocsBoxHtml(o.OrderID)}
         <div id="${dom}-decision"><p class="empty-note">Loading…</p></div>
       </div>
     </div>`;
@@ -6716,6 +6734,127 @@ let orderPhotosMap = {};
    panel de Gallery completo (agrupado por orden, con GSGalleryGroups). */
 let allGalleryGroups = [];
 let galleryOpenedFromUrl = false;
+
+/* ===== Documentos por orden (Gallery > Docs y "Upload document" dentro
+   de cada orden), 25/09/2026. Todos los ve el cliente; la oficina puede
+   subir, ver y borrar cualquiera. Componente: gsocd-shared/doc-viewer.
+   Las cajas de cada orden se llenan solas (hydrateOrderDocs) porque el
+   detalle de la orden se pinta desde muchos lugares distintos. ===== */
+let allDocGroups = [];
+
+function showGallerySubTab(tab) {
+  document.querySelectorAll('.gallery-subtab').forEach(btn => {
+    const on = btn.dataset.gallerytab === tab;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.gallery-subpanel').forEach(p => p.classList.toggle('active', p.id === 'gallerysub-' + tab));
+}
+
+const adminDocOpts = {
+  canDelete: () => true,
+  onView: d => adminViewDoc(d),
+  onDelete: d => adminDeleteDoc(d)
+};
+
+function renderDocsPanel() {
+  const wrap = document.getElementById('docs-search-wrap');
+  if (!wrap || !window.GSDocViewer) return;
+  if (!document.getElementById('docs-search')) {
+    wrap.innerHTML = GSDocViewer.searchHtml('docs-search', 'Search by order, client or file name…');
+    document.getElementById('docs-search').addEventListener('input', renderDocsPanel);
+  }
+  const q = (document.getElementById('docs-search').value || '').trim().toLowerCase();
+  let groups = allDocGroups;
+  if (q) {
+    groups = groups.map(g => (String(g.orderId || '').toLowerCase().includes(q) || String(g.clientLabel || '').toLowerCase().includes(q))
+      ? g : Object.assign({}, g, { docs: g.docs.filter(d => String(d.name || '').toLowerCase().includes(q)) }));
+  }
+  GSDocViewer.renderGroups('docs-groups-list', groups, Object.assign({
+    emptyMessage: q ? 'No documents match that search.' : 'No documents yet.'
+  }, adminDocOpts));
+}
+
+function orderDocsBoxHtml(orderId) {
+  const id = esc(orderId);
+  return `<div class="adm-docs-box" style="margin-top:20px">
+      <p class="detail-label" style="margin-bottom:4px">Documents</p>
+      <p class="section-sub" style="margin:0 0 8px;font-size:12px">PDF, Word or text files (up to 25 MB). The client sees them too.</p>
+      <div class="adm-docs" data-order="${id}"></div>
+      <button type="button" class="gs-ofp-btn-secondary" style="margin-top:8px" onclick="adminUploadDoc('${id}', this)">📄 Upload document</button>
+      <span class="adm-docs-msg" role="status" style="font-size:12px;margin-left:10px;color:var(--gray)"></span>
+    </div>`;
+}
+
+function hydrateOrderDocs(root) {
+  if (!window.GSDocViewer) return;
+  (root || document).querySelectorAll('.adm-docs[data-order]').forEach(el => {
+    const orderId = el.dataset.order;
+    const g = allDocGroups.find(x => x.orderId === orderId);
+    GSDocViewer.renderList(el, g ? g.docs : [], Object.assign({ orderId }, adminDocOpts));
+    el.dataset.hydrated = '1';
+  });
+}
+/* Cada vez que se pinta el detalle de una orden (cualquier tab), su
+   caja de documentos se llena sola. */
+new MutationObserver(muts => {
+  if (muts.some(m => Array.from(m.addedNodes).some(n => n.nodeType === 1 && (n.matches('.adm-docs:not([data-hydrated])') || n.querySelector('.adm-docs:not([data-hydrated])'))))) {
+    hydrateOrderDocs();
+  }
+}).observe(document.documentElement, { childList: true, subtree: true });
+
+function refreshDocViews() { renderDocsPanel(); hydrateOrderDocs(); }
+
+async function adminViewDoc(d) {
+  GSDocViewer.open({ name: d.name, loading: true });
+  try {
+    const res = await api('/order-docs', { body: { action: 'view', orderId: d.orderId, docId: d.id } });
+    GSDocViewer.open({ name: d.name, viewUrl: res.viewUrl, downloadUrl: res.downloadUrl });
+  } catch (e) {
+    GSDocViewer.open({ name: d.name, error: 'Could not open this file: ' + e.message });
+  }
+}
+
+async function adminDeleteDoc(d) {
+  if (!confirm('Delete "' + d.name + '"? The client will no longer see it. This can\'t be undone.')) return;
+  try {
+    await api('/order-docs', { body: { action: 'delete', orderId: d.orderId, docId: d.id } });
+    allDocGroups = allDocGroups.map(g => g.orderId === d.orderId ? Object.assign({}, g, { docs: g.docs.filter(x => x.id !== d.id) }) : g);
+    refreshDocViews();
+    showToast('Document deleted.');
+  } catch (e) {
+    alert('Could not delete it: ' + e.message);
+  }
+}
+
+/* btn: el boton que se toco (la misma orden puede estar pintada en
+   varios tabs a la vez, por eso no se busca por id). */
+function adminUploadDoc(orderId, btn) {
+  GSDocViewer.pickFile(async file => {
+    const msg = btn && btn.parentNode.querySelector('.adm-docs-msg');
+    const say = (t, err) => { if (msg) { msg.textContent = t; msg.style.color = err ? 'var(--red, #c0392b)' : 'var(--gray)'; } };
+    const bad = GSDocViewer.allowed(file);
+    if (bad) { say(bad, true); return; }
+    if (btn) btn.disabled = true;
+    say('Uploading… 0%');
+    try {
+      const res = await GSDocViewer.upload(file, {
+        start: f => api('/order-docs', { body: { action: 'start-upload', orderId, fileName: f.name, size: f.size } }),
+        finish: (f, item) => api('/order-docs', { body: { action: 'finish-upload', orderId, itemId: item.id, fileName: f.name, actorName: adminUser.name || adminUser.email } }),
+        onProgress: p => say('Uploading… ' + Math.round(p * 100) + '%')
+      });
+      let g = allDocGroups.find(x => x.orderId === orderId);
+      if (!g) { g = { orderId, clientLabel: res.clientLabel || orderId, date: res.doc.uploadedAt, docs: [] }; allDocGroups.unshift(g); }
+      g.docs = [res.doc].concat(g.docs);
+      say('Saved: ' + file.name);
+      refreshDocViews();
+    } catch (e) {
+      say('Could not upload it: ' + e.message, true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+}
 
 function renderGalleryPanel() {
   const wrap = document.getElementById('gallery-search-wrap');
@@ -12410,6 +12549,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none;margin-top:20px"></div>
       </div>
     </div>
+    ${orderDocsBoxHtml(o.OrderID)}
     ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}</div>`}
     ${statusBar}${assignedViewOnly}${historyReactivate}`;
 }

@@ -20,6 +20,8 @@
 const {
   ORDERS_LIST, ORDER_SERVICES_LIST, listChildren, graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
+const graph = require('./lib/graph');
+const orderDocs = require('./lib/order-docs');
 
 const PHOTOS_FOLDER = process.env.GRAPH_PHOTOS_FOLDER || 'TechPhotos';
 const ACTIVE_STATUSES = ['Assigned', 'Updated'];
@@ -167,6 +169,11 @@ exports.handler = async (event) => {
     const statusFilter = String(b.statusFilter || 'all').trim().toLowerCase();
 
     const orderRows = await fetchAll(ORDERS_LIST);
+    /* Documentos de todas las ordenes (Gallery > Docs, 25/09/2026):
+       "ClientID - Negocio · Unit X", sin importar el filtro de estatus. */
+    const allById = {};
+    orderRows.forEach(it => { if (it.fields) allById[it.fields.OrderID || it.fields.Title || ''] = it.fields; });
+    const docsPromise = orderDocs.listDocs(graph, {});
     let orders = orderRows.filter(it => it.fields);
 
     if (statusFilter === 'active') {
@@ -217,7 +224,12 @@ exports.handler = async (event) => {
 
     const nonEmpty = groups.filter(Boolean).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
-    return jsonResponse(200, { groups: nonEmpty });
+    const docGroups = orderDocs.groupDocs(await docsPromise, id => {
+      const f = allById[id] || {};
+      return [[f.ClientID, f.BusinessName].filter(Boolean).join(' - '), f.UnitNumber ? 'Unit ' + f.UnitNumber : ''].filter(Boolean).join(' · ') || id;
+    });
+
+    return jsonResponse(200, { groups: nonEmpty, docGroups });
   } catch (e) {
     return jsonResponse(500, { error: e.message });
   }
