@@ -43,7 +43,9 @@ const { notifyClient, fmtDay, serviceLine } = require('./lib/notify');
    constancia en el historial. Confirmado con el dueño, 20/09/2026. */
 const { resolveOrderDivision, divisionChangeHistoryPayload } = require('./lib/division-rules');
 
-const LIVE_STATUSES = ['Received', 'Assigned'];
+/* 'Inspected' (25/09/2026): la oficina puede mandarle al cliente los
+   cambios que propuso el supervisor en la inspeccion (Send to client). */
+const LIVE_STATUSES = ['Received', 'Assigned', 'Inspected'];
 
 /* Catalogo completo de servicios, solo SKU+Division -- lo minimo que
    necesita resolveOrderDivision() para verificar la division real de

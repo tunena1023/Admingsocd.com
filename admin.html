@@ -241,6 +241,14 @@
     .insp-note { font-size: 12px; color: var(--gray); margin: 0 0 12px; line-height: 1.5; }
     .insp-notes { font-size: 13px; background: var(--bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; white-space: pre-wrap; }
     .insp-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--gray); }
+    .insp-crew { margin: 4px 0 12px; }
+    .insp-crew span { display: inline-block; font-size: 12px; font-weight: 600; background: #E6EEFB; color: #2A4E8C; border-radius: 99px; padding: 4px 10px; margin: 4px 6px 0 0; }
+    .insp-prop { border: 1px solid #E8D9A0; background: #FFFCF3; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+    .insp-prop-h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8C6F2A; margin-bottom: 8px; }
+    .insp-d { font-size: 13px; padding: 4px 0; }
+    .insp-d b { display: inline-block; width: 16px; }
+    .insp-d span { color: var(--gray); font-size: 12px; }
+    .insp-d.add b { color: #24663A; } .insp-d.del { color: #9A3B32; } .insp-d.chg b { color: #8C6F2A; }
     @media (max-width: 480px) { .insp-opts, .insp-kv { grid-template-columns: 1fr; } }
     /* Badge de password del director, visible en la tarjeta antes de expandir */
     .pw-badge {
@@ -4466,9 +4474,12 @@ function inspectionStartHtml(o) {
         <div><div class="field-caption">Supervisor</div><div class="field-value">${esc(o.InspectionBy || '—')}</div></div>
       </div>
       ${o.InspectionNotes ? '<div class="insp-notes">' + esc(o.InspectionNotes) + '</div>' : ''}
-      <p class="insp-note">If something changed, update the services above. Then continue to schedule the work.</p>
-      <div class="appr-bar" style="margin-top:0">
-        <button type="button" class="gs-ofp-btn-primary" onclick="continueAfterInspection('${id}')">Continue to scheduling</button>
+      <div id="${dom}-insp-prop"></div>
+      <div id="${dom}-insp-continue">
+        <p class="insp-note">If something changed, update the services above. Then continue to schedule the work.</p>
+        <div class="appr-bar" style="margin-top:0">
+          <button type="button" class="gs-ofp-btn-primary" onclick="continueAfterInspection('${id}')">Continue to scheduling</button>
+        </div>
       </div>
     </div>`;
   }
@@ -4493,6 +4504,125 @@ function inspectionStartHtml(o) {
       </div>
       ${inspectionFormHtml(o, dom)}
     </div>`;
+}
+
+/* ===== Lo que encontro el supervisor (parte 2, 25/09/2026) =====
+   submit-inspection-done.js (Tech) deja un renglon 'Inspected' en el
+   historial: NewValue = { crew, services? } y, si propuso cambios,
+   OldValue = { services } (como estaban). Los cambios NO estan
+   aplicados todavia: la oficina los manda al cliente para que los
+   apruebe, o los aprueba por el (el cliente confirmo por correo o
+   telefono), o sigue sin ellos. */
+function inspectionRowOf(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    if (String(history[i].ChangeType || '') === 'Inspected') return history[i];
+  }
+  return null;
+}
+function parseJsonSafe(v) { try { return JSON.parse(v || '{}') || {}; } catch (e) { return {}; } }
+
+function inspectionDiffHtml(oldList, newList) {
+  const key = s => String(s.ServiceName || '').trim().toLowerCase();
+  const detail = s => [s.Level ? String(s.Level).replace('Level ', 'L') : '', s.Quantity ? '×' + s.Quantity : ''].filter(Boolean).join(' ');
+  const oldMap = new Map(oldList.map(s => [key(s), s]));
+  const newMap = new Map(newList.map(s => [key(s), s]));
+  const rows = [];
+  newList.forEach(s => {
+    const o = oldMap.get(key(s));
+    if (!o) rows.push('<div class="insp-d add"><b>+</b> ' + esc(s.ServiceName) + (detail(s) ? ' <span>' + esc(detail(s)) + '</span>' : '') + '</div>');
+    else if (detail(o) !== detail(s)) rows.push('<div class="insp-d chg"><b>~</b> ' + esc(s.ServiceName) + ' <span>' + esc(detail(o) || '—') + ' → ' + esc(detail(s) || '—') + '</span></div>');
+  });
+  oldList.forEach(s => { if (!newMap.has(key(s))) rows.push('<div class="insp-d del"><b>−</b> ' + esc(s.ServiceName) + '</div>'); });
+  return rows.join('') || '<div class="insp-d">Same services, no changes.</div>';
+}
+
+function fillInspectionProposal(o, history) {
+  const dom = apprDomId(o.OrderID);
+  const box = document.getElementById(dom + '-insp-prop');
+  if (!box) return;
+  const row = inspectionRowOf(history);
+  if (!row) { box.innerHTML = ''; return; }
+  const next = parseJsonSafe(row.NewValue);
+  const prev = parseJsonSafe(row.OldValue);
+  const crew = Array.isArray(next.crew) ? next.crew : [];
+  const proposed = Array.isArray(next.services) ? next.services : null;
+  const id = jsStr(o.OrderID);
+  let html = '';
+  if (crew.length) html += '<div class="insp-crew"><div class="field-caption">Suggested crew</div>' + crew.map(n => '<span>' + esc(n) + '</span>').join('') + '</div>';
+  if (proposed) {
+    window['inspProp_' + o.OrderID] = proposed;
+    html += `<div class="insp-prop">
+        <div class="insp-prop-h">Service changes proposed by ${esc(row.ChangedBy || 'the supervisor')}</div>
+        ${inspectionDiffHtml(Array.isArray(prev.services) ? prev.services : [], proposed)}
+        ${estimatedTimeCompareHtml(Array.isArray(prev.services) ? prev.services : null, proposed, o.OrderID)}
+        <p class="insp-note" style="margin-top:10px">The client should approve these changes. If they already confirmed by email or phone, you can approve for them.</p>
+        <div class="appr-bar" style="margin-top:0">
+          <button type="button" class="gs-ofp-btn-primary" onclick="sendInspectionToClient('${id}')">Send to client</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-approve').hidden=false">Approve for client</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="continueAfterInspection('${id}')">Continue without changes</button>
+        </div>
+        <div class="insp-form" id="${dom}-insp-approve" hidden>
+          <div class="field-group"><label>How did the client confirm? (required)</label>
+            <textarea id="${dom}-insp-approve-note" rows="2" placeholder="e.g. Client confirmed by email on Sep 26"></textarea></div>
+          <div class="appr-bar" style="margin-top:4px">
+            <button type="button" class="gs-ofp-btn-primary" onclick="approveInspectionForClient('${id}')">Approve changes and continue</button>
+            <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-approve').hidden=true">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  box.innerHTML = html;
+  const cont = document.getElementById(dom + '-insp-continue');
+  if (cont) cont.hidden = !!proposed;
+}
+
+async function sendInspectionToClient(orderId) {
+  const services = window['inspProp_' + orderId];
+  if (!services || !confirm('Send these changes to the client for approval?')) return;
+  await saveInspection(orderId, { requestOnly: true, sendToClient: true, services, requestReason: 'Changes found during the inspection.' },
+    'Sending to the client…', 'Sent to the client for approval.');
+}
+
+async function approveInspectionForClient(orderId) {
+  const services = window['inspProp_' + orderId];
+  const note = ((document.getElementById(apprDomId(orderId) + '-insp-approve-note') || {}).value || '').trim();
+  if (!services) return;
+  if (!note) { showToast('Write how the client confirmed.'); return; }
+  const ok = await saveInspection(orderId, {
+    services, status: 'Received',
+    svcChangeSummary: 'Inspection changes approved for the client — ' + note
+  }, 'Approving changes…', 'Changes approved. Ready to schedule.');
+  if (ok) goToScheduleForOrder(orderId);
+}
+
+/* Review: una propuesta de inspeccion que se mando al cliente y el
+   cliente confirmo por fuera (correo/telefono) -- la oficina la
+   aprueba por el. Solo para las que vienen de una inspeccion. */
+function inspectionClientRow(history) {
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (String(h.ChangeType || '') === 'Change Requested' && String(h.FieldChanged || '') === 'Client Confirmation') {
+      const old = parseJsonSafe(String(h.OldValue || '').replace(/^SERVICES:/, ''));
+      return old.status === 'Inspected' ? h : null;
+    }
+  }
+  return null;
+}
+async function approveWaitingForClient(orderId) {
+  const dom = apprDomId(orderId);
+  const note = ((document.getElementById(dom + '-wfc-note') || {}).value || '').trim();
+  if (!note) { showToast('Write how the client confirmed.'); return; }
+  try {
+    const detail = await api('/get-order-detail', { body: { orderId } });
+    const row = inspectionClientRow(detail.history || []);
+    const next = row ? parseSvcPayload(row.NewValue) : null;
+    if (!next || !next.services || !next.services.length) { showToast('Could not find the proposed services.'); return; }
+    const ok = await saveInspection(orderId, {
+      services: next.services, status: 'Received',
+      svcChangeSummary: 'Approved for the client — ' + note
+    }, 'Approving…', 'Approved for the client. Ready to schedule.');
+    if (ok) goToScheduleForOrder(orderId);
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function saveInspection(orderId, body, busy, done) {
@@ -4756,6 +4886,7 @@ async function loadApprovalDetail(o) {
     const data = await api('/get-order-detail', { body: { orderId: o.OrderID } });
     const history = data.history || [];
     box.innerHTML = approvalDetailHtml(o, data.order || {}, data.services || [], history);
+    if (o.Status === 'Inspected') fillInspectionProposal(o, history);
     if (decisionBox) decisionBox.innerHTML = decisionAreaHtml(o, history);
     if (badgeBox) badgeBox.innerHTML = passwordNeeded(o, history) ? passwordBadgeHtml() : '';
   } catch (e) {
@@ -4804,7 +4935,14 @@ function decisionAreaHtmlInner(o, history) {
   }
 
   if (isWaitingForClient(history)) {
-    return `<p class="appr-hint">This change was sent directly to the client for confirmation. No action is needed here — it will move forward once the client confirms it on their own portal.</p>`;
+    const fromInspection = !!inspectionClientRow(history);
+    return `<p class="appr-hint">This change was sent directly to the client for confirmation. No action is needed here — it will move forward once the client confirms it on their own portal.</p>` +
+      (fromInspection ? `<div class="insp-form" style="border-top:none;padding-top:0">
+        <div class="field-group"><label>Client confirmed another way? Approve for them (required note)</label>
+          <textarea id="${dom}-wfc-note" rows="2" placeholder="e.g. Client confirmed by phone on Sep 26"></textarea></div>
+        <div class="appr-bar" style="margin-top:4px">
+          <button type="button" class="gs-ofp-btn-secondary" onclick="approveWaitingForClient('${jsStr(o.OrderID)}')">Approve for client</button>
+        </div></div>` : '');
   }
 
   if (isReactivationPending(history)) {
