@@ -651,6 +651,12 @@
     .svc-check.off { visibility: hidden; }
     .svc-sel-all { all: unset; cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--gold-dk); }
     .svc-sel-all:hover, .svc-sel-all:focus-visible { text-decoration: underline; }
+    .svc-todo-h { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin: 4px 0 2px; }
+    .svc-person { margin-top: 8px; }
+    .svc-person-body { background: var(--white); padding: 0 12px; }
+    .svc-person-body .svc-assign-line:last-child { border-bottom: none; }
+    .svc-person.one-date .svc-assign-assigned { display: none; } /* misma fecha: ya va en el encabezado */
+    .sv-sec-name { overflow-wrap: anywhere; }
     .svc-sel-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
     .svc-sel-chips span { font-size: 11.5px; background: #F3ECD8; color: #6B5518; border-radius: 99px; padding: 3px 9px; }
     .svc-assign-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; flex-wrap: wrap; }
@@ -4369,7 +4375,6 @@ function newOrderApprovalCard(o, context) {
         <div class="field-group"><label>Supervisor</label><select id="${dom}-supervisor" onchange="checkBypassReady('${dom}')">${bypassSupervisorOptionsHtml(o.Division)}</select></div>
         <div class="field-group"><label>Service Window</label><select id="${dom}-window" onchange="checkBypassReady('${dom}')">${optionsHtml(SERVICE_WINDOWS, '')}</select></div>
         <div class="field-group"><label>Service Date</label>${GSDateTimePicker.dateHtml(dom + '-dispatch', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
-        <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml(dom + '-inspection', null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
       </div>
     </div>`;
 
@@ -4768,7 +4773,8 @@ async function decideNewOrder(orderId, action) {
     supervisor = val('supervisor').trim();
     serviceWindow = val('window');
     dispatchDate = val('dispatch');
-    inspectionDate = val('inspection');
+    /* Inspection Date ya no se pone aqui (25/09/2026): la inspeccion
+       tiene su propio camino ("Inspection first"). */
     if (!supervisor || !serviceWindow || !dispatchDate) {
       showToast('Set supervisor, service window and service date before approving.');
       return;
@@ -15419,7 +15425,6 @@ let pendingDirectLinkOrderId = null;
             <option>2:00 PM - 5:00 PM</option>
           </select>
         </div>
-        <div class="field-group"><label>Inspection Date (optional)</label>${GSDateTimePicker.dateHtml('assign-inspection-' + escAttr(o.OrderID), null, null, { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}</div>
       </div>
       <button class="gs-ofp-btn-primary" onclick="submitAssignment('${escAttr(o.OrderID)}')">Assign</button>
       <p class="dialog-error" id="assign-error-${escAttr(o.OrderID)}"></p>`;
@@ -15498,6 +15503,13 @@ let pendingDirectLinkOrderId = null;
      programados o tambien estan marcados. svcOpenKey sigue sirviendo
      para llegar desde otra pestaña con un servicio ya marcado. */
   let svcSelCache = {};
+  let svcPersonOpen = {}; // 'orderId|persona' -> tarjeta abierta
+  window.toggleSvcPersonCard = function (btn, gkey) {
+    const open = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.parentElement.classList.toggle('open', open);
+    svcPersonOpen[gkey] = open;
+  };
   function svcSelOf(orderId) { return svcSelCache[orderId] || (svcSelCache[orderId] = new Set()); }
   function svcMultiKey(orderId) { return orderId + '|*'; }
   function svcDateInputId(orderId) { return 'svc-date-' + String(orderId).replace(/[^a-z0-9]/gi, '_'); }
@@ -15570,7 +15582,16 @@ let pendingDirectLinkOrderId = null;
     let prevOk = true;        // ...o marcarse junto con los de antes
     const selectedRows = [];
 
-    const leftRowsHtml = rows.map((row, i) => {
+    /* Tarjetas por persona (25/09/2026, pedido del dueño: "una vez
+       asignados a una persona que se agrupen y se hagan tarjetas, como
+       las de division"). Lo que falta por asignar se queda arriba en
+       lista; lo asignado se agrupa por AssignedTo en tarjetas
+       desplegables (cerradas; recuerdan si las abriste). Los numeros
+       siguen siendo el orden real de la cola. */
+    const todoHtml = [];
+    const personBuckets = {};
+    const personOrder = [];
+    rows.map((row, i) => {
       const { svc, a } = row;
       const key = svcKeyOf(orderId, svc.Category, svc.ServiceName);
       const scheduled = svcHasSchedule(a);
@@ -15586,8 +15607,9 @@ let pendingDirectLinkOrderId = null;
       prevOk = scheduled || isSel;
       const isOpen = isSel;
 
-      const assignedLineHtml = a && a.AssignedTo
-        ? `<div class="svc-assign-assigned">👤 ${esc(a.AssignedTo)}${a.ScheduledDate ? ' · 📅 ' + esc(fmtDate(a.ScheduledDate)) : ''}</div>`
+      const person = a && a.AssignedTo ? String(a.AssignedTo).trim() : '';
+      const assignedLineHtml = person && a.ScheduledDate
+        ? `<div class="svc-assign-assigned">📅 ${esc(fmtDate(a.ScheduledDate))}</div>`
         : '';
 
       /* Reordenar (aprobado desde el mini): lo ya Completed nunca se
@@ -15608,7 +15630,7 @@ let pendingDirectLinkOrderId = null;
            </span>`
         : `<span class="svc-drag-handle" title="Drag to reorder">⠿⠿</span>`);
 
-      return `
+      const lineHtml = `
         <div class="svc-assign-line${isOpen && canOpen ? ' active' : ''}${canOpen ? ' can-open' : ''}" style="opacity:${canOpen ? 1 : .55}" ${dragAttrs} ${canOpen ? `onclick="toggleSvcPickerOpen('${jsStr(orderId)}','${jsStr(svc.Category)}','${jsStr(svc.ServiceName)}')" role="checkbox" aria-checked="${isSel}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}"` : ''}>
           ${reorderHtml}
           ${canOpen ? `<span class="svc-check${isSel ? ' on' : ''}" aria-hidden="true"></span>` : '<span class="svc-check off" aria-hidden="true"></span>'}
@@ -15617,7 +15639,32 @@ let pendingDirectLinkOrderId = null;
           <span class="status-badge ${statusClass}">${statusLabel}</span>
           ${assignedLineHtml}
         </div>`;
+      if (!person) { todoHtml.push(lineHtml); return; }
+      if (!personBuckets[person]) { personBuckets[person] = { html: [], dates: new Set(), done: 0, n: 0 }; personOrder.push(person); }
+      const bk = personBuckets[person];
+      bk.html.push(lineHtml); bk.n++;
+      if (a.ScheduledDate) bk.dates.add(fmtDate(a.ScheduledDate));
+      if (isDone) bk.done++;
+    });
+
+    const chev = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const personCardsHtml = personOrder.map(person => {
+      const bk = personBuckets[person];
+      const gkey = orderId + '|' + person;
+      const open = !!svcPersonOpen[gkey];
+      const meta = bk.n + (bk.n === 1 ? ' service' : ' services') +
+        (bk.dates.size ? ' · ' + Array.from(bk.dates).join(', ') : '') +
+        (bk.done ? ' · ' + bk.done + ' done' : '');
+      return '<div class="sv-sec svc-person' + (open ? ' open' : '') + (bk.dates.size <= 1 ? ' one-date' : '') + '">' +
+        '<button type="button" class="sv-sec-head" aria-expanded="' + open + '" onclick="toggleSvcPersonCard(this,\'' + jsStr(gkey) + '\')">' +
+          '<span class="sv-sec-bar"></span><span class="sv-sec-txt"><span class="sv-sec-name">👤 ' + esc(person) + '</span>' +
+          '<span class="sv-sec-meta">' + esc(meta) + '</span></span><span class="sv-sec-chev">' + chev + '</span></button>' +
+        '<div class="sv-sec-wrap"><div><div class="sv-sec-body svc-person-body">' + bk.html.join('') + '</div></div></div>' +
+      '</div>';
     }).join('');
+    const leftRowsHtml =
+      (todoHtml.length ? '<div class="svc-todo-h">To assign</div>' + todoHtml.join('') : '') +
+      (personCardsHtml ? '<div class="svc-todo-h" style="margin-top:' + (todoHtml.length ? '18px' : '0') + '">Assigned</div>' + personCardsHtml : '');
 
     let rightHtml;
     if (!selectedRows.length) {
@@ -15985,7 +16032,6 @@ let pendingDirectLinkOrderId = null;
     const checked = Array.from(body.querySelectorAll('.candidate-row[data-selected="true"]')).map(c => c.dataset.payroll);
     const assignedDate = document.getElementById('assign-date-' + orderId).value;
     const serviceWindow = document.getElementById('assign-window-' + orderId).value;
-    const inspectionDate = document.getElementById('assign-inspection-' + orderId).value;
     const startsFromOffice = document.getElementById('starts-office-' + orderId).checked;
 
     if (!checked.length) { errEl.textContent = 'Select at least one person.'; return; }
@@ -16009,7 +16055,7 @@ let pendingDirectLinkOrderId = null;
       await api('/admin-update-order', {
         body: {
           orderId, supervisor: names, serviceWindow, dispatchDate: assignedDate,
-          inspectionDate: inspectionDate || '', changedBy: adminUser.name || adminUser.email
+          changedBy: adminUser.name || adminUser.email
         }
       });
       openOrderCard = null;
@@ -16034,7 +16080,7 @@ let pendingDirectLinkOrderId = null;
     try {
       await api('/developer-admin', { body: { action: 'reschedule-order', email: adminUser.email, orderId } });
       await api('/admin-update-order', {
-        body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', inspectionDate: '', changedBy: adminUser.name || adminUser.email }
+        body: { orderId, supervisor: '', serviceWindow: '', dispatchDate: '', changedBy: adminUser.name || adminUser.email }
       });
       const activeTab = document.querySelector('#panel-schedule .subtab.active');
       const scheduleRefresh = (activeTab && activeTab.dataset.tab === 'review') ? loadReview() : loadOrdersQueue();
