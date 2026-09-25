@@ -496,16 +496,14 @@
     .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; }
     .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
     .qb-count[hidden] { display: none; }
-    .qb-setup { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--white); }
-    .qb-send { display: flex; align-items: center; gap: 10px; }
-    .qb-send-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); }
-    .qb-segs { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-    .qb-seg { border: 0; background: none; padding: 8px 16px; font: 600 13px 'Inter', sans-serif; color: var(--gray); cursor: pointer; }
-    .qb-seg + .qb-seg { border-left: 1px solid var(--border); }
-    .qb-seg.on { background: var(--black); color: #fff; }
-    .qb-seg:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
-    .qb-notes { flex: 1; min-width: 240px; display: grid; gap: 4px; font-size: 13px; color: var(--gray); }
-    .qb-warn { color: #9A6B00; }
+    .qb-orders-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+    .qb-setup { display: grid; gap: 4px; margin-bottom: 18px; padding: 12px 16px; border: 1px solid #EBD9A8; border-radius: 4px; background: #FFF8E6; font-size: 13px; }
+    .qb-warn { color: #8A5A00; }
+    .qb-send { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; }
+    .qb-send-opt { color: var(--gray); font-weight: 500; }
+    .qb-send-opt.on { color: var(--black); font-weight: 700; }
+    .qb-send-locked { opacity: .55; }
+    .qb-send-locked .svc-toggle { cursor: not-allowed; }
     .qb-count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 9px; background: var(--gold); color: #fff; font-size: 10px; line-height: 16px; text-align: center; letter-spacing: 0; }
     .acw-qb { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
     .acw-qbupd { border: 1px solid var(--border); background: var(--white); border-radius: 3px; font: 600 10px 'Inter', sans-serif; padding: 3px 8px; cursor: pointer; }
@@ -1779,7 +1777,10 @@
     <button class="subtab qb-subtab" role="tab" aria-selected="false" data-qbtab="clients" onclick="showQbSubTab('clients')">Clients<span class="qb-count" id="qb-clients-count" hidden></span></button>
   </div>
   <div class="subpanel qb-subpanel active" id="qbsub-estimates">
-    <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks.</p>
+    <div class="qb-orders-head">
+      <p class="section-sub" style="margin:0">Select the completed orders to send to QuickBooks.</p>
+      <div id="qb-send-wrap"></div>
+    </div>
     <div id="qb-panel-body">Loading…</div>
   </div>
   <div class="subpanel qb-subpanel" id="qbsub-sent">
@@ -2967,38 +2968,42 @@ let qbCanSend = { estimate: true, invoice: false };
    antes de mandar si la unidad / recamaras / baños van a caer en su
    lugar. Ver quickbooks-import-estimates.js (MAPEO). */
 function qbSetupHtml(status) {
+  /* 25/09/2026 (el dueño): solo avisos cuando algo falta -- nada de notas
+     informativas. El switch Estimate/Invoice va aparte (qbSendToggleHtml). */
   const st = status.setup || {};
-  const seg = v => '<button type="button" class="qb-seg' + (qbSendAs === v ? ' on' : '') + '" aria-pressed="' + (qbSendAs === v) + '" onclick="setQbSendAs(\'' + v + '\')">' + (v === 'invoice' ? 'Invoice' : 'Estimate') + '</button>';
-  const allowed = ['estimate', 'invoice'].filter(v => qbCanSend[v]);
-  const send = !allowed.length
-    ? '<span class="qb-warn">You can\'t send orders to QuickBooks. Ask a Developer to turn it on in Staff &amp; Roles.</span>'
-    : allowed.length === 1
-      ? '<span style="font-size:14px;font-weight:600">' + (allowed[0] === 'invoice' ? 'Invoice' : 'Estimate') + '</span>'
-      : '<div class="qb-segs" role="group" aria-label="Send as">' + allowed.map(seg).join('') + '</div>';
   const rows = [];
-  if (status.environment !== 'production') rows.push('<span class="qb-warn">Test company (sandbox) — nothing reaches your real QuickBooks yet.</span>');
-  if (st.error) rows.push('<span class="qb-warn">Could not read the QuickBooks setup: ' + esc(st.error) + '</span>');
+  if (!qbCanSend.estimate && !qbCanSend.invoice) rows.push('You can\'t send orders to QuickBooks. Ask a Developer to turn it on in Staff &amp; Roles.');
+  if (st.error) rows.push('Could not read the QuickBooks setup: ' + esc(st.error));
   else {
     const names = (st.customFields || []).map(f => f.name);
     const has = re => names.some(n => re.test(n));
     const missing = [[/unit/i, 'Unit #'], [/bed/i, 'Bedrooms'], [/bath/i, 'Bathrooms']].filter(([re]) => !has(re)).map(x => x[1]);
-    rows.push(missing.length
-      ? '<span class="qb-warn">The app hasn\'t found these QuickBooks fields yet: ' + esc(missing.join(', ')) + '. Orders with a unit won\'t be sent until they\'re found.</span>'
-      : '<span>Unit #, Bedrooms and Bathrooms go to their custom fields.</span>');
-    rows.push('<span>Each line is dated the day that service was completed; the document is dated the day it\'s created.</span>');
-    if (st.classTracking) rows.push('<span>Each line gets the Class of its division. Invoices also get the ' + esc(st.locationLabel || 'Department') + ' (for example Janitorial Services:Commercial).</span>');
-    if (st.locationTracking && !(st.mixedDepartments || []).length) rows.push('<span class="qb-warn">Orders with more than one division need a "Mixed Services" ' + esc(st.locationLabel || 'Department') + ' in QuickBooks (with Commercial and Residential under it). Until it exists, those orders won\'t be sent as invoices.</span>');
-    rows.push('<span>' + (st.customNumbers ? 'Numbers continue from the highest one already in QuickBooks.' : 'QuickBooks gives each one the next number.') + '</span>');
+    if (missing.length) rows.push('These QuickBooks fields were not found: ' + esc(missing.join(', ')) + '. Orders with a unit won\'t be sent until they are.');
+    if (st.locationTracking && !(st.mixedDepartments || []).length) rows.push('Orders with more than one division need a "Mixed Services" ' + esc(st.locationLabel || 'Department') + ' in QuickBooks (with Commercial and Residential under it). Until it exists, those orders won\'t be sent as invoices.');
   }
-  return '<div class="qb-setup"><div class="qb-send"><span class="qb-send-label">Send as</span>' + send + '</div>' +
-    '<div class="qb-notes">' + rows.join('') + '</div></div>';
+  return rows.length ? '<div class="qb-setup qb-warn">' + rows.map(r => '<span>' + r + '</span>').join('') + '</div>' : '';
+}
+
+/* Switch Estimate | Invoice (mismo switch que el resto de la app). Si la
+   persona solo tiene permiso de uno, sale desactivado en ese. */
+function qbSendToggleHtml() {
+  const both = qbCanSend.estimate && qbCanSend.invoice;
+  const none = !qbCanSend.estimate && !qbCanSend.invoice;
+  const onInvoice = qbSendAs === 'invoice';
+  const title = both ? '' : none ? 'You can\'t send orders to QuickBooks' : 'You can only send ' + (qbCanSend.invoice ? 'invoices' : 'estimates');
+  return '<div class="qb-send' + (both ? '' : ' qb-send-locked') + '"' + (title ? ' title="' + escAttr(title) + '"' : '') + '>' +
+    '<span class="qb-send-opt' + (onInvoice ? '' : ' on') + '">Estimate</span>' +
+    '<label class="svc-toggle"><input type="checkbox" id="qb-send-toggle" aria-label="Send as invoice"' + (onInvoice ? ' checked' : '') + (both ? '' : ' disabled') + ' onchange="setQbSendAs(this.checked ? \'invoice\' : \'estimate\')"><span class="svc-toggle-track"></span></label>' +
+    '<span class="qb-send-opt' + (onInvoice ? ' on' : '') + '">Invoice</span>' +
+    '</div>';
 }
 
 function setQbSendAs(v) {
-  if (v === qbSendAs || !qbCanSend[v]) return;
+  if (!qbCanSend[v]) return;
   qbSendAs = v;
   try { localStorage.setItem('gs-qb-send-as', v); } catch (e) { /* sin storage */ }
-  document.querySelectorAll('.qb-seg').forEach(b => { const on = b.textContent.toLowerCase() === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  const wrap = document.getElementById('qb-send-wrap');
+  if (wrap) wrap.innerHTML = qbSendToggleHtml();
   const btn = document.getElementById('qb-import-btn');
   if (btn) btn.textContent = 'Import Selected as ' + (v === 'invoice' ? 'Invoice' : 'Estimate');
 }
@@ -3024,6 +3029,8 @@ async function renderQuickBooksPanel() {
     let saved = null;
     try { saved = localStorage.getItem('gs-qb-send-as'); } catch (e) { /* sin storage */ }
     qbSendAs = qbCanSend[saved] ? saved : (qbCanSend.estimate ? 'estimate' : (qbCanSend.invoice ? 'invoice' : ''));
+    const sendWrap = document.getElementById('qb-send-wrap');
+    if (sendWrap) sendWrap.innerHTML = qbSendToggleHtml();
     /* Solo Completed -- a peticion del dueno (19/09/2026): antes
        mostraba cualquier orden que no fuera Cancelled/Incomplete
        (Received, Assigned, Active, etc.), pero el flujo real es
