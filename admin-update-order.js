@@ -534,9 +534,27 @@ exports.handler = async (event) => {
        se quita lo que ya es puro duplicado. En cualquier otro caso
        (reasignacion, edicion normal) esto no aplica -- se sigue
        viendo tal cual, como siempre. */
-    const detailsChanges = (wasUnassigned && nowAssigned)
+    /* Inspeccion (25/09/2026): sus campos NO van en 'Order Details Set'
+       (salian como texto plano "Inspection By: ... · Inspection Window:
+       ..."); van en el renglon del estatus como JSON, que el historial
+       (gsocd-shared/order-history) pinta con icono y etiqueta. */
+    const isInspField = c => /^Inspection /.test(c.label);
+    const inspChanged = changes.some(isInspField);
+    const detailsChanges = ((wasUnassigned && nowAssigned)
       ? changes.filter(c => c.label !== 'Supervisor' && c.label !== 'Service Window' && c.label !== 'Dispatch Date')
-      : changes;
+      : changes).filter(c => !isInspField(c));
+    const merged = Object.assign({}, f, patch);
+    const inspStatusMove = statusChanged && (status === 'Inspection' || status === 'Inspected' ||
+      oldStatus === 'Inspection' || oldStatus === 'Inspected');
+    const inspRowOrNull = (inspStatusMove || inspChanged) ? {
+      json: JSON.stringify({
+        inspectionBy: merged.InspectionBy || '', inspectionDate: merged.InspectionDate || '',
+        inspectionWindow: merged.InspectionWindow || '', inspectionDoneAt: merged.InspectionDoneAt || ''
+      }),
+      note: status === 'Inspected' ? (merged.InspectionNotes || '')
+        : (oldStatus === 'Inspection' && status === 'Received') ? 'Inspection cancelled.'
+        : (oldStatus === 'Inspected' && status === 'Received') ? 'Inspection reviewed, moving on to scheduling.' : ''
+    } : null;
     if (detailsChanges.length) {
       const summary = detailsChanges.map(ch => ch.label + ': ' + (ch.next || '(empty)')).join('  ·  ');
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
@@ -672,10 +690,10 @@ exports.handler = async (event) => {
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
           ChangeType:   status,
-          FieldChanged: 'Status',
-          Notes:        svcChangeSummary || notes || '',
+          FieldChanged: inspRowOrNull ? 'Inspection' : 'Status',
+          Notes:        svcChangeSummary || notes || (inspRowOrNull ? inspRowOrNull.note : ''),
           OldValue:     oldStatus,
-          NewValue:     status,
+          NewValue:     inspRowOrNull ? inspRowOrNull.json : status,
           ...(status === 'Completed' && completedDate ? { ChangeDate: completedDate } : {})
         }));
       }
@@ -683,11 +701,24 @@ exports.handler = async (event) => {
       await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
         Title:        nextAdminLabel(),
         ChangeType:   status,
-        FieldChanged: 'Status',
-        Notes:        svcChangeSummary || notes || '',
+        FieldChanged: inspRowOrNull ? 'Inspection' : 'Status',
+        Notes:        svcChangeSummary || notes || (inspRowOrNull ? inspRowOrNull.note : ''),
         OldValue:     oldStatus,
-        NewValue:     status,
+        NewValue:     inspRowOrNull ? inspRowOrNull.json : status,
         ...(status === 'Completed' && completedDate ? { ChangeDate: completedDate } : {})
+      }));
+    }
+
+    /* Cambio de fecha/supervisor/horario de una inspeccion ya programada
+       (sin cambio de estatus): su propio renglon, no se pierde. */
+    if (!statusChanged && inspChanged && inspRowOrNull) {
+      await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
+        Title:        nextAdminLabel(),
+        ChangeType:   'Inspection',
+        FieldChanged: 'Inspection',
+        Notes:        'Inspection details updated.',
+        OldValue:     '',
+        NewValue:     inspRowOrNull.json
       }));
     }
 
