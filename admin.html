@@ -2951,6 +2951,8 @@ function qbSetupHtml(status) {
       ? '<span class="qb-warn">The app hasn\'t found these QuickBooks fields yet: ' + esc(missing.join(', ')) + '. Orders with a unit won\'t be sent until they\'re found.</span>'
       : '<span>Unit #, Bedrooms and Bathrooms go to their custom fields.</span>');
     rows.push('<span>Each line is dated the day that service was completed; the document is dated the day it\'s created.</span>');
+    if (st.classTracking) rows.push('<span>Each line gets the Class of its division. Invoices also get the ' + esc(st.locationLabel || 'Department') + ' (for example Janitorial Services:Commercial).</span>');
+    if (st.locationTracking && !(st.mixedDepartments || []).length) rows.push('<span class="qb-warn">Orders with more than one division need a "Mixed Services" ' + esc(st.locationLabel || 'Department') + ' in QuickBooks (with Commercial and Residential under it). Until it exists, those orders won\'t be sent as invoices.</span>');
     rows.push('<span>' + (st.customNumbers ? 'Numbers continue from the highest one already in QuickBooks.' : 'QuickBooks gives each one the next number.') + '</span>');
   }
   return '<div class="qb-setup"><div class="qb-send"><span class="qb-send-label">Send as</span>' + send + '</div>' +

@@ -14,7 +14,7 @@
 
 const {
   isConnected, getImportedOrders, getSendPerms,
-  getCompanySetup, usesCustomTxnNumbers, jsonResponse
+  getCompanySetup, getClassesAndDepartments, usesCustomTxnNumbers, jsonResponse
 } = require('./lib/quickbooks');
 
 exports.handler = async (event) => {
@@ -27,8 +27,10 @@ exports.handler = async (event) => {
     let setup = null;
     if (connected) {
       try {
-        const [s, customNumbers] = await Promise.all([getCompanySetup(), usesCustomTxnNumbers()]);
-        setup = Object.assign(s, { customNumbers });
+        const [s, customNumbers, cd] = await Promise.all([getCompanySetup(), usesCustomTxnNumbers(), getClassesAndDepartments()]);
+        /* Ordenes con varias divisiones van al Department "Mixed Services:..." */
+        const mixed = cd.departments.filter(d => /^mixed/i.test(d.full)).map(d => d.full);
+        setup = Object.assign(s, { customNumbers, mixedDepartments: mixed });
       } catch (e) {
         setup = { error: e.message };
       }

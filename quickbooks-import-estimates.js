@@ -24,7 +24,7 @@ const lq = require('./lib/list-query');
 
 const {
   isConnected, findItemBySku, findOrCreateCustomerId, createSalesDoc,
-  markOrderImported, getImportedOrders, getSendPerms, getCompanySetup,
+  markOrderImported, getImportedOrders, getSendPerms, getCompanySetup, getClassesAndDepartments,
   usesCustomTxnNumbers, nextDocNumber
 } = require('./lib/quickbooks');
 
@@ -53,6 +53,19 @@ const STATE = process.env.QUICKBOOKS_DEFAULT_STATE || 'IA';
 const ymd = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 const isoDay = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : ymd(d); };
 const low = v => String(v || '').trim().toLowerCase();
+
+/* Class / Department por nombre: se comparan las primeras letras
+   ("Renovations" = "Renovation Services", "Exterior" = "Exteriors"). */
+const stem = v => low(v).replace(/[^a-z]/g, '').slice(0, 5);
+function classFor(cd, division) {
+  return cd.classes.find(c => !c.full.includes(':') && stem(c.name) === stem(division));
+}
+function departmentFor(cd, division, propertyType) {
+  return cd.departments.find(d => {
+    const parts = d.full.split(':');
+    return parts.length === 2 && stem(parts[0]) === stem(division) && low(parts[1]) === low(propertyType);
+  });
+}
 
 function customFieldsFor(setup, o) {
   const unit = String(o.UnitNumber || '').trim() || String(o.BuildingNumber || '').trim();
@@ -97,8 +110,8 @@ exports.handler = async (event) => {
     if (!perms[sendAs]) {
       return jsonResponse(403, { error: 'You are not allowed to send ' + (sendAs === 'invoice' ? 'Invoices' : 'Estimates') + ' to QuickBooks. Ask a Developer to turn it on in Staff & Roles.' });
     }
-    const [setup, customNums, already] = await Promise.all([
-      getCompanySetup(), usesCustomTxnNumbers(), getImportedOrders()
+    const [setup, customNums, already, cd] = await Promise.all([
+      getCompanySetup(), usesCustomTxnNumbers(), getImportedOrders(), getClassesAndDepartments()
     ]);
     const docLabel = sendAs === 'invoice' ? 'Invoice' : 'Estimate';
     const today = ymd(new Date());
@@ -118,6 +131,8 @@ exports.handler = async (event) => {
        QuickBooks tronaba con 'priceBySku is not defined'. */
     const priceBySku = {};
     catalogRows.forEach(it => { if (it.fields && it.fields.SKU) priceBySku[it.fields.SKU] = it.fields.Price; });
+    const divBySku = {}, propBySku = {};
+    catalogRows.forEach(it => { const f = it.fields || {}; if (f.SKU) { divBySku[f.SKU] = f.Division || ''; propBySku[f.SKU] = f.PropertyType || ''; } });
     const levelPrice = (sku, base, level) => {
       const lp = levelPricesFor(base, adjBySku[sku]);
       return lp && lp[level] != null ? lp[level] : base;
@@ -151,7 +166,7 @@ exports.handler = async (event) => {
         services.forEach(s => {
           const items = pkgSnap[String(s.SubOption || '')];
           if (Array.isArray(items) && items.length) {
-            items.forEach(x => expanded.push({ ServiceName: x.serviceName || x.sku, SubOption: x.sku, Level: x.level || '', Quantity: s.Quantity || '', fromPackage: s.ServiceName, parentKey: low(s.Category) + '|' + low(s.ServiceName) }));
+            items.forEach(x => expanded.push({ ServiceName: x.serviceName || x.sku, SubOption: x.sku, Level: x.level || '', Quantity: s.Quantity || '', fromPackage: s.ServiceName, parentKey: low(s.Category) + '|' + low(s.ServiceName), Division: s.Division || '' }));
           } else expanded.push(s);
         });
         /* Dia en que se completo cada servicio. */
@@ -165,7 +180,7 @@ exports.handler = async (event) => {
         } catch (e) { /* sin asignaciones por servicio: se usa la fecha de la orden */ }
         const orderDone = isoDay(o.CompletedDate);
 
-        const lines = [];
+        const lines = [], lineDivs = [], lineProps = [];
         for (const s of expanded) {
           const sku = s.SubOption;
           if (!sku) throw new Error('Service "' + s.ServiceName + '" has no SKU on file.');
@@ -176,6 +191,14 @@ exports.handler = async (event) => {
           const serviceDate = isoDay(doneBy[low(s.Category) + '|' + low(s.ServiceName)] || doneBy[s.parentKey]) || orderDone;
           const detail = { ItemRef: { value: item.id }, Qty: qty, UnitPrice: price, TaxCodeRef: { value: item.taxable ? 'TAX' : 'NON' } };
           if (serviceDate) detail.ServiceDate = serviceDate;
+          const division = s.Division || divBySku[sku] || o.Division || '';
+          lineDivs.push(division);
+          if (propBySku[sku]) lineProps.push(propBySku[sku]);
+          if (setup.classTracking) {
+            const cls = classFor(cd, division);
+            if (!cls) throw new Error('Class "' + (division || '(no division)') + '" was not found in QuickBooks for "' + s.ServiceName + '", so nothing was created.');
+            detail.ClassRef = { value: cls.id };
+          }
           lines.push({
             Amount: price * qty,
             DetailType: 'SalesItemLineDetail',
@@ -199,6 +222,19 @@ exports.handler = async (event) => {
         if (o.Address) {
           doc.ShipAddr = { Line1: o.Address, City: o.City || '', CountrySubDivisionCode: STATE, PostalCode: o.Zip || '' };
           if (o.Suite) doc.ShipAddr.Line2 = o.Suite;
+        }
+        /* Department solo en invoices (los estimates de GS no lo llevan).
+           Una sola division -> "<Division> Services:<tipo>"; varias ->
+           "Mixed Services:<tipo>" (hay que crearlo en QuickBooks). */
+        if (sendAs === 'invoice' && setup.locationTracking) {
+          const divs = [...new Set(lineDivs.map(stem).filter(Boolean))];
+          const division = divs.length === 1 ? lineDivs.find(d => stem(d) === divs[0]) : 'Mixed';
+          const counts = {};
+          lineProps.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
+          const propertyType = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'Commercial';
+          const dep = departmentFor(cd, division, propertyType);
+          if (!dep) throw new Error((setup.locationLabel || 'Department') + ' "' + division + ' Services:' + propertyType + '" was not found in QuickBooks, so nothing was created.');
+          doc.DepartmentRef = { value: dep.id };
         }
         if (customNums) doc.DocNumber = await nextDocNumber(sendAs);
 
