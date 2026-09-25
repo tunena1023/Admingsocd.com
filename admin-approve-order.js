@@ -45,7 +45,7 @@ const {
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
-const { recordPackageSnapshots } = require('./lib/package-contents');
+const { recordPackageSnapshots, expandPackages } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf } = require('./lib/orderpdf');
 /* Correos al cliente (lib/notify.js, copia de gsocd-shared, 25/09/2026).
    Nunca truena: si el correo falla, la decision ya quedo guardada. */
@@ -595,6 +595,11 @@ exports.handler = async (event) => {
           await Promise.all(svcRows.map(r =>
             withStepLabel('delete old service row ' + r.id, () => deleteListItem(ORDER_SERVICES_LIST, r.id))));
         }
+        /* Paquetes -> sus servicios al APLICAR (25/09/2026): una propuesta
+           del supervisor (Tech) llega con el paquete tal cual. La orden
+           guarda cada servicio; el paquete queda en PackageContents. */
+        const proposedRaw = proposed.services;
+        proposed.services = await expandPackages(proposedRaw, f.ClientID);
         await Promise.all(proposed.services.map(s =>
           withStepLabel('create service: ' + (s.ServiceName || s.service || '(sin nombre)') + ' / SubOption=' + (s.SubOption || s.subOption || '') + ' / Quantity=' + JSON.stringify(s.Quantity !== undefined ? s.Quantity : s.qty), () =>
             createListItem(ORDER_SERVICES_LIST, {
@@ -614,7 +619,7 @@ exports.handler = async (event) => {
           /* Paquete agregado al aprobar el cambio: se congela lo que
              incluye HOY (los que la orden ya tenia congelados no). */
           try {
-            await recordPackageSnapshots(orderId, proposed.services, actor);
+            await recordPackageSnapshots(orderId, proposedRaw, actor);
           } catch (e) { console.error('Package snapshot on approve:', e.message); }
         restored = proposed.services.length;
       }

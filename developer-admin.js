@@ -264,7 +264,7 @@ const SERVICE_AREAS_KEY = 'catalog_service_areas';
    catalog_package_contents, JSON {skuPaquete: [{sku, level}]}. Sin
    editar se usa DEFAULT_PACKAGE_CONTENTS (borrador del mini).
 ============================================================ */
-const { DEFAULT_PACKAGE_CONTENTS } = require('./lib/package-contents');
+const { DEFAULT_PACKAGE_CONTENTS, expandPackages, recordPackageSnapshots } = require('./lib/package-contents');
 const catalogFields = require('./lib/catalog-fields');
 const settingsJson = require('./lib/settings-json');   /* solo para migrar lo viejo una vez */
 const PACKAGE_CONTENTS_KEY = 'catalog_package_contents';
@@ -2366,6 +2366,70 @@ exports.handler = async (event) => {
        ademas de rol Developer -- doble candado para algo tan
        destructivo e irreversible.
     ============================================================ */
+    /* Ordenes viejas con un PAQUETE guardado como servicio (25/09/2026).
+       Desde el 24/09 el paquete se desarma al guardar; las de antes se
+       quedaron con el nombre del paquete en OrderServices y en varias
+       pantallas se veia solo el paquete. apply:false = solo lista lo que
+       cambiaria. apply:true = por orden: congela el paquete en
+       PackageContents, borra el renglon del paquete, crea los servicios
+       que falten (con el nivel del paquete) y deja un renglon en el
+       historial. Se saltan canceladas y las de "Assign by service" (su
+       gente esta repartida por servicio; esas se arreglan a mano). */
+    if (action === 'split-package-rows') {
+      if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
+      const apply = body.apply === true;
+      const [catRows, svcRows, orderRows] = await Promise.all([
+        fetchAll(SERVICES_CATALOG_LIST), fetchAll(ORDER_SERVICES_LIST), fetchAll(ORDERS_LIST)
+      ]);
+      const pkgSkus = new Set(catRows.filter(it => it.fields && it.fields.SKU && catalogFields.packageItemsOf(it.fields).length)
+        .map(it => String(it.fields.SKU).trim()));
+      const orderById = {};
+      orderRows.forEach(it => { if (it.fields) orderById[it.fields.OrderID || it.fields.Title] = it; });
+      const byOrder = {};
+      svcRows.forEach(it => { if (it.fields && it.fields.OrderID) (byOrder[it.fields.OrderID] = byOrder[it.fields.OrderID] || []).push(it); });
+      const report = [];
+      for (const oid of Object.keys(byOrder)) {
+        const rows = byOrder[oid];
+        const pkgRows = rows.filter(r => pkgSkus.has(String(r.fields.SubOption || '').trim()));
+        if (!pkgRows.length) continue;
+        const o = orderById[oid];
+        const of = (o && o.fields) || {};
+        const entry = { orderId: oid, client: of.BusinessName || of.ClientID || '', status: of.Status || '', packages: pkgRows.map(r => r.fields.ServiceName), added: [], skipped: '' };
+        if (!o) { entry.skipped = 'Order not found'; report.push(entry); continue; }
+        if (of.Status === 'Cancelled') { entry.skipped = 'Cancelled'; report.push(entry); continue; }
+        if (of.AssignByService === true || of.AssignByService === 'true') { entry.skipped = 'Assign by service — fix by hand'; report.push(entry); continue; }
+        const asSvc = r => ({ Category: r.fields.Category || '', ServiceName: r.fields.ServiceName || '', SubOption: r.fields.SubOption || '',
+          Division: r.fields.Division || of.Division || '', Level: r.fields.Level || '', Quantity: r.fields.Quantity || '' });
+        const original = rows.map(asSvc);
+        const expanded = await expandPackages(original, of.ClientID);
+        const have = new Set(rows.filter(r => !pkgSkus.has(String(r.fields.SubOption || '').trim())).map(r => String(r.fields.SubOption || r.fields.ServiceName).trim()));
+        const toAdd = expanded.filter(s => !have.has(String(s.SubOption || s.ServiceName).trim()));
+        entry.added = toAdd.map(s => s.ServiceName + (s.Level ? ' (' + s.Level.replace('Level ', 'L') + ')' : ''));
+        if (apply) {
+          try {
+            await recordPackageSnapshots(oid, original, 'Package cleanup');
+            for (const r of pkgRows) await deleteListItem(ORDER_SERVICES_LIST, r.id);
+            for (const s of toAdd) {
+              await createListItem(ORDER_SERVICES_LIST, {
+                Title: s.ServiceName || '', OrderID: oid, Category: s.Category || '', ServiceName: s.ServiceName || '',
+                SubOption: s.SubOption || '', Division: s.Division || of.Division || '', Level: s.Level || ''
+              });
+            }
+            await createListItem(ORDER_HISTORY_LIST, {
+              Title: oid + '-pkgfix', OrderID: oid, ChangedBy: body.actorName || email || 'Developer', ChangeDate: new Date().toISOString(),
+              ChangeType: 'Services Updated', FieldChanged: 'Services',
+              Notes: 'Package split into its services (' + entry.packages.join(', ') + ').',
+              OldValue: 'SERVICES:' + JSON.stringify({ services: original }),
+              NewValue: 'SERVICES:' + JSON.stringify({ services: rows.filter(r => !pkgSkus.has(String(r.fields.SubOption || '').trim())).map(asSvc).concat(toAdd) })
+            });
+            entry.done = true;
+          } catch (e) { entry.error = e.message; }
+        }
+        report.push(entry);
+      }
+      return jsonResponse(200, { success: true, applied: apply, orders: report });
+    }
+
     if (action === 'wipe-test-data') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
       if (String(body.password || '') !== 'BorraTodoYnoDejesNada') {

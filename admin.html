@@ -2266,6 +2266,21 @@
         <div id="geocode-result" style="margin-top:16px;font-size:13px"></div>
       </div>
     </div>
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Fix old orders with a package as a service</div>
+        <div class="order-desc">Splits the package into its services on orders made before packages were split automatically.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">Since Sep 24 a package is saved as its services. Older orders may still show only the package name. <b>Find</b> lists them and what would change — nothing is saved. <b>Fix</b> replaces the package with its services (at the package's levels), keeps the package name on the order and writes it in the order history. Cancelled orders and "Assign by service" orders are skipped.</p>
+        <div class="btn-actions">
+          <button class="gs-ofp-btn-secondary" onclick="runPackageCleanup(false)">Find</button>
+          <button class="gs-ofp-btn-primary" id="pkgfix-apply" style="display:none" onclick="runPackageCleanup(true)">Fix these orders</button>
+        </div>
+        <div id="pkgfix-result" style="margin-top:16px;font-size:13px"></div>
+      </div>
+    </div>
   </section>
 
   <section id="debug-section" data-category="settings" style="display:none">
@@ -11190,6 +11205,27 @@ async function resolveExtraRequest(orderId, requestId, decision) {
      developer-admin.js) cuando ya no haga falta. Doble candado: un
      confirm() de "estas seguro" primero, y la password exacta
      despues -- ninguno de los dos solo es suficiente. */
+  /* Ordenes viejas con un paquete como servicio (developer-admin
+     split-package-rows): Find = solo lista; Fix = aplica. */
+  async function runPackageCleanup(apply) {
+    const box = document.getElementById('pkgfix-result');
+    const btn = document.getElementById('pkgfix-apply');
+    if (apply && !confirm('Split the package into its services on these orders?')) return;
+    box.textContent = apply ? 'Fixing…' : 'Looking…';
+    try {
+      const res = await devApi('split-package-rows', { apply: !!apply, actorName: getActorName() });
+      const list = res.orders || [];
+      const todo = list.filter(o => !o.skipped);
+      if (!list.length) { box.innerHTML = '<p class="empty-note">No orders have a package saved as a service.</p>'; btn.style.display = 'none'; return; }
+      box.innerHTML = '<table class="grid-table"><tr><th>Order</th><th>Package</th><th>' + (apply ? 'Result' : 'Services it becomes') + '</th></tr>' +
+        list.map(o => '<tr><td>' + esc(o.orderId) + '<br><span style="color:var(--gray);font-size:11px">' + esc(o.client) + ' · ' + esc(o.status) + '</span></td><td>' + esc(o.packages.join(', ')) + '</td><td>' +
+          (o.skipped ? '<i>Skipped: ' + esc(o.skipped) + '</i>' : o.error ? '<b style="color:#B33A3A">Error: ' + esc(o.error) + '</b>' : (apply ? '✓ Fixed — ' : '') + esc(o.added.join(', ') || '(already has them)')) +
+          '</td></tr>').join('') + '</table>';
+      btn.style.display = (!apply && todo.length) ? '' : 'none';
+      if (!apply && todo.length) btn.textContent = 'Fix these ' + todo.length + ' orders';
+    } catch (e) { box.textContent = 'Error: ' + e.message; }
+  }
+
   async function debugWipeTestData() {
     const sure = confirm('This will PERMANENTLY delete ALL Orders, Scheduling and Recurring data — including the actual photo files and approval PDFs saved for those orders in SharePoint. Clients, Services and Techs are NOT touched. This cannot be undone. Continue?');
     if (!sure) return;

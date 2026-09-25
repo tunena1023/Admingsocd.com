@@ -272,8 +272,15 @@ exports.handler = async (event) => {
 
       try {
         const svcRows = await fetchByOrderId(ORDER_SERVICES_LIST, template.OrderID);
-        await Promise.all(svcRows.map(row => {
-          const f = row.fields;
+        /* 25/09/2026: se copia tambien el nivel (antes se perdia) y, si la
+           orden de muestra es vieja y trae un paquete como servicio, se
+           desarma en sus servicios. */
+        const copied = await expandPackages(svcRows.filter(r => r.fields).map(row => ({
+          Category: row.fields.Category || '', ServiceName: row.fields.ServiceName || '',
+          SubOption: row.fields.SubOption || '', Division: row.fields.Division || template.Division,
+          Level: row.fields.Level || '', Quantity: row.fields.Quantity || ''
+        })), template.ClientID || '');
+        await Promise.all(copied.map(f => {
           return createListItem(ORDER_SERVICES_LIST, {
             Title:       f.ServiceName || '',
             OrderID:     orderId,
@@ -281,6 +288,7 @@ exports.handler = async (event) => {
             ServiceName: f.ServiceName || '',
             SubOption:   f.SubOption   || '',
             Division:    f.Division    || template.Division,
+            Level:       f.Level       || '',
             Quantity:    f.Quantity    || ''
           });
         }));
