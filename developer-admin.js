@@ -27,7 +27,7 @@ const {
   ORDERS_LIST, ORDER_SERVICES_LIST, ORDER_HISTORY_LIST, DRAFTS_LIST, CLIENTS_LIST,
   CLIENT_ADDRESSES_LIST, geocodeAddress, TECHS_LIST, ORDER_ASSIGNMENTS_LIST, SERVICE_TIMES_LIST,
   CLIENT_CONTACTS_LIST, CLIENT_HISTORY_LIST, SERVICE_TEMPLATES_LIST,
-  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST,
+  HOLIDAYS_LIST, CLIENT_HOLIDAYS_LIST, TECH_DEVICE_TOKENS_LIST, TECH_PHOTO_LOG_LIST, PUSH_SUBSCRIPTIONS_LIST,
   ORDERS_FOLDER, findFolderByPrefix, listChildren, deleteDriveItemById,
   ORDER_SEEN_BY_LIST,
   graphFetch, siteListPath, queryList, CLIENT_PACKAGES_LIST,
@@ -1275,10 +1275,15 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-techs') {
-      const [rows, deviceRows] = await Promise.all([
+      const [rows, deviceRows, pushRows] = await Promise.all([
         fetchAll(TECHS_LIST),
-        fetchAll(TECH_DEVICE_TOKENS_LIST)
+        fetchAll(TECH_DEVICE_TOKENS_LIST),
+        /* Avisos push (25/09/2026): cuantos telefonos de cada quien los
+           reciben. Llave = PayrollID o "tech:<id>" (lib/push.js). */
+        fetchAll(PUSH_SUBSCRIPTIONS_LIST).catch(() => [])
       ]);
+      const pushCount = {};
+      pushRows.forEach(it => { const k = String((it.fields && it.fields.PayrollID) || '').trim().toLowerCase(); if (k) pushCount[k] = (pushCount[k] || 0) + 1; });
       /* Un solo dispositivo activo por tecnico -- si por algo raro hay
          mas de uno marcado Active a la vez, se usa el mas reciente. */
       const activeDeviceByTech = {};
@@ -1306,6 +1311,7 @@ exports.handler = async (event) => {
           division: it.fields.Division || '',
           active: it.fields.Active === undefined ? true : (it.fields.Active === true || it.fields.Active === 'true'),
           hasActiveDevice: !!device,
+          alertsOn: !!pushCount[(String(it.fields.PayrollID || '').trim() || ('tech:' + it.id)).toLowerCase()],
           deviceLastUsed: device ? (device.LastUsedDate || '') : ''
         };
       }).sort((a, b) => (a.firstName + a.lastName).localeCompare(b.firstName + b.lastName));

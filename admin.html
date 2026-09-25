@@ -2358,7 +2358,11 @@
 <div id="device-qr-modal-overlay" class="modal-overlay" style="display:none">
   <div class="modal-box" style="text-align:center">
     <h3 id="device-qr-title">Set Up Phone</h3>
-    <p style="font-size:12px;color:var(--gray);margin:10px 0 18px">Open the camera on <b id="device-qr-name-inline"></b>'s phone and scan this — do this together, in the office.</p>
+    <p style="font-size:12px;color:var(--gray);margin:10px 0 12px">Open the camera on <b id="device-qr-name-inline"></b>'s phone and scan this — do this together, in the office.</p>
+    <ul style="font-size:12px;color:var(--gray);text-align:left;margin:0 auto 18px;padding-left:18px;max-width:340px;line-height:1.5">
+      <li>When the phone asks about notifications, tap <b>Allow</b> — that's how they get job alerts.</li>
+      <li>iPhone: it will ask to add the app to the Home Screen first. Do it, then open it from the new icon to finish.</li>
+    </ul>
     <div id="device-qr-canvas" style="display:flex;justify-content:center;margin-bottom:16px"></div>
     <p style="font-size:11px;color:var(--gray);margin-bottom:16px">This code only works once. Generating a new one for the same person turns off their old phone automatically.</p>
     <div class="btn-actions" style="justify-content:center">
@@ -9926,7 +9930,11 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         </td>
         <td data-label="Device">
           ${t.hasActiveDevice
-            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">● Device active</span><button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
+            ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:2px">● Device active</span>' +
+              (t.alertsOn
+                ? '<span style="font-size:11px;color:#1F7A3F;display:block;margin-bottom:4px">🔔 Alerts on</span>'
+                : '<span style="font-size:11px;color:var(--red,#c0392b);display:block;margin-bottom:4px" title="Set up the phone again with New QR and tap Allow when it asks about notifications">🔕 Alerts off</span>') +
+              '<button type="button" class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">New QR</button> <button type="button" class="gs-ofp-btn-danger" style="padding:4px 12px;font-size:12px" onclick="revokeDevice(\'' + t.id + '\')">Revoke</button>'
             : '<span style="font-size:11px;color:var(--gray);display:block;margin-bottom:4px">No device yet</span><button type="button" class="gs-ofp-btn-primary" style="padding:4px 12px;font-size:12px" onclick="startDeviceQR(\'' + t.id + '\')">Generate QR</button>'}
         </td>
       </tr>`).join('');
