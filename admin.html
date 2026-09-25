@@ -495,6 +495,13 @@
     .subtabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
     .subtab { padding: 12px 20px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; color: var(--gray); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Inter', sans-serif; }
     .subtab.active { color: var(--black); border-bottom-color: var(--gold); }
+    .qb-count[hidden] { display: none; }
+    .qb-count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 9px; background: var(--gold); color: #fff; font-size: 10px; line-height: 16px; text-align: center; letter-spacing: 0; }
+    .qb-client { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; }
+    .qb-client input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+    .qb-client-main { flex: 1; min-width: 0; }
+    .qb-client-line { font-size: 13px; color: var(--gray); margin-top: 3px; overflow-wrap: anywhere; }
+    .qb-done summary { cursor: pointer; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray); padding: 14px 0; }
     .subpanel { display: none; }
     .subpanel.active { display: block; }
 
@@ -1725,8 +1732,19 @@
 <!-- QUICKBOOKS -->
 <div class="panel" id="panel-quickbooks">
   <h2 class="section-title">QuickBooks</h2>
-  <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks como Estimate.</p>
-  <div id="qb-panel-body">Loading…</div>
+  <!-- Estimates | New clients (25/09/2026, pedido del dueño) -->
+  <div class="subtabs qb-subtabs" role="tablist" aria-label="QuickBooks sections">
+    <button class="subtab qb-subtab active" role="tab" aria-selected="true" data-qbtab="estimates" onclick="showQbSubTab('estimates')">Estimates</button>
+    <button class="subtab qb-subtab" role="tab" aria-selected="false" data-qbtab="clients" onclick="showQbSubTab('clients')">New clients<span class="qb-count" id="qb-clients-count" hidden></span></button>
+  </div>
+  <div class="subpanel qb-subpanel active" id="qbsub-estimates">
+    <p class="section-sub">Selecciona las órdenes que quieres mandar a QuickBooks como Estimate.</p>
+    <div id="qb-panel-body">Loading…</div>
+  </div>
+  <div class="subpanel qb-subpanel" id="qbsub-clients">
+    <p class="section-sub">Clients who signed up on their own at orders.gsocd.com. Import them to create them as customers in QuickBooks. Importing needs the Operations Director's password.</p>
+    <div id="qb-clients-body"><p class="empty-note">Loading…</p></div>
+  </div>
 </div>
 
 
@@ -2866,7 +2884,7 @@ function showTab(tab) {
      cliente recien desactivado desde Developer sin tener que recargar
      toda la pagina. */
   if (tab === 'clients' && typeof refreshAllClients === 'function') refreshAllClients();
-  if (tab === 'quickbooks' && typeof renderQuickBooksPanel === 'function') renderQuickBooksPanel();
+  if (tab === 'quickbooks' && typeof renderQuickBooksPanel === 'function') { renderQuickBooksPanel(); renderQbClients(); }
   /* Reconciliar contra los datos ya en memoria (allOrders) cada vez
      que se entra a una de estas tabs -- ver el comentario largo junto
      a reconcileApprCardsView/reconcileActiveView. Scheduling no
@@ -2963,6 +2981,122 @@ async function importSelectedEstimates() {
     showToast('Error: ' + e.message);
     btn.disabled = false;
     btn.textContent = originalText;
+  }
+}
+
+/* ============================================================
+   QUICKBOOKS > NEW CLIENTS (25/09/2026, pedido del dueño): los
+   clientes que se registraron solos en orders.gsocd.com, para darlos
+   de alta en QuickBooks. Importar pide el password del director y el
+   servidor lo vuelve a revisar (quickbooks-clients.js). Si ya existe
+   un Customer con ese nombre en QuickBooks solo se liga, no se
+   duplica. */
+function showQbSubTab(tab) {
+  document.querySelectorAll('.qb-subtab').forEach(btn => {
+    const on = btn.dataset.qbtab === tab;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.qb-subpanel').forEach(p => p.classList.toggle('active', p.id === 'qbsub-' + tab));
+}
+
+let qbClients = [];
+let qbClientSel = new Set();
+
+function qbClientCard(c, done) {
+  const where = [c.address, c.suite, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const who = [c.contactPerson, c.email, c.phone].filter(Boolean).join(' · ');
+  const left = done
+    ? '<span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">In QuickBooks</span>'
+    : '<input type="checkbox" aria-label="Select ' + escAttr(c.businessName) + '" onchange="toggleQbClient(\'' + escAttr(c.clientId) + '\', this.checked)"' + (qbClientSel.has(c.clientId) ? ' checked' : '') + '>';
+  return '<div class="order-card"><div class="qb-client">' + left +
+    '<div class="qb-client-main"><div class="order-id">' + esc(c.businessName || c.clientId) + '</div>' +
+    (who ? '<div class="qb-client-line">' + esc(who) + '</div>' : '') +
+    (where ? '<div class="qb-client-line">' + esc(where) + '</div>' : '') +
+    '<div class="qb-client-line">' + esc(c.clientId) + (c.registeredAt ? ' · Signed up ' + esc(fmtDate(c.registeredAt)) : '') + '</div>' +
+    '</div></div></div>';
+}
+
+async function renderQbClients() {
+  const box = document.getElementById('qb-clients-body');
+  const count = document.getElementById('qb-clients-count');
+  if (!box) return;
+  qbClientSel = new Set();
+  try {
+    const res = await api('/quickbooks-clients', { method: 'GET' });
+    qbClients = res.clients || [];
+  } catch (e) {
+    box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>';
+    return;
+  }
+  const pending = qbClients.filter(c => !c.inQuickBooks);
+  const done = qbClients.filter(c => c.inQuickBooks);
+  count.hidden = !pending.length;
+  count.textContent = pending.length;
+  if (!qbClients.length) {
+    box.innerHTML = '<p class="empty-note">No clients have signed up on their own yet.</p>';
+    return;
+  }
+  box.innerHTML =
+    (pending.length
+      ? '<div id="qb-clients-list">' + pending.map(c => qbClientCard(c, false)).join('') + '</div>' +
+        '<div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:14px 0;margin-top:16px;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px">' +
+        '<label style="margin-right:auto;font-size:13px;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="qb-clients-all" onchange="toggleAllQbClients(this.checked)" style="width:18px;height:18px"> Select all</label>' +
+        '<span id="qb-clients-selected" style="font-size:12px;color:var(--gray)">0 selected</span>' +
+        '<button type="button" class="gs-ofp-btn-primary" id="qb-clients-btn" disabled onclick="importSelectedClients()">Import to QuickBooks</button>' +
+        '</div>'
+      : '<p class="empty-note">Every client who signed up is already in QuickBooks.</p>') +
+    (done.length
+      ? '<details class="qb-done"><summary>Already in QuickBooks (' + done.length + ')</summary>' + done.map(c => qbClientCard(c, true)).join('') + '</details>'
+      : '');
+}
+
+function syncQbClientFooter() {
+  const n = qbClientSel.size;
+  const pending = qbClients.filter(c => !c.inQuickBooks).length;
+  const sel = document.getElementById('qb-clients-selected');
+  const btn = document.getElementById('qb-clients-btn');
+  const all = document.getElementById('qb-clients-all');
+  if (sel) sel.textContent = n + ' selected';
+  if (btn) btn.disabled = n === 0;
+  if (all) all.checked = n > 0 && n === pending;
+}
+
+function toggleQbClient(id, checked) {
+  if (checked) qbClientSel.add(id); else qbClientSel.delete(id);
+  syncQbClientFooter();
+}
+
+function toggleAllQbClients(checked) {
+  qbClientSel = new Set(checked ? qbClients.filter(c => !c.inQuickBooks).map(c => c.clientId) : []);
+  document.querySelectorAll('#qb-clients-list input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+  syncQbClientFooter();
+}
+
+async function importSelectedClients() {
+  const ids = [...qbClientSel];
+  if (!ids.length) return;
+  const password = window.prompt('Operations Director password to import ' + ids.length + ' client' + (ids.length === 1 ? '' : 's') + ' to QuickBooks:');
+  if (password === null) return;
+  const btn = document.getElementById('qb-clients-btn');
+  btn.disabled = true;
+  showLoadingOverlay('Importing clients…');
+  try {
+    const res = await api('/quickbooks-clients', { body: { clientIds: ids, password } });
+    GSLoadingSplash.hide();
+    const results = res.results || [];
+    const ok = results.filter(r => r.success);
+    const linked = ok.filter(r => r.how === 'linked').length;
+    if (ok.length) showToast(ok.length + ' client' + (ok.length === 1 ? '' : 's') + ' imported to QuickBooks' + (linked ? ' (' + linked + ' already existed there and ' + (linked === 1 ? 'was' : 'were') + ' linked)' : '') + '.');
+    results.filter(r => !r.success).forEach(r => {
+      const c = qbClients.find(x => x.clientId === r.clientId);
+      showToast((c ? c.businessName : r.clientId) + ': ' + r.error);
+    });
+    await renderQbClients();
+  } catch (e) {
+    GSLoadingSplash.hide();
+    showToast(e.message);
+    syncQbClientFooter();
   }
 }
 
