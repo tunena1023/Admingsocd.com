@@ -509,6 +509,17 @@
     .acw-qbupd { border: 1px solid var(--border); background: var(--white); border-radius: 3px; font: 600 10px 'Inter', sans-serif; padding: 3px 8px; cursor: pointer; }
     .qb-count-muted { background: var(--gray); }
     .qb-sent-doc { background: #EEF9F0; color: #2A7A4A; flex-shrink: 0; align-self: center; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+    .qb-views { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 16px; }
+    .qb-view { border: 1px solid var(--border); background: var(--white); border-radius: 18px; padding: 7px 14px; font: 600 12px 'Inter', sans-serif; color: var(--gray); cursor: pointer; }
+    .qb-view.on { background: var(--black); border-color: var(--black); color: #fff; }
+    .qb-view:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .qb-view-n { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 6px; border-radius: 9px; background: rgba(0,0,0,.08); font-size: 11px; }
+    .qb-view.on .qb-view-n { background: rgba(255,255,255,.2); }
+    .qbd-body { padding-left: 20px; }
+    .qbd-field { display: grid; gap: 3px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 3px; font-size: 11px; color: var(--gray); text-transform: uppercase; letter-spacing: .04em; }
+    .qbd-field b { font: 400 14px 'Inter', sans-serif; color: var(--black); text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }
+    .qbd-field.qbd-diff { background: #FFF1CC; border-color: #E6C36A; cursor: help; }
+    .qbd-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
     .qb-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
     .qb-tag-ok { background: #EEF9F0; color: #2A7A4A; }
     .qb-tag-diff { background: #FFF4DE; color: #8A5A00; }
@@ -533,7 +544,7 @@
     .qb-diff-item b { color: var(--black); font-weight: 600; }
     .qb-upd { width: auto; padding: 8px 14px; font-size: 11px; flex-shrink: 0; align-self: center; }
     .client-qb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; margin: 0 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--off); font-size: 13px; }
-    .client-qb .qb-diff { margin-top: 0; flex: 1; min-width: 200px; }
+    .client-qb .qb-diff-sum { flex: 1; min-width: 200px; color: var(--gray); }
     @media (max-width: 560px) { .qbc-wide { grid-column: auto; } .qbc-body { padding-left: 20px; } .qb-client { flex-wrap: wrap; } .qb-client .qb-upd, .client-qb .qb-upd { width: 100%; } }
     .qb-client { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; }
     .qb-client input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
@@ -3166,6 +3177,7 @@ function showQbSubTab(tab) {
 let qbClients = [];
 let qbClientSel = new Set();
 let qbClientsPromise = null;
+const QB_FIELD_NAMES = { businessName: 'Business name', contactPerson: 'Contact person', email: 'Email', phone: 'Phone', address: 'Address', suite: 'Suite', city: 'City', zip: 'Zip' };
 const QB_FIELD_LABELS = { businessName: 'name', contactPerson: 'contact', email: 'email', phone: 'phone', address: 'address', suite: 'suite', city: 'city', zip: 'zip' };
 
 /* Una sola lectura compartida por el panel de QuickBooks, el tab Clients
@@ -3219,9 +3231,6 @@ async function refreshQbEverywhere() {
   if (typeof window.refreshAllClientsQb === 'function') window.refreshAllClientsQb();
 }
 
-function qbDiffLine(info) {
-  return info.diff.map(k => '<span class="qb-diff-item"><b>' + esc(QB_FIELD_LABELS[k]) + ':</b> app "' + esc(info[k] || '—') + '" · QuickBooks "' + esc(info.qb[k] || '—') + '"</span>').join('');
-}
 
 function qbClientCard(c) {
   const id = 'qbc-' + c.clientId.replace(/[^a-z0-9]/gi, '_');
@@ -3255,6 +3264,38 @@ function toggleQbClientCard(btn) {
   btn.querySelector('.qbc-chev').textContent = open ? '▾' : '▸';
 }
 
+/* Dentro de Clients: 3 vistas (25/09/2026, el dueño: "esta parte esta
+   toda gacha, se deberia ver en una tarjeta desplegable en otro tab"). */
+let qbClientsView = 'missing';
+function showQbClientsView(v) { qbClientsView = v; renderQbClients(true); }
+
+function qbCompareCard(c, mode) {
+  const id = 'qbd-' + c.clientId.replace(/[^a-z0-9]/gi, '_');
+  /* Solo los datos del cliente; lo distinto resaltado (el dueño: "nomas
+     se debe ver highlighted lo que es diferente"). Al pasar el mouse sale
+     lo que tiene QuickBooks. */
+  const fields = ['businessName', 'contactPerson', 'email', 'phone', 'address', 'suite', 'city', 'zip'].map(k => {
+    const diff = mode === 'different' && c.diff.includes(k);
+    const qbVal = (c.qb && c.qb[k]) || '—';
+    return '<div class="qbd-field' + (diff ? ' qbd-diff' : '') + (k === 'businessName' || k === 'address' ? ' qbc-wide' : '') + '"' +
+      (diff ? ' title="' + escAttr('QuickBooks: ' + qbVal) + '"' : '') + '><span>' + esc(QB_FIELD_NAMES[k]) + '</span><b>' + esc(c[k] || '—') + '</b></div>';
+  }).join('');
+  const tag = mode === 'different' ? '<span class="qb-tag qb-tag-diff">Different</span>' : '<span class="qb-tag qb-tag-ok">In QuickBooks</span>';
+  return '<div class="order-card qbc">' +
+    '<div class="qbc-head">' +
+      '<button type="button" class="qbc-toggle" aria-expanded="false" aria-controls="' + id + '-body" onclick="toggleQbClientCard(this)">' +
+        '<span class="qb-client-main"><span class="order-id">' + esc(c.businessName || c.clientId) + '</span> ' + tag +
+        '<span class="qb-client-line">' + esc([c.clientId, c.contactPerson, c.email].filter(Boolean).join(' · ')) + '</span></span>' +
+        '<span class="qbc-chev" aria-hidden="true">▸</span>' +
+      '</button>' +
+    '</div>' +
+    '<div class="qbc-body qbd-body" id="' + id + '-body" hidden>' +
+      '<div class="qbc-grid">' + fields + '</div>' +
+      (mode === 'different' ? '<div class="qbd-actions"><button type="button" class="gs-ofp-btn-primary qb-upd" onclick="updateClientInQb(\'' + escAttr(c.clientId) + '\')">Update in QuickBooks</button></div>' : '') +
+    '</div>' +
+  '</div>';
+}
+
 async function renderQbClients(skipFetch) {
   const box = document.getElementById('qb-clients-body');
   const count = document.getElementById('qb-clients-count');
@@ -3266,32 +3307,35 @@ async function renderQbClients(skipFetch) {
     catch (e) { box.innerHTML = '<p class="empty-note">Could not load: ' + esc(e.message) + '</p>'; return; }
   }
   const active = qbClients.filter(c => c.active !== false);
-  const missing = active.filter(c => !c.qb);
-  const differ = active.filter(c => c.qb && c.diff.length);
-  const same = active.filter(c => c.qb && !c.diff.length);
-  count.hidden = !missing.length;
-  count.textContent = missing.length;
+  const groups = {
+    missing: active.filter(c => !c.qb),
+    different: active.filter(c => c.qb && c.diff.length),
+    same: active.filter(c => c.qb && !c.diff.length)
+  };
+  count.hidden = !(groups.missing.length + groups.different.length);
+  count.textContent = groups.missing.length + groups.different.length;
   if (!active.length) { box.innerHTML = '<p class="empty-note">No clients yet.</p>'; return; }
-  box.innerHTML =
-    (missing.length
-      ? '<h3 class="qb-h">Not in QuickBooks (' + missing.length + ')</h3><div id="qb-clients-list">' + missing.map(qbClientCard).join('') + '</div>' +
+  const labels = { missing: 'Not in QuickBooks', different: 'Different', same: 'In QuickBooks' };
+  const tabs = '<div class="qb-views" role="tablist" aria-label="Clients in QuickBooks">' + Object.keys(labels).map(k =>
+    '<button type="button" role="tab" aria-selected="' + (qbClientsView === k) + '" class="qb-view' + (qbClientsView === k ? ' on' : '') + '" onclick="showQbClientsView(\'' + k + '\')">' +
+    labels[k] + ' <span class="qb-view-n">' + groups[k].length + '</span></button>').join('') + '</div>';
+  const list = groups[qbClientsView];
+  let body;
+  if (qbClientsView === 'missing') {
+    body = list.length
+      ? '<div id="qb-clients-list">' + list.map(qbClientCard).join('') + '</div>' +
         '<div class="qb-foot">' +
         '<label style="margin-right:auto;font-size:13px;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="qb-clients-all" onchange="toggleAllQbClients(this.checked)" style="width:18px;height:18px"> Select all</label>' +
         '<span id="qb-clients-selected" style="font-size:12px;color:var(--gray)">0 selected</span>' +
         '<button type="button" class="gs-ofp-btn-primary" id="qb-clients-btn" disabled onclick="importSelectedClients()">Create in QuickBooks</button>' +
         '</div>'
-      : '<p class="empty-note">Every active client is in QuickBooks.</p>') +
-    (differ.length
-      ? '<h3 class="qb-h">Different in QuickBooks (' + differ.length + ')</h3>' + differ.map(c =>
-          '<div class="order-card"><div class="qb-client"><div class="qb-client-main"><div class="order-id">' + esc(c.businessName) + '</div>' +
-          '<div class="qb-diff">' + qbDiffLine(c) + '</div></div>' +
-          '<button type="button" class="gs-ofp-btn-secondary qb-upd" onclick="updateClientInQb(\'' + escAttr(c.clientId) + '\')">Update in QuickBooks</button></div></div>').join('')
-      : '') +
-    (same.length
-      ? '<details class="qb-done"><summary>In QuickBooks (' + same.length + ')</summary>' + same.map(c =>
-          '<div class="order-card"><div class="qb-client"><span class="badge" style="background:#EEF9F0;color:#2A7A4A;flex-shrink:0">In QuickBooks</span><div class="qb-client-main"><div class="order-id">' + esc(c.businessName) + '</div>' +
-          '<div class="qb-client-line">' + esc([c.clientId, c.contactPerson, c.email].filter(Boolean).join(' · ')) + '</div></div></div></div>').join('') + '</details>'
-      : '');
+      : '<p class="empty-note">Every active client is in QuickBooks.</p>';
+  } else {
+    body = list.length
+      ? list.map(c => qbCompareCard(c, qbClientsView)).join('')
+      : '<p class="empty-note">' + (qbClientsView === 'different' ? 'No differences. Every client in QuickBooks matches the app.' : 'No clients in QuickBooks yet.') + '</p>';
+  }
+  box.innerHTML = tabs + body;
 }
 
 function syncQbClientFooter() {
@@ -3360,7 +3404,7 @@ function clientQbBarHtml(clientId) {
   const info = qbInfoFor(clientId);
   if (!info) return '';
   if (!info.qb) return '<div class="client-qb">' + qbStatusBadge(info) + '<span>Create it from <a href="#" onclick="showTab(\'quickbooks\');showQbSubTab(\'clients\');return false">QuickBooks › Clients</a>.</span></div>';
-  if (info.diff.length) return '<div class="client-qb">' + qbStatusBadge(info) + '<span class="qb-diff">' + qbDiffLine(info) + '</span><button type="button" class="gs-ofp-btn-secondary qb-upd" onclick="updateClientInQb(\'' + escAttr(clientId) + '\')">Update in QuickBooks</button></div>';
+  if (info.diff.length) return '<div class="client-qb">' + qbStatusBadge(info) + '<button type="button" class="gs-ofp-btn-secondary qb-upd" onclick="updateClientInQb(\'' + escAttr(clientId) + '\')">Update in QuickBooks</button></div>';
   return '<div class="client-qb">' + qbStatusBadge(info) + '</div>';
 }
 function paintClientQbBars() {
