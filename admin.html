@@ -2768,6 +2768,18 @@ async function authFetch(url, init) {
   return res;
 }
 
+function showNoAccess(msg) {
+  if (document.getElementById('no-access')) return;
+  const d = document.createElement('div');
+  d.id = 'no-access';
+  d.setAttribute('role', 'alertdialog');
+  d.style.cssText = 'position:fixed;inset:0;z-index:100000;background:var(--off,#F7F6F3);display:flex;align-items:center;justify-content:center;padding:24px';
+  d.innerHTML = '<div style="max-width:420px;text-align:center;font-family:Inter,sans-serif"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:28px;margin:0 0 10px">No access</h2>' +
+    '<p style="color:var(--gray,#6B6B6B);font-size:14px;line-height:1.6;margin:0 0 20px">' + esc(msg || 'Your account is not on the staff list.') + '</p>' +
+    '<button class="gs-ofp-btn-secondary" onclick="signOut()">Sign out</button></div>';
+  document.body.appendChild(d);
+}
+
 async function api(path, opts = {}) {
   const res = await authFetch('/api' + path, {
     method: opts.method || 'POST',
@@ -2775,6 +2787,8 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
   const data = await res.json();
+  /* B8 (25/09/2026): cuenta de Microsoft que no esta en Staff. */
+  if (res.status === 403 && data && data.code === 'NO_ACCESS') showNoAccess(data.error);
   if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
   /* Snapshot de paquetes: se guarda el historial de cada orden que se
      abre (pkgIncludesHtml lo lee). */

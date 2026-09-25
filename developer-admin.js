@@ -1584,15 +1584,18 @@ exports.handler = async (event) => {
       const fields = { Title: s.Email, Email: s.Email, Role: s.Role };
       if (s.id) {
         await updateListItemByItemId(STAFF_LIST, s.id, fields);
+      require('./lib/staff-gate').forget();
         return jsonResponse(200, { success: true, id: s.id });
       }
       const created = await createListItem(STAFF_LIST, fields);
+      require('./lib/staff-gate').forget();
       return jsonResponse(200, { success: true, id: created.id });
     }
 
     if (action === 'delete-staff') {
       if (!body.id) return jsonResponse(400, { error: 'id is required' });
       await deleteListItem(STAFF_LIST, body.id);
+      require('./lib/staff-gate').forget();
       return jsonResponse(200, { success: true });
     }
 

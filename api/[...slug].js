@@ -41,6 +41,7 @@ const handlers = {
   'order-docs': require('../order-docs').handler
 };
 
+const { isStaff } = require('../lib/staff-gate');
 const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders']);
 
 module.exports = async (req, res) => {
@@ -68,6 +69,11 @@ module.exports = async (req, res) => {
       user = await verifyIdToken(token);
     } catch (e) {
       res.status(401).json({ error: 'Please sign in again (' + e.message + ')', code: 'AUTH' });
+      return;
+    }
+    /* Solo la gente de la lista Staff (B8, 25/09/2026). */
+    if (!(await isStaff(user.email))) {
+      res.status(403).json({ error: 'Your account (' + user.email + ') is not on the GS Solutions staff list. Ask the office to add you.', code: 'NO_ACCESS' });
       return;
     }
     /* Quien hace la peticion = el del token, no el que diga el body:
