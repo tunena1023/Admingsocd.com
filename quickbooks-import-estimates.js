@@ -83,8 +83,21 @@ exports.handler = async (event) => {
           pkgSnap = JSON.parse((rows[0] && rows[0].fields && rows[0].fields.PackageContents) || '{}') || {};
         } catch (e) { pkgSnap = {}; }
 
+        /* 24/09/2026 (el dueño: "QuickBooks debe recibir cada servicio en
+           una linea; los paquetes son solo nombres para agrupar"). Las
+           ordenes nuevas ya guardan cada servicio suelto. Las VIEJAS que
+           todavia traen el renglon del paquete se desglosan aqui con lo
+           que incluyo el paquete EN ESA orden (PackageContents): una linea
+           por servicio, con su nivel y su precio. */
+        const expanded = [];
+        services.forEach(s => {
+          const items = pkgSnap[String(s.SubOption || '')];
+          if (Array.isArray(items) && items.length) {
+            items.forEach(x => expanded.push({ ServiceName: x.serviceName || x.sku, SubOption: x.sku, Level: x.level || '', Quantity: s.Quantity || '', fromPackage: s.ServiceName }));
+          } else expanded.push(s);
+        });
         const lines = [];
-        for (const s of services) {
+        for (const s of expanded) {
           const sku = s.SubOption;
           if (!sku) throw new Error('Service "' + s.ServiceName + '" has no SKU on file.');
           const itemId = await findItemIdBySku(sku);
@@ -95,7 +108,7 @@ exports.handler = async (event) => {
             Amount: price * qty,
             DetailType: 'SalesItemLineDetail',
             SalesItemLineDetail: { ItemRef: { value: itemId }, Qty: qty, UnitPrice: price },
-            Description: s.ServiceName + (s.Level ? ' — ' + s.Level : '') + pkgIncludesText(pkgSnap, sku)
+            Description: s.ServiceName + (s.Level ? ' — ' + s.Level : '') + (s.fromPackage ? ' (' + s.fromPackage + ')' : '')
           });
         }
 

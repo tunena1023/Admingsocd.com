@@ -26,7 +26,7 @@ const {
   createListItem, updateListItemByItemId, deleteListItem,
   graphFetch, siteListPath, jsonResponse
 } = require('./lib/graph');
-const { recordPackageSnapshots } = require('./lib/package-contents');
+const { recordPackageSnapshots, expandPackages } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
 const { notifyOrderTechs } = require('./lib/push');
 /* Correos al cliente (lib/notify.js, copia de gsocd-shared, 25/09/2026).
@@ -182,7 +182,7 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || '{}');
     const {
-      orderId, status, supervisor, notes, services, changedBy, requestOnly, requestReason, sendToClient,
+      orderId, status, supervisor, notes, services: servicesRaw, changedBy, requestOnly, requestReason, sendToClient,
       entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
       delayReasonType, delayReasonNotes, technician, completedDate,
       /* BUG REAL de perdida de datos encontrado y arreglado (18/09/2026,
@@ -214,6 +214,11 @@ exports.handler = async (event) => {
     if (!item) return jsonResponse(404, { error: 'Order not found.' });
 
     const f = item.fields;
+    /* Paquetes -> sus servicios (24/09/2026, el dueño: el paquete es solo un
+       nombre para agrupar; la orden guarda cada servicio y QuickBooks recibe
+       cada uno en su linea). servicesRaw (con el paquete) solo se usa para
+       registrar que paquete se escogio (Orders.PackageContents). */
+    const services = (servicesRaw && servicesRaw.length) ? await expandPackages(servicesRaw, f.ClientID, body.PackageLevels) : servicesRaw;
 
     /* ================================================================
        MODO SOLICITUD — la oficina edita una orden activa. Se aplica ya
@@ -624,7 +629,7 @@ exports.handler = async (event) => {
            HOY; los que la orden ya tenia congelados no se tocan
            (lib/package-contents.js). */
         try {
-          await recordPackageSnapshots(orderId, services, actor);
+          await recordPackageSnapshots(orderId, servicesRaw, actor);
         } catch (e) { console.error('Package snapshot on edit:', e.message); }
         await createListItem(ORDER_HISTORY_LIST, Object.assign(historyBase(), {
           Title:        nextAdminLabel(),
