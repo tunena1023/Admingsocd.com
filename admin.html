@@ -4948,7 +4948,7 @@ function approvalDetailHtml(card, o, services, history) {
       if (!note && !lines.length && verb === 'Requested') rows.push('<p>No description was recorded with the request.</p>');
       const reqPay = parseSvcPayload(req.NewValue);
       const reqOldPay = parseSvcPayload(req.OldValue);
-      if (reqPay && reqOldPay) rows.push(estimatedTimeCompareHtml(reqOldPay.services, reqPay.services));
+      if (reqPay && reqOldPay) rows.push(estimatedTimeCompareHtml(reqOldPay.services, reqPay.services, card.OrderID));
     } else {
       rows.push('<p>The original request row is missing from the history.</p>');
     }
@@ -5030,7 +5030,7 @@ function approvalDetailHtml(card, o, services, history) {
        Added/Removed (mas natural verlo ahi primero) -- aqui solo se
        deja el total sencillo, para cuando no hay snapshot de servicios
        que comparar (p. ej. Cancellation Requested). */
-    rows.push(estimatedTimeHtml(services));
+    rows.push(estimatedTimeHtml(services, card.OrderID));
   }
   rows.push('</div>');
 
@@ -5086,7 +5086,7 @@ function svReadOnlyCardsHtml(rows, orderId) {
   return '<div class="sv-list">' + rows.map((r, i) => {
     lastCat = r.cat || lastCat;
     const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
-    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty, orderId) || '';
     const metaBits = [];
     if (r.sub) metaBits.push(esc(r.sub));
     if (mins) metaBits.push(esc(mins));
@@ -5123,9 +5123,9 @@ function reviewSvcTableHtml(services, orderId) {
    servicios PENDIENTE de decidir (Review): "esto es lo que dura hoy,
    esto es lo que duraria si se aprueba". Si no hay ambos lados (o son
    iguales), cae de vuelta al recuadro sencillo de siempre. */
-function estimatedTimeCompareHtml(oldServices, newServices) {
-  const oldR = oldServices ? calcOrderEstimatedMinutes(oldServices) : null;
-  const newR = newServices ? calcOrderEstimatedMinutes(newServices) : null;
+function estimatedTimeCompareHtml(oldServices, newServices, orderId) {
+  const oldR = oldServices ? calcOrderEstimatedMinutes(oldServices, orderId) : null;
+  const newR = newServices ? calcOrderEstimatedMinutes(newServices, orderId) : null;
   if (oldR && newR && oldR.totalMinutes !== newR.totalMinutes) {
     return '<div class="est-time-box">' +
       '<span class="est-time-box-label">Estimated time</span>' +
@@ -5133,7 +5133,7 @@ function estimatedTimeCompareHtml(oldServices, newServices) {
         ' <span style="font-size:15px;font-weight:400">→</span> ' + esc(fmtDuration(newR.totalMinutes)) + '</span>' +
     '</div>';
   }
-  return estimatedTimeHtml(newServices || oldServices || []);
+  return estimatedTimeHtml(newServices || oldServices || [], orderId);
 }
 
 /* ============================================================
@@ -5175,7 +5175,7 @@ function apprReadOnlySvcHtml(orderId) {
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
   return svReadOnlyCardsHtml(svcRows.map(r => ({ cat: r.cat, name: r.name, sku: r.sku, lvl: r.lvl, qty: r.qty,
-    sub: svcSubText(r.sku) ? r.sub : '' })), orderId) + estimatedTimeHtml(apprServicesArray(orderId));
+    sub: svcSubText(r.sku) ? r.sub : '' })), orderId) + estimatedTimeHtml(apprServicesArray(orderId), orderId);
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
@@ -5386,7 +5386,7 @@ function renderApprSvcEditable(orderId) {
     const isQty = !!(catalogEntry || {}).requiresQuantity;
     const curLevel = levelState[ncKey(r.cat, r.svcName)];
     const curQty = qtyState[ncKey(r.cat, r.svcName)] || '';
-    const mins = svcMinutesLabel(r.sku, curLevel, curQty);
+    const mins = svcMinutesLabel(r.sku, curLevel, curQty, orderId);
     const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px">' +
       ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setApprSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
       '</div>' : '';
@@ -5485,7 +5485,7 @@ function refreshApprSvcUI(orderId) {
   const diffBox = document.getElementById('appr-svc-diff-' + orderId);
   if (diffBox) diffBox.innerHTML = apprSvcDiffHtml(orderId);
   const estBox = document.getElementById('appr-est-time-' + orderId);
-  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}));
+  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}), orderId);
   apprSvcButtons(orderId, true);
 }
 
@@ -5493,7 +5493,7 @@ function apprServiceEditorHtml(orderId, division) {
   const dom = apprDomId(orderId);
   return `<div id="${dom}-svc-list">${renderApprSvcEditable(orderId)}</div>
     <div id="appr-svc-diff-${orderId}">${apprSvcDiffHtml(orderId)}</div>
-    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}))}</div>`;
+    <div id="appr-est-time-${orderId}">${estimatedTimeHtml(flattenSelected(window['apprSvc_' + orderId] || {}, window['apprLevel_' + orderId] || {}, window['apprQty_' + orderId] || {}), orderId)}</div>`;
 }
 
 /* ============================================================
@@ -11701,7 +11701,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         const stc = svStatusCls(sr);
         const who = sr && sr.a && sr.a.AssignedTo ? String(sr.a.AssignedTo) : '';
         const when = sr && sr.a ? svShortDate(sr.a.ScheduledDate) : '';
-        const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+        const mins = svcMinutesLabel(r.sku, r.lvl, r.qty, o.OrderID) || '';
         const metaBits = [];
         if (r.sub) metaBits.push(esc(r.sub));
         if (isAssignByService) metaBits.push(who ? esc(who) : 'No one assigned yet');
@@ -11772,7 +11772,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
           <div id="${svcDetailId}" class="hist-detail" style="margin:0;border-radius:0;border-left:none;padding:0 14px">${svcBoxInner}</div>
         </div>
         ${isPlaceView ? placeWhoHtml(o, services, history, 'extras') : ''}
-        <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services)}</div>
+        <div id="active-est-time-${esc(o.OrderID)}">${estimatedTimeHtml(services, o.OrderID)}</div>
         <a class="eo-link" id="reassign-link-${esc(o.OrderID)}" style="display:none" onclick="goToScheduleForOrder('${jsStr(o.OrderID)}')">Reassign in Scheduling →</a>
       </div>
       <div>
@@ -11864,15 +11864,44 @@ function pkgIncludesHtml(sku, orderId) {
 /* El snapshot vive en el historial de la orden, pero el historial de
    la orden (GSOrderHistory) no debe mostrarlo como evento. */
 function withoutPkgSnapshots(history) { return (history || []).filter(h => String(h.ChangeType || '') !== 'Package Snapshot'); }
-function svcMinutesLabel(sku, level, qty) {
+/* 24/09/2026 (el dueño: "los tiempos siempre deberian ser la suma de los
+   servicios; los paquetes solo son nombres, no es un servicio en si y no
+   se puede dar un tiempo random"): el tiempo de un PAQUETE ya no sale de
+   su propio renglon en Service Times; es la SUMA de lo que incluye, cada
+   servicio con su nivel. Lo que incluye: la copia congelada de ESA orden
+   (pkgSnapshotFor) si hay orderId; si no (Create Order), el catalogo. */
+function pkgItemsForTime(sku, orderId) {
+  const k = String(sku || '').trim();
+  if (!k) return null;
+  const snap = orderId ? pkgSnapshotFor(orderId, k) : null;
+  if (snap && snap.length) return snap;
+  const cat = (activeCatalogCache || []).concat(createCatalogCache || []).find(c => String(c.sku) === k);
+  return cat && Array.isArray(cat.packageItems) && cat.packageItems.length ? cat.packageItems : null;
+}
+function baseMinutes(sku, level) {
   const svc = serviceTimesBySku.get(String(sku || '').trim());
-  if (!svc) return '';
+  if (!svc) return null;
   let minutes;
   if (svc.division === 'Janitorial' && level === 'Level 2') minutes = svc.level2;
   else if (svc.division === 'Janitorial' && level === 'Level 3') minutes = svc.level3;
   else minutes = svc.level1;
-  if (minutes == null) return '';
-  return fmtDuration(minutes * (Number(qty) || 1));
+  return minutes == null ? null : Number(minutes);
+}
+/* Minutos de UN renglon (o null si no hay ningun tiempo conocido). */
+function lineMinutes(sku, level, qty, orderId) {
+  const items = pkgItemsForTime(sku, orderId);
+  const q = Number(qty) || 1;
+  if (items) {
+    let tot = 0, any = false;
+    items.forEach(x => { const m = baseMinutes(x.sku, x.level); if (m != null) { tot += m; any = true; } });
+    return any ? tot * q : null;
+  }
+  const m = baseMinutes(sku, level);
+  return m == null ? null : m * q;
+}
+function svcMinutesLabel(sku, level, qty, orderId) {
+  const m = lineMinutes(sku, level, qty, orderId);
+  return m == null ? '' : fmtDuration(m);
 }
 
 /* ============================================================
@@ -11891,25 +11920,20 @@ function svcMinutesLabel(sku, level, qty) {
    = SKU, y Level cuando aplica). Devuelve null si la orden no tiene
    ningun servicio con tiempo conocido todavia (para no mostrar "0min"
    como si fuera un dato real). */
-function calcOrderEstimatedMinutes(services) {
+function calcOrderEstimatedMinutes(services, orderId) {
   let total = 0;
   let anyKnown = false;
   const lines = [];
   (services || []).forEach(s => {
-    const svc = serviceTimesBySku.get(String(s.SubOption || '').trim());
-    if (!svc) return; // servicio sin tiempo puesto todavia en Developer -- no suma, no truena
-    let minutes;
-    if (svc.division === 'Janitorial' && s.Level === 'Level 2') minutes = svc.level2;
-    else if (svc.division === 'Janitorial' && s.Level === 'Level 3') minutes = svc.level3;
-    else minutes = svc.level1; // Level 1, o no-Janitorial (siempre level1)
-    if (minutes == null) return;
-    anyKnown = true;
-    /* Pedido del dueno (18/09/2026): puertas, ventanas, persianas,
-       etc. -- el tiempo guardado en Service Times es por UNA sola
-       unidad, se multiplica por la cantidad elegida. */
+    /* Paquete = suma de lo que incluye (lineMinutes). Pedido del dueno
+       (18/09/2026): puertas, ventanas, etc. -- el tiempo es por UNA
+       unidad y se multiplica por la cantidad. */
     const qty = Number(s.Quantity) || 1;
-    total += minutes * qty;
-    lines.push(s.ServiceName + (qty > 1 ? ' x' + qty : '') + ': ' + (minutes * qty) + 'min');
+    const m = lineMinutes(s.SubOption, s.Level, qty, orderId);
+    if (m == null) return; // sin tiempo puesto todavia en Developer -- no suma, no truena
+    anyKnown = true;
+    total += m;
+    lines.push(s.ServiceName + (qty > 1 ? ' x' + qty : '') + ': ' + m + 'min');
   });
   if (!anyKnown) return null;
   return { totalMinutes: total, lines: lines };
@@ -11924,8 +11948,8 @@ function fmtDuration(mins) {
 
 /* HTML del renglon de "Estimated time", o '' si ningun servicio de la
    orden tiene tiempo conocido todavia (nada que mostrar). */
-function estimatedTimeHtml(services) {
-  const result = calcOrderEstimatedMinutes(services);
+function estimatedTimeHtml(services, orderId) {
+  const result = calcOrderEstimatedMinutes(services, orderId);
   if (!result) return '';
   return '<div class="est-time-box">' +
     '<span class="est-time-box-label">Estimated time</span>' +
@@ -12008,7 +12032,7 @@ function activeSvcReadOnlyHtml(orderId) {
   return '<div class="sv-list">' + rows.map(r => {
     lastCat = r.cat || lastCat;
     const lvTxt = r.lvl ? String(r.lvl).replace('Level ', 'L') : (r.qty ? '\u00d7' + r.qty : '');
-    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty) || '';
+    const mins = svcMinutesLabel(r.sku, r.lvl, r.qty, orderId) || '';
     return '<div class="sv-card"><div class="sv-main"><div class="sv-eyebrow">' + esc(lastCat) + '</div>' +
       '<div class="sv-name">' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.name)) : esc(r.name)) + (lvTxt ? '<span class="sv-lv">' + esc(lvTxt) + '</span>' : '') + '</div>' +
       (mins ? '<div class="sv-meta">' + esc(mins) + '</div>' : '') + '</div></div>';
@@ -12034,7 +12058,7 @@ function renderActiveSvcEditable(orderId) {
     const isQty = !!(catalogEntry || {}).requiresQuantity;
     const curLevel = levelState[ncKey(r.cat, r.svcName)];
     const curQty = qtyState[ncKey(r.cat, r.svcName)] || '';
-    const mins = svcMinutesLabel(r.sku, curLevel, curQty);
+    const mins = svcMinutesLabel(r.sku, curLevel, curQty, orderId);
     const removed = !!(ncState[ncKey(r.cat, r.svcName)] || {}).nc;
     const lvlHtml = isJan ? '<div class="gs-sp-lvl-group" style="margin-right:14px' + (removed ? ';opacity:.5;pointer-events:none' : '') + '">' +
       ['Level 1', 'Level 2', 'Level 3'].map((l, i) => '<div class="gs-sp-lvl-btn' + (curLevel === l ? ' active' : '') + '" onclick="setActiveSvcLevel(\'' + jsStr(orderId) + '\',\'' + jsStr(r.cat) + '\',\'' + jsStr(r.svcName) + '\',\'' + l + '\')">L' + (i + 1) + '</div>').join('') +
@@ -12158,7 +12182,7 @@ function refreshActiveSvcUI(orderId) {
   const diffBox = document.getElementById('admin-svc-diff-' + orderId);
   if (diffBox) diffBox.innerHTML = adminSvcDiffHtml(orderId);
   const estBox = document.getElementById('active-est-time-' + orderId);
-  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId));
+  if (estBox) estBox.innerHTML = estimatedTimeHtml(flattenSelectedForEstimate(orderId), orderId);
   activeSvcButtons(orderId, true);
 }
 
@@ -12376,7 +12400,7 @@ function buildAdminSelectedListHtml(orderId) {
     const svcSafe = r.svcName.replace(/[^a-z0-9]/gi, '_');
     const catSafe = r.cat.replace(/[^a-z0-9]/gi, '_');
     const rid = 'nc-note-' + safe + '-' + catSafe + '-' + svcSafe;
-    const mins = svcMinutesLabel(r.sub, lvl, qty);
+    const mins = svcMinutesLabel(r.sub, lvl, qty, orderId);
     return `<div class="svc-row"${needsNote ? ' style="background:#FBEAEA"' : ''}>
       <b class="svc-row-name">${esc(r.svcName)}${lvl ? ' <span style="color:var(--gray);font-weight:400">— ' + esc(lvl) + '</span>' : ''}${qty ? ' <span style="color:var(--gray);font-weight:400">— Qty: ' + esc(qty) + '</span>' : ''}${mins ? ' <span style="color:var(--gold-dk);font-weight:600">· ' + esc(mins) + '</span>' : ''}${needsNote ? ' <span class="warn-tag">removed — note required</span>' : ''}</b>
       <div class="svc-row-notewrap">
@@ -14829,7 +14853,7 @@ let pendingDirectLinkOrderId = null;
       : '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
         services.map((s, i) => '<tr' + (i < services.length - 1 ? ' style="border-bottom:1px solid var(--border)"' : '') + '>' +
           '<td style="padding:9px 10px 9px 0">' + esc(s.ServiceName) + (s.Level ? ' <span style="color:var(--gray)">— ' + esc(s.Level) + '</span>' : '') + (s.Quantity ? ' <span style="color:var(--gray)">— Qty: ' + esc(s.Quantity) + '</span>' : '') + '</td>' +
-          '<td style="padding:9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + esc(svcMinutesLabel(s.SubOption, s.Level, s.Quantity) || '') + '</td>' +
+          '<td style="padding:9px 0;color:var(--gold-dk);font-weight:600;white-space:nowrap;text-align:right">' + esc(svcMinutesLabel(s.SubOption, s.Level, s.Quantity, o.OrderID || orderId) || '') + '</td>' +
           '</tr>').join('') +
         '</table>';
 
@@ -14854,7 +14878,7 @@ let pendingDirectLinkOrderId = null;
         <div>
           <p class="detail-label">Services</p>
           ${svcHtml}
-          ${estimatedTimeHtml(services)}
+          ${estimatedTimeHtml(services, o.OrderID || orderId)}
         </div>
         <div>
           <p class="detail-label">Candidates — ${esc(o.Division)}</p>
