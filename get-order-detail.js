@@ -166,6 +166,10 @@ exports.handler = async (event) => {
          Approvals (Fase 3, pendiente). */
       RecurringServiceID: f.RecurringServiceID || '',
       InspectionDate:   f.InspectionDate || '',
+      InspectionBy:     f.InspectionBy || '',
+      InspectionWindow: f.InspectionWindow || '',
+      InspectionDoneAt: f.InspectionDoneAt || '',
+      InspectionNotes:  f.InspectionNotes || '',
       DelayReasonType:  f.DelayReasonType || '',
       DelayReasonNotes: f.DelayReasonNotes || '',
       Technician:       f.Technician || '',

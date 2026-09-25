@@ -323,6 +323,10 @@ exports.handler = async (event) => {
              vive cada orden. */
           RecurringServiceID: f.RecurringServiceID || '',
           InspectionDate: f.InspectionDate || '',
+          InspectionBy:   f.InspectionBy || '',
+          InspectionWindow: f.InspectionWindow || '',
+          InspectionDoneAt: f.InspectionDoneAt || '',
+          InspectionNotes: f.InspectionNotes || '',
           Archived: f.Archived === true || f.Archived === 'true',
           DelayReasonType: f.DelayReasonType || '',
           DelayReasonNotes: f.DelayReasonNotes || '',

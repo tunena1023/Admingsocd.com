@@ -207,6 +207,8 @@
     .status-cancel     { background: #f8d7da; color: #721c24; }
     .status-updated    { background: #efe3c4; color: #6b5518; }
     .status-delayed    { background: #ffe0cc; color: #8a4b0f; }
+    .status-inspection { background: #E6EEFB; color: #2A4E8C; }
+    .status-inspected  { background: #E3F1E6; color: #24663A; }
 
     /* APPROVALS */
     .tab-count {
@@ -220,6 +222,26 @@
       font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
       padding: 4px 10px; border-radius: 20px; white-space: nowrap;
     }
+    /* Inspeccion (25/09/2026) */
+    .insp-choose, .insp-box { margin-top: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; }
+    .insp-q { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); margin: 0 0 10px; }
+    .insp-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .insp-opt { all: unset; box-sizing: border-box; cursor: pointer; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; background: var(--bg); transition: border-color .15s, background .15s; }
+    .insp-opt:hover, .insp-opt:focus-visible { border-color: var(--gold); background: #FBF7EC; }
+    .insp-opt b { font-size: 13px; font-weight: 600; color: var(--black); }
+    .insp-opt span { font-size: 12px; color: var(--gray); line-height: 1.4; }
+    .insp-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .insp-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; font: inherit; font-size: 13px; resize: vertical; }
+    .insp-box { border-left: 3px solid #2A4E8C; }
+    .insp-box.done { border-left-color: #24663A; }
+    .insp-box-h { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #2A4E8C; margin-bottom: 12px; }
+    .insp-box.done .insp-box-h { color: #24663A; }
+    .insp-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+    .insp-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 10px; }
+    .insp-note { font-size: 12px; color: var(--gray); margin: 0 0 12px; line-height: 1.5; }
+    .insp-notes { font-size: 13px; background: var(--bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; white-space: pre-wrap; }
+    .insp-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--gray); }
+    @media (max-width: 480px) { .insp-opts, .insp-kv { grid-template-columns: 1fr; } }
     /* Badge de password del director, visible en la tarjeta antes de expandir */
     .pw-badge {
       display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
@@ -3735,7 +3757,10 @@ function optionsHtml(values, selected) {
    de la orden y el cliente lo recibe por correo. Rechazar restaura los
    servicios y el estatus anteriores. Las dos cosas quedan en el historial.
 ============================================================ */
-const NEW_ORDER_STATUSES = ['Received'];
+/* Inspection / Inspected (25/09/2026): una orden nueva a la que la
+   oficina le mando primero una inspeccion sigue viviendo en Approvals
+   hasta que se termina la inspeccion y se continua a Scheduling. */
+const NEW_ORDER_STATUSES = ['Received', 'Inspection', 'Inspected'];
 
 /* Una orden "Received" ya tiene todo lo que Scheduling asigna en un
    solo clic (Assign): Supervisor + Service Window + Dispatch Date.
@@ -4128,6 +4153,8 @@ function approvalKind(o) {
   if (s === 'Cancellation Requested') return { label: 'Cancellation Request', cls: 'status-cancel' };
   if (s === 'Change Requested') return { label: 'Change Request', cls: 'status-updated' };
   if (s === 'Cancelled') return { label: 'Cancelled — pending archive', cls: 'status-cancel' };
+  if (s === 'Inspection') return { label: 'Inspection', cls: 'status-inspection' };
+  if (s === 'Inspected') return { label: 'Inspected', cls: 'status-inspected' };
   return { label: 'New Order', cls: 'status-pending' };
 }
 
@@ -4314,11 +4341,7 @@ function newOrderApprovalCard(o) {
      filtra las agendadas (esas viven en Active con Mark as Seen).
      Se deja la funcion compartida por si algun dia vuelve a hacer
      falta el otro branch, pero hoy este card solo tiene un camino. */
-  const readOnlyBlock = `
-    <div style="background:#FFF8E6;border:1px solid #E8D9A0;color:#8C6F2A;font-size:12px;padding:12px 14px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-      <span>This order has not been scheduled yet.</span>
-      <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Go to Scheduling</button>
-    </div>
+  const readOnlyBlock = inspectionStartHtml(o) + `
     <div id="${dom}-bypass-form" style="display:none;margin-top:16px">
       <div class="edit-grid">
         <div class="field-group"><label>Supervisor</label><select id="${dom}-supervisor" onchange="checkBypassReady('${dom}')">${bypassSupervisorOptionsHtml(o.Division)}</select></div>
@@ -4339,7 +4362,9 @@ function newOrderApprovalCard(o) {
             unitNumber: o.UnitNumber,
             bedrooms: o.Bedrooms,
             bathrooms: o.Bathrooms,
-            extraLine: 'submitted ' + fmtDateTime(o.createdDateTime)
+            extraLine: o.Status === 'Inspection' && o.InspectionDate
+              ? 'inspection ' + fmtDate(o.InspectionDate) + (o.InspectionBy ? ' · ' + o.InspectionBy : '')
+              : 'submitted ' + fmtDateTime(o.createdDateTime)
           })}
           ${orderPhotoStripHtml(o.OrderID)}
         </div>
@@ -4353,14 +4378,166 @@ function newOrderApprovalCard(o) {
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
         ${readOnlyBlock}
+        ${o.Status === 'Inspection' || o.Status === 'Inspected' ? '' : `
         <div class="appr-bar">
           <button class="gs-ofp-btn-primary" id="${dom}-ok" disabled
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
           <button class="gs-ofp-btn-secondary" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
         </div>
-        <p class="appr-hint">Scheduling assigns who and when — once assigned, this order moves to Active on its own. Bypass is for urgent cases only and needs the Operations Director's password.</p>
+        <p class="appr-hint">Scheduling assigns who and when — once assigned, this order moves to Active on its own. Bypass is for urgent cases only and needs the Operations Director's password.</p>`}
       </div>
     </div>`;
+}
+
+/* ===== Inspeccion antes del trabajo (25/09/2026, pedido del dueño) =====
+   La oficina escoge como arranca una orden nueva:
+     - Send technician: el camino normal (Scheduling).
+     - Inspection first: un SUPERVISOR va a ver primero. La orden pasa a
+       'Inspection' (se queda en Approvals), se marca como inspeccionada
+       ('Inspected') -- eso NO completa la orden -- y la oficina ajusta
+       servicios y continua a Scheduling ('Received' con
+       InspectionDoneAt puesto).
+   El inspector vive en InspectionBy, nunca en Supervisor (ese es quien
+   hace el trabajo y dispara el correo "Scheduled" al cliente).
+   Fotos de la inspeccion: publicas, van a la galeria como "antes"
+   (parte 2/3, Tech + galeria). */
+function inspectionSupervisorOptionsHtml(division, current) {
+  const key = String(division || '').toLowerCase();
+  const sups = allTechs
+    .filter(t => t.active !== false && String(t.role || '').toLowerCase() === 'supervisor' &&
+      (key === 'mixed' || !key || String(t.division || '').toLowerCase() === key || t.division === 'Mixed'))
+    .map(t => (t.firstName + ' ' + t.lastName).trim())
+    .filter(Boolean);
+  if (!sups.length) return '<option value="">No active supervisors in ' + esc(division || 'this division') + '</option>';
+  return '<option value="">— Select supervisor —</option>' +
+    sups.map(n => '<option value="' + escAttr(n) + '"' + (n === current ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+}
+
+function inspectionFormHtml(o, dom) {
+  const id = jsStr(o.OrderID);
+  return `<div class="insp-form" id="${dom}-insp-form" hidden>
+      <div class="edit-grid">
+        <div class="field-group"><label>Supervisor</label><select id="${dom}-insp-by">${inspectionSupervisorOptionsHtml(o.Division, o.InspectionBy || '')}</select></div>
+        <div class="field-group"><label>Inspection date</label>${GSDateTimePicker.dateHtml(dom + '-insp-date', o.InspectionDate || null, null, { min: dateInputValue(new Date().toISOString()) })}</div>
+        <div class="field-group"><label>Time window</label><select id="${dom}-insp-window">${optionsHtml(SERVICE_WINDOWS, o.InspectionWindow || '')}</select></div>
+      </div>
+      <div class="appr-bar" style="margin-top:4px">
+        <button type="button" class="gs-ofp-btn-primary" onclick="scheduleInspection('${id}')">${o.Status === 'Inspection' ? 'Save changes' : 'Schedule inspection'}</button>
+        <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-form').hidden=true">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function inspectionStartHtml(o) {
+  const dom = apprDomId(o.OrderID);
+  const id = jsStr(o.OrderID);
+  const when = [o.InspectionDate ? fmtDate(o.InspectionDate) : '', o.InspectionWindow || ''].filter(Boolean).join(' · ');
+
+  if (o.Status === 'Inspection') {
+    return `<div class="insp-box">
+      <div class="insp-box-h"><span class="insp-dot"></span>Inspection scheduled</div>
+      <div class="insp-kv">
+        <div><div class="field-caption">When</div><div class="field-value">${esc(when || '—')}</div></div>
+        <div><div class="field-caption">Supervisor</div><div class="field-value">${esc(o.InspectionBy || '—')}</div></div>
+      </div>
+      <p class="insp-note">This order waits here until the inspection is done. Finishing the inspection does not complete the order.</p>
+      <div class="appr-bar" style="margin-top:0">
+        <button type="button" class="gs-ofp-btn-primary" onclick="document.getElementById('${dom}-insp-done').hidden=false">Mark as inspected</button>
+        <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-form').hidden=false">Change</button>
+        <button type="button" class="gs-ofp-btn-secondary" onclick="cancelInspection('${id}')">Cancel inspection</button>
+      </div>
+      <div class="insp-form" id="${dom}-insp-done" hidden>
+        <div class="field-group"><label>What did the supervisor find?</label>
+          <textarea id="${dom}-insp-notes" rows="3" placeholder="Notes from the visit…"></textarea></div>
+        <div class="appr-bar" style="margin-top:4px">
+          <button type="button" class="gs-ofp-btn-primary" onclick="markInspected('${id}')">Save — inspection done</button>
+          <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-done').hidden=true">Cancel</button>
+        </div>
+      </div>
+      ${inspectionFormHtml(o, dom)}
+    </div>`;
+  }
+
+  if (o.Status === 'Inspected') {
+    return `<div class="insp-box done">
+      <div class="insp-box-h"><span class="insp-dot"></span>Inspection done</div>
+      <div class="insp-kv">
+        <div><div class="field-caption">Done</div><div class="field-value">${esc(o.InspectionDoneAt ? fmtDateTime(o.InspectionDoneAt) : '—')}</div></div>
+        <div><div class="field-caption">Supervisor</div><div class="field-value">${esc(o.InspectionBy || '—')}</div></div>
+      </div>
+      ${o.InspectionNotes ? '<div class="insp-notes">' + esc(o.InspectionNotes) + '</div>' : ''}
+      <p class="insp-note">If something changed, update the services above. Then continue to schedule the work.</p>
+      <div class="appr-bar" style="margin-top:0">
+        <button type="button" class="gs-ofp-btn-primary" onclick="continueAfterInspection('${id}')">Continue to scheduling</button>
+      </div>
+    </div>`;
+  }
+
+  /* Received. Si ya se inspecciono antes, solo queda mandar al tecnico. */
+  if (o.InspectionDoneAt) {
+    return `<div class="insp-box done">
+      <div class="insp-box-h"><span class="insp-dot"></span>Inspected ${esc(fmtDate(o.InspectionDoneAt))}${o.InspectionBy ? ' · ' + esc(o.InspectionBy) : ''}</div>
+      ${o.InspectionNotes ? '<div class="insp-notes">' + esc(o.InspectionNotes) + '</div>' : ''}
+      <div class="insp-row"><span>This order has not been scheduled yet.</span>
+        <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${id}')">Go to Scheduling</button></div>
+    </div>`;
+  }
+
+  return `<div class="insp-choose">
+      <p class="insp-q">How should this order start?</p>
+      <div class="insp-opts">
+        <button type="button" class="insp-opt" onclick="goToScheduleForOrder('${id}')">
+          <b>Send technician</b><span>Schedule the work now.</span></button>
+        <button type="button" class="insp-opt" onclick="document.getElementById('${dom}-insp-form').hidden=false">
+          <b>Inspection first</b><span>A supervisor visits before the work is scheduled.</span></button>
+      </div>
+      ${inspectionFormHtml(o, dom)}
+    </div>`;
+}
+
+async function saveInspection(orderId, body, busy, done) {
+  try {
+    showLoadingOverlay(busy);
+    await api('/admin-update-order', { body: Object.assign({ orderId, changedBy: getActorName() }, body) });
+    showToast(done);
+    await loadAll();
+    await showOrderWherever(orderId);
+    GSLoadingSplash.hide();
+    return true;
+  } catch (e) {
+    GSLoadingSplash.hide();
+    showToast('Could not save: ' + e.message);
+    return false;
+  }
+}
+
+async function scheduleInspection(orderId) {
+  const dom = apprDomId(orderId);
+  const val = k => (document.getElementById(dom + '-insp-' + k) || {}).value || '';
+  const by = val('by').trim(), date = val('date'), win = val('window');
+  if (!by || !date || !win) { showToast('Pick the supervisor, the date and the time window.'); return; }
+  await saveInspection(orderId, { status: 'Inspection', inspectionBy: by, inspectionDate: date, inspectionWindow: win },
+    'Scheduling inspection…', 'Inspection scheduled.');
+}
+
+async function markInspected(orderId) {
+  const notes = ((document.getElementById(apprDomId(orderId) + '-insp-notes') || {}).value || '').trim();
+  await saveInspection(orderId, { status: 'Inspected', inspectionDoneAt: new Date().toISOString(), inspectionNotes: notes || undefined },
+    'Saving…', 'Inspection marked as done.');
+}
+
+async function cancelInspection(orderId) {
+  if (!confirm('Cancel the inspection? The order goes back to New Order.')) return;
+  await saveInspection(orderId, { status: 'Received', inspectionBy: '', inspectionDate: '', inspectionWindow: '' },
+    'Cancelling inspection…', 'Inspection cancelled.');
+}
+
+async function continueAfterInspection(orderId) {
+  /* Los servicios editados arriba ya se guardaron con su Save; aqui solo
+     se regresa a 'Received' para que Scheduling la tome. */
+  if (await saveInspection(orderId, { status: 'Received' }, 'Moving to scheduling…', 'Ready to schedule.')) {
+    goToScheduleForOrder(orderId);
+  }
 }
 
 /* Bypass: pide el password del director, y solo entonces revela el
@@ -4524,7 +4701,7 @@ function passwordNeeded(o, history) {
   const status = o.Status || '';
   if (status === 'Cancelled') return false;
   if (status === 'Cancellation Requested') return true;
-  if (status === 'Received') return isOfficeCreatedOrder(history);
+  if (status === 'Received' || status === 'Inspection' || status === 'Inspected') return isOfficeCreatedOrder(history);
   if (isReactivationPending(history)) return true;
   return requestOrigin(history) === 'office';
 }
@@ -4941,7 +5118,7 @@ function approvalDetailHtml(card, o, services, history) {
   /* Los servicios solo se pueden editar/quitar aqui para una orden nueva
      (Approvals). Una solicitud de cambio o cancelacion en Review se
      aprueba o se rechaza tal cual llego — no se edita en ese paso. */
-  const editable = kind.label === 'New Order';
+  const editable = kind.label === 'New Order' || kind.label === 'Inspection' || kind.label === 'Inspected';
   const rows = [];
   /* Se sube a nivel de funcion (antes vivia solo dentro del if de
      abajo) para poder reusarlo en la seccion de Services -- ahi hace
@@ -5004,7 +5181,8 @@ function approvalDetailHtml(card, o, services, history) {
   rows.push('<div><div class="field-caption">Building / Unit</div><div class="field-value">' + esc(o.BuildingNumber||'—') + ' / ' + esc(o.UnitNumber||'—') + '</div></div>');
   rows.push('<div><div class="field-caption">Bed / Bath</div><div class="field-value">' + esc(o.Bedrooms||'—') + ' / ' + esc(o.Bathrooms||'—') + '</div></div>');
   if (o.InspectionDate) {
-    rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) + '</div></div>');
+    rows.push('<div><div class="field-caption">Inspection</div><div class="field-value">' + fmtDate(o.InspectionDate) +
+      (o.InspectionBy ? '<br><span style="font-size:12px;color:var(--gray)">' + esc(o.InspectionBy) + '</span>' : '') + '</div></div>');
   }
   if (o.Supervisor) {
     const techPhone = findTechPhoneByName(o.Supervisor);

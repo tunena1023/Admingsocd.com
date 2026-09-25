@@ -184,6 +184,11 @@ exports.handler = async (event) => {
     const {
       orderId, status, supervisor, notes, services: servicesRaw, changedBy, requestOnly, requestReason, sendToClient,
       entryDate, dueDate, serviceWindow, dispatchDate, inspectionDate,
+      /* Inspeccion (25/09/2026): el supervisor que va a ver, su horario,
+         cuando se termino y lo que encontro. NUNCA se guarda en
+         Supervisor: ese campo es el de quien hace el trabajo, y llenarlo
+         dispararia el correo "Scheduled" al cliente. */
+      inspectionBy, inspectionWindow, inspectionDoneAt, inspectionNotes,
       delayReasonType, delayReasonNotes, technician, completedDate,
       /* BUG REAL de perdida de datos encontrado y arreglado (18/09/2026,
          confirmado con captura real del dueño): cuando solo cambiaban
@@ -356,6 +361,10 @@ exports.handler = async (event) => {
       { key: 'ServiceWindow',   incoming: serviceWindow,    label: 'Service Window',    type: 'text' },
       { key: 'DispatchDate',    incoming: dispatchDate,     label: 'Dispatch Date',     type: 'date' },
       { key: 'InspectionDate',  incoming: inspectionDate,   label: 'Inspection Date',   type: 'date' },
+      { key: 'InspectionBy',    incoming: inspectionBy,     label: 'Inspection By',     type: 'text' },
+      { key: 'InspectionWindow', incoming: inspectionWindow, label: 'Inspection Window', type: 'text' },
+      { key: 'InspectionDoneAt', incoming: inspectionDoneAt, label: 'Inspection Done',   type: 'datetime' },
+      { key: 'InspectionNotes', incoming: inspectionNotes,  label: 'Inspection Notes',  type: 'text' },
       { key: 'DelayReasonType', incoming: delayReasonType,  label: 'Delay Reason',      type: 'text' },
       { key: 'DelayReasonNotes', incoming: delayReasonNotes, label: 'Delay Reason Notes', type: 'text' },
       { key: 'Technician',      incoming: technician,       label: 'Technician',        type: 'text' },
