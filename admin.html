@@ -1175,6 +1175,23 @@
   }
   /* Services Requested -- rediseño opcion A, tarjetas (24/09/2026) */
   .sv-list { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+  /* Lista de servicios desplegable + por division (25/09/2026, pedido
+     del dueño con captura de Approvals). */
+  .sv-coll-head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+                  border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 12px 14px; font-size: 13px; }
+  .sv-coll-head:hover, .sv-coll-head:focus-visible { border-color: var(--gold); }
+  .sv-coll-head .car { display: inline-block; color: var(--gold-dk); transition: transform .15s; }
+  .sv-coll-head[aria-expanded="true"] .car { transform: rotate(90deg); }
+  .sv-coll-head b { font-weight: 600; }
+  .sv-coll-head .sv-coll-time { color: var(--gray, #6B6B6B); }
+  .sv-coll-divs { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .sv-coll-div { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--off, #F7F6F3); border: 1px solid var(--border); white-space: nowrap; }
+  .sv-coll-body { display: none; }
+  .sv-coll-body.open { display: block; }
+  .sv-div-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 14px 2px 0; padding-bottom: 6px; border-bottom: 2px solid var(--gold);
+              font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--black, #111); }
+  .sv-div-h span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray, #6B6B6B); font-size: 12px; }
+  @media (prefers-reduced-motion: reduce) { .sv-coll-head .car { transition: none; } }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
   .sv-card.done { background: #FAFCFA; border-color: #D5E6D9; }
   .sv-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--gold); }
@@ -5025,12 +5042,10 @@ function approvalDetailHtml(card, o, services, history) {
       + 'onclick="cancelApprSvcUpdate(\'' + esc(card.OrderID) + '\')">Cancel</button>');
     rows.push('<div id="' + dom + '-svceditor" style="display:none;margin-top:12px"></div>');
   } else {
+    /* El total estimado ya va en el encabezado de la lista desplegable
+       (25/09/2026); el antes/despues de un cambio se sigue viendo arriba,
+       junto al diff de Added/Removed. */
     rows.push(reviewSvcTableHtml(services, card.OrderID));
-    /* El preview antes/despues ya se muestra arriba, junto al diff de
-       Added/Removed (mas natural verlo ahi primero) -- aqui solo se
-       deja el total sencillo, para cuando no hay snapshot de servicios
-       que comparar (p. ej. Cancellation Requested). */
-    rows.push(estimatedTimeHtml(services, card.OrderID));
   }
   rows.push('</div>');
 
@@ -5102,19 +5117,77 @@ function svReadOnlyCardsHtml(rows, orderId) {
   }).join('') + '</div>';
 }
 
+/* ===== Lista de servicios desplegable y por division (25/09/2026) =====
+   Pedido del dueño con captura de Approvals: la lista larga de servicios
+   tiene que ser desplegable, y si la orden trae servicios de 2+
+   divisiones (Mixed), separada por division. Cerrada se ve el resumen:
+   cuantos servicios, tiempo estimado y cuantos de cada division. La
+   division de cada servicio sale del catalogo real por SKU (nunca del
+   campo Division que traiga el renglon, mismo criterio que
+   resolveOrderDivision); si el SKU no esta en el catalogo, la del
+   renglon y al final la de la orden. */
+function svcDivisionOf(sku, rowDivision, orderDivision) {
+  const k = String(sku || '');
+  const c = (activeCatalogCache || []).find(x => String(x.sku) === k) || (serviceTimesBySku && serviceTimesBySku.get(k));
+  const d = (c && c.division) || rowDivision || '';
+  return d && d !== 'Mixed' ? d : (orderDivision && orderDivision !== 'Mixed' ? orderDivision : (d || 'Other'));
+}
+
+/* rows: filas de svReadOnlyCardsHtml con .div y .svc (el servicio en
+   forma {Category, ServiceName, SubOption, Level, Quantity} para el
+   tiempo). */
+function svCollapsibleHtml(rows, orderId) {
+  const order = [];
+  const byDiv = {};
+  rows.forEach(r => {
+    const d = r.div || 'Other';
+    if (!byDiv[d]) { byDiv[d] = []; order.push(d); }
+    byDiv[d].push(r);
+  });
+  const timeOf = list => {
+    const res = calcOrderEstimatedMinutes(list.map(r => r.svc).filter(Boolean), orderId);
+    return res ? fmtDuration(res.totalMinutes) : '';
+  };
+  const total = timeOf(rows);
+  const multi = order.length > 1;
+  const bodyId = 'sv-coll-' + String(orderId || '').replace(/[^a-z0-9]/gi, '_') + '-' + (++svCollSeq);
+  const head = '<button type="button" class="sv-coll-head" aria-expanded="false" aria-controls="' + bodyId + '" onclick="toggleSvColl(this)">' +
+    '<span class="car">\u25B8</span><b>' + rows.length + (rows.length === 1 ? ' service' : ' services') + '</b>' +
+    (total ? '<span class="sv-coll-time">\u00b7 ' + esc(total) + '</span>' : '') +
+    (multi ? '<span class="sv-coll-divs">' + order.map(d => '<span class="sv-coll-div">' + esc(d) + ' \u00b7 ' + byDiv[d].length + '</span>').join('') + '</span>' : '') +
+    '</button>';
+  const body = multi
+    ? order.map(d => {
+        const t = timeOf(byDiv[d]);
+        return '<div class="sv-div-h">' + esc(d) + '<span>' + byDiv[d].length + (byDiv[d].length === 1 ? ' service' : ' services') + (t ? ' \u00b7 ' + esc(t) : '') + '</span></div>' +
+          svReadOnlyCardsHtml(byDiv[d], orderId);
+      }).join('')
+    : svReadOnlyCardsHtml(rows, orderId);
+  return head + '<div class="sv-coll-body" id="' + bodyId + '">' + body + '</div>';
+}
+let svCollSeq = 0;
+function toggleSvColl(btn) {
+  const open = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const body = document.getElementById(btn.getAttribute('aria-controls'));
+  if (body) body.classList.toggle('open', open);
+}
+
 function reviewSvcTableHtml(services, orderId) {
   if (!services.length) return '<p class="empty-note" style="padding:6px 0">No services on this order.</p>';
   const byCat = {};
   services.forEach(s => { const c = s.Category || 'General'; if (!byCat[c]) byCat[c] = []; byCat[c].push(s); });
   const svcRows = [];
   Object.entries(byCat).forEach(([cat, list]) => {
-    list.forEach((s, i) => svcRows.push({ cat: i === 0 ? cat : '', name: s.ServiceName || '', sub: svcSubText(s.SubOption), nc: s }));
+    list.forEach(s => svcRows.push({ cat: cat, name: s.ServiceName || '', sub: svcSubText(s.SubOption), nc: s }));
   });
   /* Antes usaba card.OrderID (no existe aqui) y r.sku (nunca se lleno):
      ahora recibe orderId y el SKU real va en SubOption. */
-  return svReadOnlyCardsHtml(svcRows.map(r => {
+  const orderDiv = ((allOrders || []).find(x => x.OrderID === orderId) || {}).Division || '';
+  return svCollapsibleHtml(svcRows.map(r => {
     const nc = (r.nc.NotCompleted === true || String(r.nc.NotCompleted) === 'true');
     return { cat: r.cat, name: r.name, sku: r.nc.SubOption, lvl: r.nc.Level, qty: r.nc.Quantity, sub: r.sub,
+      div: svcDivisionOf(r.nc.SubOption, r.nc.Division, orderDiv), svc: r.nc,
       note: nc ? '<div class="sv-meta" style="color:#B06A2A;font-weight:600">Not completed' + (r.nc.NotCompletedReason ? ': ' + esc(r.nc.NotCompletedReason) : '') + '</div>' : '' };
   }), orderId);
 }
@@ -5164,18 +5237,22 @@ function apprReadOnlySvcHtml(orderId) {
   const sel = window['apprSvc_' + orderId] || {};
   const levelState = window['apprLevel_' + orderId] || {};
   const qtyState = window['apprQty_' + orderId] || {};
+  const orderDiv = window['apprDiv_' + orderId] || '';
   const svcRows = [];
   Object.entries(sel).forEach(([cat, svcs]) => {
-    Object.entries(svcs).forEach(([svcName, sub], i) => {
+    Object.entries(svcs).forEach(([svcName, sub]) => {
       const lvl = levelState[ncKey(cat, svcName)];
       const qty = qtyState[ncKey(cat, svcName)];
       const subTxt = isCatalogSku(sub) || looksLikeSku(sub) ? (lvl || (qty ? 'Qty: ' + qty : '')) : (sub || '');
-      svcRows.push({ cat: i === 0 ? cat : '', name: svcName, sub: subTxt, sku: sub, lvl: lvl, qty: qty });
+      svcRows.push({ cat: cat, name: svcName, sub: subTxt, sku: sub, lvl: lvl, qty: qty,
+        div: svcDivisionOf(sub, '', orderDiv),
+        svc: { Category: cat, ServiceName: svcName, SubOption: sub, Level: lvl || '', Quantity: qty || '' } });
     });
   });
   if (!svcRows.length) return '<p class="empty-note" style="padding:6px 0">No services on this order yet.</p>';
-  return svReadOnlyCardsHtml(svcRows.map(r => ({ cat: r.cat, name: r.name, sku: r.sku, lvl: r.lvl, qty: r.qty,
-    sub: svcSubText(r.sku) ? r.sub : '' })), orderId) + estimatedTimeHtml(apprServicesArray(orderId), orderId);
+  /* 25/09/2026: desplegable y por division -- el tiempo total ya va en el
+     encabezado, por eso aqui ya no se repite el recuadro de abajo. */
+  return svCollapsibleHtml(svcRows.map(r => Object.assign({}, r, { sub: svcSubText(r.sku) ? r.sub : '' })), orderId);
 }
 
 /* El picker completo del catalogo nuevo solo se carga y se muestra al
