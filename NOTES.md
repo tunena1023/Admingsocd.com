@@ -70,9 +70,9 @@ cliente real, Preview debe regresar a `NOTIFY_MODE=test`** (con `NOTIFY_TEST_TO`
 hoy CFO@gsocd.com), porque Preview usa el mismo SharePoint. Probado de verdad en
 Preview: "We received your order" (cliente) y "Client request" (oficina) llegaron.
 orders@ es un grupo: sus correos caen en las bandejas de CFO@, Admin@, Service@ y
-customercare@, no tiene bandeja propia. Pendiente para otra sesión: la pantalla
-nueva de "Order received" en customer.html (mini:
-https://claude.ai/artifact/Y6gXdcvdjwS8MySDXoF8Cg, sin aprobar todavía).
+customercare@, no tiene bandeja propia. La pantalla nueva de "Order received" en
+customer.html también se subió el mismo día ("así mero", mini con el portal
+real: https://claude.ai/artifact/LiBZziphN8DccD8W3g6D2s).
 
 El envío vive en `lib/notify.js`, que es una COPIA de `gsocd-shared/lib/notify.js`
 (mismo criterio que division-rules: Vercel no reinstala tags nuevos). Manda desde
