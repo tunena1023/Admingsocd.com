@@ -3,6 +3,7 @@
 admin.gsocd.com — oficina/staff
 
 Antes de tocar código, en este orden:
+0. Lee **HANDOFF.md** (estado al día de la última sesión; se reescribe en cada cambio).
 1. Lee **WORKFLOW.md** completo (reglas fijas, casi nunca cambia, corto a propósito).
 2. Revisa **NOTES.md** de este repo (historial, pendientes, decisiones recientes).
 3. Si el cambio toca `gsocd-shared`, revisa también el NOTES.md de ese repo.
