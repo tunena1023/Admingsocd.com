@@ -28,7 +28,7 @@ const {
 } = require('./lib/graph');
 const { recordPackageSnapshots, expandPackages } = require('./lib/package-contents');
 const { generateAndSaveOrderPdf, generateAndSaveCompletionPdf, latestOrderPdf, fmtDateTime } = require('./lib/orderpdf');
-const { notifyOrderTechs } = require('./lib/push');
+const { pushOrderDiff, schedulingPayrolls, serviceAssignees } = require('./lib/push');
 /* Correos al cliente (lib/notify.js, copia de gsocd-shared, 25/09/2026).
    Nunca truena: si el correo falla, la orden ya quedo guardada igual. */
 const graph = require('./lib/graph');
@@ -580,11 +580,6 @@ exports.handler = async (event) => {
           dispatchDate: patch.DispatchDate !== undefined ? patch.DispatchDate : f.DispatchDate
         })
       }));
-      notifyOrderTechs(orderId, {
-        title: 'New order assigned',
-        body: 'Order ' + orderId + ' was just assigned to you.',
-        url: '/employee.html'
-      });
       /* Mismo momento que ve el cliente como "Scheduled": primera
          asignacion, o de nuevo despues de un Reschedule (que deja los 3
          campos en blanco). */
@@ -781,12 +776,6 @@ exports.handler = async (event) => {
           })));
       } catch (e) { console.error('Closing service assignments for ' + orderId + ':', e.message); }
 
-      notifyOrderTechs(orderId, {
-        title: 'Order marked Completed',
-        body: 'Order ' + orderId + ' was marked as Completed.',
-        url: '/employee.html'
-      });
-
       /* Documento de Completacion (con las fotos que se hayan tomado
          en la orden) -- distinto del PDF oficial de arriba, misma
          carpeta, nunca se sobreescribe. A peticion del dueno,
@@ -886,18 +875,19 @@ exports.handler = async (event) => {
           OldValue:     previous.name || '',
           NewValue:     pdf.ok ? pdf.fileName : ''
         }));
-        /* Push solo si esto NO es la primera asignacion NI un marcado
-           de Completed (esos 2 ya mandan su propio push, con un
-           mensaje mas especifico -- mandar este tambien se sentiria
-           como notificaciones duplicadas por la misma accion). */
-        if (!(wasUnassigned && nowAssigned) && !(statusChanged && status === 'Completed')) {
-          notifyOrderTechs(orderId, {
-            title: 'Order updated',
-            body: 'Something changed on order ' + orderId + '.',
-            url: '/employee.html'
-          });
-        }
       }
+    }
+
+    /* Push a los tecnicos (lib/push.js): a quien le asignaron, a quien
+       le cambio algo, a quien se lo quitaron. Con await: sin el, Vercel
+       apaga la funcion antes de que salga. Nunca truena. */
+    if (!(statusChanged && status === 'Completed')) {
+      const saNames = ((f.AssignByService === true || f.AssignByService === 'true') && servicesChanged)
+        ? await serviceAssignees(orderId) : [];
+      await pushOrderDiff(Object.assign({}, f, { OrderID: orderId }), Object.assign({}, f, patch, { OrderID: orderId }), {
+        servicesChanged, saBefore: saNames, saAfter: saNames,
+        schedulingPayrolls: (wasUnassigned && nowAssigned) ? await schedulingPayrolls(orderId) : []
+      });
     }
 
     return jsonResponse(200, {

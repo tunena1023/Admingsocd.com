@@ -17,6 +17,8 @@ const {
   ORDERS_LIST, SERVICE_ASSIGNMENTS_LIST, ORDER_HISTORY_LIST,
   graphFetch, siteListPath, createListItem, updateListItemByItemId, jsonResponse
 } = require('./lib/graph');
+/* Push al tecnico (lib/push.js, 25/09/2026). */
+const { pushOrderDiff } = require('./lib/push');
 
 /* BUG REAL encontrado en produccion (21/09/2026, con captura real del
    dueño): Graph API rechaza filtrar por OrderID en ServiceAssignments
@@ -108,6 +110,16 @@ exports.handler = async (event) => {
         Notes: ''
       });
     }
+
+    /* Push: a quien se le asigno este servicio, a quien se le quito o
+       a quien se le cambio el dia. Se reusa pushOrderDiff poniendo las
+       personas/fecha de ESTE servicio en Supervisor/DispatchDate (solo
+       para comparar; no se guarda nada). Varios servicios seguidos a la
+       misma persona se juntan en el telefono (mismo tag por orden). */
+    const of = Object.assign({}, orderItem.fields, { OrderID: b.orderId, ServiceWindow: '' });
+    await pushOrderDiff(
+      Object.assign({}, of, { Supervisor: match ? (match.fields.AssignedTo || '') : '', DispatchDate: match ? (match.fields.ScheduledDate || '') : '' }),
+      Object.assign({}, of, { Supervisor: b.assignedTo, DispatchDate: b.scheduledDate }));
 
     return jsonResponse(200, { success: true, itemId, wasFirstEverScheduled });
   } catch (err) {

@@ -56,6 +56,8 @@ const { notifyClient, fmtDay, serviceLine } = require('./lib/notify');
    donde los servicios PROPUESTOS de un cambio pendiente se aplican
    de verdad por primera vez. */
 const { resolveOrderDivision, divisionChangeHistoryPayload } = require('./lib/division-rules');
+/* Push a los tecnicos (ver lib/push.js). */
+const { pushOrderDiff, serviceAssignees } = require('./lib/push');
 
 const NEW_STATUSES    = ['Received'];
 const CHANGE_STATUSES = ['Change Requested'];
@@ -825,6 +827,22 @@ exports.handler = async (event) => {
       } else if (decisionDiff.length) {
         await notifyClient(graph, { event: 'changed', order: mergedForMail, diff: decisionDiff, backToScheduling: decision === 'reschedule' });
       }
+    }
+
+    /* --- Push a los tecnicos (lib/push.js, 25/09/2026): cancelada,
+       reasignada/reprogramada (a quien se le quito) o con cambios. --- */
+    {
+      const abs = f.AssignByService === true || f.AssignByService === 'true';
+      const sa = abs ? await serviceAssignees(orderId) : [];
+      let svcChanged = false;
+      if (isChange && (decision === 'reassign' || decision === 'reschedule')) {
+        const proposed = lastRequestedSnapshot(history);
+        const oldSvc = svcRows.filter(r => r.fields).map(r => serviceLine(r.fields)).join('\n');
+        svcChanged = !!(proposed && proposed.services && proposed.services.length && proposed.services.map(serviceLine).join('\n') !== oldSvc);
+      }
+      await pushOrderDiff(Object.assign({}, f, { OrderID: orderId }), Object.assign({}, f, patch, { OrderID: orderId }), {
+        servicesChanged: svcChanged, saBefore: sa, saAfter: sa
+      });
     }
 
     /* --- PDF: solo al aprobar (orden nueva o cambio). Nunca en cancelacion --- */
