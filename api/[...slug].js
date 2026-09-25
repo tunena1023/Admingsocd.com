@@ -81,6 +81,10 @@ module.exports = async (req, res) => {
        developer-admin decide permisos por body.email, y "visto por"
        usa viewerId. Ningun otro endpoint usa esos campos para otra
        cosa (revisado: el correo de clientes/contactos va en otros). */
+    /* Quien es, para los endpoints que lo leen por header (GET no trae
+       body): quickbooks-status / quickbooks-import-estimates (permisos
+       de Estimate / Invoice por persona). Siempre se sobrescribe. */
+    if (req.headers) req.headers['x-gs-user-email'] = user.email;
     const IDENTITY_FIELD = { 'developer-admin': 'email', 'admin-get-orders': 'viewerId', 'admin-mark-order-seen': 'viewerId', 'order-docs': 'email' };
     const field = IDENTITY_FIELD[slug];
     if (field) {

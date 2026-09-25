@@ -1944,7 +1944,7 @@
         <div style="display:flex;align-items:center;gap:10px"><span class="order-meta" id="staff-count-badge"></span><span class="dev-chevron">▸</span></div>
       </div>
       <div class="appr-body" style="display:none">
-        <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it.</p>
+        <p class="section-sub" style="margin-top:16px">Who can see this page, and who can edit the service catalog. Staff can view the catalog only; Director and Developer can edit it. QuickBooks shows whether each person can send orders as Estimate, Invoice or both.</p>
         <table class="staff-table" id="staff-table"><tbody></tbody></table>
         <div class="btn-actions">
           <button class="gs-ofp-btn-primary" onclick="openStaffModal(null)">+ Add Staff</button>
@@ -2387,6 +2387,13 @@
         <option value="Director">Director — view + edit catalog</option>
         <option value="Developer">Developer — full access</option>
       </select>
+    </div>
+    <div class="field-group">
+      <label>QuickBooks — can send orders as</label>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;padding-top:4px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;cursor:pointer"><input type="checkbox" id="staff-qb-estimate" style="width:18px;height:18px"> Estimate</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;cursor:pointer"><input type="checkbox" id="staff-qb-invoice" style="width:18px;height:18px"> Invoice</label>
+      </div>
     </div>
     <div class="btn-actions">
       <button class="gs-ofp-btn-primary" onclick="saveStaff()">Save</button>
@@ -2916,15 +2923,23 @@ function showTab(tab) {
    / quickbooks-import-estimates.js. */
 let qbSelected = new Set();
 let qbSendAs = 'estimate';
+let qbCanSend = { estimate: true, invoice: false };
 
-/* Arriba de la lista (25/09/2026): Estimate | Invoice (el dueño quiere
-   poder cambiar de uno a otro; hoy mandan Estimate y alla crean el
-   Invoice) y lo que se leyo de la compania de QuickBooks, para ver
+/* Arriba de la lista (25/09/2026): Estimate | Invoice -- solo los que
+   ESTA persona tiene permitidos (Developer > Staff & Roles, "cada quien
+   tiene su propio ajuste"); lo ultimo que escogio se recuerda en este
+   navegador. El servidor vuelve a revisar el permiso. Y lo que se leyo de la compania de QuickBooks, para ver
    antes de mandar si la unidad / recamaras / baños van a caer en su
    lugar. Ver quickbooks-import-estimates.js (MAPEO). */
 function qbSetupHtml(status) {
   const st = status.setup || {};
   const seg = v => '<button type="button" class="qb-seg' + (qbSendAs === v ? ' on' : '') + '" aria-pressed="' + (qbSendAs === v) + '" onclick="setQbSendAs(\'' + v + '\')">' + (v === 'invoice' ? 'Invoice' : 'Estimate') + '</button>';
+  const allowed = ['estimate', 'invoice'].filter(v => qbCanSend[v]);
+  const send = !allowed.length
+    ? '<span class="qb-warn">You can\'t send orders to QuickBooks. Ask a Developer to turn it on in Staff &amp; Roles.</span>'
+    : allowed.length === 1
+      ? '<span style="font-size:14px;font-weight:600">' + (allowed[0] === 'invoice' ? 'Invoice' : 'Estimate') + '</span>'
+      : '<div class="qb-segs" role="group" aria-label="Send as">' + allowed.map(seg).join('') + '</div>';
   const rows = [];
   if (status.environment !== 'production') rows.push('<span class="qb-warn">Test company (sandbox) — nothing reaches your real QuickBooks yet.</span>');
   if (st.error) rows.push('<span class="qb-warn">Could not read the QuickBooks setup: ' + esc(st.error) + '</span>');
@@ -2938,25 +2953,17 @@ function qbSetupHtml(status) {
     rows.push('<span>Each line is dated the day that service was completed; the document is dated the day it\'s created.</span>');
     rows.push('<span>' + (st.customNumbers ? 'Numbers continue from the highest one already in QuickBooks.' : 'QuickBooks gives each one the next number.') + '</span>');
   }
-  return '<div class="qb-setup"><div class="qb-send"><span class="qb-send-label">Send as</span><div class="qb-segs" role="group" aria-label="Send as">' + seg('estimate') + seg('invoice') + '</div></div>' +
+  return '<div class="qb-setup"><div class="qb-send"><span class="qb-send-label">Send as</span>' + send + '</div>' +
     '<div class="qb-notes">' + rows.join('') + '</div></div>';
 }
 
-async function setQbSendAs(v) {
-  if (v === qbSendAs) return;
-  const prev = qbSendAs;
+function setQbSendAs(v) {
+  if (v === qbSendAs || !qbCanSend[v]) return;
   qbSendAs = v;
+  try { localStorage.setItem('gs-qb-send-as', v); } catch (e) { /* sin storage */ }
   document.querySelectorAll('.qb-seg').forEach(b => { const on = b.textContent.toLowerCase() === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   const btn = document.getElementById('qb-import-btn');
   if (btn) btn.textContent = 'Import Selected as ' + (v === 'invoice' ? 'Invoice' : 'Estimate');
-  try {
-    await api('/quickbooks-status', { body: { sendAs: v } });
-    showToast('QuickBooks: new orders will be sent as ' + (v === 'invoice' ? 'Invoices' : 'Estimates') + '.');
-  } catch (e) {
-    showToast('Could not save: ' + e.message);
-    qbSendAs = prev;
-    renderQuickBooksPanel();
-  }
 }
 
 async function renderQuickBooksPanel() {
@@ -2976,7 +2983,10 @@ async function renderQuickBooksPanel() {
       return;
     }
     const imported = status.imported || {};
-    qbSendAs = status.sendAs === 'invoice' ? 'invoice' : 'estimate';
+    qbCanSend = status.canSend || { estimate: true, invoice: false };
+    let saved = null;
+    try { saved = localStorage.getItem('gs-qb-send-as'); } catch (e) { /* sin storage */ }
+    qbSendAs = qbCanSend[saved] ? saved : (qbCanSend.estimate ? 'estimate' : (qbCanSend.invoice ? 'invoice' : ''));
     /* Solo Completed -- a peticion del dueno (19/09/2026): antes
        mostraba cualquier orden que no fuera Cancelled/Incomplete
        (Received, Assigned, Active, etc.), pero el flujo real es
@@ -3010,7 +3020,7 @@ function toggleQbOrder(orderId, checked) {
   const countEl = document.getElementById('qb-selected-count');
   const btn = document.getElementById('qb-import-btn');
   if (countEl) countEl.textContent = qbSelected.size + ' selected';
-  if (btn) btn.disabled = qbSelected.size === 0;
+  if (btn) btn.disabled = qbSelected.size === 0 || !qbSendAs;
 }
 
 async function importSelectedEstimates() {
@@ -3022,7 +3032,7 @@ async function importSelectedEstimates() {
   btn.textContent = 'Importing…';
   showLoadingOverlay('Importing estimates…');
   try {
-    const res = await api('/quickbooks-import-estimates', { method: 'POST', body: { orders } });
+    const res = await api('/quickbooks-import-estimates', { method: 'POST', body: { orders, sendAs: qbSendAs } });
     const results = res.results || [];
     const okCount = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
@@ -10663,6 +10673,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       <tr>
         <td data-label="Email">${esc(s.Email)}</td>
         <td class="role-cell" data-label="Role">${esc(s.Role)}</td>
+        <td data-label="QuickBooks" style="font-size:12px;color:var(--gray)">${esc([s.qbEstimate ? 'Estimate' : '', s.qbInvoice ? 'Invoice' : ''].filter(Boolean).join(' · ') || 'No QuickBooks')}</td>
         <td style="text-align:right"><button class="gs-ofp-btn-secondary" style="padding:4px 12px;font-size:12px" onclick="openStaffModal('${esc(s.id)}')">Edit</button></td>
       </tr>`).join('');
   }
@@ -10673,6 +10684,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     document.getElementById('staff-id').value = s ? s.id : '';
     document.getElementById('staff-email').value = s ? s.Email : '';
     document.getElementById('staff-role').value = s ? s.Role : 'Staff';
+    document.getElementById('staff-qb-estimate').checked = s ? !!s.qbEstimate : true;
+    document.getElementById('staff-qb-invoice').checked = s ? !!s.qbInvoice : false;
     document.getElementById('staff-delete-btn').style.display = s ? '' : 'none';
     document.getElementById('staff-modal-overlay').style.display = 'flex';
   }
@@ -10685,7 +10698,9 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const staff = {
       id: id || undefined,
       Email: document.getElementById('staff-email').value.trim(),
-      Role: document.getElementById('staff-role').value
+      Role: document.getElementById('staff-role').value,
+      qbEstimate: document.getElementById('staff-qb-estimate').checked,
+      qbInvoice: document.getElementById('staff-qb-invoice').checked
     };
     if (!staff.Email) { showToast('Email is required.'); return; }
     try {

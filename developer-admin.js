@@ -1571,12 +1571,19 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list-staff') {
-      const rows = await fetchAll(STAFF_LIST);
-      const staff = rows.filter(it => it.fields).map(it => ({
-        id:    it.id,
-        Email: it.fields.Email || '',
-        Role:  it.fields.Role || ''
-      }));
+      const qb = require('./lib/quickbooks');
+      const [rows, perms] = await Promise.all([fetchAll(STAFF_LIST), qb.getAllSendPerms()]);
+      const staff = rows.filter(it => it.fields).map(it => {
+        /* QuickBooks: si puede mandar como Estimate / Invoice (25/09/2026). */
+        const p = qb.sendPermsFrom(perms, it.fields.Email);
+        return {
+          id:    it.id,
+          Email: it.fields.Email || '',
+          Role:  it.fields.Role || '',
+          qbEstimate: p.estimate,
+          qbInvoice:  p.invoice
+        };
+      });
       return jsonResponse(200, { staff });
     }
 
@@ -1587,6 +1594,9 @@ exports.handler = async (event) => {
         return jsonResponse(400, { error: 'Role must be Staff, Director or Developer.' });
       }
       const fields = { Title: s.Email, Email: s.Email, Role: s.Role };
+      if (s.qbEstimate !== undefined || s.qbInvoice !== undefined) {
+        await require('./lib/quickbooks').setSendPerms(s.Email, { estimate: s.qbEstimate, invoice: s.qbInvoice });
+      }
       if (s.id) {
         await updateListItemByItemId(STAFF_LIST, s.id, fields);
       require('./lib/staff-gate').forget();

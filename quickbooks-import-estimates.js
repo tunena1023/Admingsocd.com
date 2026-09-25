@@ -24,7 +24,7 @@ const lq = require('./lib/list-query');
 
 const {
   isConnected, findItemBySku, findOrCreateCustomerId, createSalesDoc,
-  markOrderImported, getImportedOrders, getSendAs, getCompanySetup,
+  markOrderImported, getImportedOrders, getSendPerms, getCompanySetup,
   usesCustomTxnNumbers, nextDocNumber
 } = require('./lib/quickbooks');
 
@@ -44,7 +44,8 @@ const {
      es Taxable (las "T" del invoice real).
    - Numero: el siguiente al ultimo que ya hay (ver nextDocNumber).
    - Nota interna (PrivateNote): el numero de orden de la app.
-   - Estimate o Invoice segun el boton del panel (qb_send_as).
+   - Estimate o Invoice segun lo que escoja la persona en el panel, y
+     solo si tiene permiso para ese tipo (Developer > Staff & Roles).
    Solo se CREAN documentos; nunca se edita uno que ya exista.
 ============================================================ */
 const TZ = 'America/Chicago';
@@ -91,8 +92,13 @@ exports.handler = async (event) => {
       return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
     }
 
-    const [sendAs, setup, customNums, already] = await Promise.all([
-      getSendAs(), getCompanySetup(), usesCustomTxnNumbers(), getImportedOrders()
+    const sendAs = body.sendAs === 'invoice' ? 'invoice' : 'estimate';
+    const perms = await getSendPerms((event.headers || {})['x-gs-user-email']);
+    if (!perms[sendAs]) {
+      return jsonResponse(403, { error: 'You are not allowed to send ' + (sendAs === 'invoice' ? 'Invoices' : 'Estimates') + ' to QuickBooks. Ask a Developer to turn it on in Staff & Roles.' });
+    }
+    const [setup, customNums, already] = await Promise.all([
+      getCompanySetup(), usesCustomTxnNumbers(), getImportedOrders()
     ]);
     const docLabel = sendAs === 'invoice' ? 'Invoice' : 'Estimate';
     const today = ymd(new Date());
