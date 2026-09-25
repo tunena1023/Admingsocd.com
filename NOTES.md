@@ -7,6 +7,104 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## PENDIENTE PARA OTRO CHAT (26/09/2026): partir admin.html, código compartido, pruebas
+
+Pedido del dueño: "deja una nota de los pasos a seguir, detalle a detalle,
+por si le toca a otro chat". Nada de esto está empezado. Reglas de siempre:
+mini/prueba antes, test-admin antes que producción, nada se sube sin su "súbelo".
+
+### A. Partir admin.html (17,700 líneas en un solo archivo)
+
+Cómo está hoy (26/09/2026):
+- Líneas ~9–1586: un `<style>` gigante. ~2083–2189: otro `<style>` (Developer).
+- ~1587–1612: librerías externas y componentes de gsocd-shared (jsDelivr, fijados por versión/SHA).
+- ~1613–2657: el HTML de todos los tabs (`<div class="panel" id="panel-...">`:
+  approvals, review, active, history, clients, gallery, quickbooks, developer, schedule).
+- ~2658–17712: UN solo `<script>` con todo el JS.
+- Developer vive dentro de una función cerrada (closure); lo que usa el HTML
+  lo expone con `window.x = x`. No partir ese bloque por la mitad.
+
+Objetivo: el mismo comportamiento, en archivos chicos. Sin reescribir nada.
+
+Pasos:
+1. **Red de seguridad primero** (ver C.1): prueba "la página abre sin errores"
+   con la API simulada (el builder del mini: scratchpad/mini-admin/build-*.py
+   hace justo eso — copiarlo al repo como `tests/smoke-admin.js`). Correrla
+   antes y después de cada paso.
+2. **CSS a archivo**: mover el contenido de los dos `<style>` a
+   `css/admin.css` (tal cual, mismo orden) y poner
+   `<link rel="stylesheet" href="/css/admin.css?v=<commit>">` en su lugar.
+   Vercel sirve estáticos solo; no hay que tocar vercel.json. Probar en test-admin.
+3. **JS a archivos, SIN cambiar código**: partir el `<script>` grande en
+   archivos por tab, en el MISMO orden, y cargarlos con `<script src="/js/...">`
+   normales (NO `type="module"`). Con scripts normales las funciones y los
+   `let/const` de arriba siguen siendo globales entre archivos, así que los
+   `onclick="..."` del HTML siguen funcionando sin tocar nada.
+   Orden sugerido (cortar en los comentarios `/* ====` que ya separan secciones):
+   `js/core.js` (auth MSAL, api(), authFetch, estado global, loadAll, esc/fmtDate,
+   showToast, showTab) → `js/orders-cards.js` (orderCard y lo que pinta tarjetas) →
+   `js/approvals.js`, `js/review.js`, `js/active.js`, `js/history.js`,
+   `js/clients.js`, `js/gallery.js`, `js/quickbooks.js`, `js/schedule.js`,
+   `js/developer.js` (el closure completo), `js/recurring.js`.
+   - Hacerlo con un script (python) que corte por números de línea, NO a mano.
+   - Comprobar que `cat js/*.js` (en el orden de carga) == el script original,
+     byte por byte. Si no es igual, algo se perdió.
+   - Cuidado: si algo usa una variable ANTES de que su archivo cargue (a nivel
+     de archivo, no dentro de una función), truena. La prueba del paso 1 lo detecta.
+   - Agregar `?v=<commit>` a cada `<script src>` para que el navegador no use
+     una versión vieja.
+4. **HTML de los tabs** (opcional, después): se puede dejar en admin.html.
+5. Subir a test-admin, que el dueño revise tab por tab, y hasta entonces producción.
+6. Después, lo mismo con Orders (customer.html) y Tech (employee/supervisor.html) si hace falta.
+
+### B. Código compartido (libs copiadas en los 3 repos)
+
+Hoy (26/09/2026), idénticos en Admin/Orders/Tech: `lib/list-query.js`,
+`lib/gallery-scan.js`, `lib/order-docs.js`, `lib/settings-json.js` (Admin+Orders),
+`lib/catalog-fields.js`, `lib/notify.js`, `lib/pdf.js`, `lib/client-packages.js`,
+`lib/division-rules.js`. Con diferencias: `lib/graph.js` (3 versiones),
+`lib/vercel-adapter.js` (3), `lib/orderpdf.js`, `lib/package-contents.js`,
+`lib/usual-packages.js` (2 cada una).
+
+Plan:
+1. En gsocd-shared crear `server/` y copiar ahí los idénticos, sin cambios.
+2. Admin y Orders YA tienen en package.json
+   `"gsocd-shared": "github:tunena1023/gsocd-shared#v1.35.0"` (Vercel lo instala
+   al desplegar). Tech no: agregarlo igual. Fijar SIEMPRE por tag o SHA, nunca `main`.
+3. En cada repo, cambiar `require('./lib/list-query')` por
+   `require('gsocd-shared/server/list-query')`, uno por uno, y borrar la copia local.
+   Ojo: esas libs hacen `require('./graph')`; en gsocd-shared tendrían que recibir
+   graph como parámetro, o dejar graph.js local y compartir solo las que no dependen de él.
+4. Los que tienen diferencias: primero juntar las diferencias (revisar con `diff`
+   cuál es la buena), después moverlos.
+5. Probar cada repo en su preview antes de producción.
+
+### C. Pruebas automáticas (el dueño hoy es "las pruebas")
+
+Propuestas, de más útil a menos:
+1. **Smoke de pantallas**: Playwright abre admin.html / customer.html / employee.html
+   con la API simulada y falla si hay errores de JS o scroll horizontal en cel.
+2. **QuickBooks sin QuickBooks**: el arnés de scratchpad/qbtest/run.js (QuickBooks
+   y SharePoint falsos) — que una orden de ejemplo arme el invoice esperado:
+   número, fechas por línea, Class, Department, campos Unit/Bed/Bath, y que NO
+   cree nada si falta algo.
+3. **Seguridad**: cada endpoint sin token → 401; alguien fuera de Staff → 403;
+   técnico pidiendo una orden ajena → 403 (lib/tech-scope); cliente pidiendo
+   orden ajena → 403 (lib/client-guard); 5 intentos → bloqueo 1 hora.
+4. **Equivalencia de velocidad** (scratchpad/eq): las consultas filtradas regresan
+   lo mismo que las completas.
+5. Correrlas con GitHub Actions en cada push (`npm test`), y que el dueño vea
+   el ✓/✗ antes de decir "súbelo".
+
+### D. Passwords (26/09/2026)
+
+- Wipe Test Data / Wipe Clients Only / Delete from QuickBooks leen
+  `WIPE_PASSWORD` de Vercel (lib/wipe-password.js). Sin esa variable no se borra nada.
+- Password del director: el que se guarda en Developer (Settings.DirectorPassword);
+  si no existe, `DIRECTOR_PASSWORD` de Vercel (lib/director-password.js).
+  Ya no hay valores escritos en el código. Los viejos siguen en el historial
+  de git: por eso se recomendó al dueño poner passwords NUEVOS.
+
 ## VELOCIDAD (25/09/2026): pedir a SharePoint solo lo necesario
 
 - `lib/list-query.js` (mismo archivo en los 3 repos): `fetchWhere`, `fetchByValues`

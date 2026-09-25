@@ -55,8 +55,7 @@ function sameField(k, a, b) {
 }
 
 async function checkPassword(pw) {
-  const real = (await qb.getSetting('DirectorPassword')) || '080922';
-  return String(pw || '') === String(real);
+  return require('./lib/director-password').isDirectorPassword(pw, k => qb.getSetting(k));
 }
 
 async function updateApp(event, c) {

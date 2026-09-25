@@ -14,7 +14,7 @@
    toca nada y se regresa su mensaje.
 ============================================================ */
 const { ORDER_HISTORY_LIST, createListItem, jsonResponse } = require('./lib/graph');
-const { isWipePassword } = require('./lib/wipe-password');
+const { isWipePassword, wipePasswordConfigured } = require('./lib/wipe-password');
 const qb = require('./lib/quickbooks');
 
 exports.handler = async (event) => {
@@ -27,6 +27,7 @@ exports.handler = async (event) => {
     /* release = "Move back to Orders" cuando ya no existe en QuickBooks:
        no borra nada, asi que no pide password; el servidor confirma que
        de verdad ya no existe. */
+    if (!release && !wipePasswordConfigured()) return jsonResponse(503, { error: 'WIPE_PASSWORD is not set in Vercel. Nothing was deleted.' });
     if (!release && !isWipePassword(body.password)) return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.', code: 'BAD_PASSWORD' });
     if (!(await qb.isConnected())) return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
 

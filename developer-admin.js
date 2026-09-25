@@ -381,13 +381,13 @@ exports.handler = async (event) => {
        Review, reactivar una orden, etc.). Nunca se manda el password
        guardado de vuelta al navegador -- solo true/false, para que no
        quede expuesto viendo el trafico de red. Si Settings no existe
-       o no tiene el renglon todavia, usa el valor de respaldo actual,
-       para no romper nada mientras se termina de configurar. */
+       o no tiene el renglon todavia, usa DIRECTOR_PASSWORD de Vercel
+       (lib/director-password.js; 26/09/2026 ya no hay valor escrito en
+       el codigo). */
     if (action === 'verify-director-password') {
       const rows = await fetchAll(SETTINGS_LIST);
-      const row = rows.find(it => it.fields && it.fields.Key === 'DirectorPassword');
-      const real = (row && row.fields.Value) || '080922';
-      const valid = String(body.password || '') === String(real);
+      const getSetting = async key => { const row = rows.find(it => it.fields && it.fields.Key === key); return row ? (row.fields.Value || '') : ''; };
+      const valid = await require('./lib/director-password').isDirectorPassword(body.password, getSetting);
       return jsonResponse(200, { valid });
     }
 
@@ -2456,6 +2456,7 @@ exports.handler = async (event) => {
 
     if (action === 'wipe-test-data') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
+      if (!require('./lib/wipe-password').wipePasswordConfigured()) return jsonResponse(503, { error: 'WIPE_PASSWORD is not set in Vercel. Nothing was deleted.' });
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
@@ -2540,6 +2541,7 @@ exports.handler = async (event) => {
        Clients. Mismo candado (rol Developer + password exacta). */
     if (action === 'wipe-clients-only') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
+      if (!require('./lib/wipe-password').wipePasswordConfigured()) return jsonResponse(503, { error: 'WIPE_PASSWORD is not set in Vercel. Nothing was deleted.' });
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
