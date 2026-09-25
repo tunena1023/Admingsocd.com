@@ -520,6 +520,7 @@
     .qbd-field b { font: 400 14px 'Inter', sans-serif; color: var(--black); text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }
     .qbd-field.qbd-diff { background: #FFF1CC; border-color: #E6C36A; cursor: help; }
     .qbd-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .qb-missing { margin-top: 6px; font-size: 12px; font-weight: 600; color: #B33A3A; }
     .qb-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
     .qb-tag-ok { background: #EEF9F0; color: #2A7A4A; }
     .qb-tag-diff { background: #FFF4DE; color: #8A5A00; }
@@ -3050,7 +3051,7 @@ async function renderQuickBooksPanel() {
     /* 25/09/2026 (el dueño: "deberia haber un tab a donde se vayan para
        poder distinguirlos"): las que ya se mandaron se van a Sent. */
     const eligible = completed.filter(o => !imported[o.OrderID]);
-    renderQbSent(imported);
+    renderQbSent(imported, status.missing || []);
     if (!eligible.length) {
       box.innerHTML = qbSetupHtml(status) + '<p class="empty-note">' + (completed.length ? 'Every completed order is already in QuickBooks. See Sent.' : 'No completed orders yet.') + '</p>';
       return;
@@ -3078,8 +3079,10 @@ async function renderQuickBooksPanel() {
    borrar (password de Wipe Test Data, revisado en el servidor --
    quickbooks-delete-doc.js). */
 let qbImportedCache = {};
-function renderQbSent(imported) {
+let qbMissing = new Set();
+function renderQbSent(imported, missing) {
   qbImportedCache = imported || {};
+  qbMissing = new Set(missing || []);
   const box = document.getElementById('qb-sent-body');
   const count = document.getElementById('qb-sent-count');
   if (!box) return;
@@ -3096,10 +3099,26 @@ function renderQbSent(imported) {
       '<span class="badge qb-sent-doc">' + kind + ' ' + esc(e.docNumber || ('#' + (e.estimateId || ''))) + '</span>' +
       '<div class="qb-client-main"><div class="order-id">' + esc(id) + '</div>' +
       '<div class="qb-client-line">' + esc(what || 'Order not loaded in this view') + '</div>' +
-      '<div class="qb-client-line">Sent ' + esc(fmtDateTime(e.date)) + '</div></div>' +
-      '<button type="button" class="gs-ofp-btn-danger qb-upd" onclick="deleteQbDoc(\'' + escAttr(id) + '\')">Delete from QuickBooks</button>' +
+      '<div class="qb-client-line">Sent ' + esc(fmtDateTime(e.date)) + '</div>' +
+      (qbMissing.has(id) ? '<div class="qb-missing">Not found in QuickBooks. It was deleted there.</div>' : '') + '</div>' +
+      (qbMissing.has(id)
+        ? '<button type="button" class="gs-ofp-btn-secondary qb-upd" onclick="releaseQbDoc(\'' + escAttr(id) + '\')">Move back to Orders</button>'
+        : '<button type="button" class="gs-ofp-btn-danger qb-upd" onclick="deleteQbDoc(\'' + escAttr(id) + '\')">Delete from QuickBooks</button>') +
       '</div></div>';
   }).join('');
+}
+
+async function releaseQbDoc(orderId) {
+  showLoadingOverlay('Moving back to Orders…');
+  try {
+    await api('/quickbooks-delete-doc', { body: { orderId, action: 'release' } });
+    GSLoadingSplash.hide();
+    showToast(orderId + ' is back in Orders and can be sent again.');
+    await renderQuickBooksPanel();
+  } catch (err) {
+    GSLoadingSplash.hide();
+    showToast(err.message);
+  }
 }
 
 async function deleteQbDoc(orderId) {

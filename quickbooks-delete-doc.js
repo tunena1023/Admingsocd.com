@@ -23,7 +23,11 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const orderId = String(body.orderId || '');
     if (!orderId) return jsonResponse(400, { error: 'orderId is required' });
-    if (!isWipePassword(body.password)) return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.', code: 'BAD_PASSWORD' });
+    const release = body.action === 'release';
+    /* release = "Move back to Orders" cuando ya no existe en QuickBooks:
+       no borra nada, asi que no pide password; el servidor confirma que
+       de verdad ya no existe. */
+    if (!release && !isWipePassword(body.password)) return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.', code: 'BAD_PASSWORD' });
     if (!(await qb.isConnected())) return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
 
     const imported = await qb.getImportedOrders();
@@ -31,8 +35,12 @@ exports.handler = async (event) => {
     if (!entry) return jsonResponse(404, { error: 'This order is not marked as sent to QuickBooks.' });
     const type = entry.type === 'invoice' ? 'invoice' : 'estimate';
     const label = (type === 'invoice' ? 'Invoice' : 'Estimate') + ' ' + (entry.docNumber || ('#' + entry.estimateId));
+    if (release && entry.estimateId) {
+      const found = await qb.existingDocIds(type, [entry.estimateId]);
+      if (found.has(String(entry.estimateId))) return jsonResponse(409, { error: label + ' still exists in QuickBooks. Use Delete from QuickBooks instead.' });
+    }
 
-    const how = entry.estimateId ? await qb.deleteSalesDoc(type, entry.estimateId) : 'gone';
+    const how = release || !entry.estimateId ? 'gone' : await qb.deleteSalesDoc(type, entry.estimateId);
     await qb.unmarkOrderImported(orderId);
     const who = (event.headers || {})['x-gs-user-email'] || 'Admin';
     await createListItem(ORDER_HISTORY_LIST, {
