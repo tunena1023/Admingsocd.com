@@ -3145,7 +3145,7 @@ async function applyLiveApprCardUpdate(freshOrder, context) {
     if (freshOrder.BatchId && listEl.querySelector('.order-card[data-order-id="batch-' + CSS.escape(freshOrder.BatchId) + '"]')) {
       return false;
     }
-    const builder = context === 'approvals' ? newOrderApprovalCard : approvalCard;
+    const builder = context === 'approvals' ? newOrderApprovalCard : reviewCardFor;
     listEl.insertAdjacentHTML('afterbegin', builder(freshOrder));
     await loadApprovalDetail(freshOrder);
     const inserted = listEl.querySelector('.order-card[data-order-id="' + CSS.escape(freshOrder.OrderID) + '"]');
@@ -3157,7 +3157,7 @@ async function applyLiveApprCardUpdate(freshOrder, context) {
   const st = cardOpenState(context);
   const wasOpen = st.open === freshOrder.OrderID;
   const wasPinned = !!st.pinned[freshOrder.OrderID];
-  const builder = context === 'approvals' ? newOrderApprovalCard : approvalCard;
+  const builder = context === 'approvals' ? newOrderApprovalCard : reviewCardFor;
   const wrap = document.createElement('div');
   wrap.innerHTML = builder(freshOrder);
   const fresh = wrap.firstElementChild;
@@ -3765,10 +3765,15 @@ function optionsHtml(values, selected) {
    de la orden y el cliente lo recibe por correo. Rechazar restaura los
    servicios y el estatus anteriores. Las dos cosas quedan en el historial.
 ============================================================ */
-/* Inspection / Inspected (25/09/2026): una orden nueva a la que la
-   oficina le mando primero una inspeccion sigue viviendo en Approvals
-   hasta que se termina la inspeccion y se continua a Scheduling. */
-const NEW_ORDER_STATUSES = ['Received', 'Inspection', 'Inspected'];
+const NEW_ORDER_STATUSES = ['Received'];
+/* Inspection / Inspected (25/09/2026): en cuanto la oficina manda
+   "Inspection first", la orden se va a REVIEW (pedido del dueño: "no me
+   gusta que se queden en Approvals") -- ahi espera la inspeccion y luego
+   la decision sobre lo que encontro el supervisor. Usa la misma tarjeta
+   que Approvals (newOrderApprovalCard) con context 'review'. Al
+   continuar regresa a 'Received' y de ahi a Scheduling como siempre. */
+const INSPECTION_STATUSES = ['Inspection', 'Inspected'];
+function reviewCardFor(o) { return INSPECTION_STATUSES.includes(o.Status) ? newOrderApprovalCard(o, 'review') : approvalCard(o); }
 
 /* Una orden "Received" ya tiene todo lo que Scheduling asigna en un
    solo clic (Assign): Supervisor + Service Window + Dispatch Date.
@@ -4342,7 +4347,8 @@ function batchApprovalGroupCard(batchId, units) {
     </div>`;
 }
 
-function newOrderApprovalCard(o) {
+function newOrderApprovalCard(o, context) {
+  context = context || 'approvals';
   const kind = approvalKind(o);
   const dom = apprDomId(o.OrderID);
   /* isFullyScheduled(o) es siempre false aqui -- approvalsOf() ya
@@ -4361,7 +4367,7 @@ function newOrderApprovalCard(o) {
 
   return `
     <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order-id="${esc(o.OrderID)}">
-      <div class="order-card-header" onclick="toggleApprCard('${esc(o.OrderID)}','approvals',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','approvals',this)">
+      <div class="order-card-header" onclick="toggleApprCard('${esc(o.OrderID)}','${context}',this)" ondblclick="pinApprCard('${esc(o.OrderID)}','${context}',this)">
         <div>
           ${GSOrderCardHeader.html({
             name: o.BusinessName || o.ClientID,
@@ -6008,7 +6014,7 @@ function switchApprEditDiv(orderId, d) {
 ============================================================ */
 function reviewOf(q) {
   const list = allOrders
-    .filter(o => REVIEW_STATUSES.includes(o.Status) || (o.Status === 'Cancelled' && !o.Archived))
+    .filter(o => REVIEW_STATUSES.includes(o.Status) || INSPECTION_STATUSES.includes(o.Status) || (o.Status === 'Cancelled' && !o.Archived))
     .sort((a, b) => String(a.createdDateTime).localeCompare(String(b.createdDateTime)));
   if (!q) return list;
   return list.filter(o =>
@@ -6020,7 +6026,7 @@ function paintReview(list) {
   const box = document.getElementById('review-list');
   if (!box) return;
   box.innerHTML = list.length
-    ? list.map(o => approvalCard(o)).join('')
+    ? list.map(o => reviewCardFor(o)).join('')
     : '<p class="empty-note">Nothing waiting for review.</p>';
   list.forEach(o => loadApprovalDetail(o));
 }
@@ -14122,7 +14128,7 @@ function goToOrderInAnyTab(orderId) {
      scroll a una tarjeta que ya no esta ahi. */
   if (NEW_ORDER_STATUSES.includes(status) && isFullyScheduled(order)) { tab = 'active'; context = 'active'; useApprCard = false; }
   else if (NEW_ORDER_STATUSES.includes(status)) { tab = 'approvals'; context = 'approvals'; useApprCard = true; }
-  else if (REVIEW_STATUSES.includes(status)) { tab = 'review'; context = 'review'; useApprCard = true; }
+  else if (REVIEW_STATUSES.includes(status) || INSPECTION_STATUSES.includes(status)) { tab = 'review'; context = 'review'; useApprCard = true; }
   else if (ACTIVE_STATUSES.includes(status)) { tab = 'active'; context = 'active'; useApprCard = false; }
   else { tab = 'history'; context = 'history'; useApprCard = false; }
 
