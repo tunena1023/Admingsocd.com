@@ -1,26 +1,36 @@
 /* ============================================================
-   quickbooks-clients.js — tab "New clients" del panel de QuickBooks
-   (25/09/2026, pedido del dueño: "que si un cliente se registra solo,
-   en la ventana de QuickBooks nos aparezca ... y para poder importar a
-   QB que se use el password del director").
+   quickbooks-clients.js — tab "Clients" del panel de QuickBooks y
+   boton "Update in QuickBooks" del tab Clients / Developer.
 
-   GET  -> clientes que se registraron solos desde orders.gsocd.com
-           (Clients.SelfRegistered, lo pone register-client.js de
-           Orders), cada uno con inQuickBooks (si ya esta ligado en
-           qb_customer_id_map). Los que vienen del reporte de QuickBooks
-           o los que crea la oficina no salen aqui: esos ya existen alla.
-   POST { clientIds, password } -> los manda como Customer. El password
-           del director se revisa AQUI (no solo en la pagina), igual
-           que verify-director-password de developer-admin.js. Nunca
-           duplica: si ya hay un Customer con ese nombre, solo se liga.
+   Historia:
+   - 25/09/2026 (1a version): solo los que se registraron solos.
+   - 25/09/2026 (el dueño: "el cliente que esta en nuestra app no existe
+     en QB... y como no fue que se registrara no lo puso en el tab"):
+     ahora se comparan TODOS los clientes de la app contra QuickBooks.
+
+   GET  -> cada cliente de la app con:
+             qb:   como esta en QuickBooks (o null si no existe)
+             diff: que campos son distintos entre la app y QuickBooks
+           Un cliente con el MISMO nombre en QuickBooks se liga solo
+           (qb_customer_id_map), igual que ya pasaba al mandar ordenes.
+   POST { action:'create', clients:[datos revisados], password }
+        -> los crea en QuickBooks con los datos de la tarjeta, y esos
+           mismos datos se guardan en la app (con historial, via
+           admin-update-client). Si mientras tanto alguien ya lo creo
+           en QuickBooks con ese nombre, solo se liga (nunca duplica).
+   POST { action:'update', clientId, password }
+        -> manda a QuickBooks los datos que tiene HOY la app.
+   El password del director se revisa aqui en el servidor.
 ============================================================ */
 const { CLIENTS_LIST, jsonResponse } = require('./lib/graph');
 const lq = require('./lib/list-query');
-const { isConnected, findOrCreateCustomer, getJsonSetting, getSetting } = require('./lib/quickbooks');
+const qb = require('./lib/quickbooks');
 
 const truthy = v => v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes';
+const norm = v => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase();
+const FIELDS = ['businessName', 'contactPerson', 'email', 'phone', 'address', 'suite', 'city', 'zip'];
 
-function clientOut(it, map) {
+function appClient(it) {
   const f = it.fields || {};
   return {
     clientId: f.ClientID || '',
@@ -32,49 +42,108 @@ function clientOut(it, map) {
     suite: f.Suite || '',
     city: f.City || '',
     zip: f.Zip || '',
-    registeredAt: it.createdDateTime || '',
-    inQuickBooks: !!map[f.ClientID]
+    active: f.Active === undefined ? true : truthy(f.Active),
+    selfRegistered: truthy(f.SelfRegistered),
+    registeredAt: it.createdDateTime || ''
   };
+}
+
+/* Telefonos se comparan solo por digitos ("(515) 555-0142" = "5155550142"). */
+function sameField(k, a, b) {
+  if (k === 'phone') return String(a || '').replace(/\D/g, '') === String(b || '').replace(/\D/g, '');
+  return norm(a) === norm(b);
+}
+
+async function checkPassword(pw) {
+  const real = (await qb.getSetting('DirectorPassword')) || '080922';
+  return String(pw || '') === String(real);
+}
+
+async function updateApp(event, c) {
+  /* Mismo endpoint que el tab Clients: deja historial de cada cambio. */
+  const email = (event.headers || {})['x-gs-user-email'] || 'Admin';
+  const res = await require('./admin-update-client').handler({
+    httpMethod: 'POST',
+    headers: event.headers,
+    body: JSON.stringify({
+      clientId: c.clientId, changedBy: email,
+      businessName: c.businessName, contactPerson: c.contactPerson, contact: c.email,
+      phone: c.phone, address: c.address, suite: c.suite, city: c.city, zip: c.zip
+    })
+  });
+  if (res.statusCode !== 200) throw new Error('Saved in QuickBooks, but the app could not be updated: ' + (JSON.parse(res.body || '{}').error || res.statusCode));
 }
 
 exports.handler = async (event) => {
   try {
+    if (!(await qb.isConnected())) return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
+
     if (event.httpMethod === 'GET') {
-      const [rows, map] = await Promise.all([lq.fetchAll(CLIENTS_LIST), getJsonSetting('qb_customer_id_map')]);
-      const clients = rows
-        .filter(it => it.fields && it.fields.ClientID && truthy(it.fields.SelfRegistered))
-        .map(it => clientOut(it, map))
-        .sort((a, b) => String(b.registeredAt).localeCompare(String(a.registeredAt)));
+      const [rows, map, customers] = await Promise.all([
+        lq.fetchAll(CLIENTS_LIST), qb.getJsonSetting('qb_customer_id_map'), qb.listCustomers()
+      ]);
+      const byId = new Map(customers.map(cu => [String(cu.Id), cu]));
+      const byName = new Map();
+      customers.forEach(cu => { const k = norm(cu.DisplayName); if (k && !byName.has(k)) byName.set(k, cu); });
+      const newLinks = {};
+      const clients = rows.filter(it => it.fields && it.fields.ClientID).map(it => {
+        const c = appClient(it);
+        let cu = map[c.clientId] ? byId.get(String(map[c.clientId])) : null;
+        if (!cu) {
+          cu = byName.get(norm(c.businessName)) || null;
+          if (cu) newLinks[c.clientId] = String(cu.Id);
+        }
+        const view = cu ? qb.customerView(cu) : null;
+        c.qb = view;
+        c.diff = view ? FIELDS.filter(k => !sameField(k, c[k], view[k])) : [];
+        return c;
+      }).sort((a, b) => String(a.businessName).localeCompare(String(b.businessName)));
+      await qb.linkCustomers(newLinks);
       return jsonResponse(200, { clients });
     }
+
     if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
-
     const body = JSON.parse(event.body || '{}');
-    const ids = [...new Set((Array.isArray(body.clientIds) ? body.clientIds : []).map(String).filter(Boolean))];
-    if (!ids.length) return jsonResponse(400, { error: 'No clients selected.' });
-
-    const real = (await getSetting('DirectorPassword')) || '080922';
-    if (String(body.password || '') !== String(real)) {
+    if (!(await checkPassword(body.password))) {
       return jsonResponse(403, { error: 'Wrong Operations Director password.', code: 'BAD_PASSWORD' });
     }
-    if (!(await isConnected())) return jsonResponse(409, { error: 'QuickBooks is not connected yet.' });
 
-    const rows = await lq.fetchByValues(CLIENTS_LIST, 'ClientID', ids);
-    const byId = new Map(rows.filter(it => it.fields).map(it => [String(it.fields.ClientID), it.fields]));
+    if (body.action === 'update') {
+      const clientId = String(body.clientId || '');
+      const rows = await lq.fetchByValues(CLIENTS_LIST, 'ClientID', [clientId]);
+      const it = rows.find(r => r.fields);
+      if (!it) return jsonResponse(404, { error: 'Client not found.' });
+      const c = appClient(it);
+      const map = await qb.getJsonSetting('qb_customer_id_map');
+      const id = map[clientId] || await qb.findCustomerId(clientId, c.businessName);
+      if (!id) return jsonResponse(404, { error: c.businessName + ' is not in QuickBooks yet. Create it in QuickBooks › Clients.' });
+      /* El estado (IA) no existe en la app: se deja el que tenga QuickBooks. */
+      const cur = await qb.qbFetch('/customer/' + encodeURIComponent(id));
+      c.state = (cur.Customer.BillAddr && cur.Customer.BillAddr.CountrySubDivisionCode) || 'IA';
+      const updated = await qb.updateCustomer(id, c);
+      return jsonResponse(200, { success: true, qb: qb.customerView(updated) });
+    }
+
+    /* create (tambien sin action, como la 1a version) */
+    const list = Array.isArray(body.clients) ? body.clients : [];
+    if (!list.length) return jsonResponse(400, { error: 'No clients selected.' });
+    const customers = await qb.listCustomers();
+    const byName = new Map();
+    customers.forEach(cu => { const k = norm(cu.DisplayName); if (k && !byName.has(k)) byName.set(k, cu); });
     const results = [];
-    /* Uno por uno: si uno falla (p. ej. el nombre ya lo usa un
-       proveedor en QuickBooks) los demas siguen. */
-    for (const id of ids) {
-      const f = byId.get(id);
-      if (!f) { results.push({ clientId: id, success: false, error: 'Client not found.' }); continue; }
+    for (const raw of list) {
+      const c = {};
+      ['clientId', 'state'].concat(FIELDS).forEach(k => { c[k] = String(raw[k] == null ? '' : raw[k]).trim(); });
+      if (!c.clientId || !c.businessName) { results.push({ clientId: c.clientId, success: false, error: 'Business name is required.' }); continue; }
       try {
-        const r = await findOrCreateCustomer(id, {
-          businessName: f.Title, contactPerson: f.ClientName, email: f.Contact, phone: f.Phone,
-          address: f.Address, suite: f.Suite, city: f.City, zip: f.Zip
-        });
-        results.push({ clientId: id, success: true, customerId: r.id, how: r.how });
+        let cu = byName.get(norm(c.businessName));
+        const how = cu ? 'linked' : 'created';
+        if (!cu) { cu = await qb.createCustomer(c); byName.set(norm(c.businessName), cu); }
+        await qb.linkCustomers({ [c.clientId]: String(cu.Id) });
+        await updateApp(event, c);
+        results.push({ clientId: c.clientId, success: true, how, customerId: String(cu.Id) });
       } catch (err) {
-        results.push({ clientId: id, success: false, error: err.message });
+        results.push({ clientId: c.clientId, success: false, error: err.message });
       }
     }
     return jsonResponse(200, { results });

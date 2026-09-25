@@ -23,7 +23,7 @@ const {
 const lq = require('./lib/list-query');
 
 const {
-  isConnected, findItemBySku, findOrCreateCustomerId, createSalesDoc,
+  isConnected, findItemBySku, findCustomerId, createSalesDoc,
   markOrderImported, getImportedOrders, getSendPerms, getCompanySetup, getClassesAndDepartments,
   usesCustomTxnNumbers, nextDocNumber
 } = require('./lib/quickbooks');
@@ -207,9 +207,8 @@ exports.handler = async (event) => {
           });
         }
 
-        const customerId = await findOrCreateCustomerId(o.ClientID, o.BusinessName, {
-          address: o.Address, city: o.City, zip: o.Zip
-        });
+        const customerId = await findCustomerId(o.ClientID, o.BusinessName);
+        if (!customerId) throw new Error((o.BusinessName || o.ClientID) + ' is not in QuickBooks yet. Add it in QuickBooks › Clients first.');
 
         const doc = {
           CustomerRef: { value: customerId },
