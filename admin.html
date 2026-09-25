@@ -1184,13 +1184,12 @@
   .sv-coll-head[aria-expanded="true"] .car { transform: rotate(90deg); }
   .sv-coll-head b { font-weight: 600; }
   .sv-coll-head .sv-coll-time { color: var(--gray, #6B6B6B); }
-  .sv-coll-divs { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
-  .sv-coll-div { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--off, #F7F6F3); border: 1px solid var(--border); white-space: nowrap; }
+  .sv-coll-name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .sv-coll-head .sv-coll-time { margin-left: auto; font-size: 12px; }
+  .sv-coll-head + .sv-coll-body, .sv-coll-body + .sv-coll-head { margin-top: 8px; }
+  .sv-coll-total { font-size: 12px; color: var(--gray, #6B6B6B); margin: 0 2px 8px; }
   .sv-coll-body { display: none; }
   .sv-coll-body.open { display: block; }
-  .sv-div-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 14px 2px 0; padding-bottom: 6px; border-bottom: 2px solid var(--gold);
-              font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--black, #111); }
-  .sv-div-h span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--gray, #6B6B6B); font-size: 12px; }
   @media (prefers-reduced-motion: reduce) { .sv-coll-head .car { transition: none; } }
   .sv-card { border: 1px solid var(--border); border-radius: 10px; background: var(--white); padding: 14px 16px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; }
   .sv-card.done { background: #FAFCFA; border-color: #D5E6D9; }
@@ -5148,22 +5147,21 @@ function svCollapsibleHtml(rows, orderId) {
     const res = calcOrderEstimatedMinutes(list.map(r => r.svc).filter(Boolean), orderId);
     return res ? fmtDuration(res.totalMinutes) : '';
   };
-  const total = timeOf(rows);
   const multi = order.length > 1;
-  const bodyId = 'sv-coll-' + String(orderId || '').replace(/[^a-z0-9]/gi, '_') + '-' + (++svCollSeq);
-  const head = '<button type="button" class="sv-coll-head" aria-expanded="false" aria-controls="' + bodyId + '" onclick="toggleSvColl(this)">' +
-    '<span class="car">\u25B8</span><b>' + rows.length + (rows.length === 1 ? ' service' : ' services') + '</b>' +
-    (total ? '<span class="sv-coll-time">\u00b7 ' + esc(total) + '</span>' : '') +
-    (multi ? '<span class="sv-coll-divs">' + order.map(d => '<span class="sv-coll-div">' + esc(d) + ' \u00b7 ' + byDiv[d].length + '</span>').join('') + '</span>' : '') +
-    '</button>';
-  const body = multi
-    ? order.map(d => {
-        const t = timeOf(byDiv[d]);
-        return '<div class="sv-div-h">' + esc(d) + '<span>' + byDiv[d].length + (byDiv[d].length === 1 ? ' service' : ' services') + (t ? ' \u00b7 ' + esc(t) : '') + '</span></div>' +
-          svReadOnlyCardsHtml(byDiv[d], orderId);
-      }).join('')
-    : svReadOnlyCardsHtml(rows, orderId);
-  return head + '<div class="sv-coll-body" id="' + bodyId + '">' + body + '</div>';
+  const total = multi ? timeOf(rows) : '';
+  const count = n => n + (n === 1 ? ' service' : ' services');
+  /* Una seccion desplegable por division, todas cerradas (pedido del
+     dueño: "donde dice Janitorial y Renovations de ahi que sea
+     desplegable"). En Mixed arriba va el total de toda la orden. */
+  const sections = order.map(d => {
+    const t = timeOf(byDiv[d]);
+    const bodyId = 'sv-coll-' + String(orderId || '').replace(/[^a-z0-9]/gi, '_') + '-' + (++svCollSeq);
+    return '<button type="button" class="sv-coll-head" aria-expanded="false" aria-controls="' + bodyId + '" onclick="toggleSvColl(this)">' +
+      '<span class="car">\u25B8</span><b class="sv-coll-name">' + esc(d) + '</b>' +
+      '<span class="sv-coll-time">' + count(byDiv[d].length) + (t ? ' \u00b7 ' + esc(t) : '') + '</span></button>' +
+      '<div class="sv-coll-body" id="' + bodyId + '">' + svReadOnlyCardsHtml(byDiv[d], orderId) + '</div>';
+  }).join('');
+  return (multi ? '<div class="sv-coll-total">' + count(rows.length) + (total ? ' \u00b7 ' + esc(total) : '') + ' total</div>' : '') + sections;
 }
 let svCollSeq = 0;
 function toggleSvColl(btn) {
