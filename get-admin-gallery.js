@@ -205,7 +205,11 @@ exports.handler = async (event) => {
             level: (info && info.level) || '',
             reason: (info && info.reason) || '',
             caption: (info && info.caption) || formatIsoDate(p.createdDateTime) || undefined,
-            sortKey: (info && info.sortKey) || p.createdDateTime || ''
+            sortKey: (info && info.sortKey) || p.createdDateTime || '',
+            /* Foto de inspeccion (antes) vs de trabajo (despues), 25/09/2026:
+               upload-photo (Tech) le pone insp- mientras la orden esta en
+               'Inspection'. gallery-groups v1.69.0 las separa en 2 pestañas. */
+            stage: /^insp-/i.test(p.name) ? 'inspection' : 'work'
           };
         })
       };

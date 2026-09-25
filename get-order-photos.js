@@ -39,7 +39,7 @@ exports.handler = async (event) => {
 
     const kids = await listChildren(folderPath);
     const photos = kids.filter(k => k.isFile).sort((a, b) => a.name.localeCompare(b.name))
-      .map(p => ({ name: p.name, downloadUrl: p.downloadUrl }));
+      .map(p => ({ name: p.name, downloadUrl: p.downloadUrl, stage: /^insp-/i.test(p.name) ? 'inspection' : 'work' }));
 
     return jsonResponse(200, { photos });
   } catch (e) {
