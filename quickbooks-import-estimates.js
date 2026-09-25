@@ -202,21 +202,15 @@ exports.handler = async (event) => {
         }
         if (customNums) doc.DocNumber = await nextDocNumber(sendAs);
 
-        /* Si QuickBooks rechaza los campos personalizados, el documento
-           se crea sin ellos (nunca en la descripcion) y se avisa para
-           llenarlos a mano. */
-        let estimate, fieldsWarning = '';
-        try {
-          estimate = await createSalesDoc(sendAs, doc);
-        } catch (e) {
-          if (!doc.CustomField || !/custom ?field|definition/i.test(e.message)) throw e;
-          delete doc.CustomField;
-          estimate = await createSalesDoc(sendAs, doc);
-          fieldsWarning = 'Unit #, Bedrooms and Bathrooms could not be filled (' + e.message + ') — add them by hand in QuickBooks.';
+        /* Nada se llena a mano (el dueño, 25/09/2026): si la orden trae
+           unidad / recamaras / baños y QuickBooks no tiene donde
+           ponerlos, NO se crea el documento -- se avisa y la orden se
+           queda lista para mandarse otra vez. Nunca en la descripcion. */
+        const needsFields = [o.UnitNumber || o.BuildingNumber, o.Bedrooms, o.Bathrooms].filter(v => String(v || '').trim()).length;
+        if (needsFields && cf.length < needsFields) {
+          throw new Error('QuickBooks fields for Unit #, Bedrooms or Bathrooms were not found, so nothing was created.');
         }
-        if (!fieldsWarning && !cf.length && (o.UnitNumber || o.BuildingNumber || o.Bedrooms || o.Bathrooms)) {
-          fieldsWarning = 'Unit #, Bedrooms and Bathrooms were not found in QuickBooks — add them by hand.';
-        }
+        const estimate = await createSalesDoc(sendAs, doc);
 
         await Promise.all([
           markOrderImported(o.OrderID, estimate.Id, estimate.DocNumber || '', sendAs),
@@ -231,7 +225,7 @@ exports.handler = async (event) => {
         ]);
         already[o.OrderID] = { docNumber: estimate.DocNumber || '' };
 
-        results.push({ orderId: o.OrderID, success: true, type: sendAs, estimateId: estimate.Id, docNumber: estimate.DocNumber || '', warning: fieldsWarning });
+        results.push({ orderId: o.OrderID, success: true, type: sendAs, estimateId: estimate.Id, docNumber: estimate.DocNumber || '' });
       } catch (err) {
         results.push({ orderId: o.OrderID, success: false, error: err.message });
       }

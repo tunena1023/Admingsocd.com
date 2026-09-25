@@ -2948,7 +2948,7 @@ function qbSetupHtml(status) {
     const has = re => names.some(n => re.test(n));
     const missing = [[/unit/i, 'Unit #'], [/bed/i, 'Bedrooms'], [/bath/i, 'Bathrooms']].filter(([re]) => !has(re)).map(x => x[1]);
     rows.push(missing.length
-      ? '<span class="qb-warn">The app hasn\'t found these QuickBooks fields yet: ' + esc(missing.join(', ')) + '. Fill them in by hand on one invoice in QuickBooks and the app will pick them up from there. Until then they have to be added by hand.</span>'
+      ? '<span class="qb-warn">The app hasn\'t found these QuickBooks fields yet: ' + esc(missing.join(', ')) + '. Orders with a unit won\'t be sent until they\'re found.</span>'
       : '<span>Unit #, Bedrooms and Bathrooms go to their custom fields.</span>');
     rows.push('<span>Each line is dated the day that service was completed; the document is dated the day it\'s created.</span>');
     rows.push('<span>' + (st.customNumbers ? 'Numbers continue from the highest one already in QuickBooks.' : 'QuickBooks gives each one the next number.') + '</span>');
@@ -3039,7 +3039,6 @@ async function importSelectedEstimates() {
     GSLoadingSplash.hide(); // no llama loadAll(), no se apaga sola
     if (okCount) showToast(okCount + ' ' + (res.sendAs === 'invoice' ? 'invoice' : 'estimate') + (okCount === 1 ? '' : 's') + ' created in QuickBooks: ' + results.filter(r => r.success).map(r => '#' + (r.docNumber || r.estimateId)).join(', ') + '.');
     failed.forEach(r => showToast(r.orderId + ': ' + r.error));
-    results.filter(r => r.success && r.warning).forEach(r => showToast(r.orderId + ' (#' + (r.docNumber || r.estimateId) + '): ' + r.warning));
     await renderQuickBooksPanel();
   } catch (e) {
     GSLoadingSplash.hide();
