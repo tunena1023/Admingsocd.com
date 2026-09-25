@@ -209,6 +209,9 @@
     .status-delayed    { background: #ffe0cc; color: #8a4b0f; }
     .status-inspection { background: #E6EEFB; color: #2A4E8C; }
     .status-inspected  { background: #E3F1E6; color: #24663A; }
+    /* Schedule: estado de programacion de una orden "Assign by service" */
+    .abs-prog { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }
+    .abs-prog-txt { font-size: 12px; color: var(--gray); }
 
     /* APPROVALS */
     .tab-count {
@@ -1608,7 +1611,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@8a4738ee52ce14321f83cf040a577d089d96cf4d/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@d309c9378c9e5f97be227606c3ccf2c7706ddb71/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 
@@ -16045,9 +16048,19 @@ let pendingDirectLinkOrderId = null;
       html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:0 0 8px">Opened directly (' + esc(directLinkOrder.Status) + ')</div>';
       html += orderQueueCardHtml(directLinkOrder);
     }
-    if (queue.length) {
-      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Waiting for assignment (' + queue.length + ')</div>';
-      html += queue.map(orderQueueCardHtml).join('');
+    /* "Assign by service" (25/09/2026, pedido del dueño): la orden se
+       queda aqui hasta que se completen todos sus servicios. Las que ya
+       tienen TODOS sus servicios programados van en su propia seccion,
+       para que se vea de un vistazo que ya no falta asignar nada. */
+    const waiting = queue.filter(o => !absFullyScheduled(o));
+    const inProgress = queue.filter(absFullyScheduled);
+    if (waiting.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:16px 0 8px">Waiting for assignment (' + waiting.length + ')</div>';
+      html += waiting.map(orderQueueCardHtml).join('');
+    }
+    if (inProgress.length) {
+      html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Scheduled, work in progress (' + inProgress.length + ')</div>';
+      html += inProgress.map(orderQueueCardHtml).join('');
     }
     if (scheduled.length) {
       html += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);margin:24px 0 8px">Already scheduled, waiting for Approve (' + scheduled.length + ')</div>';
@@ -16063,8 +16076,29 @@ let pendingDirectLinkOrderId = null;
     return days <= 0 ? 'today' : days + ' day' + (days === 1 ? '' : 's');
   }
 
+  function absFullyScheduled(o) {
+    const p = o.AssignByService && o.AssignByServiceProgress;
+    return !!(p && p.total && p.scheduled >= p.total);
+  }
+
+  /* Estado de programacion de una orden "Assign by service": cuantos
+     servicios ya tienen persona y fecha, y cuantos ya se completaron. */
+  function absProgressHtml(o) {
+    const p = o.AssignByService && o.AssignByServiceProgress;
+    if (!p || !p.total || !p.scheduled) return '';
+    const full = p.scheduled >= p.total;
+    const bits = [full ? p.total + ' of ' + p.total + ' services scheduled' : p.scheduled + ' of ' + p.total + ' services scheduled'];
+    if (p.people) bits.push(p.people + (p.people === 1 ? ' person' : ' people'));
+    if (p.completed) bits.push(p.completed + ' done');
+    return '<div class="abs-prog">' +
+      '<span class="status-badge ' + (full ? 'status-assigned' : 'status-pending') + '">' + (full ? 'Scheduled' : 'Partly scheduled') + '</span>' +
+      '<span class="abs-prog-txt">' + esc(bits.join(' · ')) + '</span></div>';
+  }
+
   function orderQueueCardHtml(o) {
-    const waitLabel = o.Status === 'Received' ? ('waiting ' + daysWaiting(o.createdDateTime)) : ('status: ' + o.Status);
+    const absStarted = o.AssignByService && o.AssignByServiceProgress && o.AssignByServiceProgress.scheduled > 0;
+    const waitLabel = o.Status === 'Received' && !absStarted ? ('waiting ' + daysWaiting(o.createdDateTime))
+      : absStarted ? '' : ('status: ' + o.Status);
     return `
       <div class="order-card${o.Unseen ? ' unseen' : ''}" data-order="${escAttr(o.OrderID)}">
         <div class="order-card-header" onclick="toggleOrderCard('${escAttr(o.OrderID)}')">
@@ -16076,8 +16110,9 @@ let pendingDirectLinkOrderId = null;
               unitNumber: o.UnitNumber,
               bedrooms: o.Bedrooms,
               bathrooms: o.Bathrooms,
-              extraLine: waitLabel + (o.createdDateTime ? ' · Created ' + fmtDateTime(o.createdDateTime) : '')
+              extraLine: [waitLabel, o.createdDateTime ? 'Created ' + fmtDateTime(o.createdDateTime) : ''].filter(Boolean).join(' · ')
             })}
+            ${absProgressHtml(o)}
             ${orderPhotoStripHtml(o.OrderID)}
           </div>
           <span style="font-size:11px;color:var(--gray);flex-shrink:0">▾</span>

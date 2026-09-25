@@ -267,6 +267,23 @@ exports.handler = async (event) => {
       completedCountByOrder[oid] = (completedCountByOrder[oid] || 0) + 1;
     });
 
+    /* "Assign by service" (25/09/2026, pedido del dueño): la orden se
+       queda en Schedule hasta que se completen todos sus servicios, asi
+       que la tarjeta tiene que decir si ya se programo. Por orden:
+       cuantos servicios reales (sin los no completados) ya tienen
+       persona+fecha, y a cuantas personas se repartieron. */
+    const scheduledByOrder = {};
+    assignmentRows.forEach(it => {
+      const f = it.fields;
+      if (!f || !f.OrderID || !f.AssignedTo || !f.ScheduledDate) return;
+      const live = (servicesDetailedByOrder[f.OrderID] || []).some(s => !s.NotCompleted &&
+        s.ServiceName === f.ServiceName && (s.Category || '') === (f.Category || ''));
+      if (!live) return;
+      const e = scheduledByOrder[f.OrderID] = scheduledByOrder[f.OrderID] || { count: 0, people: {} };
+      e.count++;
+      String(f.AssignedTo).split(/\s*[,;]\s*/).filter(Boolean).forEach(n => { e.people[n] = true; });
+    });
+
     /* Lugares (cliente principal + cada building) por clave "clientId|buildingId"
        ("" de buildingId = la direccion principal) -- con sus dias/horario. */
     const placeByKey = {};
@@ -404,6 +421,12 @@ exports.handler = async (event) => {
              se sigue mostrando ahi, sin importar su Status. */
           AssignByServiceHasIncomplete: (completedCountByOrder[f.OrderID || f.Title] || 0) <
             (servicesDetailedByOrder[f.OrderID || f.Title] || []).filter(s => !s.NotCompleted).length,
+          AssignByServiceProgress: {
+            total: (servicesDetailedByOrder[f.OrderID || f.Title] || []).filter(s => !s.NotCompleted).length,
+            scheduled: (scheduledByOrder[f.OrderID || f.Title] || {}).count || 0,
+            completed: completedCountByOrder[f.OrderID || f.Title] || 0,
+            people: Object.keys((scheduledByOrder[f.OrderID || f.Title] || {}).people || {}).length
+          },
           NowOpenStatus: computeNowOpenStatus(place, holidayToday, now),
           Services: servicesByOrder[f.OrderID || f.Title] || [],
           ServicesDetailed: servicesDetailedByOrder[f.OrderID || f.Title] || []
