@@ -111,7 +111,7 @@
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.10/camera-queue/camera-queue.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script>
   /* No hay MSAL/sesion completa aqui a proposito -- /upload-service-photo
      no necesita saber quien es el actor (solo orderId/serviceName/
@@ -241,14 +241,12 @@
 
   async function capture() {
     if (count >= MAX_PHOTOS || !stream) return;
-    /* Mismo fix que tech.gsocd.com (18/09/2026, ver ese commit para
-       el detalle completo): el boton se bloquea durante toda la
-       captura -- si se toca de nuevo mientras GSCameraQueue.enqueue()
-       todavia esta en curso, antes se disparaba una segunda captura
-       de la misma imagen. */
+    /* Sin candado entre fotos (25/09/2026, el dueño: quiere poder tomar
+       fotos seguidas). Cada toque toma SU foto al instante; ya no se
+       duplican porque cada una lleva su propio photoKey (camera-queue
+       v1.70.0) y el servidor la guarda con ese nombre. Solo se apaga
+       al llegar al maximo. */
     const btn = document.getElementById('shutter-btn');
-    if (btn.disabled) return;
-    btn.disabled = true;
 
     count++;
     document.getElementById('counter-pill').textContent = count + ' / ' + MAX_PHOTOS + ' photos';
@@ -268,7 +266,7 @@
       });
       thumbById[id] = { thumb, status };
     } finally {
-      if (count < MAX_PHOTOS) btn.disabled = false;
+      if (count >= MAX_PHOTOS) btn.disabled = true;
     }
   }
   document.getElementById('shutter-btn').addEventListener('click', capture);

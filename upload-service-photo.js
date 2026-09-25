@@ -42,6 +42,16 @@ function randomSuffix() {
   return Math.random().toString(36).slice(2, 6);
 }
 
+/* photoKey (gsocd-shared camera-queue v1.70.0, 25/09/2026): nombre fijo
+   que la foto trae desde que se tomo ("AAAA-MM-DD_HHMMSS-xxxxxx", UTC).
+   Si la misma foto llega 2 veces (Done antes de que terminara de subir y
+   la otra pagina la reenvia), se escribe en el MISMO archivo en vez de
+   crear una copia. Sin photoKey (fotos viejas en la cola), como antes. */
+function photoStamp(b, now) {
+  const k = String((b && b.photoKey) || '');
+  return /^\d{4}-\d{2}-\d{2}_\d{6}-[a-z0-9]{4,12}$/.test(k) ? k : fileTimestamp(now || new Date()) + '-' + randomSuffix();
+}
+
 function safeName(s) { return String(s || '').trim().replace(/[^a-z0-9]/gi, '_'); }
 
 exports.handler = async (event) => {
@@ -65,7 +75,7 @@ exports.handler = async (event) => {
       .replace(/[\\/:*?"<>|]/g, '').trim() || orderId;
     const folderPath = PHOTOS_FOLDER + '/' + clientLabel + '/' + orderId + '/Photos';
 
-    const fileName = 'svc-' + safeName(serviceName) + '-' + fileTimestamp(new Date()) + '-' + randomSuffix() + '.jpg';
+    const fileName = 'svc-' + safeName(serviceName) + '-' + photoStamp(b) + '.jpg';
     const buffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
 
     await ensureFolder(folderPath);
