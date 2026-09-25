@@ -1444,7 +1444,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.62.0/service-picker/service-picker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.63.0/service-picker/service-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
@@ -13945,6 +13945,16 @@ async function loadCreateServices() {
     catalog: createCatalogFor(pkgClientId),
     usualSets: pkgSets.usual.filter(u => !div || u.division === div || isMixed),
     savedSets: pkgSets.saved.filter(u => !div || u.division === div || isMixed),
+    /* picker v1.63.0 (24/09/2026, dueño): si en el Edit de un paquete se
+       agrega un servicio de otra division, la orden se va a Mixed EN ESE
+       MOMENTO sin perder lo escogido. */
+    onGoMixed: function () {
+      document.getElementById('create-division').value = 'Mixed';
+      GSOrderFormPremium.activateDivTab('Mixed', {cardId:'create-div-card', tabsId:'create-div-tabs', underlineId:'create-div-underline'});
+      if (createPickerHandle && createPickerHandle.setSavedSets) createPickerHandle.setSavedSets(pkgSets.saved);
+      if (createPickerHandle && createPickerHandle.setUsualSets) createPickerHandle.setUsualSets(pkgSets.usual);
+      showToast('Switched to Mixed — this order now has services from more than one division.');
+    },
     packageEdit: pkgEdit,
     division: div,
     crossDivision: isMixed,
