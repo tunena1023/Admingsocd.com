@@ -95,7 +95,12 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   entrar al portal. Se regresó Production al deploy `dpl_7GLJePWzL7ZYwEDrJsj9cpDkSdT1`
   (`72d784a`, de las 00:14, con los valores viejos) y el portal volvió.
   **Mientras siga el rollback, los push a Orders NO pasan solos a producción.**
-  Falta: poner valores buenos en esas 2 variables de Production (son "sensitive",
+  00:35 UTC: `GRAPH_CLIENT_ID` de Production ya se restauró al Application ID
+  bueno (empieza con `18dfcf2e`; el `491a3194` que se había puesto no existe en el
+  directorio). Se probó promoviendo y regresando: el secret de Production sigue
+  inválido (AADSTS7000215). **Falta solo `GRAPH_CLIENT_SECRET` de Production**:
+  el dueño crea un secret nuevo en la app `18dfcf2e` y pega el Value.
+  Antes: poner valores buenos en esas 2 variables de Production (son "sensitive",
   nadie las puede leer, ni Claude; el Value del secret solo lo da Azure al crearlo),
   redeploy de `main` y promoverlo. Hasta entonces, en Orders sigue el Documents
   viejo (el arreglo de Title está en Admin y Tech, no en Orders).
