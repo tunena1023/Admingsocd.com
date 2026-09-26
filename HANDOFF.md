@@ -87,23 +87,18 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   Orders el cliente ve solo "The document could not be saved. Please try
   again later." Probado con la lista simulada tal cual la tiene el dueño;
   **falta que el dueño lo pruebe en real** (subir desde Admin y desde Orders).
-- **ORDERS EN ROLLBACK (26/09/2026, 00:27 UTC, con OK del dueño).** A las 00:16 UTC
-  alguien con el usuario de Vercel del dueño cambió `GRAPH_CLIENT_ID` y
-  `GRAPH_CLIENT_SECRET` de **Production** en el proyecto `orders.gsocd.com`
-  (Preview no se tocó). El deploy siguiente (`b38a985`) salió con esos valores y
-  Microsoft los rechazó ("AADSTS7000215 invalid client secret"): nadie podía
-  entrar al portal. Se regresó Production al deploy `dpl_7GLJePWzL7ZYwEDrJsj9cpDkSdT1`
-  (`72d784a`, de las 00:14, con los valores viejos) y el portal volvió.
-  **Mientras siga el rollback, los push a Orders NO pasan solos a producción.**
-  00:35 UTC: `GRAPH_CLIENT_ID` de Production ya se restauró al Application ID
-  bueno (empieza con `18dfcf2e`; el `491a3194` que se había puesto no existe en el
-  directorio). Se probó promoviendo y regresando: el secret de Production sigue
-  inválido (AADSTS7000215). **Falta solo `GRAPH_CLIENT_SECRET` de Production**:
-  el dueño crea un secret nuevo en la app `18dfcf2e` y pega el Value.
-  Antes: poner valores buenos en esas 2 variables de Production (son "sensitive",
-  nadie las puede leer, ni Claude; el Value del secret solo lo da Azure al crearlo),
-  redeploy de `main` y promoverlo. Hasta entonces, en Orders sigue el Documents
-  viejo (el arreglo de Title está en Admin y Tech, no en Orders).
+- **Orders: caída del 26/09/2026 (00:17–00:27 UTC), RESUELTA 00:41 UTC.** Alguien
+  con el usuario de Vercel del dueño cambió `GRAPH_CLIENT_ID` y
+  `GRAPH_CLIENT_SECRET` de Production en `orders.gsocd.com`; el deploy siguiente
+  salió con valores que Microsoft rechazó y nadie podía entrar al portal. Se hizo
+  rollback, se regresó `GRAPH_CLIENT_ID` al Application ID bueno (empieza con
+  `18dfcf2e`), el dueño puso un secret nuevo en `GRAPH_CLIENT_SECRET` de
+  Production, y se promovió `dpl_HxCPSLmMhzna4AjatLiJFM71cWee` (`b38a985`, con el
+  arreglo de Documents). Probado en orders.gsocd.com: Graph contesta bien.
+  Ojo: Orders Production usa el secret NUEVO; Orders Preview, Admin y Tech siguen
+  con el viejo. El viejo sigue escrito en `ordersgsocd.com/lib/graph.js` (repo
+  público): pendiente quitarlo del código y, cuando se pueda, cambiar el secret
+  en todos lados.
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
