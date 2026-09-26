@@ -341,12 +341,12 @@ Todo con `lib/quickbooks.js`.
       `Documents/Backups/ServicesCatalog`
 - [x] Dueño: decisiones 1–4 (sección 3) — 90 días, cliente todo junto, orden todo junto, GSMS→QB inmediato
 - [x] Dueño: preguntas a–c (sección 3) — los 3 al instante; clientes solo desde GSMS; descripción en GSMS, nombre/precio/SKU en QB
-- [ ] 1.1 `lib/backup-store.js`
-- [ ] 1.2 lista de listas y campos excluidos, probada con renglones reales
-- [ ] 1.3 respaldo diario de todas las listas (decidir cron nuevo vs tandas)
-- [ ] 1.4 respaldo antes de cada acción masiva
+- [x] 1.1 `lib/backup-store.js` (misma hora en todas las listas de un respaldo; mapa id viejo→nuevo en `Backups/id-map.json` para contactos/edificios recreados)
+- [x] 1.2 listas en `GROUPS` y campos de sistema excluidos (probado con renglones simulados; **falta revisar con un renglón real de SharePoint** que no quede fuera una columna)
+- [x] 1.3 respaldo diario: `cron-backups.js`, un cron por grupo en `vercel.json` (07,08,09,10,12 UTC; Vercel permite 100 crons, 1/día en Hobby)
+- [x] 1.4 respaldo antes de: bulk-import/update clients, bulk hours, wipe (x2), package fix, service times import/clear, catalog import (`backupBefore` en developer-admin.js). Falta: `quickbooks-clients.js` (va con la fase 2)
 - [ ] 1.5 mini de la pantalla Backups → OK del dueño → construir
-- [ ] 1.6 pruebas
+- [x] 1.6 pruebas: `node tests/backup-store.sim.js` (27 OK). Falta la prueba contra SharePoint real después del deploy
 - [ ] 2.1 foto diaria de QuickBooks
 - [ ] 2.2 GSMS → QuickBooks al instante + registro por cambio + Undo in QuickBooks (después de a–c)
 - [ ] Dueño: versiones de SharePoint prendidas (sección 6)

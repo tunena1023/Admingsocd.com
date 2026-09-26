@@ -341,6 +341,14 @@ function catalogDiff(rows, existing, opts) {
 /* Respaldos del catalogo: lib/catalog-backup.js (Migrate, Restore y el
    respaldo diario del cron). */
 const catalogBackup = require('./lib/catalog-backup');
+/* Respaldo de todas las listas (lib/backup-store.js, PLAN-RESPALDOS.md).
+   backupBefore: foto de las listas que va a tocar una accion masiva, ANTES
+   de escribir; si no se pudo guardar, la accion no se hace. */
+const backupStore = require('./lib/backup-store');
+async function backupBefore(lists, reason, by) {
+  try { await backupStore.backupLists(lists, reason, by); return null; }
+  catch (e) { return jsonResponse(500, { error: 'Could not save a backup first, so nothing was changed: ' + e.message }); }
+}
 
 /* De 8 en 8, como el resto de las escrituras masivas del archivo. */
 async function inBatches(list, fn) {
@@ -751,6 +759,8 @@ exports.handler = async (event) => {
        usuario haya dejado sin marcar se queda exactamente como esta. */
     if (action === 'apply-catalog-import') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      try { await catalogBackup.backupCatalog(await catalogBackup.readCatalog(), 'before-import', email); }
+      catch (e) { return jsonResponse(500, { error: 'Could not save a backup of the catalog, so nothing was changed: ' + e.message }); }
       const toCreate = Array.isArray(body.toCreate) ? body.toCreate : [];
       const toUpdate = Array.isArray(body.toUpdate) ? body.toUpdate : [];
       const confirmedReactivate = Array.isArray(body.confirmedReactivate) ? body.confirmedReactivate : [];
@@ -913,6 +923,41 @@ exports.handler = async (event) => {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
       try {
         return jsonResponse(200, await catalogBackup.restoreBackup(String(body.name || ''), { dryRun: body.dryRun === true, by: email }));
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+    }
+
+    /* ============================================================
+       BACKUPS DE TODO (26/09/2026, PLAN-RESPALDOS.md fase 1) --
+       lib/backup-store.js. Director/Developer (mismo candado que el
+       catalogo). Regresar: listas de configuracion completas; clientes y
+       ordenes uno por uno, todo junto. Siempre con dryRun primero en la
+       pantalla.
+    ============================================================ */
+    if (['backup-status', 'backup-now', 'list-list-backups', 'restore-list', 'record-backup-dates', 'restore-record'].includes(action)) {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage backups.' });
+      try {
+        if (action === 'backup-status') {
+          return jsonResponse(200, { lists: await backupStore.status(), groups: Object.keys(backupStore.GROUPS), retentionDays: backupStore.RETENTION_DAYS });
+        }
+        if (action === 'backup-now') {
+          const group = String(body.group || '');
+          if (!backupStore.GROUPS[group]) return jsonResponse(400, { error: 'Unknown backup group.' });
+          return jsonResponse(200, { results: await backupStore.backupLists(backupStore.GROUPS[group], 'manual', email) });
+        }
+        if (action === 'list-list-backups') {
+          const list = String(body.list || '');
+          if (!backupStore.CONFIG_LISTS.includes(list)) return jsonResponse(400, { error: 'Unknown list.' });
+          return jsonResponse(200, { backups: (await backupStore.listBackups(list)).slice(0, 60).map(b => ({ name: b.name, at: b.at, reason: b.reason })) });
+        }
+        if (action === 'restore-list') {
+          return jsonResponse(200, await backupStore.restoreList(String(body.list || ''), String(body.name || ''), { dryRun: body.dryRun === true, by: email }));
+        }
+        if (action === 'record-backup-dates') {
+          return jsonResponse(200, { dates: (await backupStore.recordDates(String(body.kind || ''))).slice(0, 90) });
+        }
+        if (action === 'restore-record') {
+          return jsonResponse(200, await backupStore.restoreRecord(String(body.kind || ''), body.value, String(body.at || ''), { dryRun: body.dryRun === true, by: email }));
+        }
       } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
     }
 
@@ -1689,6 +1734,7 @@ exports.handler = async (event) => {
     if (action === 'import-service-times') {
       const rows = Array.isArray(body.rows) ? body.rows : [];
       if (!rows.length) return jsonResponse(400, { error: 'Nothing to import.' });
+      { const stop = await backupBefore(['ServiceTimes'], 'before-import', email); if (stop) return stop; }
       const [catalog, times] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), fetchAll(SERVICE_TIMES_LIST)]);
       const catBySku = {}; catalog.forEach(it => { if (it.fields && it.fields.SKU) catBySku[String(it.fields.SKU).trim()] = it.fields; });
       const timeBySku = {}; times.forEach(it => { if (it.fields && it.fields.SKU) timeBySku[String(it.fields.SKU).trim()] = it; });
@@ -1715,6 +1761,7 @@ exports.handler = async (event) => {
        accidente. No borra los renglones, solo los numeros. */
     if (action === 'clear-service-times') {
       if (body.confirm !== 'CLEAR') return jsonResponse(400, { error: 'Confirmation missing.' });
+      { const stop = await backupBefore(['ServiceTimes'], 'before-clear', email); if (stop) return stop; }
       const times = await fetchAll(SERVICE_TIMES_LIST);
       const withNumbers = times.filter(it => it.fields && (it.fields.Level1Minutes != null || it.fields.Level2Minutes != null || it.fields.Level3Minutes != null));
       for (let i = 0; i < withNumbers.length; i += 8) {
@@ -1870,6 +1917,7 @@ exports.handler = async (event) => {
     if (action === 'apply-bulk-office-hours') {
       const h = body.hours || {};
       if (!h.officeHours) return jsonResponse(400, { error: 'officeHours is required.' });
+      { const stop = await backupBefore(['Clients'], 'before-bulk-hours', email); if (stop) return stop; }
       const rows = await fetchAll(CLIENTS_LIST);
       const clients = rows.filter(it => it.fields);
       const fields = {
@@ -2556,6 +2604,7 @@ exports.handler = async (event) => {
     if (action === 'split-package-rows') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
       const apply = body.apply === true;
+      if (apply) { const stop = await backupBefore(['Orders', 'OrderServices'], 'before-package-fix', email); if (stop) return stop; }
       const [catRows, svcRows, orderRows] = await Promise.all([
         fetchAll(SERVICES_CATALOG_LIST), fetchAll(ORDER_SERVICES_LIST), fetchAll(ORDERS_LIST)
       ]);
@@ -2614,6 +2663,7 @@ exports.handler = async (event) => {
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
+      { const stop = await backupBefore(['Orders', 'OrderServices', 'OrderHistory', 'Drafts', 'FieldEmployees', 'Scheduling', 'WeeklyHours', 'ReportUploads', 'RecurringServices', 'RecurringAssignments', 'RecurringLog', 'TechPhotoLog'], 'before-wipe', email); if (stop) return stop; }
 
       /* Techs se saco de aqui a peticion del dueno (14/09/2026) -- son
          cuentas reales de empleados, no datos de prueba; borrarlas de
@@ -2699,6 +2749,7 @@ exports.handler = async (event) => {
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
+      { const stop = await backupBefore(['Clients', 'ClientAddresses', 'ClientContacts', 'ClientHistory'], 'before-wipe', email); if (stop) return stop; }
 
       /* Antes solo borraba Clients -- los edificios (ClientAddresses),
          contactos (ClientContacts) e historial (ClientHistory) de esos
@@ -2827,6 +2878,7 @@ exports.handler = async (event) => {
       const change = String(body.change || '');
       const list = (Array.isArray(body.clients) ? body.clients : []).filter(c => c && (c.id || c.clientId));
       if (!list.length) return jsonResponse(400, { error: 'No clients selected.' });
+      { const stop = await backupBefore(['Clients'], 'before-bulk-update', email); if (stop) return stop; }
       const DAYF = ['MonOpen', 'TueOpen', 'WedOpen', 'ThuOpen', 'FriOpen', 'SatOpen', 'SunOpen'];
       let fields;
       if (change === 'days') {
@@ -2927,6 +2979,7 @@ exports.handler = async (event) => {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot import clients.' });
       const rows = Array.isArray(body.rows) ? body.rows : [];
       if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+      { const stop = await backupBefore(['Clients', 'ClientAddresses'], 'before-bulk-import', email); if (stop) return stop; }
 
       const existing = await fetchAll(CLIENTS_LIST);
       const existingNames = new Set(

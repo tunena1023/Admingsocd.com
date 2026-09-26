@@ -3,6 +3,26 @@
     {
       "path": "/api/cron-recurring-orders",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron-backup-config",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron-backup-clients",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron-backup-orders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron-backup-history",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron-backup-other",
+      "schedule": "0 12 * * *"
     }
   ],
   "functions": {

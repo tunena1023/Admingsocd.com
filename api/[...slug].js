@@ -33,6 +33,12 @@ const handlers = {
   'quickbooks-delete-doc': require('../quickbooks-delete-doc').handler,
   'quickbooks-attach-photos': require('../quickbooks-attach-photos').handler,
   'cron-recurring-orders': require('../cron-recurring-orders').handler,
+  /* Respaldo diario de todas las listas, un cron por grupo (PLAN-RESPALDOS.md). */
+  'cron-backup-config':  require('../cron-backups').handlerFor('config'),
+  'cron-backup-clients': require('../cron-backups').handlerFor('clients'),
+  'cron-backup-orders':  require('../cron-backups').handlerFor('orders'),
+  'cron-backup-history': require('../cron-backups').handlerFor('history'),
+  'cron-backup-other':   require('../cron-backups').handlerFor('other'),
   'toggle-assign-by-service': require('../toggle-assign-by-service').handler,
   'get-service-assignments': require('../get-service-assignments').handler,
   'save-service-assignment': require('../save-service-assignment').handler,
@@ -45,7 +51,8 @@ const handlers = {
 };
 
 const { isStaff } = require('../lib/staff-gate');
-const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders']);
+const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders',
+  'cron-backup-config', 'cron-backup-clients', 'cron-backup-orders', 'cron-backup-history', 'cron-backup-other']);
 
 module.exports = async (req, res) => {
   const pathOnly = (req.url || '').split('?')[0];
