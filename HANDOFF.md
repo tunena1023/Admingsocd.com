@@ -12,7 +12,34 @@
 > dueño no ha autorizado un push, se deja escrito en local igual y se le
 > avisa: "el handoff está al día pero no subido; si la sesión se cae, se pierde".
 
-Última actualización: 26/09/2026, sesión `claude/vibrant-maxwell-l7r3ye`.
+Última actualización: 26/09/2026, sesión `claude/brave-hopper-6t1lxt`.
+
+> **LO MÁS NUEVO (26/09/2026, tarde) — historial, Tech y fotos.** El dueño dio
+> "ándale así mero" al mini y pidió que **cada portal tenga su propia versión de la
+> misma información**. Hecho y probado, **solo en ramas `claude/brave-hopper-6t1lxt`,
+> nada en `main`/producción** (falta su "dale" para subir):
+> - **gsocd-shared `04eb775`** (encima de `f897713`): `order-history` dice QUÉ cambió en
+>   cada solicitud (oficina: fechas/horario/supervisor/notas/motivo, que antes se
+>   ignoraban; cliente: servicios +/🔄/−; ya no JSON crudo), modo nuevo `tech`
+>   (todo menos lo interno de oficina), nombre del cliente en vez de `C-100`
+>   (`clientId/clientName/actorName`). `lightbox`: un tap cierra. `photo-hover-preview`:
+>   solo con mouse (en celular salía encima del lightbox y tapaba la X = "no deja cerrar").
+> - **Tech `2f46cb9`**: la orden en Change Requested / Cancellation Requested / Inspected
+>   ya no desaparece (`lib/order-waiting.js`): aviso "Waiting on office/client", fotos
+>   siempre, el supervisor puede mandar más Update Services mientras espera (arranca de
+>   lo propuesto; el renglón nuevo guarda lo ORIGINAL como "antes"), historial en las
+>   tarjetas activas. Prueba: `node tests/order-waiting.sim.js` (18 OK).
+> - **Orders `a612887`** y **Admin (este commit)**: pin nuevo del shared + nombre del cliente.
+> - Orden de subida: shared → Admin → Orders → Tech. Tech y Orders ramas nuevas/actualizadas.
+
+> **Antes de esto:** el dueño pidió proteger TODA la
+> información de GSMS (respaldos y regresar a como estaba) y que los cambios
+> hechos en GSMS lleguen a QuickBooks al instante, con Undo. Plan completo, paso
+> a paso, con lo hecho, lo que falta y cómo subirlo: **PLAN-RESPALDOS.md**
+> (sección 2 = estado; sección 7 = casillas). Todo está en la rama
+> `claude/brave-hopper-6t1lxt` (PR tunena1023/Admingsocd.com#2) y en la rama del
+> mismo nombre de ordersgsocd.com. **Nada de eso está en `main`/producción**:
+> falta el "dale" del dueño para producción y que ponga `QB_SYNC_SECRET` en Vercel.
 
 ---
 
@@ -54,7 +81,7 @@
 - Los componentes de gsocd-shared se cargan **fijados por SHA** desde
   `cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@<sha>/...`. Si cambias uno,
   commit en shared → cambia el SHA en cada HTML que lo use → sube shared
-  antes que los demás. Hoy `order-history.js` se usa en: Admin `admin.html`,
+  antes que los demás. Hoy `order-history.js`, `lightbox.js` y `photo-hover-preview.js` se usan en: Admin `admin.html`,
   Orders `customer.html`, Tech `employee.html` y `supervisor.html`.
 - Proyectos Vercel: `admingsocd-com`, orders, tech. Hay conector de Vercel
   (env vars, deployments, logs). Preview siempre con `NOTIFY_MODE=test`.
@@ -125,11 +152,29 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   - Subido en orden: gsocd-shared 68efbd7 → Admin → Orders 872690e → Tech 85f175b.
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
+Subido el 26/09/2026 (dueño: "quita esa llave de orders ... sube eso a deploy"):
+- **Orders `311e84b`**: `lib/graph.js` ya no trae escritos tenant/client ID/secret de
+  Graph; lee solo las `GRAPH_*` de Vercel (confirmadas en production, preview y
+  development antes de subir). Deploy READY y probado en vivo (`get-services` leyó
+  SharePoint).
+
+Solo en la rama `claude/brave-hopper-6t1lxt` de Admin (base `fb7abd5`), **sin producción**:
+- `fea5007` Developer › Settings › Migrate from QuickBooks (lee los Items de QB por
+  API, compara por SKU, respaldo antes de escribir; nunca pisa una descripción de
+  GSMS con una más corta de QB).
+- `5e77365` Respaldo diario del catálogo (en el cron de recurrentes, solo si cambió)
+  y selector de respaldos con vista previa antes de restaurar. Migrate bloqueado si
+  `QUICKBOOKS_ENVIRONMENT` no es production (test-admin = QB sandbox + SharePoint real).
+- Detalle, pruebas y mini: PLAN-RESPALDOS.md, sección 2.
+
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
 sesión se cayó antes: avísale al dueño.
 
 ## 4. Lo que sigue (en orden de prioridad)
 
+0. **Respaldos / proteger toda la información (pedido del dueño 26/09).** Seguir
+   **PLAN-RESPALDOS.md** (sección 7 = casillas de avance). Primero: "dale" del
+   dueño para subir `fea5007` + `5e77365` y sus decisiones 1–4.
 1. **Calendario por partes (pedido del dueño, NO empezado).** En órdenes
    "Assign by service" repartidas entre varias personas/fechas, el
    calendario debe mostrar cada parte por separado, en su día y con su
@@ -202,12 +247,11 @@ sesión se cayó antes: avísale al dueño.
 - El dueño pegó un PAT de GitHub y enseñó el Client Secret de QuickBooks de
   producción en una captura en sesiones pasadas: se le recomendó rotarlos.
   Nunca reusarlos.
-- **Orders `lib/graph.js` todavía trae escritos, como respaldo, el tenant, el
-  client ID y el client SECRET de Graph** (Admin y Tech ya no). Nunca repetir el
-  valor. Plan: el dueño genera un secret nuevo en Azure y lo pone en Vercel
-  (los 3 proyectos); después se quita el respaldo del código de Orders. No
-  quitarlo antes de confirmar que Orders tiene `GRAPH_*` en Vercel, o se cae el
-  portal de clientes.
+- **Hecho 26/09 (`311e84b`):** Orders `lib/graph.js` ya no trae escrito el secret
+  de Graph. **Pendiente del dueño:** el secret viejo sigue en el historial de git
+  (repo público) y lo siguen usando Admin, Tech y Orders Preview: poner el nuevo en
+  `GRAPH_CLIENT_SECRET` de esos proyectos en Vercel y después borrar el viejo en
+  Azure. Nunca repetir el valor.
 - No intentar sacar passwords/credenciales de código viejo (lo bloquea el
   sistema de permisos y está bien que lo bloquee).
 - Env vars (solo nombres): GRAPH_*, NOTIFY_*, QUICKBOOKS_CLIENT_ID,

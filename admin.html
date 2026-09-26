@@ -996,6 +996,14 @@
   #panel-developer .tag-deactivate { background: #FBEAEA; color: var(--red, #B33A3A); }
   #panel-developer .warn-box { border: 1px solid var(--gold); background: #FDF8EC; border-radius: 4px; padding: 14px 18px; font-size: 13px; margin-top: 20px; line-height: 1.6; }
   #panel-developer .skip-note { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
+  #panel-developer .cat-desc-btn { background: none; border: 0; padding: 2px 0 0; color: var(--gold-dk); font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline; }
+  #panel-developer tr.cat-desc-row td { background: #FBF9F4; }
+  #panel-developer .bk-block { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 18px; }
+  #panel-developer .bk-head { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  #panel-developer .bk-head span { font-size: 12px; color: var(--gray); }
+  #panel-developer .bk-label { display: block; font-size: 12px; color: var(--gray); margin: 12px 0 6px; }
+  #panel-developer .bk-select { width: 100%; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff; }
+  #panel-developer .bk-status-wrap { overflow-x: auto; }
   #panel-developer table.cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
   #panel-developer table.cat-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); padding: 8px 10px; border-bottom: 1px solid var(--border); }
   #panel-developer table.cat-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -1611,8 +1619,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@f9af97cecb79115d4a7d51705609b674d513bb89/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@de10f09db292e153863b91f7de93552b833c3878/doc-viewer/doc-viewer.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/photo-hover-preview/photo-hover-preview.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
@@ -1620,7 +1628,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@d309c9378c9e5f97be227606c3ccf2c7706ddb71/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 <!-- Filas de botones de las tarjetas (26/09/2026): mismo acomodo en los 3 portales. -->
@@ -2246,6 +2254,100 @@
         <button class="gs-ofp-btn-secondary" onclick="document.getElementById('catalog-file').click()">Choose file…</button>
         <span id="catalog-file-name" style="font-size:12px;color:var(--gray);margin-left:10px"></span>
         <div id="catalog-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="qb-migrate-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Migrate from QuickBooks</div>
+        <div class="order-desc">Read the services straight from QuickBooks and update the catalog by SKU. A backup is saved first.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Same result as uploading the Products/Services report, without the file: GSMS reads QuickBooks directly and
+          matches by SKU, with the same SKU rules as the import. Nothing changes until you confirm. Before anything is
+          written, the whole catalog is saved as a backup, and you can go back to it below. Existing orders never
+          change — each order keeps its own copy of its services. QuickBooks is only read, never changed.
+        </p>
+        <button class="gs-ofp-btn-secondary" id="qbm-check-btn" onclick="qbMigratePreview()">Check QuickBooks</button>
+        <div id="qbm-preview"></div>
+        <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div><b style="font-size:13px">Backups</b>
+            <div style="font-size:12px;color:var(--gray)">Saved before every migration and every restore, and once a day when the catalog changed. Pick one to see what going back would change.</div></div>
+            <button class="gs-ofp-btn-secondary" onclick="loadCatalogBackups()">Show backups</button>
+          </div>
+          <div id="qbm-backups"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="backups-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); bkLoadStatus()">
+        <div><div class="order-id">Backups</div>
+        <div class="order-desc">Every list is saved once a day when it changed, and before every bulk change. Put a client, an order or a setting list back the way it was.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Backups are kept for 90 days in SharePoint (Documents › Backups). Putting something back always saves how it is
+          now first, so you can undo it too. Photos and document files are not in these backups.
+        </p>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put a client back</b><span>The client with its buildings, contacts and holidays, together.</span></div>
+          <label for="bk-client" class="bk-label">Client</label>
+          <select id="bk-client" class="bk-select" onchange="bkRecordPicked('client')"></select>
+          <div id="bk-client-dates"></div>
+          <div id="bk-client-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put an order back</b><span>The order with its services, assignments and schedule, together.</span></div>
+          <label for="bk-order" class="bk-label">Order number</label>
+          <input id="bk-order" class="bk-select" list="bk-order-list" placeholder="e.g. GS-1001-1008" onchange="bkRecordPicked('order')">
+          <datalist id="bk-order-list"></datalist>
+          <div id="bk-order-dates"></div>
+          <div id="bk-order-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put a setting list back</b><span>The whole list, as it was.</span></div>
+          <label for="bk-list" class="bk-label">List</label>
+          <select id="bk-list" class="bk-select" onchange="bkListPicked()"></select>
+          <div id="bk-list-dates"></div>
+          <div id="bk-list-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head" style="justify-content:space-between;flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:2px"><b>Last backup of each list</b><span>The service catalog has its own backups in Migrate from QuickBooks.</span></div>
+            <button class="gs-ofp-btn-secondary" id="bk-now-btn" onclick="bkBackupNow()">Back up now</button>
+          </div>
+          <div id="bk-status"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="qb-changes-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); qbcLoad()">
+        <div><div class="order-id">QuickBooks changes</div>
+        <div class="order-desc">Everything GSMS sent to QuickBooks. Undo puts QuickBooks and GSMS back to how they were before that change.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <span id="qbc-env" style="font-size:12px;color:var(--gray)"></span>
+          <button class="gs-ofp-btn-secondary" onclick="qbcLoad(true)">Refresh</button>
+        </div>
+        <div id="qbc-list"></div>
       </div>
     </div>
   </section>
@@ -2924,6 +3026,12 @@ function loadClosedOrders() {
   return closedOrdersPromise;
 }
 let allClients = [];
+/* Historial (26/09/2026): Orders guarda el ClientID en ChangedBy
+   ("by C-100"); aqui se muestra el nombre del cliente. */
+function clientNameForHistory(changedBy) {
+  const c = allClients.find(x => x.clientId === changedBy);
+  return c ? (c.businessName || '') : '';
+}
 let allTechs = [];
 let recurringPendingCache = [];
 /* Cache del HTML ya renderizado de cada orden (Active/History), para
@@ -6035,7 +6143,7 @@ function approvalDetailHtml(card, o, services, history) {
      ve arriba en "Requested by...") -- confirmado con el usuario que
      eso esta mal: el historial debe ser acumulativo, la misma orden
      debe verse igual sin importar en que tab se este mirando. */
-  const historyHtml = GSOrderHistory.html(card.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(card.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   return '<div class="detail-grid">' +
     '<div>' + rows.join('') + '</div>' +
@@ -9677,6 +9785,9 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     document.getElementById('browse-section').classList.add('role-eligible');
     if (canEdit) {
       document.getElementById('import-section').classList.add('role-eligible');
+      document.getElementById('qb-migrate-section').classList.add('role-eligible');
+      document.getElementById('backups-section').classList.add('role-eligible');
+      document.getElementById('qb-changes-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
       document.getElementById('bulk-hours-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
@@ -10008,7 +10119,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Areas</th><th>Price</th><th>Active</th><th>Qty?</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
-        '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) + '</td>' +
+        '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) +
+          (canEditCatalog ? '<div><button type="button" class="cat-desc-btn" onclick="toggleCatDesc(\'' + escAttr(r.sku) + '\')">' + (r.description ? 'Edit description' : 'Add description') + '</button></div>' : '') + '</td>' +
         '<td class="diff-sku">' + esc(r.sku) + '</td>' +
         '<td>' + esc(r.division) + '</td>' +
         '<td>' + esc(r.propertyType) + '</td>' +
@@ -10027,13 +10139,47 @@ async function resolveExtraRequest(orderId, requestId, decision) {
           ' onchange="toggleCatalogRequiresQty(\'' + r.id + '\', this.checked)">' +
           '<span class="svc-toggle-track"></span>' +
         '</label></td>' +
-        '</tr>').join('') +
+        '</tr>' +
+        (canEditCatalog ? '<tr class="cat-desc-row" id="catdesc-' + escAttr(r.sku) + '" style="display:none"><td colspan="9">' +
+          '<label for="catdesc-in-' + escAttr(r.sku) + '" style="display:block;font-size:11px;color:var(--gray);margin-bottom:4px">Description (clients and technicians see it; it is also sent to QuickBooks)</label>' +
+          '<textarea id="catdesc-in-' + escAttr(r.sku) + '" rows="3" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:12px">' + esc(r.description || '') + '</textarea>' +
+          '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:11px" onclick="saveCatDesc(\'' + escAttr(r.sku) + '\', this)">Save</button>' +
+          '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:11px" onclick="toggleCatDesc(\'' + escAttr(r.sku) + '\')">Cancel</button></div>' +
+          '</td></tr>' : '')).join('') +
       '</tbody></table>' +
       '<datalist id="catalog-category-options">' +
         [...new Set(allCatalogRows.map(r => r.category).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '">').join('') +
       '</datalist>';
     mountCatalogAreaDropdowns();
   }
+
+  /* Descripcion (26/09/2026): se edita aqui y se manda a QuickBooks
+     (developer-admin save-service-description -> lib/qb-sync.js). */
+  function toggleCatDesc(sku) {
+    const row = document.getElementById('catdesc-' + sku);
+    if (!row) return;
+    const open = row.style.display === 'none';
+    row.style.display = open ? '' : 'none';
+    const r = allCatalogRows.find(x => x.sku === sku);
+    const ta = document.getElementById('catdesc-in-' + sku);
+    if (ta && r) { ta.value = r.description || ''; if (open) ta.focus(); }
+  }
+  async function saveCatDesc(sku, btn) {
+    const ta = document.getElementById('catdesc-in-' + sku);
+    const description = ta.value.trim();
+    btn.disabled = true;
+    try {
+      const res = await devApi('save-service-description', { sku, description });
+      const r = allCatalogRows.find(x => x.sku === sku);
+      if (r) r.description = description;
+      if (window.GSServiceTooltip) GSServiceTooltip.register(allCatalogRows);
+      const q = res.quickbooks || {};
+      showToast(res.unchanged ? 'No changes.' : q.error ? 'Saved in GSMS. QuickBooks could not be updated: ' + q.error : q.updated ? 'Description saved and sent to QuickBooks.' : q.skipped ? 'Description saved. ' + q.skipped + '.' : 'Description saved.');
+      renderCatalogTable();
+    } catch (e) { btn.disabled = false; showToast('Could not save: ' + e.message); }
+  }
+  window.toggleCatDesc = toggleCatDesc;
+  window.saveCatDesc = saveCatDesc;
 
   async function saveCatalogCategory(id, category) {
     try {
@@ -10578,6 +10724,453 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
     }
   }
+
+  /* ============================================================
+     MIGRATE FROM QUICKBOOKS (26/09/2026) -- lo mismo que subir el
+     reporte, pero leido directo de QuickBooks (developer-admin
+     qb-migrate-preview / qb-migrate-apply). Antes de escribir, el
+     servidor guarda un respaldo del catalogo; "Backups" deja regresar
+     a cualquiera (restore-catalog-backup). La descripcion de la app no
+     se pisa con una vacia o mas corta de QuickBooks (descKept).
+  ============================================================ */
+  let qbmPreview = null;
+
+  function qbmShort(v) {
+    const s = String(v == null || v === '' ? '—' : v);
+    return s.length > 90 ? s.slice(0, 90) + '…' : s;
+  }
+
+  async function qbMigratePreview() {
+    const box = document.getElementById('qbm-preview');
+    const btn = document.getElementById('qbm-check-btn');
+    qbmPreview = null;
+    btn.disabled = true;
+    box.innerHTML = '<p class="empty-note">Reading QuickBooks and comparing with the catalog...</p>';
+    try {
+      qbmPreview = await devApi('qb-migrate-preview');
+      renderQbMigratePreview();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    } finally { btn.disabled = false; }
+  }
+
+  function renderQbMigratePreview() {
+    const p = qbmPreview;
+    const box = document.getElementById('qbm-preview');
+    if (!p) { box.innerHTML = ''; return; }
+    const nothing = !p.toCreate.length && !p.toUpdate.length && !p.toReactivate.length && !p.toDeactivate.length;
+    let html = '<p style="font-size:12px;color:var(--gray);margin:12px 0 0">' + p.qbCount + ' items read from QuickBooks.</p>';
+
+    if (p.toCreate.length) html += catalogDiffCard('New services', 'tag-create', p.toCreate, false, 'qbm-create');
+    if (p.toUpdate.length) {
+      html += '<div class="diff-card"><div class="diff-card-header"><span>Will be updated</span><span class="diff-count">' + p.toUpdate.length + '</span></div>' +
+        p.toUpdate.map(it => '<div class="diff-row" style="display:block">' +
+          '<span><span class="diff-tag tag-update"></span> ' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>' +
+          (it.changes || []).map(c => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 18px">' + esc(c.field) + ': ' +
+            '<s>' + esc(qbmShort(c.from)) + '</s> → <b style="color:var(--black)">' + esc(qbmShort(c.to)) + '</b></div>').join('') +
+          '</div>').join('') + '</div>';
+    }
+    if (p.toReactivate.length) {
+      html += '<div class="warn-box">These services are off in GSMS and active in QuickBooks. Uncheck any you don\'t want to turn back on.</div>' +
+        catalogDiffCard('Reactivate', 'tag-reactivate', p.toReactivate, true, 'qbm-reactivate');
+    }
+    if (p.toDeactivate.length) {
+      html += '<div class="warn-box">These services are inactive in QuickBooks. Uncheck any you want to keep active in GSMS.</div>' +
+        catalogDiffCard('Turn off (inactive in QuickBooks)', 'tag-deactivate', p.toDeactivate, true, 'qbm-deactivate');
+    }
+    if (p.descKept.length) {
+      html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
+        '<span>Description is different in QuickBooks — GSMS keeps its own</span><span class="diff-count">' + p.descKept.length + '</span></summary>' +
+        p.descKept.map(it => '<div class="diff-row" style="display:block"><span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>' +
+          '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 4px">QuickBooks: ' + esc(qbmShort(it.qbDescription)) + '</div></div>').join('') +
+        '<div style="margin:10px 12px 12px"><button type="button" class="gs-ofp-btn-secondary" id="qbm-senddesc-btn" onclick="qbmSendDescriptions()">Send these GSMS descriptions to QuickBooks</button>' +
+        '<div id="qbm-senddesc-result" style="font-size:12px;margin-top:8px;color:var(--gray)">Each one is recorded in QuickBooks changes and can be undone.</div></div></details>';
+    }
+    if (p.appOnly.length) {
+      html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
+        '<span>Only in GSMS (not in QuickBooks yet) — they stay as they are</span><span class="diff-count">' + p.appOnly.length + '</span></summary>' +
+        p.appOnly.map(it => '<div class="diff-row"><span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span></div>').join('') +
+        '</details>';
+    }
+    if (p.skippedNoSku.length || p.skippedUnrecognized.length) {
+      html += '<p class="skip-note">' +
+        (p.skippedNoSku.length ? 'Skipped, no SKU in QuickBooks: ' + p.skippedNoSku.map(esc).join(', ') + '. ' : '') +
+        (p.skippedUnrecognized.length ? 'Skipped, unrecognized SKU prefix: ' + p.skippedUnrecognized.map(esc).join(', ') + '.' : '') +
+        '</p>';
+    }
+    if (nothing) html += '<p class="empty-note">No changes — the catalog already matches QuickBooks.</p>';
+    else html += '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="qbm-apply-btn" onclick="confirmQbMigrate()">Back up and migrate</button></div>';
+    html += '<div id="qbm-result" style="margin-top:14px;font-size:13px"></div>';
+    box.innerHTML = html;
+  }
+
+  async function confirmQbMigrate() {
+    if (!qbmPreview) return;
+    const checked = (kind, list) => list.filter((it, i) => {
+      const el = document.querySelector('.diff-check[data-kind="' + kind + '"][data-idx="' + i + '"]');
+      return el && el.checked;
+    }).map(it => it.sku);
+    const reactivateSkus = checked('qbm-reactivate', qbmPreview.toReactivate);
+    const deactivateSkus = checked('qbm-deactivate', qbmPreview.toDeactivate);
+    const resultBox = document.getElementById('qbm-result');
+    const btn = document.getElementById('qbm-apply-btn');
+    btn.disabled = true;
+    resultBox.innerHTML = 'Saving a backup and updating the catalog...';
+    try {
+      const res = await devApi('qb-migrate-apply', { reactivateSkus, deactivateSkus });
+      document.getElementById('qbm-preview').innerHTML = '<div id="qbm-result" style="margin-top:14px;font-size:13px"></div>';
+      document.getElementById('qbm-result').innerHTML = res.created + ' created, ' + res.updated + ' updated, ' + res.reactivated + ' reactivated, ' + res.deactivated + ' turned off.' +
+        (res.backup ? '<br><span style="color:var(--gray)">Backup saved: ' + esc(res.backup) + '</span>' : '') +
+        ((res.failed || []).length ? '<br><span style="color:var(--red)">Could not update: ' + res.failed.map(esc).join('; ') + '</span>' : '');
+      showToast(res.success ? 'Catalog migrated from QuickBooks.' : 'Migrated with some errors — see below.');
+      qbmPreview = null;
+      loadCatalogBrowse();
+      loadCatalogBackups();
+    } catch (e) {
+      btn.disabled = false;
+      resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    }
+  }
+
+  async function qbmSendDescriptions() {
+    if (!qbmPreview || !qbmPreview.descKept.length) return;
+    const btn = document.getElementById('qbm-senddesc-btn');
+    const out = document.getElementById('qbm-senddesc-result');
+    const skus = qbmPreview.descKept.map(x => x.sku);
+    btn.disabled = true;
+    let sent = 0; const problems = [];
+    try {
+      for (let i = 0; i < skus.length; i += 8) {
+        out.textContent = 'Sending ' + Math.min(i + 8, skus.length) + ' of ' + skus.length + '…';
+        const r = await devApi('qb-send-descriptions', { skus: skus.slice(i, i + 8) });
+        (r.results || []).forEach(x => { if (x.updated) sent++; else if (x.error || x.skipped) problems.push(x.sku + ': ' + (x.error || x.skipped)); });
+      }
+      out.innerHTML = '<b>' + sent + ' sent to QuickBooks.</b>' + (problems.length ? '<br><span style="color:var(--red)">' + problems.map(esc).join('<br>') + '</span>' : '');
+      showToast(sent + ' descriptions sent to QuickBooks.');
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+  window.qbmSendDescriptions = qbmSendDescriptions;
+
+  function qbmBackupLabel(name) {
+    const m = String(name).match(/^catalog-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d+Z-(.+)\.json$/);
+    if (!m) return name;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+    const why = { 'before-qb-migrate': 'Before migrating from QuickBooks', 'before-restore': 'Before a restore', 'daily': 'Daily backup' }[m[7]] || m[7];
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' — ' + why;
+  }
+
+  /* Backups (26/09/2026): uno se guarda solo antes de cada Migrate y
+     antes de cada Restore, y el cron guarda uno diario si el catalogo
+     cambio. Se escoge cual en el selector; primero se ve que cambiaria
+     (dryRun) y solo entonces sale el boton de regresar. */
+  async function loadCatalogBackups() {
+    const box = document.getElementById('qbm-backups');
+    box.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      const res = await devApi('list-catalog-backups');
+      const list = res.backups || [];
+      if (!list.length) { box.innerHTML = '<p class="empty-note">No backups yet. One is saved before every migration, and once a day when the catalog changed.</p>'; return; }
+      box.innerHTML =
+        '<label for="qbm-backup-select" style="display:block;font-size:12px;color:var(--gray);margin:12px 0 6px">Choose a backup (' + list.length + ')</label>' +
+        '<select id="qbm-backup-select" onchange="previewCatalogRestore()" style="width:100%;max-width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;background:#fff">' +
+          '<option value="">Select a backup…</option>' +
+          list.map(b => '<option value="' + esc(b.name) + '">' + esc(qbmBackupLabel(b.name)) + '</option>').join('') +
+        '</select>' +
+        '<div id="qbm-restore-preview"></div>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function previewCatalogRestore() {
+    const name = document.getElementById('qbm-backup-select').value;
+    const box = document.getElementById('qbm-restore-preview');
+    if (!name) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing this backup with the catalog today...</p>';
+    try {
+      const r = await devApi('restore-catalog-backup', { name, dryRun: true });
+      if (document.getElementById('qbm-backup-select').value !== name) return;
+      if (!r.changes.length) { box.innerHTML = '<p class="empty-note">The catalog is already the same as this backup. Nothing to restore.</p>'; return; }
+      const back = r.changes.filter(c => !c.createdAfter), off = r.changes.filter(c => c.createdAfter);
+      const rowHtml = c => '<div class="diff-row" style="display:block"><span>' + esc(c.serviceName) + ' <span class="diff-sku">' + esc(c.sku) + '</span></span>' +
+        c.changes.map(x => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 4px">' + esc(x.field === 'Active' ? 'Active' : x.field) + ': <s>' + esc(qbmShort(x.from === true ? 'Yes' : x.from === false ? 'No' : x.from)) + '</s> → <b style="color:var(--black)">' + esc(qbmShort(x.to === true ? 'Yes' : x.to === false ? 'No' : x.to)) + '</b></div>').join('') + '</div>';
+      box.innerHTML =
+        '<p style="font-size:13px;margin:12px 0 8px">Going back to this backup: <b>' + back.length + '</b> services return to how they were' +
+          (off.length ? ', and <b>' + off.length + '</b> created after it are turned off (not deleted)' : '') + '.' +
+          (r.missing ? ' ' + r.missing + ' from the backup no longer exist and stay as they are.' : '') + '</p>' +
+        (back.length ? '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer"><span>Services that go back</span><span class="diff-count">' + back.length + '</span></summary>' + back.map(rowHtml).join('') + '</details>' : '') +
+        (off.length ? '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer"><span>Turned off (created after this backup)</span><span class="diff-count">' + off.length + '</span></summary>' + off.map(rowHtml).join('') + '</details>' : '') +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">Existing orders do not change. The catalog as it is now is saved as a backup first, so you can undo this too.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="qbm-restore-btn" onclick="restoreCatalogBackup(\'' + jsStr(name) + '\')">Restore this backup</button></div>' +
+        '<div id="qbm-restore-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function restoreCatalogBackup(name) {
+    const btn = document.getElementById('qbm-restore-btn');
+    btn.disabled = true;
+    document.getElementById('qbm-restore-result').textContent = 'Saving a backup of the current catalog and restoring...';
+    try {
+      const res = await devApi('restore-catalog-backup', { name });
+      showToast(res.success ? 'Catalog restored.' : 'Restored with some errors.');
+      loadCatalogBrowse();
+      await loadCatalogBackups();
+      document.getElementById('qbm-backups').insertAdjacentHTML('afterbegin',
+        '<p style="font-size:13px;margin:10px 0">' + res.restored + ' services put back, ' + res.turnedOff + ' turned off' +
+        (res.missing ? ', ' + res.missing + ' no longer exist' : '') + '.' +
+        ((res.failed || []).length ? ' <span style="color:var(--red)">Could not update: ' + res.failed.map(esc).join('; ') + '</span>' : '') + '</p>');
+    } catch (e) {
+      btn.disabled = false;
+      document.getElementById('qbm-restore-result').innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    }
+  }
+
+  window.qbMigratePreview = qbMigratePreview;
+  window.confirmQbMigrate = confirmQbMigrate;
+  window.loadCatalogBackups = loadCatalogBackups;
+  window.restoreCatalogBackup = restoreCatalogBackup;
+  window.previewCatalogRestore = previewCatalogRestore;
+
+  /* ============================================================
+     BACKUPS DE TODO (26/09/2026, PLAN-RESPALDOS.md fase 1) --
+     developer-admin backup-status / record-backup-dates / restore-record
+     / list-list-backups / restore-list / backup-now (lib/backup-store.js).
+     Siempre: escoger -> vista previa (dryRun, no escribe) -> boton.
+  ============================================================ */
+  const BK_REASON = {
+    'daily': 'Daily backup', 'manual': 'Backed up by hand', 'before-restore': 'Before putting something back',
+    'before-bulk-update': 'Before a bulk client change', 'before-bulk-import': 'Before a client import',
+    'before-bulk-hours': 'Before bulk office hours', 'before-wipe': 'Before Wipe test data',
+    'before-package-fix': 'Before the package fix', 'before-import': 'Before an import', 'before-clear': 'Before clearing service times'
+  };
+  const BK_LIST_LABEL = {
+    Clients: 'Client', ClientContacts: 'Contacts', ClientAddresses: 'Buildings', ClientHolidays: 'Holidays',
+    Orders: 'Order', OrderServices: 'Services', ServiceAssignments: 'Assignments', Scheduling: 'Schedule'
+  };
+  let bkStatusCache = null, bkDatesCache = {};
+
+  function bkWhen(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  const bkReason = r => BK_REASON[r] || r;
+  const bkVal = v => qbmShort(v === true ? 'Yes' : v === false ? 'No' : (v !== null && typeof v === 'object') ? JSON.stringify(v) : v);
+
+  async function bkLoadStatus(force) {
+    const clientSel = document.getElementById('bk-client');
+    if (clientSel && !clientSel.options.length) {
+      const list = (allClients || []).slice().sort((a, b) => String(a.businessName || '').localeCompare(String(b.businessName || '')));
+      clientSel.innerHTML = '<option value="">Select a client…</option>' +
+        list.map(c => '<option value="' + esc(c.clientId) + '">' + esc((c.businessName || c.clientId) + ' · ' + c.clientId) + '</option>').join('');
+    }
+    const dl = document.getElementById('bk-order-list');
+    if (dl && !dl.options.length) dl.innerHTML = (allOrders || []).map(o => '<option value="' + esc(o.OrderID) + '">' + esc(o.BusinessName || '') + '</option>').join('');
+    if (bkStatusCache && !force) return;
+    const box = document.getElementById('bk-status');
+    box.innerHTML = '<p class="empty-note">Loading...</p>';
+    try {
+      bkStatusCache = await devApi('backup-status');
+      const lists = bkStatusCache.lists || [];
+      const sel = document.getElementById('bk-list');
+      sel.innerHTML = '<option value="">Select a list…</option>' + lists.filter(l => l.config).map(l => '<option value="' + esc(l.list) + '">' + esc(l.list) + '</option>').join('');
+      const short = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+      const withBackup = lists.filter(l => l.last).length;
+      box.innerHTML = '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px">' + withBackup + ' of ' + lists.length + ' lists backed up · show all</summary>' +
+        '<div class="bk-status-wrap"><table class="cat-table"><thead><tr><th>List</th><th>Last backup</th><th>Kept</th></tr></thead><tbody>' +
+        lists.map(l => '<tr><td>' + esc(l.list) + '</td><td style="white-space:nowrap">' + (l.last ? esc(short(l.last.at)) + '<div style="font-size:11px;color:var(--gray);white-space:normal">' + esc(bkReason(l.last.reason)) + '</div>' : '<span style="color:var(--gray)">None yet</span>') + '</td><td>' + l.count + '</td></tr>').join('') +
+        '</tbody></table></div></details>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkBackupNow() {
+    const btn = document.getElementById('bk-now-btn');
+    if (!bkStatusCache) await bkLoadStatus();
+    const groups = (bkStatusCache && bkStatusCache.groups) || [];
+    btn.disabled = true;
+    let saved = 0;
+    try {
+      for (let i = 0; i < groups.length; i++) {
+        btn.textContent = 'Backing up ' + (i + 1) + ' of ' + groups.length + '…';
+        const r = await devApi('backup-now', { group: groups[i] });
+        saved += (r.results || []).filter(x => x.saved).length;
+      }
+      showToast(saved ? saved + ' lists backed up.' : 'Nothing changed since the last backup.');
+      bkDatesCache = {};
+      await bkLoadStatus(true);
+    } catch (e) { showToast('Could not back up: ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Back up now'; }
+  }
+
+  async function bkRecordPicked(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const datesBox = document.getElementById('bk-' + kind + '-dates');
+    document.getElementById('bk-' + kind + '-preview').innerHTML = '';
+    if (!value) { datesBox.innerHTML = ''; return; }
+    datesBox.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      if (!bkDatesCache[kind]) bkDatesCache[kind] = (await devApi('record-backup-dates', { kind })).dates || [];
+      const dates = bkDatesCache[kind];
+      datesBox.innerHTML = !dates.length ? '<p class="empty-note">No backups yet.</p>' :
+        '<label for="bk-' + kind + '-at" class="bk-label">Put it back as it was on</label>' +
+        '<select id="bk-' + kind + '-at" class="bk-select" onchange="bkPreviewRecord(\'' + kind + '\')"><option value="">Select a date…</option>' +
+        dates.map(d => '<option value="' + esc(d.at) + '">' + esc(bkWhen(d.at) + ' — ' + bkReason(d.reason)) + '</option>').join('') + '</select>';
+    } catch (e) { datesBox.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  function bkPlansHtml(plans, labels) {
+    let n = 0;
+    const blocks = plans.map(p => {
+      const rows = [];
+      p.updates.forEach(u => rows.push('<div class="diff-row" style="display:block"><span><span class="diff-tag tag-update"></span> ' + esc(u.title || ('#' + u.id)) + '</span>' +
+        u.changes.map(c => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 18px">' + esc(c.field) + ': <s>' + esc(bkVal(c.from)) + '</s> → <b style="color:var(--black)">' + esc(bkVal(c.to)) + '</b></div>').join('') + '</div>'));
+      p.creates.forEach(c => rows.push('<div class="diff-row"><span><span class="diff-tag tag-create"></span> Comes back: ' + esc(c.title || '(no title)') + '</span></div>'));
+      p.deletes.forEach(d => rows.push('<div class="diff-row"><span><span class="diff-tag tag-deactivate"></span> Removed (added after this backup): ' + esc(d.title || '(no title)') + '</span></div>'));
+      n += rows.length;
+      return rows.length ? '<div class="diff-card"><div class="diff-card-header"><span>' + esc((labels && labels[p.list]) || p.list) + '</span><span class="diff-count">' + rows.length + '</span></div>' + rows.join('') + '</div>' : '';
+    }).join('');
+    return { html: blocks, count: n };
+  }
+
+  async function bkPreviewRecord(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const at = document.getElementById('bk-' + kind + '-at').value;
+    const box = document.getElementById('bk-' + kind + '-preview');
+    if (!at) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing that backup with today...</p>';
+    try {
+      const r = await devApi('restore-record', { kind, value, at, dryRun: true });
+      if (document.getElementById('bk-' + kind + '-at').value !== at) return;
+      const noun = kind === 'client' ? 'client' : 'order';
+      if (!r.found) { box.innerHTML = '<p class="empty-note">This ' + noun + ' is not in that backup (it did not exist yet).</p>'; return; }
+      if (r.nothingToDo) { box.innerHTML = '<p class="empty-note">This ' + noun + ' is already the same as in that backup.</p>'; return; }
+      const p = bkPlansHtml(r.plans, BK_LIST_LABEL);
+      box.innerHTML = '<p style="font-size:13px;margin:12px 0 8px">Putting ' + esc(value) + ' back as it was on ' + esc(bkWhen(at)) + ' changes this:</p>' + p.html +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">How it is now is saved as a backup first, so you can undo this.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="bk-' + kind + '-go" onclick="bkRestoreRecord(\'' + kind + '\')">Put this ' + noun + ' back</button></div>' +
+        '<div id="bk-' + kind + '-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkRestoreRecord(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const at = document.getElementById('bk-' + kind + '-at').value;
+    const btn = document.getElementById('bk-' + kind + '-go');
+    const out = document.getElementById('bk-' + kind + '-result');
+    btn.disabled = true;
+    out.textContent = 'Saving how it is now and putting it back...';
+    try {
+      const r = await devApi('restore-record', { kind, value, at });
+      out.innerHTML = r.success ? '<b>Done.</b> ' + r.changed + ' changes.' : '<span style="color:var(--red)">Put back with errors: ' + (r.failed || []).map(esc).join('; ') + '</span>';
+      showToast(r.success ? (kind === 'client' ? 'Client' : 'Order') + ' put back.' : 'Put back with some errors.');
+      bkDatesCache = {};
+      bkStatusCache = null;
+      /* No loadAll(): reinicia Developer y lo regresa a Services. Los
+         clientes se recargan aqui; las ordenes las trae el refresco de 30 s. */
+      if (kind === 'client' && typeof refreshAllClients === 'function') refreshAllClients();
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+
+  async function bkListPicked() {
+    const list = document.getElementById('bk-list').value;
+    const datesBox = document.getElementById('bk-list-dates');
+    document.getElementById('bk-list-preview').innerHTML = '';
+    if (!list) { datesBox.innerHTML = ''; return; }
+    datesBox.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      const b = (await devApi('list-list-backups', { list })).backups || [];
+      datesBox.innerHTML = !b.length ? '<p class="empty-note">No backups of ' + esc(list) + ' yet.</p>' :
+        '<label for="bk-list-at" class="bk-label">Put it back as it was on</label>' +
+        '<select id="bk-list-at" class="bk-select" onchange="bkPreviewList()"><option value="">Select a backup…</option>' +
+        b.map(x => '<option value="' + esc(x.name) + '">' + esc(bkWhen(x.at) + ' — ' + bkReason(x.reason)) + '</option>').join('') + '</select>';
+    } catch (e) { datesBox.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkPreviewList() {
+    const list = document.getElementById('bk-list').value;
+    const name = document.getElementById('bk-list-at').value;
+    const box = document.getElementById('bk-list-preview');
+    if (!name) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing that backup with today...</p>';
+    try {
+      const r = await devApi('restore-list', { list, name, dryRun: true });
+      if (document.getElementById('bk-list-at').value !== name) return;
+      const p = bkPlansHtml([r.plan]);
+      box.innerHTML = !p.count ? '<p class="empty-note">' + esc(list) + ' is already the same as in that backup.</p>' :
+        '<p style="font-size:13px;margin:12px 0 8px">Putting ' + esc(list) + ' back changes this:</p>' + p.html +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">How it is now is saved as a backup first, so you can undo this.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="bk-list-go" onclick="bkRestoreList()">Put ' + esc(list) + ' back</button></div>' +
+        '<div id="bk-list-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkRestoreList() {
+    const list = document.getElementById('bk-list').value;
+    const name = document.getElementById('bk-list-at').value;
+    const btn = document.getElementById('bk-list-go');
+    const out = document.getElementById('bk-list-result');
+    btn.disabled = true;
+    out.textContent = 'Saving how it is now and putting it back...';
+    try {
+      const r = await devApi('restore-list', { list, name });
+      out.innerHTML = r.success ? '<b>Done.</b> ' + r.changed + ' changes.' : '<span style="color:var(--red)">Put back with errors: ' + (r.failed || []).map(esc).join('; ') + '</span>';
+      showToast(r.success ? list + ' put back.' : 'Put back with some errors.');
+      bkStatusCache = null;
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+
+  /* QUICKBOOKS CHANGES (26/09/2026, lib/qb-sync.js): lista y Undo. */
+  let qbcLoaded = false;
+  const QBC_REASON = { 'client-edit': 'Client edited in GSMS', 'new-client': 'New client', 'update-button': 'Update in QuickBooks button',
+    'create-button': 'Create in QuickBooks button', 'restore': 'Client put back from a backup', 'description': 'Description edited in GSMS',
+    'send-descriptions': 'Descriptions sent from Migrate', 'daily-check': 'Daily QuickBooks check', 'client-portal': 'Client edited it in orders.gsocd.com', 'undo': 'Undo' };
+  async function qbcLoad(force) {
+    if (qbcLoaded && !force) return;
+    const box = document.getElementById('qbc-list');
+    box.innerHTML = '<p class="empty-note">Loading...</p>';
+    try {
+      const r = await devApi('qb-changes');
+      qbcLoaded = true;
+      document.getElementById('qbc-env').textContent = 'QuickBooks ' + (r.env === 'production' ? '(real company)' : '(sandbox)') + ' · last ' + (r.changes || []).length + ' changes';
+      const list = r.changes || [];
+      box.innerHTML = !list.length ? '<p class="empty-note">Nothing has been sent to QuickBooks yet.</p>' : list.map(c =>
+        '<div class="diff-card" id="qbc-' + esc(c.name.replace(/[^A-Za-z0-9-]/g, '')) + '"><div class="diff-card-header" style="flex-wrap:wrap;gap:6px">' +
+          '<span>' + esc(c.label || c.gsmsRef || '') + ' <span class="diff-sku">' + esc(c.gsmsRef || '') + '</span></span>' +
+          '<span style="font-size:11px;color:var(--gray)">' + esc(bkWhen(c.at)) + '</span></div>' +
+          '<div class="diff-row" style="display:block">' +
+            '<div style="font-size:12px;color:var(--gray)">' + esc(QBC_REASON[c.reason] || c.reason || '') + (c.by ? ' · ' + esc(c.by) : '') + '</div>' +
+            c.lines.map(l => '<div style="font-size:12px;margin-top:3px">' + esc(l.field) + ': ' + (l.from ? '<s>' + esc(qbmShort(l.from)) + '</s> → ' : '') + '<b>' + esc(qbmShort(l.to)) + '</b></div>').join('') +
+            (c.error ? '<div style="font-size:12px;color:var(--red);margin-top:4px">Not sent: ' + esc(c.error) + '</div>' : '') +
+            (c.undone ? '<div style="font-size:12px;color:var(--gray);margin-top:4px">Undone.</div>' : '') +
+            (c.canUndo ? '<div style="margin-top:8px"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:11px" onclick="qbcUndo(\'' + jsStr(c.name) + '\', this, false)">' + (c.action === 'create' ? 'Undo (make it inactive in QuickBooks)' : 'Undo') + '</button></div>' : '') +
+            '<div class="qbc-out" style="font-size:12px;margin-top:6px"></div>' +
+          '</div></div>').join('');
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+  async function qbcUndo(name, btn, force) {
+    const out = btn.closest('.diff-row').querySelector('.qbc-out');
+    btn.disabled = true;
+    out.textContent = 'Undoing…';
+    try {
+      const r = await devApi('qb-undo-change', { name, force });
+      if (r.conflict) {
+        btn.disabled = false;
+        const QBF = { BillAddr: 'address', PrimaryPhone: 'phone', PrimaryEmailAddr: 'email', DisplayName: 'business name', CompanyName: 'business name', GivenName: 'contact', FamilyName: 'contact', Description: 'description', Active: 'active' };
+        const names = [...new Set(r.fields.map(f => QBF[f] || f))];
+        out.innerHTML = '<span style="color:var(--red)">QuickBooks changed after this (' + esc(names.join(', ')) + '). Undo would overwrite that.</span> ' +
+          '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:4px 10px;font-size:11px;margin-top:6px" onclick="qbcUndo(\'' + jsStr(name) + '\', this, true)">Undo anyway</button>';
+        return;
+      }
+      showToast('Undone in QuickBooks' + (r.gsms && r.gsms.restored ? ' and GSMS.' : '.'));
+      qbClientsPromise = null;
+      await qbcLoad(true);
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+  window.qbcLoad = qbcLoad;
+  window.qbcUndo = qbcUndo;
+
+  Object.assign(window, { bkLoadStatus, bkBackupNow, bkRecordPicked, bkPreviewRecord, bkRestoreRecord, bkListPicked, bkPreviewList, bkRestoreList });
 
 
   /* ============================================================
@@ -12691,7 +13284,7 @@ function unseenActiveCardHtml(o, services, history) {
      reducida se quedo apilando todo en una sola columna cuando se
      construyo, con History hasta el fondo, distinto al resto de la
      app. A peticion del dueno, 17/09/2026. */
-  const historyHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   const leftCol = `
     <div style="background:#EAF3FF;border:1px solid #BFDBFE;color:#1A56C4;font-size:12px;padding:10px 12px;margin-bottom:16px;font-weight:600">
@@ -12874,7 +13467,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
   const byCat = {};
   orderedServices.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
-  const histHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const histHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};
@@ -14691,6 +15284,17 @@ function startAddBuilding(clientId) {
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
 
+/* Lo que paso en QuickBooks despues de guardar un cliente (lib/qb-sync.js,
+   26/09/2026). Sin cambios que toquen QuickBooks: null. */
+function qbSyncNote(q) {
+  if (!q) return '';
+  if (q.error) return ' QuickBooks could not be updated (' + q.error + '). The client shows as "Different in QuickBooks" until it is sent again.';
+  if (q.created) return ' Added to QuickBooks.';
+  if (q.updated) return ' QuickBooks updated too.';
+  if (q.skipped && /not connected/i.test(q.skipped)) return ' QuickBooks is not connected, so it was not updated.';
+  return '';
+}
+
 async function savePrimaryEdit(clientId) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const $f = f => document.getElementById(cid + '-ctl-' + f);
@@ -14724,8 +15328,8 @@ async function savePrimaryEdit(clientId) {
 
   showLoadingOverlay('Saving client…');
   try {
-    await api('/admin-update-client', { body });
-    showToast('Client updated.');
+    const res = await api('/admin-update-client', { body });
+    showToast('Client updated.' + qbSyncNote(res && res.quickbooks));
     qbClientsPromise = null; // si cambio algo, que se vuelva a comparar con QuickBooks
     await reloadAndReopen(clientId);
   } catch (e) {
@@ -14964,7 +15568,7 @@ async function saveNewClient() {
       errEl.textContent = 'A client with that email already exists: ' + res.clientId;
       return;
     }
-    showToast('Client ' + res.clientId + ' created successfully.');
+    showToast('Client ' + res.clientId + ' created successfully.' + qbSyncNote(res.quickbooks));
     document.getElementById('add-client-form').style.display = 'none';
     ['new-business','new-contact','new-email','new-phone','new-address','new-suite','new-city','new-zip']
       .forEach(id => document.getElementById(id).value = '');

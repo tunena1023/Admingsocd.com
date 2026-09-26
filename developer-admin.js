@@ -240,6 +240,125 @@ function classifySku(sku) {
   return SKU_PREFIX_MAP[prefix] || null;
 }
 
+/* Diff del catalogo contra filas { serviceName, sku, price, description,
+   category[, active] }. Antes vivia dentro de preview-catalog-import;
+   ahora tambien lo usa Migrate from QuickBooks (26/09/2026), para que
+   los dos caminos decidan EXACTAMENTE igual que se crea, que se
+   actualiza y que se apaga.
+   opts.partial: nada de lo que no venga en rows se propone apagar.
+   opts.fromQb (Migrate): cada fila trae active (Item.Active); un
+   articulo inactivo en QuickBooks se propone apagar aqui y nunca se
+   crea. Y la descripcion de la app NUNCA se pisa con una vacia o mas
+   corta (el dueño, 26/09: la app ya tiene descripciones mejores que
+   QuickBooks en varios servicios) -- esos van a descKept, solo aviso. */
+function catalogDiff(rows, existing, opts) {
+  opts = opts || {};
+  const bySku = new Map();
+  existing.forEach(it => {
+    const sku = it.fields && String(it.fields.SKU || '').trim();
+    if (sku) bySku.set(sku, it);
+  });
+
+  const toCreate = [], toUpdate = [], toReactivate = [], skippedNoSku = [], skippedUnrecognized = [], descKept = [];
+  const seenSkus = new Set();
+  const toDeactivate = [];
+
+  for (const r of rows) {
+    const sku = String(r.sku || '').trim();
+    const serviceName = String(r.serviceName || '').trim();
+    if (!serviceName) continue;
+    if (!sku) { skippedNoSku.push(serviceName); continue; }
+
+    const cls = classifySku(sku);
+    if (!cls) { skippedUnrecognized.push(serviceName + ' (' + sku + ')'); continue; }
+
+    seenSkus.add(sku);
+    const price = r.price === '' || r.price == null ? null : Number(r.price);
+    let description = String(r.description || '').trim();
+
+    const match = bySku.get(sku);
+    if (opts.fromQb && r.active === false) {
+      if (match && truthy(match.fields.Active)) toDeactivate.push({ id: match.id, sku, serviceName: match.fields.ServiceName || serviceName });
+      continue;
+    }
+    if (!match) {
+      toCreate.push({ sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, category: String(r.category || '').trim() });
+      continue;
+    }
+
+    const f = match.fields;
+    const appDesc = String(f.Description || '').trim();
+    /* 26/09/2026 (el dueño): la DESCRIPCION se edita en GSMS y va a
+       QuickBooks. Migrate nunca la pisa si GSMS ya tiene una; si GSMS no
+       tiene, se toma la de QuickBooks. Las que no coinciden salen en
+       descKept con el boton de mandarlas a QuickBooks. */
+    if (opts.fromQb && appDesc && description !== appDesc) {
+      descKept.push({ sku, serviceName, appDescription: appDesc, qbDescription: description });
+      description = appDesc;
+    }
+    const wasActive = truthy(f.Active);
+    const changes = [];
+    if (String(f.ServiceName || '') !== serviceName) changes.push({ field: 'Name', from: f.ServiceName || '', to: serviceName });
+    if (String(f.Division || '') !== cls.division) changes.push({ field: 'Division', from: f.Division || '', to: cls.division });
+    if (String(f.PropertyType || '') !== cls.propertyType) changes.push({ field: 'Type', from: f.PropertyType || '', to: cls.propertyType });
+    if (String(f.Description || '') !== description) changes.push({ field: 'Description', from: f.Description || '', to: description });
+    if (Number(f.Price || 0) !== (price || 0)) changes.push({ field: 'Price', from: f.Price == null ? '' : f.Price, to: price == null ? '' : price });
+    const changed = changes.length > 0;
+
+    const category = String(r.category || '').trim();
+    const catChanged = !!category && String(f.Category || '') !== category;
+    const item = { sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, id: match.id, changes };
+    if (category) item.category = category;
+    if (!wasActive) {
+      toReactivate.push(item);
+    } else if (changed || catChanged) {
+      toUpdate.push(item);
+    }
+    /* si no cambio nada y ya estaba activo, no se hace nada -- ni
+       siquiera se manda al frontend, para no llenar la pantalla
+       de renglones sin novedad */
+  }
+
+  /* Lo que esta activo hoy en el catalogo pero no aparecio para
+     nada en este reporte -- candidato a desactivar, con aviso.
+     Archivo parcial (la plantilla de importacion de QuickBooks, con
+     solo algunos servicios) o Migrate: nada se propone apagar por no
+     venir (en Migrate solo se apaga lo que QuickBooks tiene inactivo). */
+  if (!opts.partial) existing.forEach(it => {
+    const f = it.fields;
+    if (!f) return;
+    const sku = String(f.SKU || '').trim();
+    if (sku && truthy(f.Active) && !seenSkus.has(sku)) {
+      toDeactivate.push({ id: it.id, sku, serviceName: f.ServiceName || '' });
+    }
+  });
+
+  /* Activos en la app que QuickBooks no tiene (Migrate): se quedan igual,
+     solo se listan para que se vea que faltan crearlos alla. */
+  const appOnly = !opts.fromQb ? [] : existing
+    .filter(it => it.fields && String(it.fields.SKU || '').trim() && truthy(it.fields.Active) && !seenSkus.has(String(it.fields.SKU).trim()))
+    .map(it => ({ sku: String(it.fields.SKU).trim(), serviceName: it.fields.ServiceName || '' }));
+
+  return { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized, descKept, appOnly };
+}
+
+/* Respaldos del catalogo: lib/catalog-backup.js (Migrate, Restore y el
+   respaldo diario del cron). */
+const catalogBackup = require('./lib/catalog-backup');
+/* Respaldo de todas las listas (lib/backup-store.js, PLAN-RESPALDOS.md).
+   backupBefore: foto de las listas que va a tocar una accion masiva, ANTES
+   de escribir; si no se pudo guardar, la accion no se hace. */
+const backupStore = require('./lib/backup-store');
+async function backupBefore(lists, reason, by) {
+  try { await backupStore.backupLists(lists, reason, by); return null; }
+  catch (e) { return jsonResponse(500, { error: 'Could not save a backup first, so nothing was changed: ' + e.message }); }
+}
+
+/* De 8 en 8, como el resto de las escrituras masivas del archivo. */
+async function inBatches(list, fn) {
+  for (let i = 0; i < list.length; i += 8) await Promise.all(list.slice(i, i + 8).map(fn));
+}
+
 /* Rol real de un correo, segun la lista Staff. null si Staff no
    existe todavia, esta vacia, o el correo no tiene renglon ahi --
    en los 3 casos, "sin permiso" es la respuesta correcta, no un error. */
@@ -633,71 +752,8 @@ exports.handler = async (event) => {
       if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
 
       const existing = await fetchAll(SERVICES_CATALOG_LIST);
-      const bySku = new Map();
-      existing.forEach(it => {
-        const sku = it.fields && String(it.fields.SKU || '').trim();
-        if (sku) bySku.set(sku, it);
-      });
-
-      const toCreate = [], toUpdate = [], toReactivate = [], skippedNoSku = [], skippedUnrecognized = [];
-      const seenSkus = new Set();
-
-      for (const r of rows) {
-        const sku = String(r.sku || '').trim();
-        const serviceName = String(r.serviceName || '').trim();
-        if (!serviceName) continue;
-        if (!sku) { skippedNoSku.push(serviceName); continue; }
-
-        const cls = classifySku(sku);
-        if (!cls) { skippedUnrecognized.push(serviceName + ' (' + sku + ')'); continue; }
-
-        seenSkus.add(sku);
-        const price = r.price === '' || r.price == null ? null : Number(r.price);
-        const description = String(r.description || '').trim();
-
-        const match = bySku.get(sku);
-        if (!match) {
-          toCreate.push({ sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, category: String(r.category || '').trim() });
-          continue;
-        }
-
-        const f = match.fields;
-        const wasActive = truthy(f.Active);
-        const changed = String(f.ServiceName || '') !== serviceName ||
-          String(f.Division || '') !== cls.division ||
-          String(f.PropertyType || '') !== cls.propertyType ||
-          String(f.Description || '') !== description ||
-          Number(f.Price || 0) !== (price || 0);
-
-        const category = String(r.category || '').trim();
-        const catChanged = !!category && String(f.Category || '') !== category;
-        const item = { sku, serviceName, division: cls.division, propertyType: cls.propertyType, price, description, id: match.id };
-        if (category) item.category = category;
-        if (!wasActive) {
-          toReactivate.push(item);
-        } else if (changed || catChanged) {
-          toUpdate.push(item);
-        }
-        /* si no cambio nada y ya estaba activo, no se hace nada -- ni
-           siquiera se manda al frontend, para no llenar la pantalla
-           de renglones sin novedad */
-      }
-
-      /* Lo que esta activo hoy en el catalogo pero no aparecio para
-         nada en este reporte -- candidato a desactivar, con aviso. */
-      const toDeactivate = [];
-      /* Archivo parcial (la plantilla de importacion de QuickBooks, con
-         solo algunos servicios): nada se propone apagar. */
-      if (!body.partial) existing.forEach(it => {
-        const f = it.fields;
-        if (!f) return;
-        const sku = String(f.SKU || '').trim();
-        if (sku && truthy(f.Active) && !seenSkus.has(sku)) {
-          toDeactivate.push({ id: it.id, sku, serviceName: f.ServiceName || '' });
-        }
-      });
-
-      return jsonResponse(200, { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized });
+      const d = catalogDiff(rows, existing, { partial: !!body.partial });
+      return jsonResponse(200, { toCreate: d.toCreate, toUpdate: d.toUpdate, toReactivate: d.toReactivate, toDeactivate: d.toDeactivate, skippedNoSku: d.skippedNoSku, skippedUnrecognized: d.skippedUnrecognized });
     }
 
     /* Aplica de verdad: crea lo nuevo, actualiza lo que cambio, y
@@ -707,6 +763,8 @@ exports.handler = async (event) => {
        usuario haya dejado sin marcar se queda exactamente como esta. */
     if (action === 'apply-catalog-import') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      try { await catalogBackup.backupCatalog(await catalogBackup.readCatalog(), 'before-import', email); }
+      catch (e) { return jsonResponse(500, { error: 'Could not save a backup of the catalog, so nothing was changed: ' + e.message }); }
       const toCreate = Array.isArray(body.toCreate) ? body.toCreate : [];
       const toUpdate = Array.isArray(body.toUpdate) ? body.toUpdate : [];
       const confirmedReactivate = Array.isArray(body.confirmedReactivate) ? body.confirmedReactivate : [];
@@ -760,6 +818,222 @@ exports.handler = async (event) => {
       }
 
       return jsonResponse(200, { success: true, created, updated, reactivated, deactivated });
+    }
+
+    /* ============================================================
+       MIGRATE FROM QUICKBOOKS (26/09/2026, pedido del dueño: "que los
+       servicios de GSMS y QuickBooks se conecten y si cambian en
+       QuickBooks que tambien cambien en GSMS"). Mismo resultado que
+       subir el reporte de Products/Services, pero leido directo de
+       QuickBooks por la API: por SKU, con las mismas reglas de prefijo
+       (catalogDiff). Dos pasos, igual que el import: preview no escribe
+       nada; apply vuelve a leer QuickBooks (no confia en lo que mande el
+       navegador), guarda un respaldo del catalogo y solo entonces
+       escribe. Nunca crea ni cambia nada en QuickBooks.
+    ============================================================ */
+    async function qbMigrateDiff() {
+      const qb = require('./lib/quickbooks');
+      /* Preview (test-admin) usa el QuickBooks SANDBOX pero el MISMO
+         SharePoint que produccion: ahi Migrate escribiria articulos de
+         prueba en el catalogo real. Solo corre contra el QuickBooks real. */
+      if ((process.env.QUICKBOOKS_ENVIRONMENT || 'sandbox').toLowerCase() !== 'production') {
+        const e = new Error('Migrate only runs on admin.gsocd.com. This site uses the QuickBooks sandbox but the real catalog, so it would copy test items into the real catalog.'); e.status = 409; throw e;
+      }
+      if (!(await qb.isConnected())) { const e = new Error('QuickBooks is not connected yet. Connect it in the QuickBooks tab first.'); e.status = 409; throw e; }
+      const items = await qb.listItems();
+      const rows = items.map(it => ({
+        serviceName: String(it.Name || '').trim(),
+        sku: String(it.Sku || '').trim(),
+        /* QuickBooks da 0 cuando el precio esta en blanco; el reporte da
+           vacio. Se trata igual que el reporte para no marcar cambios
+           falsos de "sin precio" a "$0". */
+        price: Number(it.UnitPrice) > 0 ? Number(it.UnitPrice) : '',
+        description: String(it.Description || '').trim(),
+        category: '',
+        active: it.Active !== false
+      }));
+      /* lq.fetchAll SI truena si SharePoint falla (el fetchAll de este
+         archivo regresa [] y haria parecer que el catalogo esta vacio ->
+         todo se "crearia" otra vez). */
+      const existing = await require('./lib/list-query').fetchAll(SERVICES_CATALOG_LIST);
+      return { diff: catalogDiff(rows, existing, { partial: true, fromQb: true }), existing, qbCount: rows.length };
+    }
+
+    if (action === 'qb-migrate-preview') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      try {
+        const { diff, qbCount } = await qbMigrateDiff();
+        return jsonResponse(200, Object.assign({ qbCount }, diff));
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+    }
+
+    /* body: { reactivateSkus: [...], deactivateSkus: [...] } -- lo que la
+       persona dejo marcado. Lo nuevo y lo que cambio se aplica todo. */
+    if (action === 'qb-migrate-apply') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      let d, existing;
+      try { ({ diff: d, existing } = await qbMigrateDiff()); }
+      catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+      const wantRe = new Set((body.reactivateSkus || []).map(String));
+      const wantOff = new Set((body.deactivateSkus || []).map(String));
+      const reactivate = d.toReactivate.filter(r => wantRe.has(r.sku));
+      const deactivate = d.toDeactivate.filter(r => wantOff.has(r.sku));
+      if (!d.toCreate.length && !d.toUpdate.length && !reactivate.length && !deactivate.length) {
+        return jsonResponse(200, { success: true, backup: null, created: 0, updated: 0, reactivated: 0, deactivated: 0 });
+      }
+
+      let backup;
+      try { backup = await catalogBackup.backupCatalog(existing, 'before-qb-migrate', email); }
+      catch (e) { return jsonResponse(500, { error: 'Could not save the backup, so nothing was changed: ' + e.message }); }
+
+      let created = 0, updated = 0, reactivated = 0, deactivated = 0;
+      const failed = [];
+      await inBatches(d.toCreate, async r => {
+        try {
+          await createListItem(SERVICES_CATALOG_LIST, {
+            Title: r.serviceName, ServiceName: r.serviceName, SKU: r.sku, Division: r.division, PropertyType: r.propertyType,
+            Description: r.description || '', Price: r.price, Category: '', Active: true
+          });
+          created++;
+        } catch (e) { failed.push(r.sku + ': ' + e.message); }
+      });
+      await inBatches(d.toUpdate, async r => {
+        try {
+          await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, { ServiceName: r.serviceName, Division: r.division, PropertyType: r.propertyType, Description: r.description || '', Price: r.price });
+          updated++;
+        } catch (e) { failed.push(r.sku + ': ' + e.message); }
+      });
+      await inBatches(reactivate, async r => {
+        try {
+          await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, { ServiceName: r.serviceName, Division: r.division, PropertyType: r.propertyType, Description: r.description || '', Price: r.price, Active: true });
+          reactivated++;
+        } catch (e) { failed.push(r.sku + ': ' + e.message); }
+      });
+      await inBatches(deactivate, async r => {
+        try { await updateListItemByItemId(SERVICES_CATALOG_LIST, r.id, { Active: false }); deactivated++; }
+        catch (e) { failed.push(r.sku + ': ' + e.message); }
+      });
+      return jsonResponse(200, { success: !failed.length, backup, created, updated, reactivated, deactivated, failed });
+    }
+
+    if (action === 'list-catalog-backups') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      return jsonResponse(200, { backups: (await catalogBackup.listBackups()).slice(0, 60) });
+    }
+
+    /* dryRun: true -> solo dice que cambiaria (para escoger el respaldo
+       con calma antes de regresar). */
+    if (action === 'restore-catalog-backup') {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      try {
+        return jsonResponse(200, await catalogBackup.restoreBackup(String(body.name || ''), { dryRun: body.dryRun === true, by: email }));
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+    }
+
+    /* ============================================================
+       BACKUPS DE TODO (26/09/2026, PLAN-RESPALDOS.md fase 1) --
+       lib/backup-store.js. Director/Developer (mismo candado que el
+       catalogo). Regresar: listas de configuracion completas; clientes y
+       ordenes uno por uno, todo junto. Siempre con dryRun primero en la
+       pantalla.
+    ============================================================ */
+    if (['backup-status', 'backup-now', 'list-list-backups', 'restore-list', 'record-backup-dates', 'restore-record'].includes(action)) {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot manage backups.' });
+      try {
+        if (action === 'backup-status') {
+          return jsonResponse(200, { lists: await backupStore.status(), groups: Object.keys(backupStore.GROUPS), retentionDays: backupStore.RETENTION_DAYS });
+        }
+        if (action === 'backup-now') {
+          const group = String(body.group || '');
+          if (!backupStore.GROUPS[group]) return jsonResponse(400, { error: 'Unknown backup group.' });
+          return jsonResponse(200, { results: await backupStore.backupLists(backupStore.GROUPS[group], 'manual', email) });
+        }
+        if (action === 'list-list-backups') {
+          const list = String(body.list || '');
+          if (!backupStore.CONFIG_LISTS.includes(list)) return jsonResponse(400, { error: 'Unknown list.' });
+          return jsonResponse(200, { backups: (await backupStore.listBackups(list)).slice(0, 60).map(b => ({ name: b.name, at: b.at, reason: b.reason })) });
+        }
+        if (action === 'restore-list') {
+          return jsonResponse(200, await backupStore.restoreList(String(body.list || ''), String(body.name || ''), { dryRun: body.dryRun === true, by: email }));
+        }
+        if (action === 'record-backup-dates') {
+          return jsonResponse(200, { dates: (await backupStore.recordDates(String(body.kind || ''))).slice(0, 90) });
+        }
+        if (action === 'restore-record') {
+          const r = await backupStore.restoreRecord(String(body.kind || ''), body.value, String(body.at || ''), { dryRun: body.dryRun === true, by: email });
+          /* Cliente regresado -> QuickBooks tambien (GSMS manda en clientes). */
+          if (!r.dryRun && body.kind === 'client' && r.changed) {
+            try { r.quickbooks = await require('./lib/qb-sync').pushClient(String(body.value), { by: email, reason: 'restore' }); }
+            catch (e) { r.quickbooks = { error: e.message }; }
+          }
+          return jsonResponse(200, r);
+        }
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+    }
+
+    /* ============================================================
+       GSMS -> QUICKBOOKS (26/09/2026, PLAN-RESPALDOS.md fase 2) --
+       lib/qb-sync.js. Descripciones de servicios (se editan en GSMS) y
+       la lista de cambios mandados a QuickBooks con Undo (regresa
+       QuickBooks Y GSMS a como estaban antes de ese cambio).
+    ============================================================ */
+    if (['save-service-description', 'qb-send-descriptions', 'qb-changes', 'qb-undo-change'].includes(action)) {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const qbSync = require('./lib/qb-sync');
+      try {
+        if (action === 'save-service-description') {
+          const sku = String(body.sku || '').trim();
+          const description = String(body.description || '').trim();
+          const item = (await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', [sku])).find(it => it.fields && String(it.fields.SKU).trim() === sku);
+          if (!item) return jsonResponse(404, { error: 'Service not found.' });
+          const before = String(item.fields.Description || '');
+          if (before.trim() === description) return jsonResponse(200, { success: true, unchanged: true });
+          await updateListItemByItemId(SERVICES_CATALOG_LIST, item.id, { Description: description });
+          let quickbooks;
+          try { quickbooks = await qbSync.pushItemDescription(sku, description, { by: email, reason: 'description', gsmsBefore: before }); }
+          catch (e) { quickbooks = { error: e.message }; }
+          return jsonResponse(200, { success: true, quickbooks });
+        }
+        if (action === 'qb-send-descriptions') {
+          /* Manda la descripcion que YA tiene GSMS (no la del navegador). De a
+             poco (el navegador manda tandas de 8). */
+          const skus = (Array.isArray(body.skus) ? body.skus : []).map(String).slice(0, 10);
+          const rows = await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', skus);
+          const results = [];
+          for (const sku of skus) {
+            const it = rows.find(r => r.fields && String(r.fields.SKU).trim() === sku);
+            if (!it) { results.push({ sku, skipped: 'Service not found' }); continue; }
+            try { results.push(Object.assign({ sku }, await qbSync.pushItemDescription(sku, it.fields.Description || '', { by: email, reason: 'send-descriptions' }))); }
+            catch (e) { results.push({ sku, error: e.message }); }
+          }
+          return jsonResponse(200, { results });
+        }
+        if (action === 'qb-changes') {
+          return jsonResponse(200, { env: qbSync.env(), changes: await qbSync.listChanges(60) });
+        }
+        if (action === 'qb-undo-change') {
+          const r = await qbSync.undoChange(String(body.name || ''), {
+            by: email, force: body.force === true,
+            restoreGsms: async rec => {
+              const was = rec.gsmsBefore;
+              if (rec.entity === 'Customer') {
+                const res = await require('./admin-update-client').handler({ httpMethod: 'POST', headers: {}, body: JSON.stringify({
+                  clientId: rec.gsmsRef, changedBy: (email || 'Admin') + ' (Undo)', skipQbSync: true,
+                  businessName: was.businessName, contactPerson: was.contactPerson, contact: was.email, phone: was.phone,
+                  address: was.address, suite: was.suite, city: was.city, zip: was.zip
+                }) });
+                if (res.statusCode !== 200) throw new Error(JSON.parse(res.body || '{}').error || 'Could not update GSMS');
+                return { restored: true };
+              }
+              const it = (await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', [rec.gsmsRef])).find(x => x.fields && String(x.fields.SKU).trim() === String(rec.gsmsRef));
+              if (!it) throw new Error('Service not found in GSMS');
+              await updateListItemByItemId(SERVICES_CATALOG_LIST, it.id, { Description: was.description || '' });
+              return { restored: true };
+            }
+          });
+          return jsonResponse(200, r);
+        }
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
     }
 
     /* ============================================================
@@ -1535,6 +1809,7 @@ exports.handler = async (event) => {
     if (action === 'import-service-times') {
       const rows = Array.isArray(body.rows) ? body.rows : [];
       if (!rows.length) return jsonResponse(400, { error: 'Nothing to import.' });
+      { const stop = await backupBefore(['ServiceTimes'], 'before-import', email); if (stop) return stop; }
       const [catalog, times] = await Promise.all([fetchAll(SERVICES_CATALOG_LIST), fetchAll(SERVICE_TIMES_LIST)]);
       const catBySku = {}; catalog.forEach(it => { if (it.fields && it.fields.SKU) catBySku[String(it.fields.SKU).trim()] = it.fields; });
       const timeBySku = {}; times.forEach(it => { if (it.fields && it.fields.SKU) timeBySku[String(it.fields.SKU).trim()] = it; });
@@ -1561,6 +1836,7 @@ exports.handler = async (event) => {
        accidente. No borra los renglones, solo los numeros. */
     if (action === 'clear-service-times') {
       if (body.confirm !== 'CLEAR') return jsonResponse(400, { error: 'Confirmation missing.' });
+      { const stop = await backupBefore(['ServiceTimes'], 'before-clear', email); if (stop) return stop; }
       const times = await fetchAll(SERVICE_TIMES_LIST);
       const withNumbers = times.filter(it => it.fields && (it.fields.Level1Minutes != null || it.fields.Level2Minutes != null || it.fields.Level3Minutes != null));
       for (let i = 0; i < withNumbers.length; i += 8) {
@@ -1716,6 +1992,7 @@ exports.handler = async (event) => {
     if (action === 'apply-bulk-office-hours') {
       const h = body.hours || {};
       if (!h.officeHours) return jsonResponse(400, { error: 'officeHours is required.' });
+      { const stop = await backupBefore(['Clients'], 'before-bulk-hours', email); if (stop) return stop; }
       const rows = await fetchAll(CLIENTS_LIST);
       const clients = rows.filter(it => it.fields);
       const fields = {
@@ -2402,6 +2679,7 @@ exports.handler = async (event) => {
     if (action === 'split-package-rows') {
       if (!isDeveloper) return jsonResponse(403, { error: 'Developer only.' });
       const apply = body.apply === true;
+      if (apply) { const stop = await backupBefore(['Orders', 'OrderServices'], 'before-package-fix', email); if (stop) return stop; }
       const [catRows, svcRows, orderRows] = await Promise.all([
         fetchAll(SERVICES_CATALOG_LIST), fetchAll(ORDER_SERVICES_LIST), fetchAll(ORDERS_LIST)
       ]);
@@ -2460,6 +2738,7 @@ exports.handler = async (event) => {
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
+      { const stop = await backupBefore(['Orders', 'OrderServices', 'OrderHistory', 'Drafts', 'FieldEmployees', 'Scheduling', 'WeeklyHours', 'ReportUploads', 'RecurringServices', 'RecurringAssignments', 'RecurringLog', 'TechPhotoLog'], 'before-wipe', email); if (stop) return stop; }
 
       /* Techs se saco de aqui a peticion del dueno (14/09/2026) -- son
          cuentas reales de empleados, no datos de prueba; borrarlas de
@@ -2545,6 +2824,7 @@ exports.handler = async (event) => {
       if (!require('./lib/wipe-password').isWipePassword(body.password)) {
         return jsonResponse(403, { error: 'Incorrect password. Nothing was deleted.' });
       }
+      { const stop = await backupBefore(['Clients', 'ClientAddresses', 'ClientContacts', 'ClientHistory'], 'before-wipe', email); if (stop) return stop; }
 
       /* Antes solo borraba Clients -- los edificios (ClientAddresses),
          contactos (ClientContacts) e historial (ClientHistory) de esos
@@ -2673,6 +2953,7 @@ exports.handler = async (event) => {
       const change = String(body.change || '');
       const list = (Array.isArray(body.clients) ? body.clients : []).filter(c => c && (c.id || c.clientId));
       if (!list.length) return jsonResponse(400, { error: 'No clients selected.' });
+      { const stop = await backupBefore(['Clients'], 'before-bulk-update', email); if (stop) return stop; }
       const DAYF = ['MonOpen', 'TueOpen', 'WedOpen', 'ThuOpen', 'FriOpen', 'SatOpen', 'SunOpen'];
       let fields;
       if (change === 'days') {
@@ -2773,6 +3054,7 @@ exports.handler = async (event) => {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot import clients.' });
       const rows = Array.isArray(body.rows) ? body.rows : [];
       if (!rows.length) return jsonResponse(400, { error: 'No rows to process.' });
+      { const stop = await backupBefore(['Clients', 'ClientAddresses'], 'before-bulk-import', email); if (stop) return stop; }
 
       const existing = await fetchAll(CLIENTS_LIST);
       const existingNames = new Set(

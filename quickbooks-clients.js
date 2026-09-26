@@ -67,7 +67,9 @@ async function updateApp(event, c) {
     body: JSON.stringify({
       clientId: c.clientId, changedBy: email,
       businessName: c.businessName, contactPerson: c.contactPerson, contact: c.email,
-      phone: c.phone, address: c.address, suite: c.suite, city: c.city, zip: c.zip
+      phone: c.phone, address: c.address, suite: c.suite, city: c.city, zip: c.zip,
+      /* QuickBooks lo manda quien llama (lib/qb-sync.js, con registro). */
+      skipQbSync: true
     })
   });
   if (res.statusCode !== 200) throw new Error('Saved in QuickBooks, but the app could not be updated: ' + (JSON.parse(res.body || '{}').error || res.statusCode));
@@ -116,11 +118,13 @@ exports.handler = async (event) => {
       const map = await qb.getJsonSetting('qb_customer_id_map');
       const id = map[clientId] || await qb.findCustomerId(clientId, c.businessName);
       if (!id) return jsonResponse(404, { error: c.businessName + ' is not in QuickBooks yet. Create it in QuickBooks › Clients.' });
-      /* El estado (IA) no existe en la app: se deja el que tenga QuickBooks. */
-      const cur = await qb.qbFetch('/customer/' + encodeURIComponent(id));
-      c.state = (cur.Customer.BillAddr && cur.Customer.BillAddr.CountrySubDivisionCode) || 'IA';
-      const updated = await qb.updateCustomer(id, c);
-      return jsonResponse(200, { success: true, qb: qb.customerView(updated) });
+      /* 26/09/2026: por lib/qb-sync.js -- solo los campos distintos, con
+         registro de como estaba (se puede deshacer). El estado lo deja el
+         que tenga QuickBooks (la app no lo guarda). */
+      const r = await require('./lib/qb-sync').pushClient(clientId, { by: (event.headers || {})['x-gs-user-email'] || 'Admin', reason: 'update-button' });
+      if (r.error) return jsonResponse(500, { error: r.error });
+      const cur = await qb.qbFetch('/customer/' + encodeURIComponent(r.qbId || id));
+      return jsonResponse(200, { success: true, qb: qb.customerView(cur.Customer), change: r.change || null });
     }
 
     /* create (tambien sin action, como la 1a version) */
@@ -135,12 +139,16 @@ exports.handler = async (event) => {
       ['clientId', 'state'].concat(FIELDS).forEach(k => { c[k] = String(raw[k] == null ? '' : raw[k]).trim(); });
       if (!c.clientId || !c.businessName) { results.push({ clientId: c.clientId, success: false, error: 'Business name is required.' }); continue; }
       try {
+        /* 26/09/2026: primero se guarda en la app (GSMS manda) y luego
+           lib/qb-sync.js lo manda: lo liga si ya hay uno con ese nombre (y le
+           pone los datos de la app) o lo crea, siempre con registro. */
         let cu = byName.get(norm(c.businessName));
-        const how = cu ? 'linked' : 'created';
-        if (!cu) { cu = await qb.createCustomer(c); byName.set(norm(c.businessName), cu); }
-        await qb.linkCustomers({ [c.clientId]: String(cu.Id) });
+        if (cu) await qb.linkCustomers({ [c.clientId]: String(cu.Id) });
         await updateApp(event, c);
-        results.push({ clientId: c.clientId, success: true, how, customerId: String(cu.Id) });
+        const r = await require('./lib/qb-sync').pushClient(c.clientId, { by: (event.headers || {})['x-gs-user-email'] || 'Admin', reason: 'create-button' });
+        if (r.skipped) throw new Error(r.skipped);
+        if (!cu) byName.set(norm(c.businessName), { Id: r.qbId, DisplayName: c.businessName });
+        results.push({ clientId: c.clientId, success: true, how: r.created ? 'created' : 'linked', customerId: String(r.qbId) });
       } catch (err) {
         results.push({ clientId: c.clientId, success: false, error: err.message });
       }

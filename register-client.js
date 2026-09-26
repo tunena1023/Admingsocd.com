@@ -86,8 +86,15 @@ exports.handler = async (event) => {
       })
     });
 
+    /* Cliente nuevo -> QuickBooks al instante (el dueño, 26/09/2026: "los
+       3"). Si falla, el cliente ya quedo en GSMS y sale "Not in QuickBooks". */
+    let quickbooks = null;
+    try { quickbooks = await require('./lib/qb-sync').pushClient(clientId, { by: (event.headers || {})['x-gs-user-email'] || 'Admin', reason: 'new-client' }); }
+    catch (e) { quickbooks = { error: e.message }; }
+
     return jsonResponse(200, {
       valid: true,
+      quickbooks,
       clientId,
       businessName,
       contactPerson,
