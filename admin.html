@@ -1619,8 +1619,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@f9af97cecb79115d4a7d51705609b674d513bb89/gallery-groups/gallery-groups.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@de10f09db292e153863b91f7de93552b833c3878/doc-viewer/doc-viewer.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/photo-hover-preview/photo-hover-preview.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/date-time-picker/date-time-picker.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.50.0/service-tooltip/service-tooltip.js"></script>
@@ -1628,7 +1628,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.54.0/multi-select/multi-select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.28.9/service-change-panel/service-change-panel.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.25.24/order-form-premium/order-form-premium.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@d309c9378c9e5f97be227606c3ccf2c7706ddb71/order-history/order-history.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@04eb775d299d426f3176d8bd2821580cb8656cd2/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 <!-- Filas de botones de las tarjetas (26/09/2026): mismo acomodo en los 3 portales. -->
@@ -3026,6 +3026,12 @@ function loadClosedOrders() {
   return closedOrdersPromise;
 }
 let allClients = [];
+/* Historial (26/09/2026): Orders guarda el ClientID en ChangedBy
+   ("by C-100"); aqui se muestra el nombre del cliente. */
+function clientNameForHistory(changedBy) {
+  const c = allClients.find(x => x.clientId === changedBy);
+  return c ? (c.businessName || '') : '';
+}
 let allTechs = [];
 let recurringPendingCache = [];
 /* Cache del HTML ya renderizado de cada orden (Active/History), para
@@ -6137,7 +6143,7 @@ function approvalDetailHtml(card, o, services, history) {
      ve arriba en "Requested by...") -- confirmado con el usuario que
      eso esta mal: el historial debe ser acumulativo, la misma orden
      debe verse igual sin importar en que tab se este mirando. */
-  const historyHtml = GSOrderHistory.html(card.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(card.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   return '<div class="detail-grid">' +
     '<div>' + rows.join('') + '</div>' +
@@ -13278,7 +13284,7 @@ function unseenActiveCardHtml(o, services, history) {
      reducida se quedo apilando todo en una sola columna cuando se
      construyo, con History hasta el fondo, distinto al resto de la
      app. A peticion del dueno, 17/09/2026. */
-  const historyHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const historyHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   const leftCol = `
     <div style="background:#EAF3FF;border:1px solid #BFDBFE;color:#1A56C4;font-size:12px;padding:10px 12px;margin-bottom:16px;font-weight:600">
@@ -13461,7 +13467,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
   const byCat = {};
   orderedServices.forEach(s => { const c = s.Category||'General'; if(!byCat[c]) byCat[c]=[]; byCat[c].push(s); });
 
-  const histHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku });
+  const histHtml = GSOrderHistory.html(o.OrderID, withoutPkgSnapshots(history), { mode: 'staff', timesCatalog: serviceTimesBySku, actorName: clientNameForHistory });
 
   /* Servicios actuales para edicion */
   const adminSvcSelected = {};

@@ -14,7 +14,25 @@
 
 Última actualización: 26/09/2026, sesión `claude/brave-hopper-6t1lxt`.
 
-> **LO MÁS NUEVO — empieza por aquí:** el dueño pidió proteger TODA la
+> **LO MÁS NUEVO (26/09/2026, tarde) — historial, Tech y fotos.** El dueño dio
+> "ándale así mero" al mini y pidió que **cada portal tenga su propia versión de la
+> misma información**. Hecho y probado, **solo en ramas `claude/brave-hopper-6t1lxt`,
+> nada en `main`/producción** (falta su "dale" para subir):
+> - **gsocd-shared `04eb775`** (encima de `f897713`): `order-history` dice QUÉ cambió en
+>   cada solicitud (oficina: fechas/horario/supervisor/notas/motivo, que antes se
+>   ignoraban; cliente: servicios +/🔄/−; ya no JSON crudo), modo nuevo `tech`
+>   (todo menos lo interno de oficina), nombre del cliente en vez de `C-100`
+>   (`clientId/clientName/actorName`). `lightbox`: un tap cierra. `photo-hover-preview`:
+>   solo con mouse (en celular salía encima del lightbox y tapaba la X = "no deja cerrar").
+> - **Tech `2f46cb9`**: la orden en Change Requested / Cancellation Requested / Inspected
+>   ya no desaparece (`lib/order-waiting.js`): aviso "Waiting on office/client", fotos
+>   siempre, el supervisor puede mandar más Update Services mientras espera (arranca de
+>   lo propuesto; el renglón nuevo guarda lo ORIGINAL como "antes"), historial en las
+>   tarjetas activas. Prueba: `node tests/order-waiting.sim.js` (18 OK).
+> - **Orders `a612887`** y **Admin (este commit)**: pin nuevo del shared + nombre del cliente.
+> - Orden de subida: shared → Admin → Orders → Tech. Tech y Orders ramas nuevas/actualizadas.
+
+> **Antes de esto:** el dueño pidió proteger TODA la
 > información de GSMS (respaldos y regresar a como estaba) y que los cambios
 > hechos en GSMS lleguen a QuickBooks al instante, con Undo. Plan completo, paso
 > a paso, con lo hecho, lo que falta y cómo subirlo: **PLAN-RESPALDOS.md**
@@ -63,7 +81,7 @@
 - Los componentes de gsocd-shared se cargan **fijados por SHA** desde
   `cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@<sha>/...`. Si cambias uno,
   commit en shared → cambia el SHA en cada HTML que lo use → sube shared
-  antes que los demás. Hoy `order-history.js` se usa en: Admin `admin.html`,
+  antes que los demás. Hoy `order-history.js`, `lightbox.js` y `photo-hover-preview.js` se usan en: Admin `admin.html`,
   Orders `customer.html`, Tech `employee.html` y `supervisor.html`.
 - Proyectos Vercel: `admingsocd-com`, orders, tech. Hay conector de Vercel
   (env vars, deployments, logs). Preview siempre con `NOTIFY_MODE=test`.
