@@ -100,6 +100,13 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   con el viejo. El viejo sigue escrito en `ordersgsocd.com/lib/graph.js` (repo
   público): pendiente quitarlo del código y, cuando se pueda, cambiar el secret
   en todos lados.
+- **SOLO EN LOCAL, esperando el "dale" (26/09/2026):** Admin, botón "Upload
+  document" en la misma fila que los demás botones de la orden (Approvals:
+  Approve/Bypass · Review: Print · Active/History: Print/Completed/Cancelled),
+  para ahorrar espacio. La caja "Documents" solo sale si la orden tiene
+  documentos; el texto "PDF, Word or text files (up to 25 MB)..." pasó al tooltip
+  del botón. En órdenes en inspección el botón se queda en la caja como antes.
+  Mini con el admin.html real mandado al dueño (capturas 1280 y 390).
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la

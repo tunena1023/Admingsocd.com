@@ -273,6 +273,12 @@
       margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
     }
     .appr-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    /* Documentos (26/09/2026): la caja no ocupa lugar si no hay documentos;
+       el boton vive en la fila de botones de la orden. */
+    .adm-docs-box.compact:has(.adm-docs:empty) { display: none; }
+    .adm-docs-upload { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .adm-docs-msg { font-size: 12px; color: var(--gray); }
+    .adm-docs-msg:empty { display: none; }
     .appr-bar .field-group { margin-bottom: 0; min-width: 240px; }
     .appr-hint { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
     .btn-green { background: var(--green); color: var(--white); }
@@ -5009,13 +5015,14 @@ function newOrderApprovalCard(o, context) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
-        ${orderDocsBoxHtml(o.OrderID)}
+        ${orderDocsBoxHtml(o.OrderID, !(o.Status === 'Inspection' || o.Status === 'Inspected'))}
         ${readOnlyBlock}
         ${o.Status === 'Inspection' || o.Status === 'Inspected' ? '' : `
         <div class="appr-bar">
           <button class="gs-ofp-btn-primary" id="${dom}-ok" disabled
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
           <button class="gs-ofp-btn-secondary" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
+          ${orderDocsUploadBtnHtml(o.OrderID)}
         </div>
         <p class="appr-hint">Scheduling assigns who and when — once assigned, this order moves to Active on its own. Bypass is for urgent cases only and needs the Operations Director's password.</p>`}
       </div>
@@ -5498,7 +5505,7 @@ function approvalCard(o) {
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
         <div class="appr-detail" id="${dom}-detail"><p class="empty-note">Loading request detail…</p></div>
-        ${orderDocsBoxHtml(o.OrderID)}
+        ${orderDocsBoxHtml(o.OrderID, true)}
         <div id="${dom}-decision"><p class="empty-note">Loading…</p></div>
       </div>
     </div>`;
@@ -5534,6 +5541,7 @@ async function loadApprovalDetail(o) {
 function decisionAreaHtml(o, history) {
   const printBtn = `<div class="appr-bar" style="margin-bottom:12px">
     <button class="gs-ofp-btn-secondary" id="print-req-${esc(o.OrderID).replace(/[^a-z0-9]/gi,'_')}" onclick="printRequestDocument('${esc(o.OrderID)}', this)">Print</button>
+    ${orderDocsUploadBtnHtml(o.OrderID)}
   </div>`;
   return printBtn + decisionAreaHtmlInner(o, history);
 }
@@ -7344,15 +7352,31 @@ function renderDocsPanel() {
   }, adminDocOpts));
 }
 
-function orderDocsBoxHtml(orderId) {
+/* 26/09/2026 (dueño: "ponlo al nivel de los otros... ahorrar espacio"):
+   el boton "Upload document" va en la misma fila que los demas botones
+   de la orden (Approve/Bypass, Print, Completed...). La caja de arriba
+   solo trae la lista y no ocupa lugar si la orden no tiene documentos.
+   inBar=false: sin fila de botones donde ponerlo (ej. orden en
+   inspeccion), el boton se queda en la caja como antes. */
+function orderDocsBoxHtml(orderId, inBar) {
   const id = esc(orderId);
+  if (inBar) {
+    return `<div class="adm-docs-box compact" style="margin-top:20px">
+      <p class="detail-label" style="margin-bottom:8px">Documents</p>
+      <div class="adm-docs" data-order="${id}"></div>
+    </div>`;
+  }
   return `<div class="adm-docs-box" style="margin-top:20px">
       <p class="detail-label" style="margin-bottom:4px">Documents</p>
       <p class="section-sub" style="margin:0 0 8px;font-size:12px">PDF, Word or text files (up to 25 MB). The client sees them too.</p>
       <div class="adm-docs" data-order="${id}"></div>
-      <button type="button" class="gs-ofp-btn-secondary" style="margin-top:8px" onclick="adminUploadDoc('${id}', this)">📄 Upload document</button>
-      <span class="adm-docs-msg" role="status" style="font-size:12px;margin-left:10px;color:var(--gray)"></span>
+      <div style="margin-top:8px">${orderDocsUploadBtnHtml(orderId)}</div>
     </div>`;
+}
+
+function orderDocsUploadBtnHtml(orderId) {
+  const id = esc(orderId);
+  return `<span class="adm-docs-upload"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload document</button><span class="adm-docs-msg" role="status"></span></span>`;
 }
 
 function hydrateOrderDocs(root) {
@@ -7402,6 +7426,7 @@ function adminUploadDoc(orderId, btn) {
   GSDocViewer.pickFile(async file => {
     const msg = btn && btn.parentNode.querySelector('.adm-docs-msg');
     const say = (t, err) => { if (msg) { msg.textContent = t; msg.style.color = err ? 'var(--red, #c0392b)' : 'var(--gray)'; } };
+    const sayBriefly = t => { say(t); setTimeout(() => { if (msg && msg.textContent === t) msg.textContent = ''; }, 5000); };
     const bad = GSDocViewer.allowed(file);
     if (bad) { say(bad, true); return; }
     if (btn) btn.disabled = true;
@@ -7415,7 +7440,7 @@ function adminUploadDoc(orderId, btn) {
       let g = allDocGroups.find(x => x.orderId === orderId);
       if (!g) { g = { orderId, clientLabel: res.clientLabel || orderId, date: res.doc.uploadedAt, docs: [] }; allDocGroups.unshift(g); }
       g.docs = [res.doc].concat(g.docs);
-      say('Saved: ' + file.name);
+      sayBriefly('Saved: ' + file.name);
       refreshDocViews();
     } catch (e) {
       say('Could not upload it: ' + e.message, true);
@@ -12944,6 +12969,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       </div>
       <div class="eo-status-actions">
         ${printOrderHtml}
+        ${orderDocsUploadBtnHtml(o.OrderID)}
         <!-- Completed SIEMPRE visible en Active (regla del dueño, 24/09/2026). -->
         ${completedBtnHtml}
         <button class="gs-ofp-btn-danger" onclick="requestCancelActive('${esc(o.OrderID)}')">Cancelled</button>
@@ -13137,8 +13163,8 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         <div id="active-svc-editor-${esc(o.OrderID)}" style="display:none;margin-top:20px"></div>
       </div>
     </div>
-    ${orderDocsBoxHtml(o.OrderID)}
-    ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}</div>`}
+    ${orderDocsBoxHtml(o.OrderID, true)}
+    ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}${orderDocsUploadBtnHtml(o.OrderID)}</div>`}
     ${statusBar}${assignedViewOnly}${historyReactivate}`;
 }
 
