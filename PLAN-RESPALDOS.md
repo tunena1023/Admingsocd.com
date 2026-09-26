@@ -348,5 +348,7 @@ Todo con `lib/quickbooks.js`.
 - [x] 1.5 pantalla Backups construida (Developer › Settings › Backups: regresar cliente / orden / lista de configuración, con vista previa; estado de cada lista; Back up now). Mini: https://claude.ai/artifact/UymUh41KXd4veVpUA2xSvB (abrir con `#migrate` para Migrate). **Falta el OK del dueño al mini**
 - [x] 1.6 pruebas: `node tests/backup-store.sim.js` (27 OK). Falta la prueba contra SharePoint real después del deploy
 - [ ] 2.1 foto diaria de QuickBooks
-- [ ] 2.2 GSMS → QuickBooks al instante + registro por cambio + Undo in QuickBooks (después de a–c)
+- [x] 2.2 backend GSMS → QuickBooks al instante (`lib/qb-sync.js`): ediciones de cliente en Admin (`admin-update-client.js`), alta (`register-client.js`), botones de QuickBooks › Clients, regreso de cliente desde Backups, descripciones (`save-service-description`, `qb-send-descriptions`); lista de cambios y Undo que regresa QuickBooks **y** GSMS (`qb-changes`, `qb-undo-change`); aviso desde Orders (`qb-sync-client`, llave `QB_SYNC_SECRET`); revisión diaria (`cron-qb-sync`, 13 UTC). Migrate ya no toma la descripción de QB si GSMS tiene una. Pruebas: `node tests/qb-sync.sim.js` (20 OK)
+- [ ] 2.2 pantallas: QuickBooks changes + Undo, editar descripción en Service Catalog, "Send to QuickBooks" en Migrate, avisos al guardar cliente
+- [ ] 2.2 Orders: llamar `qb-sync-client` al editar perfil / registrarse (rama en ordersgsocd.com) + dueño pone `QB_SYNC_SECRET` en Vercel (Admin y Orders)
 - [ ] Dueño: versiones de SharePoint prendidas (sección 6)

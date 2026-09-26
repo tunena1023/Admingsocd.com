@@ -39,6 +39,9 @@ const handlers = {
   'cron-backup-orders':  require('../cron-backups').handlerFor('orders'),
   'cron-backup-history': require('../cron-backups').handlerFor('history'),
   'cron-backup-other':   require('../cron-backups').handlerFor('other'),
+  /* GSMS -> QuickBooks: aviso de Orders (llave compartida) y revision diaria. */
+  'qb-sync-client':      require('../qb-sync-client').handler,
+  'cron-qb-sync':        require('../qb-sync-client').cronHandler,
   'toggle-assign-by-service': require('../toggle-assign-by-service').handler,
   'get-service-assignments': require('../get-service-assignments').handler,
   'save-service-assignment': require('../save-service-assignment').handler,
@@ -52,7 +55,8 @@ const handlers = {
 
 const { isStaff } = require('../lib/staff-gate');
 const PUBLIC_SLUGS = new Set(['site-image', 'quickbooks-callback', 'cron-recurring-orders',
-  'cron-backup-config', 'cron-backup-clients', 'cron-backup-orders', 'cron-backup-history', 'cron-backup-other']);
+  'cron-backup-config', 'cron-backup-clients', 'cron-backup-orders', 'cron-backup-history', 'cron-backup-other',
+  'qb-sync-client', 'cron-qb-sync']);
 
 module.exports = async (req, res) => {
   const pathOnly = (req.url || '').split('?')[0];

@@ -288,7 +288,11 @@ function catalogDiff(rows, existing, opts) {
 
     const f = match.fields;
     const appDesc = String(f.Description || '').trim();
-    if (opts.fromQb && appDesc && description !== appDesc && description.length < appDesc.length) {
+    /* 26/09/2026 (el dueño): la DESCRIPCION se edita en GSMS y va a
+       QuickBooks. Migrate nunca la pisa si GSMS ya tiene una; si GSMS no
+       tiene, se toma la de QuickBooks. Las que no coinciden salen en
+       descKept con el boton de mandarlas a QuickBooks. */
+    if (opts.fromQb && appDesc && description !== appDesc) {
       descKept.push({ sku, serviceName, appDescription: appDesc, qbDescription: description });
       description = appDesc;
     }
@@ -956,7 +960,78 @@ exports.handler = async (event) => {
           return jsonResponse(200, { dates: (await backupStore.recordDates(String(body.kind || ''))).slice(0, 90) });
         }
         if (action === 'restore-record') {
-          return jsonResponse(200, await backupStore.restoreRecord(String(body.kind || ''), body.value, String(body.at || ''), { dryRun: body.dryRun === true, by: email }));
+          const r = await backupStore.restoreRecord(String(body.kind || ''), body.value, String(body.at || ''), { dryRun: body.dryRun === true, by: email });
+          /* Cliente regresado -> QuickBooks tambien (GSMS manda en clientes). */
+          if (!r.dryRun && body.kind === 'client' && r.changed) {
+            try { r.quickbooks = await require('./lib/qb-sync').pushClient(String(body.value), { by: email, reason: 'restore' }); }
+            catch (e) { r.quickbooks = { error: e.message }; }
+          }
+          return jsonResponse(200, r);
+        }
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
+    }
+
+    /* ============================================================
+       GSMS -> QUICKBOOKS (26/09/2026, PLAN-RESPALDOS.md fase 2) --
+       lib/qb-sync.js. Descripciones de servicios (se editan en GSMS) y
+       la lista de cambios mandados a QuickBooks con Undo (regresa
+       QuickBooks Y GSMS a como estaban antes de ese cambio).
+    ============================================================ */
+    if (['save-service-description', 'qb-send-descriptions', 'qb-changes', 'qb-undo-change'].includes(action)) {
+      if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
+      const qbSync = require('./lib/qb-sync');
+      try {
+        if (action === 'save-service-description') {
+          const sku = String(body.sku || '').trim();
+          const description = String(body.description || '').trim();
+          const item = (await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', [sku])).find(it => it.fields && String(it.fields.SKU).trim() === sku);
+          if (!item) return jsonResponse(404, { error: 'Service not found.' });
+          const before = String(item.fields.Description || '');
+          if (before.trim() === description) return jsonResponse(200, { success: true, unchanged: true });
+          await updateListItemByItemId(SERVICES_CATALOG_LIST, item.id, { Description: description });
+          let quickbooks;
+          try { quickbooks = await qbSync.pushItemDescription(sku, description, { by: email, reason: 'description', gsmsBefore: before }); }
+          catch (e) { quickbooks = { error: e.message }; }
+          return jsonResponse(200, { success: true, quickbooks });
+        }
+        if (action === 'qb-send-descriptions') {
+          /* Manda la descripcion que YA tiene GSMS (no la del navegador). De a
+             poco (el navegador manda tandas de 8). */
+          const skus = (Array.isArray(body.skus) ? body.skus : []).map(String).slice(0, 10);
+          const rows = await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', skus);
+          const results = [];
+          for (const sku of skus) {
+            const it = rows.find(r => r.fields && String(r.fields.SKU).trim() === sku);
+            if (!it) { results.push({ sku, skipped: 'Service not found' }); continue; }
+            try { results.push(Object.assign({ sku }, await qbSync.pushItemDescription(sku, it.fields.Description || '', { by: email, reason: 'send-descriptions' }))); }
+            catch (e) { results.push({ sku, error: e.message }); }
+          }
+          return jsonResponse(200, { results });
+        }
+        if (action === 'qb-changes') {
+          return jsonResponse(200, { env: qbSync.env(), changes: await qbSync.listChanges(60) });
+        }
+        if (action === 'qb-undo-change') {
+          const r = await qbSync.undoChange(String(body.name || ''), {
+            by: email, force: body.force === true,
+            restoreGsms: async rec => {
+              const was = rec.gsmsBefore;
+              if (rec.entity === 'Customer') {
+                const res = await require('./admin-update-client').handler({ httpMethod: 'POST', headers: {}, body: JSON.stringify({
+                  clientId: rec.gsmsRef, changedBy: (email || 'Admin') + ' (Undo)', skipQbSync: true,
+                  businessName: was.businessName, contactPerson: was.contactPerson, contact: was.email, phone: was.phone,
+                  address: was.address, suite: was.suite, city: was.city, zip: was.zip
+                }) });
+                if (res.statusCode !== 200) throw new Error(JSON.parse(res.body || '{}').error || 'Could not update GSMS');
+                return { restored: true };
+              }
+              const it = (await require('./lib/list-query').fetchByValues(SERVICES_CATALOG_LIST, 'SKU', [rec.gsmsRef])).find(x => x.fields && String(x.fields.SKU).trim() === String(rec.gsmsRef));
+              if (!it) throw new Error('Service not found in GSMS');
+              await updateListItemByItemId(SERVICES_CATALOG_LIST, it.id, { Description: was.description || '' });
+              return { restored: true };
+            }
+          });
+          return jsonResponse(200, r);
         }
       } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
     }

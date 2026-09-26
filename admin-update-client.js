@@ -358,12 +358,27 @@ exports.handler = async (event) => {
       }
     }
 
+    /* QuickBooks al instante (26/09/2026, PLAN-RESPALDOS.md fase 2): si
+       cambio algo que tambien vive en QuickBooks, se manda ya, con registro
+       de como estaba (lib/qb-sync.js, se puede deshacer). Si QuickBooks
+       falla, lo de GSMS YA quedo guardado: se avisa y el cliente sale como
+       "Different in QuickBooks" hasta que se reintente. skipQbSync lo usa
+       quickbooks-clients.js (ya escribio en QuickBooks) y el Undo. */
+    const QB_LABELS = ['Business Name', 'Contact Person', 'Contact Email', 'Phone', 'Address', 'Suite', 'City', 'Zip'];
+    let quickbooks = null;
+    if (!b.skipQbSync && changes.some(c => QB_LABELS.includes(c.label))) {
+      const qbSync = require('./lib/qb-sync');
+      try { quickbooks = await qbSync.pushClient(b.clientId, { by: actor, reason: 'client-edit', gsmsBefore: qbSync.appClient(f) }); }
+      catch (e) { quickbooks = { error: e.message }; }
+    }
+
     return jsonResponse(200, {
       success: true,
       changesLogged: logged,
       changesDetected: changes.length,
       contactsProcessed,
-      historyError: logError
+      historyError: logError,
+      quickbooks
     });
   } catch(e) {
     return jsonResponse(500, { error: e.message });
