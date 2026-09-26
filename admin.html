@@ -275,10 +275,35 @@
     .appr-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
     /* Documentos (26/09/2026): la caja no ocupa lugar si no hay documentos;
        el boton vive en la fila de botones de la orden. */
-    .adm-docs-box.compact:has(.adm-docs:empty) { display: none; }
     .adm-docs-upload { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .adm-docs-icons { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .adm-docs-icons:empty { display: none; }
+    .adm-doc-ic { all: unset; box-sizing: border-box; cursor: pointer; width: 28px; height: 34px; border-radius: 3px; display: inline-flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font: 700 8px/1 Inter, sans-serif; letter-spacing: .04em; color: #fff; background: #6B6B6B; position: relative; }
+    .adm-doc-ic::before { content: ""; position: absolute; top: 0; right: 0; width: 8px; height: 8px; background: rgba(255,255,255,.45); border-bottom-left-radius: 2px; }
+    .adm-doc-ic.pdf { background: #B23B2E; } .adm-doc-ic.doc, .adm-doc-ic.docx { background: #2B5797; }
+    .adm-doc-ic:hover { filter: brightness(1.1); } .adm-doc-ic:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .adm-docs-gallery { font-size: 12px; font-weight: 600; color: var(--gold-dk); text-decoration: underline; }
     .adm-docs-msg { font-size: 12px; color: var(--gray); }
     .adm-docs-msg:empty { display: none; }
+    /* Telefono (26/09/2026, dueño: "eso se podria acomodar mejor"): en las
+       filas que traen Upload, los botones van de dos en dos y del mismo
+       ancho, en vez de uno por renglon; los iconos de documentos y el link
+       a Gallery van en una sola linea al final. */
+    @media (max-width: 768px) {
+      .appr-bar:has(.adm-docs-upload), .eo-status-actions:has(.adm-docs-upload), .btn-actions:has(.adm-docs-upload) {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; align-items: stretch;
+      }
+      .appr-bar:has(.adm-docs-upload) > *, .eo-status-actions:has(.adm-docs-upload) > *, .btn-actions:has(.adm-docs-upload) > * { min-width: 0; }
+      .appr-bar:has(.adm-docs-upload) button:not(.adm-doc-ic), .eo-status-actions:has(.adm-docs-upload) button:not(.adm-doc-ic), .btn-actions:has(.adm-docs-upload) button:not(.adm-doc-ic) {
+        width: 100% !important; margin: 0; white-space: normal; padding-left: 10px; padding-right: 10px;
+      }
+      .appr-bar:has(.adm-docs-upload) > .field-group { grid-column: 1 / -1; }
+      .eo-status-bar:has(.adm-docs-upload) { align-items: stretch; }
+      .adm-docs-upload { display: contents; }
+      .adm-docs-icons, .adm-docs-msg { grid-column: 1 / -1; order: 99; }
+      .adm-docs-msg { order: 100; }
+      .lbl-long { display: none; }
+    }
     .appr-bar .field-group { margin-bottom: 0; min-width: 240px; }
     .appr-hint { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
     .btn-green { background: var(--green); color: var(--white); }
@@ -7360,46 +7385,53 @@ function renderDocsPanel() {
   }, adminDocOpts));
 }
 
-/* 26/09/2026 (dueño: "ponlo al nivel de los otros... ahorrar espacio"):
-   el boton "Upload document" va en la misma fila que los demas botones
-   de la orden (Approve/Bypass, Print, Completed...). La caja de arriba
-   solo trae la lista y no ocupa lugar si la orden no tiene documentos.
-   inBar=false: sin fila de botones donde ponerlo (ej. orden en
-   inspeccion), el boton se queda en la caja como antes. */
+/* 26/09/2026 (dueño: "ponlo al nivel de los otros... ahorrar espacio",
+   y luego "esa madre del documento tambien muevela... iconos que si se
+   puchan te mandan a la galeria"): nada de caja "Documents" dentro de la
+   orden. En la fila de botones de la orden (Approve/Bypass, Print,
+   Completed...) va "Upload document" y, si la orden tiene documentos, un
+   icono chiquito por documento + link "Gallery"; los dos abren Gallery >
+   Docs filtrado a esa orden (ahi se ven, abren y borran).
+   inBar=false: sin fila de botones (ej. orden en inspeccion), el mismo
+   grupo va solo en su propia linea. */
 function orderDocsBoxHtml(orderId, inBar) {
-  const id = esc(orderId);
-  if (inBar) {
-    return `<div class="adm-docs-box compact" style="margin-top:20px">
-      <p class="detail-label" style="margin-bottom:8px">Documents</p>
-      <div class="adm-docs" data-order="${id}"></div>
-    </div>`;
-  }
-  return `<div class="adm-docs-box" style="margin-top:20px">
-      <p class="detail-label" style="margin-bottom:4px">Documents</p>
-      <p class="section-sub" style="margin:0 0 8px;font-size:12px">PDF, Word or text files (up to 25 MB). The client sees them too.</p>
-      <div class="adm-docs" data-order="${id}"></div>
-      <div style="margin-top:8px">${orderDocsUploadBtnHtml(orderId)}</div>
-    </div>`;
+  return inBar ? '' : `<div style="margin-top:20px">${orderDocsUploadBtnHtml(orderId)}</div>`;
 }
 
 function orderDocsUploadBtnHtml(orderId) {
   const id = esc(orderId);
-  return `<span class="adm-docs-upload"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload document</button><span class="adm-docs-msg" role="status"></span></span>`;
+  return `<span class="adm-docs-upload"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload<span class="lbl-long"> document</span></button><span class="adm-docs-icons" data-order="${id}"></span><span class="adm-docs-msg" role="status"></span></span>`;
+}
+
+function orderDocIconsHtml(orderId, docs) {
+  if (!docs.length) return '';
+  const id = jsStr(orderId);
+  const ext = n => { const m = String(n || '').toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : ''; };
+  return docs.map(d => `<button type="button" class="adm-doc-ic ${esc(ext(d.name))}" title="${escAttr(d.name)}" aria-label="${escAttr(d.name)} (open in Gallery)" onclick="openOrderDocsInGallery('${id}')">${esc(ext(d.name).toUpperCase())}</button>`).join('') +
+    `<a class="adm-docs-gallery" href="#" onclick="openOrderDocsInGallery('${id}');return false">Gallery →</a>`;
+}
+
+function openOrderDocsInGallery(orderId) {
+  showTab('gallery');
+  showGallerySubTab('docs');
+  renderDocsPanel();
+  const q = document.getElementById('docs-search');
+  if (q) { q.value = orderId; renderDocsPanel(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function hydrateOrderDocs(root) {
-  if (!window.GSDocViewer) return;
-  (root || document).querySelectorAll('.adm-docs[data-order]').forEach(el => {
+  (root || document).querySelectorAll('.adm-docs-icons[data-order]').forEach(el => {
     const orderId = el.dataset.order;
     const g = allDocGroups.find(x => x.orderId === orderId);
-    GSDocViewer.renderList(el, g ? g.docs : [], Object.assign({ orderId }, adminDocOpts));
+    el.innerHTML = orderDocIconsHtml(orderId, g ? g.docs : []);
     el.dataset.hydrated = '1';
   });
 }
-/* Cada vez que se pinta el detalle de una orden (cualquier tab), su
-   caja de documentos se llena sola. */
+/* Cada vez que se pinta el detalle de una orden (cualquier tab), sus
+   iconos de documentos se llenan solos. */
 new MutationObserver(muts => {
-  if (muts.some(m => Array.from(m.addedNodes).some(n => n.nodeType === 1 && (n.matches('.adm-docs:not([data-hydrated])') || n.querySelector('.adm-docs:not([data-hydrated])'))))) {
+  if (muts.some(m => Array.from(m.addedNodes).some(n => n.nodeType === 1 && (n.matches('.adm-docs-icons:not([data-hydrated])') || n.querySelector('.adm-docs-icons:not([data-hydrated])'))))) {
     hydrateOrderDocs();
   }
 }).observe(document.documentElement, { childList: true, subtree: true });
