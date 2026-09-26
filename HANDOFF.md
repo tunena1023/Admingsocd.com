@@ -87,6 +87,18 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   Orders el cliente ve solo "The document could not be saved. Please try
   again later." Probado con la lista simulada tal cual la tiene el dueño;
   **falta que el dueño lo pruebe en real** (subir desde Admin y desde Orders).
+- **ORDERS EN ROLLBACK (26/09/2026, 00:27 UTC, con OK del dueño).** A las 00:16 UTC
+  alguien con el usuario de Vercel del dueño cambió `GRAPH_CLIENT_ID` y
+  `GRAPH_CLIENT_SECRET` de **Production** en el proyecto `orders.gsocd.com`
+  (Preview no se tocó). El deploy siguiente (`b38a985`) salió con esos valores y
+  Microsoft los rechazó ("AADSTS7000215 invalid client secret"): nadie podía
+  entrar al portal. Se regresó Production al deploy `dpl_7GLJePWzL7ZYwEDrJsj9cpDkSdT1`
+  (`72d784a`, de las 00:14, con los valores viejos) y el portal volvió.
+  **Mientras siga el rollback, los push a Orders NO pasan solos a producción.**
+  Falta: poner valores buenos en esas 2 variables de Production (son "sensitive",
+  nadie las puede leer, ni Claude; el Value del secret solo lo da Azure al crearlo),
+  redeploy de `main` y promoverlo. Hasta entonces, en Orders sigue el Documents
+  viejo (el arreglo de Title está en Admin y Tech, no en Orders).
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
