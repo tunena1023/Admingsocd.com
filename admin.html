@@ -2269,7 +2269,7 @@
         <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
             <div><b style="font-size:13px">Backups</b>
-            <div style="font-size:12px;color:var(--gray)">Go back to how the catalog was before a migration.</div></div>
+            <div style="font-size:12px;color:var(--gray)">Saved before every migration and every restore, and once a day when the catalog changed. Pick one to see what going back would change.</div></div>
             <button class="gs-ofp-btn-secondary" onclick="loadCatalogBackups()">Show backups</button>
           </div>
           <div id="qbm-backups"></div>
@@ -10718,30 +10718,63 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     const m = String(name).match(/^catalog-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d+Z-(.+)\.json$/);
     if (!m) return name;
     const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
-    const why = m[7] === 'before-qb-migrate' ? 'Before migrating from QuickBooks' : m[7] === 'before-restore' ? 'Before a restore' : m[7];
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' — ' + why;
+    const why = { 'before-qb-migrate': 'Before migrating from QuickBooks', 'before-restore': 'Before a restore', 'daily': 'Daily backup' }[m[7]] || m[7];
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' — ' + why;
   }
 
+  /* Backups (26/09/2026): uno se guarda solo antes de cada Migrate y
+     antes de cada Restore, y el cron guarda uno diario si el catalogo
+     cambio. Se escoge cual en el selector; primero se ve que cambiaria
+     (dryRun) y solo entonces sale el boton de regresar. */
   async function loadCatalogBackups() {
     const box = document.getElementById('qbm-backups');
     box.innerHTML = '<p class="empty-note">Loading backups...</p>';
     try {
       const res = await devApi('list-catalog-backups');
       const list = res.backups || [];
-      box.innerHTML = !list.length ? '<p class="empty-note">No backups yet — one is saved every time you migrate.</p>' :
-        '<div class="diff-card">' + list.map(b => '<div class="diff-row" style="justify-content:space-between;gap:10px">' +
-          '<span>' + esc(qbmBackupLabel(b.name)) + '</span>' +
-          '<button class="gs-ofp-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="restoreCatalogBackup(\'' + jsStr(b.name) + '\', this)">Restore</button>' +
-          '</div>').join('') + '</div>';
+      if (!list.length) { box.innerHTML = '<p class="empty-note">No backups yet. One is saved before every migration, and once a day when the catalog changed.</p>'; return; }
+      box.innerHTML =
+        '<label for="qbm-backup-select" style="display:block;font-size:12px;color:var(--gray);margin:12px 0 6px">Choose a backup (' + list.length + ')</label>' +
+        '<select id="qbm-backup-select" onchange="previewCatalogRestore()" style="width:100%;max-width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;background:#fff">' +
+          '<option value="">Select a backup…</option>' +
+          list.map(b => '<option value="' + esc(b.name) + '">' + esc(qbmBackupLabel(b.name)) + '</option>').join('') +
+        '</select>' +
+        '<div id="qbm-restore-preview"></div>';
     } catch (e) {
       box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
     }
   }
 
-  async function restoreCatalogBackup(name, btn) {
-    if (!confirm('Put the service catalog back the way it was in this backup?\n\n' + qbmBackupLabel(name) +
-      '\n\nServices created after it are turned off (not deleted). Existing orders do not change. A backup of the current catalog is saved first, so you can undo this too.')) return;
+  async function previewCatalogRestore() {
+    const name = document.getElementById('qbm-backup-select').value;
+    const box = document.getElementById('qbm-restore-preview');
+    if (!name) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing this backup with the catalog today...</p>';
+    try {
+      const r = await devApi('restore-catalog-backup', { name, dryRun: true });
+      if (document.getElementById('qbm-backup-select').value !== name) return;
+      if (!r.changes.length) { box.innerHTML = '<p class="empty-note">The catalog is already the same as this backup. Nothing to restore.</p>'; return; }
+      const back = r.changes.filter(c => !c.createdAfter), off = r.changes.filter(c => c.createdAfter);
+      const rowHtml = c => '<div class="diff-row" style="display:block"><span>' + esc(c.serviceName) + ' <span class="diff-sku">' + esc(c.sku) + '</span></span>' +
+        c.changes.map(x => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 4px">' + esc(x.field === 'Active' ? 'Active' : x.field) + ': <s>' + esc(qbmShort(x.from === true ? 'Yes' : x.from === false ? 'No' : x.from)) + '</s> → <b style="color:var(--black)">' + esc(qbmShort(x.to === true ? 'Yes' : x.to === false ? 'No' : x.to)) + '</b></div>').join('') + '</div>';
+      box.innerHTML =
+        '<p style="font-size:13px;margin:12px 0 8px">Going back to this backup: <b>' + back.length + '</b> services return to how they were' +
+          (off.length ? ', and <b>' + off.length + '</b> created after it are turned off (not deleted)' : '') + '.' +
+          (r.missing ? ' ' + r.missing + ' from the backup no longer exist and stay as they are.' : '') + '</p>' +
+        (back.length ? '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer"><span>Services that go back</span><span class="diff-count">' + back.length + '</span></summary>' + back.map(rowHtml).join('') + '</details>' : '') +
+        (off.length ? '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer"><span>Turned off (created after this backup)</span><span class="diff-count">' + off.length + '</span></summary>' + off.map(rowHtml).join('') + '</details>' : '') +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">Existing orders do not change. The catalog as it is now is saved as a backup first, so you can undo this too.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="qbm-restore-btn" onclick="restoreCatalogBackup(\'' + jsStr(name) + '\')">Restore this backup</button></div>' +
+        '<div id="qbm-restore-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function restoreCatalogBackup(name) {
+    const btn = document.getElementById('qbm-restore-btn');
     btn.disabled = true;
+    document.getElementById('qbm-restore-result').textContent = 'Saving a backup of the current catalog and restoring...';
     try {
       const res = await devApi('restore-catalog-backup', { name });
       showToast(res.success ? 'Catalog restored.' : 'Restored with some errors.');
@@ -10753,7 +10786,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
         ((res.failed || []).length ? ' <span style="color:var(--red)">Could not update: ' + res.failed.map(esc).join('; ') + '</span>' : '') + '</p>');
     } catch (e) {
       btn.disabled = false;
-      showToast('Could not restore: ' + e.message);
+      document.getElementById('qbm-restore-result').innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
     }
   }
 
@@ -10761,6 +10794,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   window.confirmQbMigrate = confirmQbMigrate;
   window.loadCatalogBackups = loadCatalogBackups;
   window.restoreCatalogBackup = restoreCatalogBackup;
+  window.previewCatalogRestore = previewCatalogRestore;
 
 
   /* ============================================================

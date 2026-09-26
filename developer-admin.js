@@ -338,41 +338,9 @@ function catalogDiff(rows, existing, opts) {
   return { toCreate, toUpdate, toReactivate, toDeactivate, skippedNoSku, skippedUnrecognized, descKept, appOnly };
 }
 
-/* ============================================================
-   Respaldos del catalogo (26/09/2026, el dueño: "que tenga forma de
-   regresar a lo anterior si algo falla"). Antes de que Migrate cambie
-   algo se guarda una foto de TODA la lista ServicesCatalog como JSON en
-   Documents/Backups/ServicesCatalog (ningun cambio si no se pudo
-   guardar). Restore regresa cada servicio a como estaba en esa foto --
-   solo los campos que cambian el import/Migrate; areas, paquetes,
-   niveles y Qty no se tocan -- y apaga lo que se creo despues. Antes de
-   restaurar tambien se guarda una foto, asi que un Restore tambien se
-   puede deshacer. Solo toca el catalogo: las ordenes que ya existen
-   guardan su propia copia de cada servicio y no cambian.
-============================================================ */
-const CATALOG_BACKUP_FOLDER = 'Backups/ServicesCatalog';
-const CATALOG_RESTORE_FIELDS = ['Title', 'ServiceName', 'Division', 'PropertyType', 'Description', 'Price', 'Category', 'Active'];
-const CATALOG_BACKUP_FIELDS = CATALOG_RESTORE_FIELDS.concat(['SKU', 'RequiresQuantity', 'Areas', 'PackageItems', 'Level2Price', 'Level2Mode', 'Level3Price', 'Level3Mode']);
-const CATALOG_BACKUP_NAME = /^catalog-[0-9TZ-]+-[a-z-]+\.json$/;
-
-async function backupCatalog(existing, reason, by) {
-  const { uploadFile } = require('./lib/graph');
-  const name = 'catalog-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + reason + '.json';
-  const rows = existing.filter(it => it.fields).map(it => {
-    const fields = {};
-    CATALOG_BACKUP_FIELDS.forEach(k => { if (it.fields[k] !== undefined) fields[k] = it.fields[k]; });
-    return { id: it.id, fields };
-  });
-  const payload = { version: 1, createdAt: new Date().toISOString(), by: by || '', reason, count: rows.length, rows };
-  await uploadFile(CATALOG_BACKUP_FOLDER, name, Buffer.from(JSON.stringify(payload)), 'application/json');
-  return name;
-}
-
-function sameCatalogValue(k, a, b) {
-  if (k === 'Active') return truthy(a) === truthy(b);
-  if (k === 'Price') return (a == null || a === '' ? null : Number(a)) === (b == null || b === '' ? null : Number(b));
-  return String(a == null ? '' : a) === String(b == null ? '' : b);
-}
+/* Respaldos del catalogo: lib/catalog-backup.js (Migrate, Restore y el
+   respaldo diario del cron). */
+const catalogBackup = require('./lib/catalog-backup');
 
 /* De 8 en 8, como el resto de las escrituras masivas del archivo. */
 async function inBatches(list, fn) {
@@ -851,6 +819,12 @@ exports.handler = async (event) => {
     ============================================================ */
     async function qbMigrateDiff() {
       const qb = require('./lib/quickbooks');
+      /* Preview (test-admin) usa el QuickBooks SANDBOX pero el MISMO
+         SharePoint que produccion: ahi Migrate escribiria articulos de
+         prueba en el catalogo real. Solo corre contra el QuickBooks real. */
+      if ((process.env.QUICKBOOKS_ENVIRONMENT || 'sandbox').toLowerCase() !== 'production') {
+        const e = new Error('Migrate only runs on admin.gsocd.com. This site uses the QuickBooks sandbox but the real catalog, so it would copy test items into the real catalog.'); e.status = 409; throw e;
+      }
       if (!(await qb.isConnected())) { const e = new Error('QuickBooks is not connected yet. Connect it in the QuickBooks tab first.'); e.status = 409; throw e; }
       const items = await qb.listItems();
       const rows = items.map(it => ({
@@ -895,7 +869,7 @@ exports.handler = async (event) => {
       }
 
       let backup;
-      try { backup = await backupCatalog(existing, 'before-qb-migrate', email); }
+      try { backup = await catalogBackup.backupCatalog(existing, 'before-qb-migrate', email); }
       catch (e) { return jsonResponse(500, { error: 'Could not save the backup, so nothing was changed: ' + e.message }); }
 
       let created = 0, updated = 0, reactivated = 0, deactivated = 0;
@@ -930,59 +904,16 @@ exports.handler = async (event) => {
 
     if (action === 'list-catalog-backups') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
-      const { listChildren } = require('./lib/graph');
-      const kids = await listChildren(CATALOG_BACKUP_FOLDER);
-      const backups = kids.filter(k => k.isFile && CATALOG_BACKUP_NAME.test(k.name))
-        .map(k => ({ name: k.name, createdDateTime: k.createdDateTime, size: k.size }))
-        .sort((a, b) => String(b.name).localeCompare(String(a.name)))
-        .slice(0, 30);
-      return jsonResponse(200, { backups });
+      return jsonResponse(200, { backups: (await catalogBackup.listBackups()).slice(0, 60) });
     }
 
+    /* dryRun: true -> solo dice que cambiaria (para escoger el respaldo
+       con calma antes de regresar). */
     if (action === 'restore-catalog-backup') {
       if (!canEditCatalog) return jsonResponse(403, { error: 'Your role cannot edit the service catalog.' });
-      const name = String(body.name || '');
-      if (!CATALOG_BACKUP_NAME.test(name)) return jsonResponse(400, { error: 'Unknown backup.' });
-      const buf = await require('./lib/graph').downloadByPath(CATALOG_BACKUP_FOLDER + '/' + name);
-      if (!buf) return jsonResponse(404, { error: 'Backup not found.' });
-      let snap;
-      try { snap = JSON.parse(buf.toString('utf8')); } catch (e) { return jsonResponse(400, { error: 'This backup file cannot be read.' }); }
-      if (!snap || !Array.isArray(snap.rows)) return jsonResponse(400, { error: 'This backup file cannot be read.' });
-
-      const existing = await require('./lib/list-query').fetchAll(SERVICES_CATALOG_LIST);
-      let before;
-      try { before = await backupCatalog(existing, 'before-restore', email); }
-      catch (e) { return jsonResponse(500, { error: 'Could not save a backup of the current catalog, so nothing was changed: ' + e.message }); }
-
-      const byId = new Map(existing.map(it => [String(it.id), it]));
-      const snapIds = new Set(snap.rows.map(r => String(r.id)));
-      const patches = [];
-      let missing = 0;
-      snap.rows.forEach(r => {
-        const cur = byId.get(String(r.id));
-        if (!cur) { missing++; return; }
-        const patch = {};
-        CATALOG_RESTORE_FIELDS.forEach(k => {
-          const want = r.fields[k] === undefined ? null : r.fields[k];
-          if (!sameCatalogValue(k, (cur.fields || {})[k], want)) patch[k] = k === 'Active' ? truthy(want) : want;
-        });
-        if (Object.keys(patch).length) patches.push({ id: cur.id, patch });
-      });
-      /* Lo que se creo despues de la foto: se apaga (no se borra -- si
-         alguien ya lo uso en una orden, su SKU sigue existiendo). */
-      existing.forEach(it => {
-        if (it.fields && !snapIds.has(String(it.id)) && truthy(it.fields.Active)) patches.push({ id: it.id, patch: { Active: false }, createdAfter: true });
-      });
-
-      let restored = 0, turnedOff = 0;
-      const failed = [];
-      await inBatches(patches, async p => {
-        try {
-          await updateListItemByItemId(SERVICES_CATALOG_LIST, p.id, p.patch);
-          if (p.createdAfter) turnedOff++; else restored++;
-        } catch (e) { failed.push(p.id + ': ' + e.message); }
-      });
-      return jsonResponse(200, { success: !failed.length, backup: before, restored, turnedOff, missing, failed });
+      try {
+        return jsonResponse(200, await catalogBackup.restoreBackup(String(body.name || ''), { dryRun: body.dryRun === true, by: email }));
+      } catch (e) { return jsonResponse(e.status || 500, { error: e.message }); }
     }
 
     /* ============================================================

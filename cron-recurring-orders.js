@@ -7,6 +7,11 @@
         generarse la siguiente).
      2. ensureRecurringOrders(): rellena el colchon de 30 dias por
         cada contrato activo.
+   Y aparte (26/09/2026, pedido del dueño): respaldo diario del catalogo
+   de servicios, SOLO si cambio desde el ultimo respaldo
+   (lib/catalog-backup.js). Va en su propio try: si falla no afecta a los
+   recurrentes, y si fallan los recurrentes el respaldo igual se intenta.
+   Se cuelga de este cron para no gastar otro Cron Job de Vercel.
 
    Seguridad: Vercel manda "Authorization: Bearer <CRON_SECRET>" en
    cada llamada real de un Cron Job -- se verifica esa cabecera para
@@ -32,11 +37,15 @@ exports.handler = async (event) => {
     return jsonResponse(401, { error: 'Unauthorized' });
   }
 
+  let catalogBackup;
+  try { catalogBackup = await require('./lib/catalog-backup').dailyBackupIfChanged(); }
+  catch (e) { console.error('Daily catalog backup failed:', e.message); catalogBackup = { saved: false, error: e.message }; }
+
   try {
     const promoted = await promoteDueRecurringOrders();
     const generated = await ensureRecurringOrders();
-    return jsonResponse(200, { success: true, promoted, generated });
+    return jsonResponse(200, { success: true, promoted, generated, catalogBackup });
   } catch (e) {
-    return jsonResponse(500, { error: e.message });
+    return jsonResponse(500, { error: e.message, catalogBackup });
   }
 };
