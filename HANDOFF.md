@@ -12,7 +12,7 @@
 > dueño no ha autorizado un push, se deja escrito en local igual y se le
 > avisa: "el handoff está al día pero no subido; si la sesión se cae, se pierde".
 
-Última actualización: 26/09/2026, sesión `claude/vibrant-maxwell-l7r3ye` (solo se agregó el pendiente de Yardi/AppFolio/Entrata/RealPage; la columna de OrderDocuments ya la creó el dueño y Documents ya jala).
+Última actualización: 26/09/2026, sesión `claude/vibrant-maxwell-l7r3ye`.
 
 ---
 
@@ -75,6 +75,17 @@ Subido (con OK del dueño, "sube todo lo que teníamos pendiente"):
 - **Orders** `86f6c1d`: tracker del cliente, PDF e historial con un solo evento.
 - **Tech** `dd914b6`: nuevo pin del shared.
 - Este HANDOFF.md.
+
+Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
+- **Admin, Orders y Tech**, `lib/order-docs.js` (igual en los 3): si falla el
+  renglón en `OrderDocuments`, se borra el archivo recién subido (ya no quedan
+  sueltos), y si el error es "Field ... is not recognized", el mensaje dice qué
+  columna falta y cómo se llama en SharePoint si hay una parecida. En Orders el
+  cliente ve solo "The document could not be saved. Please try again later." (el
+  detalle va a los logs). **Documents seguía fallando después de que el dueño
+  creó las columnas (26/09). Siguiente paso: que suba un documento desde Admin
+  y lea el mensaje.**
+- Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
 sesión se cayó antes: avísale al dueño.
@@ -153,6 +164,12 @@ sesión se cayó antes: avísale al dueño.
 - El dueño pegó un PAT de GitHub y enseñó el Client Secret de QuickBooks de
   producción en una captura en sesiones pasadas: se le recomendó rotarlos.
   Nunca reusarlos.
+- **Orders `lib/graph.js` todavía trae escritos, como respaldo, el tenant, el
+  client ID y el client SECRET de Graph** (Admin y Tech ya no). Nunca repetir el
+  valor. Plan: el dueño genera un secret nuevo en Azure y lo pone en Vercel
+  (los 3 proyectos); después se quita el respaldo del código de Orders. No
+  quitarlo antes de confirmar que Orders tiene `GRAPH_*` en Vercel, o se cae el
+  portal de clientes.
 - No intentar sacar passwords/credenciales de código viejo (lo bloquea el
   sistema de permisos y está bien que lo bloquee).
 - Env vars (solo nombres): GRAPH_*, NOTIFY_*, QUICKBOOKS_CLIENT_ID,
