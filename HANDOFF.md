@@ -86,7 +86,8 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   el archivo (no quedan sueltos) y el mensaje dice qué columna falta. En
   Orders el cliente ve solo "The document could not be saved. Please try
   again later." Probado con la lista simulada tal cual la tiene el dueño;
-  **falta que el dueño lo pruebe en real** (subir desde Admin y desde Orders).
+  **Probado en real desde Orders (26/09/2026, 00:43 UTC): subió bien.** Falta
+  probar desde Admin.
 - **Orders: caída del 26/09/2026 (00:17–00:27 UTC), RESUELTA 00:41 UTC.** Alguien
   con el usuario de Vercel del dueño cambió `GRAPH_CLIENT_ID` y
   `GRAPH_CLIENT_SECRET` de Production en `orders.gsocd.com`; el deploy siguiente
