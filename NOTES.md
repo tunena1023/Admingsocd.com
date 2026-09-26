@@ -7,6 +7,27 @@ de features, bugs, decisiones y pendientes, en orden cronológico.
 (más de ~3 semanas sin tocarse) a un párrafo o moverlas a NOTES_ARCHIVE.md,
 en vez de seguir apilando sin límite.
 
+## PENDIENTE, ETAPA DE INVESTIGACIÓN (26/09/2026): integración con Yardi, AppFolio, Entrata o RealPage
+
+**ETAPA DE INVESTIGACIÓN** (así lo pidió el dueño). Pedido del dueño:
+"podríamos hablar de esto, ponlo en pendientes". Es para investigarlo y
+platicarlo con él, **no para programarlo**. Nada decidido, nada empezado.
+
+De dónde salió: comparando el programa con software parecido (Jobber,
+Housecall Pro, ServiceTitan, Swept, Janitorial Manager, HappyCo, Property
+Meld). Los clientes (property managers) ya tienen sus unidades y su tablero de
+turnovers en su sistema (Yardi, AppFolio, Entrata o RealPage). Si las órdenes
+se pudieran crear desde ahí, o si les regresamos el estado de cada unidad, eso
+los amarra a GS. Casi ningún proveedor chico lo tiene. Hoy el código no tiene
+nada de esto.
+
+Lo que hay que platicar con el dueño antes de cualquier cosa:
+- Qué sistema usa cada cliente (cuál conviene primero).
+- Qué quiere: crear órdenes desde el PMS, regresarles el estado o las fotos, o
+  las dos cosas.
+- Si los clientes le dan acceso. Estos sistemas piden ser partner o tener
+  permiso del cliente para usar su API.
+
 ## PENDIENTE PARA OTRO CHAT (26/09/2026): partir admin.html, código compartido, pruebas
 
 Pedido del dueño: "deja una nota de los pasos a seguir, detalle a detalle,

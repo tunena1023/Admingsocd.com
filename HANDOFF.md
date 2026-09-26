@@ -12,7 +12,7 @@
 > dueño no ha autorizado un push, se deja escrito en local igual y se le
 > avisa: "el handoff está al día pero no subido; si la sesión se cae, se pierde".
 
-Última actualización: 25/09/2026, sesión `claude/otros-proyectos-wxj0o7`.
+Última actualización: 26/09/2026, sesión `claude/vibrant-maxwell-l7r3ye` (solo se agregó el pendiente de Yardi/AppFolio/Entrata/RealPage; la columna de OrderDocuments ya la creó el dueño y Documents ya jala).
 
 ---
 
@@ -109,7 +109,10 @@ sesión se cayó antes: avísale al dueño.
    - Precios del catálogo (otro día).
    - Opcional: `WIPE_PASSWORD` y `DIRECTOR_PASSWORD` también en Preview
      (hoy solo en Production; test-admin no tiene wipe).
-5. Proyectos grandes para otros chats: NOTES.md, sección "PENDIENTE PARA OTRO
+5. **Etapa de investigación (no programar):** integración con Yardi,
+   AppFolio, Entrata o RealPage, para platicarla con el dueño. Ver NOTES.md,
+   "PENDIENTE, ETAPA DE INVESTIGACIÓN".
+6. Proyectos grandes para otros chats: NOTES.md, sección "PENDIENTE PARA OTRO
    CHAT": (A) partir admin.html, (B) libs compartidas en gsocd-shared/server,
    (C) pruebas automáticas, (D) passwords.
 
