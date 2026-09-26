@@ -32,7 +32,7 @@ exports.handler = async (event) => {
     }
 
     const row = await orderDocs.getRow(graph, String(b.docId || ''));
-    if (!row || (row.fields || {}).OrderID !== orderId) return jsonResponse(404, { error: 'Document not found.' });
+    if (!row || orderDocs.orderIdOf(row) !== orderId) return jsonResponse(404, { error: 'Document not found.' });
     if (b.action === 'view') return jsonResponse(200, await orderDocs.viewUrls(graph, row));
     if (b.action === 'delete') {
       await orderDocs.deleteDoc(graph, row);

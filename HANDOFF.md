@@ -77,14 +77,16 @@ Subido (con OK del dueño, "sube todo lo que teníamos pendiente"):
 - Este HANDOFF.md.
 
 Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
-- **Admin, Orders y Tech**, `lib/order-docs.js` (igual en los 3): si falla el
-  renglón en `OrderDocuments`, se borra el archivo recién subido (ya no quedan
-  sueltos), y si el error es "Field ... is not recognized", el mensaje dice qué
-  columna falta y cómo se llama en SharePoint si hay una parecida. En Orders el
-  cliente ve solo "The document could not be saved. Please try again later." (el
-  detalle va a los logs). **Documents seguía fallando después de que el dueño
-  creó las columnas (26/09). Siguiente paso: que suba un documento desde Admin
-  y lea el mensaje.**
+- **Documents arreglado en Admin, Orders y Tech** (`lib/order-docs.js`, igual en
+  los 3, y los handlers `order-docs.js`). Causa: en `OrderDocuments` la columna
+  **OrderID es la Title renombrada** (nombre interno `Title`), y el código
+  escribía `OrderID` y usaba Title para el nombre del archivo. Ahora el
+  OrderID va en `Title`, y el nombre que se ve sale del archivo en SharePoint
+  (sin el stamp), 20 por llamada con `$batch`. Si falla el renglón, se borra
+  el archivo (no quedan sueltos) y el mensaje dice qué columna falta. En
+  Orders el cliente ve solo "The document could not be saved. Please try
+  again later." Probado con la lista simulada tal cual la tiene el dueño;
+  **falta que el dueño lo pruebe en real** (subir desde Admin y desde Orders).
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
