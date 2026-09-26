@@ -112,11 +112,16 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   Revisado después del deploy: los 8 tabs de Admin abren sin errores (1280 y 390),
   admin.gsocd.com sirve el código nuevo, y los 3 proyectos solo tienen el aviso de
   `url.parse()` (deprecation de Node, no es falla).
-- **SOLO EN LOCAL, esperando el "dale" (26/09/2026, segunda vuelta):** ya no hay
-  lista de documentos dentro de la orden. En la fila de botones: Upload + un icono
-  por documento + "Gallery →" (abren Gallery > Docs filtrado a esa orden). En
-  teléfono, las filas que traen Upload van de dos en dos (botón "Upload" corto).
-  Mismo mini: https://claude.ai/artifact/Xr5oFk38yXr3c9Kp7guqHn (versión 2).
+- **SOLO EN LOCAL, esperando el "dale" (26/09/2026): filas de botones iguales en los 3 portales.**
+  - gsocd-shared: `action-row/action-row.js` nuevo (clase `gs-act-row`: escritorio en una fila;
+    teléfono de dos en dos, mismo ancho) y `doc-viewer` con la tira chiquita de documentos
+    (`addButtonHtml` "+", `iconsHtml` iconos + "Gallery →", `stripMsgHtml`). Commits locales
+    e41c4c2, 2e048e5, de10f09, 68efbd7 (pins: action-row `68efbd7…`, doc-viewer `de10f09…`).
+  - Admin (7439868, 44619e6), Orders (84c4734, 872690e), Tech (5fb6747, 85f175b) usan las dos.
+    En Orders ya no hay cajas "Photos"/"Documents" dentro de la orden: cámara (solo teléfono),
+    "+" e iconos van en la fila de botones y abren Gallery > Docs filtrado.
+  - Mini de los 3: https://claude.ai/artifact/1HNZFdjgSXZVXvdHFj7AwR
+  - Orden para subir: gsocd-shared → Admin → Orders → Tech.
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
