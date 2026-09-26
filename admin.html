@@ -285,22 +285,10 @@
     .adm-docs-gallery { font-size: 12px; font-weight: 600; color: var(--gold-dk); text-decoration: underline; }
     .adm-docs-msg { font-size: 12px; color: var(--gray); }
     .adm-docs-msg:empty { display: none; }
-    /* Telefono (26/09/2026, dueño: "eso se podria acomodar mejor"): en las
-       filas que traen Upload, los botones van de dos en dos y del mismo
-       ancho, en vez de uno por renglon; los iconos de documentos y el link
-       a Gallery van en una sola linea al final. */
+    /* Telefono: el acomodo de dos en dos de las filas de botones lo pone
+       gsocd-shared/action-row (clase gs-act-row), igual en los 3 portales. */
     @media (max-width: 768px) {
-      .appr-bar:has(.adm-docs-upload), .eo-status-actions:has(.adm-docs-upload), .btn-actions:has(.adm-docs-upload) {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; align-items: stretch;
-      }
-      .appr-bar:has(.adm-docs-upload) > *, .eo-status-actions:has(.adm-docs-upload) > *, .btn-actions:has(.adm-docs-upload) > * { min-width: 0; }
-      .appr-bar:has(.adm-docs-upload) button:not(.adm-doc-ic), .eo-status-actions:has(.adm-docs-upload) button:not(.adm-doc-ic), .btn-actions:has(.adm-docs-upload) button:not(.adm-doc-ic) {
-        width: 100% !important; margin: 0; white-space: normal; padding-left: 10px; padding-right: 10px;
-      }
-      .appr-bar:has(.adm-docs-upload) > .field-group { grid-column: 1 / -1; }
-      .eo-status-bar:has(.adm-docs-upload) { align-items: stretch; }
-      .adm-docs-upload { display: contents; }
-      .adm-docs-icons, .adm-docs-msg { grid-column: 1 / -1; order: 99; }
+      .eo-status-bar { align-items: stretch !important; }
       .adm-docs-msg { order: 100; }
       .lbl-long { display: none; }
     }
@@ -1645,6 +1633,8 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@d309c9378c9e5f97be227606c3ccf2c7706ddb71/order-history/order-history.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
+<!-- Filas de botones de las tarjetas (26/09/2026): mismo acomodo en los 3 portales. -->
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@e41c4c23fb7205e762adfea2a49d1dfd9f381fcc/action-row/action-row.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -4695,7 +4685,7 @@ function serviceChangeRequestCardHtml(o, req) {
           <div style="font-weight:600">${esc(req.serviceName)}</div>
         </div>
       </div>
-      <div class="appr-bar">
+      <div class="appr-bar gs-act-row">
         <button class="gs-ofp-btn-primary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')">Approve</button>
         <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
       </div>
@@ -4710,7 +4700,7 @@ function serviceChangeRequestCardHtml(o, req) {
           <div style="font-weight:600">${esc(req.serviceName)}</div>
         </div>
       </div>
-      <div class="appr-bar">
+      <div class="appr-bar gs-act-row">
         <button class="gs-ofp-btn-danger" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')">Approve</button>
         <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
       </div>
@@ -4754,7 +4744,7 @@ function serviceChangeRequestCardHtml(o, req) {
         <label>Date</label>
         ${GSDateTimePicker.dateHtml('review-change-date-' + key.replace(/[^a-z0-9]/gi, '_'), draft.date || null, 'Pick a date', { min: dateInputValue(o.EntryDate), max: dateInputValue(o.DueDate) })}
       </div>
-      <div class="appr-bar">
+      <div class="appr-bar gs-act-row">
         <button class="gs-ofp-btn-primary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','approve')" ${canApprove ? '' : 'disabled'}>Approve</button>
         <button class="gs-ofp-btn-secondary" onclick="resolveServiceChangeRequest('${jsStr(o.OrderID)}','${jsStr(req.category)}','${jsStr(req.serviceName)}','cancel')">Cancel Change Request</button>
       </div>
@@ -4987,7 +4977,7 @@ function batchApprovalGroupCard(batchId, units) {
         </div>
       </div>
       <div class="appr-body" id="${dom}-body" style="display:none">
-        <div class="appr-bar" style="margin-bottom:16px">
+        <div class="appr-bar gs-act-row" style="margin-bottom:16px">
           ${addUnitButtonHtml(clientId, batchId, 'appr')}
         </div>
         ${addUnitFormHtml(clientId, batchId, 'appr')}
@@ -5043,7 +5033,7 @@ function newOrderApprovalCard(o, context) {
         ${orderDocsBoxHtml(o.OrderID, !(o.Status === 'Inspection' || o.Status === 'Inspected'))}
         ${readOnlyBlock}
         ${o.Status === 'Inspection' || o.Status === 'Inspected' ? '' : `
-        <div class="appr-bar">
+        <div class="appr-bar gs-act-row">
           <button class="gs-ofp-btn-primary" id="${dom}-ok" disabled
                   onclick="decideNewOrder('${esc(o.OrderID)}','approve')">Approve</button>
           <button class="gs-ofp-btn-secondary" onclick="bypassScheduling('${esc(o.OrderID)}')">Bypass (Director password)</button>
@@ -5086,7 +5076,7 @@ function inspectionFormHtml(o, dom) {
         <div class="field-group"><label>Inspection date</label>${GSDateTimePicker.dateHtml(dom + '-insp-date', o.InspectionDate || null, null, { min: dateInputValue(new Date().toISOString()) })}</div>
         <div class="field-group"><label>Time window</label><select id="${dom}-insp-window">${optionsHtml(SERVICE_WINDOWS, o.InspectionWindow || '')}</select></div>
       </div>
-      <div class="appr-bar" style="margin-top:4px">
+      <div class="appr-bar gs-act-row" style="margin-top:4px">
         <button type="button" class="gs-ofp-btn-primary" onclick="scheduleInspection('${id}')">${o.Status === 'Inspection' ? 'Save changes' : 'Schedule inspection'}</button>
         <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-form').hidden=true">Cancel</button>
       </div>
@@ -5106,7 +5096,7 @@ function inspectionStartHtml(o) {
         <div><div class="field-caption">Supervisor</div><div class="field-value">${esc(o.InspectionBy || '—')}</div></div>
       </div>
       <p class="insp-note">This order waits here until the inspection is done. Finishing the inspection does not complete the order.</p>
-      <div class="appr-bar" style="margin-top:0">
+      <div class="appr-bar gs-act-row" style="margin-top:0">
         <button type="button" class="gs-ofp-btn-primary" onclick="document.getElementById('${dom}-insp-done').hidden=false">Mark as inspected</button>
         <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-form').hidden=false">Change</button>
         <button type="button" class="gs-ofp-btn-secondary" onclick="cancelInspection('${id}')">Cancel inspection</button>
@@ -5114,7 +5104,7 @@ function inspectionStartHtml(o) {
       <div class="insp-form" id="${dom}-insp-done" hidden>
         <div class="field-group"><label>What did the supervisor find?</label>
           <textarea id="${dom}-insp-notes" rows="3" placeholder="Notes from the visit…"></textarea></div>
-        <div class="appr-bar" style="margin-top:4px">
+        <div class="appr-bar gs-act-row" style="margin-top:4px">
           <button type="button" class="gs-ofp-btn-primary" onclick="markInspected('${id}')">Save — inspection done</button>
           <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-done').hidden=true">Cancel</button>
         </div>
@@ -5134,7 +5124,7 @@ function inspectionStartHtml(o) {
       <div id="${dom}-insp-prop"></div>
       <div id="${dom}-insp-continue">
         <p class="insp-note">If something changed, update the services above. Then continue to schedule the work.</p>
-        <div class="appr-bar" style="margin-top:0">
+        <div class="appr-bar gs-act-row" style="margin-top:0">
           <button type="button" class="gs-ofp-btn-primary" onclick="continueAfterInspection('${id}')">Continue to scheduling</button>
         </div>
       </div>
@@ -5146,7 +5136,7 @@ function inspectionStartHtml(o) {
     return `<div class="insp-box done">
       <div class="insp-box-h"><span class="insp-dot"></span>Inspected ${esc(fmtDate(o.InspectionDoneAt))}${o.InspectionBy ? ' · ' + esc(o.InspectionBy) : ''}</div>
       ${o.InspectionNotes ? '<div class="insp-notes">' + esc(o.InspectionNotes) + '</div>' : ''}
-      <div class="insp-row"><span>This order has not been scheduled yet.</span>
+      <div class="insp-row gs-act-row"><span>This order has not been scheduled yet.</span>
         <button class="gs-ofp-btn-secondary" onclick="goToScheduleForOrder('${id}')">Go to Scheduling</button></div>
     </div>`;
   }
@@ -5213,7 +5203,7 @@ function fillInspectionProposal(o, history) {
         ${inspectionDiffHtml(Array.isArray(prev.services) ? prev.services : [], proposed)}
         ${estimatedTimeCompareHtml(Array.isArray(prev.services) ? prev.services : null, proposed, o.OrderID)}
         <p class="insp-note" style="margin-top:10px">The client should approve these changes. If they already confirmed by email or phone, you can approve for them.</p>
-        <div class="appr-bar" style="margin-top:0">
+        <div class="appr-bar gs-act-row" style="margin-top:0">
           <button type="button" class="gs-ofp-btn-primary" onclick="sendInspectionToClient('${id}')">Send to client</button>
           <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-approve').hidden=false">Approve for client</button>
           <button type="button" class="gs-ofp-btn-secondary" onclick="continueAfterInspection('${id}')">Continue without changes</button>
@@ -5221,7 +5211,7 @@ function fillInspectionProposal(o, history) {
         <div class="insp-form" id="${dom}-insp-approve" hidden>
           <div class="field-group"><label>How did the client confirm? (required)</label>
             <textarea id="${dom}-insp-approve-note" rows="2" placeholder="e.g. Client confirmed by email on Sep 26"></textarea></div>
-          <div class="appr-bar" style="margin-top:4px">
+          <div class="appr-bar gs-act-row" style="margin-top:4px">
             <button type="button" class="gs-ofp-btn-primary" onclick="approveInspectionForClient('${id}')">Approve changes and continue</button>
             <button type="button" class="gs-ofp-btn-secondary" onclick="document.getElementById('${dom}-insp-approve').hidden=true">Cancel</button>
           </div>
@@ -5574,7 +5564,7 @@ function decisionAreaHtml(o, history) {
   const tpl = document.createElement('template');
   tpl.innerHTML = decisionAreaHtmlInner(o, history);
   const bar = Array.from(tpl.content.children).find(el => el.classList.contains('appr-bar'));
-  if (!bar) return `<div class="appr-bar" style="margin-bottom:12px">${extra}</div>` + tpl.innerHTML;
+  if (!bar) return `<div class="appr-bar gs-act-row" style="margin-bottom:12px">${extra}</div>` + tpl.innerHTML;
   bar.insertAdjacentHTML('beforeend', extra);
   return tpl.innerHTML;
 }
@@ -5595,7 +5585,7 @@ function decisionAreaHtmlInner(o, history) {
   const status = o.Status || '';
 
   if (status === 'Cancelled') {
-    return `<div class="appr-bar">
+    return `<div class="appr-bar gs-act-row">
       <button class="gs-ofp-btn-secondary" onclick="archiveOrder('${esc(o.OrderID)}')">Archive</button>
       <button class="gs-ofp-btn-primary" onclick="reactivateOrder('${esc(o.OrderID)}')">Mark as Active</button>
     </div>
@@ -5608,14 +5598,14 @@ function decisionAreaHtmlInner(o, history) {
       (fromInspection ? `<div class="insp-form" style="border-top:none;padding-top:0">
         <div class="field-group"><label>Client confirmed another way? Approve for them (required note)</label>
           <textarea id="${dom}-wfc-note" rows="2" placeholder="e.g. Client confirmed by phone on Sep 26"></textarea></div>
-        <div class="appr-bar" style="margin-top:4px">
+        <div class="appr-bar gs-act-row" style="margin-top:4px">
           <button type="button" class="gs-ofp-btn-secondary" onclick="approveWaitingForClient('${jsStr(o.OrderID)}')">Approve for client</button>
         </div></div>` : '');
   }
 
   if (isReactivationPending(history)) {
     const restoreTo = reactivationRestoreTo(history);
-    return `<div class="appr-bar">
+    return `<div class="appr-bar gs-act-row">
       <button class="gs-ofp-btn-primary" onclick="decideReactivation('${esc(o.OrderID)}')">Approve Reactivation</button>
     </div>
     <p class="appr-hint">This order was cancelled and archived, then requested for reactivation. Approving here brings it back to <b>${esc(restoreTo)}</b> immediately — or the client can confirm it themselves from their own portal, whichever happens first. This decision needs the Operations Director's password.</p>`;
@@ -5665,7 +5655,7 @@ function decisionAreaHtmlInner(o, history) {
     return `<p class="meta-line" style="margin-bottom:14px">Service change suggested on-site by <b>${esc(actor)}</b>. The client hasn't seen this yet.</p>
     <p class="review-photo-note" id="${galleryId}-toggle" style="font-size:12px;color:var(--gold-dk);text-decoration:underline;cursor:pointer;margin-bottom:14px;display:inline-block" onclick="toggleSupervisorGallery('${esc(o.OrderID)}','${galleryId}')">📷 View Gallery</p>
     <div id="${galleryId}"></div>
-    <div class="appr-bar">
+    <div class="appr-bar gs-act-row">
       ${primaryBtn}
       <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
       <button class="gs-ofp-btn-primary" onclick="sendSupervisorUpdateToCustomer('${esc(o.OrderID)}')">Send to Customer</button>
@@ -5688,7 +5678,7 @@ function decisionAreaHtmlInner(o, history) {
         <label>Notes (required if rejecting)</label>
         <input type="text" id="${notesId}" placeholder="Reason…">
       </div>
-      <div class="appr-bar">
+      <div class="appr-bar gs-act-row">
         <button class="gs-ofp-btn-danger" onclick="decideReview('${esc(o.OrderID)}','approve',${needsPassword ? 'true' : 'false'})">Cancel</button>
         <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reject',${needsPassword ? 'true' : 'false'})">Reject</button>
       </div>
@@ -5710,7 +5700,7 @@ function decisionAreaHtmlInner(o, history) {
                     cambio (cliente u oficina) ya se arrepintio antes
                     de que nadie decidiera nada. */
   return `
-    <div class="appr-bar">
+    <div class="appr-bar gs-act-row">
       <button class="gs-ofp-btn-primary" onclick="decideReview('${esc(o.OrderID)}','reassign',false)">Reassign</button>
       <button class="gs-ofp-btn-secondary" onclick="decideReview('${esc(o.OrderID)}','reschedule',false)">Reschedule</button>
       <button class="gs-ofp-btn-secondary" onclick="cancelOfficeUpdate('${esc(o.OrderID)}')">Cancel Change Request</button>
@@ -6750,7 +6740,7 @@ function renderRecurringChangeReview() {
               <label>Notes (required if rejecting)</label>
               <input type="text" id="${notesId}" placeholder="Reason…">
             </div>
-            <div class="appr-bar">
+            <div class="appr-bar gs-act-row">
               <button class="gs-ofp-btn-primary" onclick="decideRecurringReview('${p.id}','approve')">Approve</button>
               <button class="gs-ofp-btn-danger" onclick="decideRecurringReview('${p.id}','reject')">Reject</button>
             </div>
@@ -7400,14 +7390,14 @@ function orderDocsBoxHtml(orderId, inBar) {
 
 function orderDocsUploadBtnHtml(orderId) {
   const id = esc(orderId);
-  return `<span class="adm-docs-upload"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload<span class="lbl-long"> document</span></button><span class="adm-docs-icons" data-order="${id}"></span><span class="adm-docs-msg" role="status"></span></span>`;
+  return `<span class="adm-docs-upload gs-act-group"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload<span class="lbl-long"> document</span></button><span class="adm-docs-icons gs-act-full" data-order="${id}"></span><span class="adm-docs-msg gs-act-full" role="status"></span></span>`;
 }
 
 function orderDocIconsHtml(orderId, docs) {
   if (!docs.length) return '';
   const id = jsStr(orderId);
   const ext = n => { const m = String(n || '').toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : ''; };
-  return docs.map(d => `<button type="button" class="adm-doc-ic ${esc(ext(d.name))}" title="${escAttr(d.name)}" aria-label="${escAttr(d.name)} (open in Gallery)" onclick="openOrderDocsInGallery('${id}')">${esc(ext(d.name).toUpperCase())}</button>`).join('') +
+  return docs.map(d => `<button type="button" class="adm-doc-ic gs-act-keep ${esc(ext(d.name))}" title="${escAttr(d.name)}" aria-label="${escAttr(d.name)} (open in Gallery)" onclick="openOrderDocsInGallery('${id}')">${esc(ext(d.name).toUpperCase())}</button>`).join('') +
     `<a class="adm-docs-gallery" href="#" onclick="openOrderDocsInGallery('${id}');return false">Gallery →</a>`;
 }
 
@@ -7880,7 +7870,7 @@ function contractCardBodyHtml(s) {
       ? '<div class="field-caption">Who does what</div><div style="margin:6px 0 16px">' + rcScContractWhoHtml(s, scList) + '</div>'
       : '<div class="field-caption">Services</div>' +
         '<p class="meta-line" style="margin-bottom:16px">' + servicesText + '</p>') +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<div class="gs-act-row" style="gap:8px">' +
       '<button class="gs-ofp-btn-primary" onclick="event.stopPropagation();editRecurring(\'' + s.id + '\')">Update</button>' +
       (isPlace ? '<button class="gs-ofp-btn-secondary" onclick="event.stopPropagation();printScopeOfWork(\'' + s.id + '\')">Scope of Work</button>' : '') +
       '<button class="gs-ofp-btn-danger" onclick="event.stopPropagation();deactivateContract(\'' + s.id + '\')"' + (s.active ? '' : ' disabled') + '>Deactivate</button>' +
@@ -8773,7 +8763,7 @@ function placeWhoHtml(o, services, history, mode) {
   const extrasHtml = extras.map(x =>
     '<div class="pw-extra"><b>' + (x.state === 'pending' ? 'Extra requested by client — waiting on office' : x.state === 'Extra Approved' ? 'Extra approved — billed separately' : 'Extra declined') + '</b>' +
     esc(x.by) + (x.place ? ' at ' + esc(x.place) : '') + ': “' + esc(x.note) + '”' +
-    (x.state === 'pending' && canAct ? '<div class="pw-extra-actions"><button class="gs-ofp-btn-primary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'approved\')">Approve as extra charge</button>' +
+    (x.state === 'pending' && canAct ? '<div class="pw-extra-actions gs-act-row"><button class="gs-ofp-btn-primary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'approved\')">Approve as extra charge</button>' +
       '<button class="gs-ofp-btn-secondary" onclick="resolveExtraRequest(\'' + jsStr(o.OrderID) + '\',\'' + jsStr(x.id) + '\',\'declined\')">Decline</button></div>' : '') +
     '</div>').join('');
   /* REDISEÑO (24/09/2026, mini aprobado:
@@ -12731,7 +12721,7 @@ function unseenActiveCardHtml(o, services, history) {
          blanco dice "Reschedule", los dos chicos y EN LA MISMA LINEA ("ya vi que si
          deberian estar en la misma linea, no apilados"). Por dentro hacen lo mismo de
          siempre (Approve / ir a Scheduling con esa orden). -->
-    <div style="margin-top:20px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+    <div class="gs-act-row" style="margin-top:20px;gap:8px">
       <button class="gs-ofp-btn-primary" style="width:auto;padding:10px 22px" onclick="markSeen('${esc(o.OrderID)}')">Send to Tech</button>
       <button class="gs-ofp-btn-secondary" style="width:auto;padding:10px 22px" onclick="goToScheduleForOrder('${esc(o.OrderID)}')">Reschedule</button>
     </div>
@@ -12972,7 +12962,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         the Operations Director can approve (in Review) or the client can confirm
         themselves (from their own portal) -- whichever happens first.
       </p>
-      <div class="btn-actions">
+      <div class="btn-actions gs-act-row">
         <button class="gs-ofp-btn-primary" onclick="requestReactivate('${esc(o.OrderID)}')">Reactivate</button>
       </div>
     </div>` : '';
@@ -13007,7 +12997,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
         <span class="eo-status-dot"></span>
         <span class="eo-status-text">Showing as <b>${esc(displayStatus(o))}</b>${displayStatus(o) === 'Working' ? ' — the service date has arrived' : ''}.</span>
       </div>
-      <div class="eo-status-actions">
+      <div class="eo-status-actions gs-act-row">
         ${printOrderHtml}
         ${orderDocsUploadBtnHtml(o.OrderID)}
         <!-- Completed SIEMPRE visible en Active (regla del dueño, 24/09/2026). -->
@@ -13204,7 +13194,7 @@ function renderOrderDetail(o, services, history, context, storedDoc, storedCompl
       </div>
     </div>
     ${orderDocsBoxHtml(o.OrderID, true)}
-    ${contextCan(context, 'edit') ? '' : `<div class="btn-actions" style="margin-top:16px">${printOrderHtml}${orderDocsUploadBtnHtml(o.OrderID)}</div>`}
+    ${contextCan(context, 'edit') ? '' : `<div class="btn-actions gs-act-row" style="margin-top:16px">${printOrderHtml}${orderDocsUploadBtnHtml(o.OrderID)}</div>`}
     ${statusBar}${assignedViewOnly}${historyReactivate}`;
 }
 
