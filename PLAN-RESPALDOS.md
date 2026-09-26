@@ -136,19 +136,32 @@ tipo+división+nombre). Llamar el handler con
   se usó un SKU en una orden, sigue existiendo).
 - Migrate **solo** en admin.gsocd.com (QuickBooks de producción).
 
-### Decisiones que faltan (preguntarle al dueño antes de construir)
+### Decisiones del dueño (26/09/2026, ya contestadas)
 
-1. Retención: propuesta **90 días** de respaldos diarios, pero siempre se queda
-   el más nuevo de cada lista y todos los `before-*`. ¿OK?
-2. Restore por registro de un **cliente**: ¿regresa también sus edificios
-   (`ClientAddresses`) y contactos (`ClientContacts`) juntos? Propuesta: sí,
-   como un paquete, con vista previa.
-3. Restore por registro de una **orden**: ¿regresa también sus servicios
-   (`OrderServices`) y asignaciones (`ServiceAssignments`)? Propuesta: orden +
-   servicios juntos; asignaciones solo si el dueño quiere (pueden haber cambiado
-   por los técnicos).
-4. Pasar las descripciones de GSMS a QuickBooks **con la app** (fase 2, paso
-   2.3) o a mano. Propuesta: con la app, con vista previa, solo `Description`.
+1. Retención: **90 días** de respaldos diarios (siempre se queda el más nuevo de
+   cada lista y todos los `before-*`).
+2. Restore de un **cliente**: **todo junto** — Clients + ClientAddresses +
+   ClientContacts + ClientHolidays (y lo demás que cuelgue del ClientID).
+3. Restore de una **orden**: **todo junto**, "que parezca que no cambió nada" —
+   Orders + OrderServices + ServiceAssignments + Scheduling (y lo demás que
+   cuelgue del OrderID). OrderHistory no se borra: se agrega un renglón que
+   diga que se restauró.
+4. **Nuevo requisito:** "que si se hacen cambios desde la app se reflejen en
+   QuickBooks **inmediatamente**, y que eso guarde un backup, y si después algo
+   sale mal en QuickBooks poder regresar a antes del cambio que se hizo en
+   GSMS." → la FASE 2 cambia (ver sección 5): cada cambio que GSMS manda a
+   QuickBooks se registra con cómo estaba antes, y tiene "Undo in QuickBooks".
+
+### Preguntas abiertas (hechas al dueño el 26/09, esperando respuesta)
+
+- a) ¿Qué va a QuickBooks al instante? Clientes existentes (hoy manual con
+  password del director: ¿quitar el password?), clientes nuevos (el 25/09 decidió
+  que NO se crearan solos: ¿cambia?), descripciones de servicios (hoy no se
+  editan en GSMS: ¿agregar editor?).
+- b) Conflictos: propuesta = GSMS solo manda los campos que cambió en esa
+  edición, nunca pisa lo demás.
+- c) Servicios en dos direcciones: propuesta = descripción se edita en GSMS → QB;
+  nombre/precio/SKU se editan en QB → GSMS con Migrate.
 
 ---
 
@@ -265,27 +278,40 @@ Todo con `lib/quickbooks.js`.
 - Guardar `Backups/QuickBooks/Customers-<ISO>-daily.json.gz` e `Items-…` solo
   si cambiaron. Solo en producción (`QUICKBOOKS_ENVIRONMENT=production`).
 
-### 2.2 Antes de que GSMS cambie algo en QuickBooks
+### 2.2 GSMS → QuickBooks al instante, con registro y "Undo in QuickBooks"
 
-- `quickbooks-clients.js` update: antes de `qb.updateCustomer`, guardar el
-  Customer completo como estaba (`Backups/QuickBooks/Customer-<Id>-<ISO>.json`).
-  Botón "Restore in QuickBooks" en QuickBooks › Clients: sparse update con los
-  campos de `customerPayload` desde esa foto (pide password del director, como
-  el update).
-- `quickbooks-delete-doc.js`: antes de borrar, guardar el Estimate/Invoice
-  completo (`minorversion=75&include=enhancedAllCustomFields`). QuickBooks no
-  recupera el mismo número; la copia sirve para volverlo a crear con los mismos
-  datos.
+(Requisito 4 del dueño. Confirmar las preguntas abiertas a–c antes de construir.)
 
-### 2.3 Pasar las descripciones de GSMS a QuickBooks (con la app)
-
-- Developer: "Send descriptions to QuickBooks": vista previa por SKU
-  (QB hoy → GSMS), **solo el campo `Description`** del Item (sparse update con
-  `SyncToken`), casillas para escoger cuáles. Guardar antes la foto de Items
-  (2.1). "Restore in QuickBooks" regresa la descripción que tenía cada Item.
-- Hoy la regla es "QuickBooks nunca se reescribe" (sección 5 de HANDOFF, y
-  `lib/quickbooks.js` nunca crea/edita Items): esto la cambia, **confirmar con
-  el dueño** (decisión 4) antes de construir.
+- Un solo lugar por donde pasa **toda** escritura a QuickBooks: p. ej.
+  `lib/qb-sync.js` con `pushChange({ entity, id, fields, reason, by })`:
+  1. Lee el objeto actual de QuickBooks (Customer/Item) completo.
+  2. Guarda el registro **antes** de escribir:
+     `Documents/Backups/QuickBooks/changes/<ISO>-<Entity>-<Id>.json` con
+     `{ before, sent, by, reason, source (pantalla/endpoint), gsmsRef (ClientID/SKU) }`.
+     Si no se pudo guardar, **no se manda nada** y se avisa.
+  3. Manda solo los campos que cambiaron (sparse update con `SyncToken`).
+  4. Guarda `after` en el mismo registro.
+- Engancharlo donde GSMS cambia datos que viven en QuickBooks (según a):
+  `admin-update-client.js` (y lo que llama desde Orders: `update-client-profile.js`,
+  `save-client-address.js` si la dirección principal cambia),
+  `quickbooks-clients.js` (create/update ya existentes), y el editor de
+  descripciones si se aprueba (c). Si QuickBooks falla, GSMS igual guarda su
+  cambio y la tarjeta del cliente queda "Different in QuickBooks" (ya existe
+  esa vista) para reintentar.
+- Pantalla (Developer o QuickBooks › "Changes sent"): lista de cambios
+  (fecha, quién, cliente/servicio, campos viejo → nuevo) con **"Undo in
+  QuickBooks"**: vuelve a mandar los valores de `before` (sparse, `SyncToken`
+  actual). Antes de deshacer, compara con lo que QuickBooks tiene hoy: si alguien
+  lo cambió después directo en QuickBooks, lo enseña y pide confirmar. El Undo
+  también queda registrado (se puede deshacer el Undo).
+- Retención: 90 días, igual que el resto.
+- Estimates/invoices que se borran desde GSMS (`quickbooks-delete-doc.js`):
+  guardar el documento completo antes de borrar
+  (`minorversion=75&include=enhancedAllCustomFields`). QuickBooks no recupera el
+  mismo número; la copia sirve para recrearlo.
+- Esto cambia reglas viejas de HANDOFF sección 5 ("QuickBooks nunca se
+  reescribe", "no se crean clientes solos"): **solo con el OK explícito del
+  dueño** a las preguntas a–c.
 
 ---
 
@@ -307,7 +333,8 @@ Todo con `lib/quickbooks.js`.
 - [ ] Dueño: "dale" para subir `fea5007` + `5e77365` a producción; después probar
       Check QuickBooks en admin.gsocd.com y ver el primer respaldo en
       `Documents/Backups/ServicesCatalog`
-- [ ] Dueño: contestar decisiones 1–4 (sección 3)
+- [x] Dueño: decisiones 1–4 (sección 3) — 90 días, cliente todo junto, orden todo junto, GSMS→QB inmediato
+- [ ] Dueño: contestar preguntas abiertas a–c (sección 3)
 - [ ] 1.1 `lib/backup-store.js`
 - [ ] 1.2 lista de listas y campos excluidos, probada con renglones reales
 - [ ] 1.3 respaldo diario de todas las listas (decidir cron nuevo vs tandas)
@@ -315,6 +342,5 @@ Todo con `lib/quickbooks.js`.
 - [ ] 1.5 mini de la pantalla Backups → OK del dueño → construir
 - [ ] 1.6 pruebas
 - [ ] 2.1 foto diaria de QuickBooks
-- [ ] 2.2 respaldo antes de cambiar/borrar en QuickBooks + Restore in QuickBooks
-- [ ] 2.3 descripciones GSMS → QuickBooks (solo con OK del dueño)
+- [ ] 2.2 GSMS → QuickBooks al instante + registro por cambio + Undo in QuickBooks (después de a–c)
 - [ ] Dueño: versiones de SharePoint prendidas (sección 6)
