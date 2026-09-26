@@ -106,7 +106,9 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   para ahorrar espacio. La caja "Documents" solo sale si la orden tiene
   documentos; el texto "PDF, Word or text files (up to 25 MB)..." pasó al tooltip
   del botón. En órdenes en inspección el botón se queda en la caja como antes.
-  Mini con el admin.html real mandado al dueño (capturas 1280 y 390).
+  En Review, Print y Upload van al final de la fila de la decisión (Reassign /
+  Reschedule / Cancel...), ya no en fila aparte. Mini (admin.html real, API
+  simulada): https://claude.ai/artifact/Xr5oFk38yXr3c9Kp7guqHn
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
