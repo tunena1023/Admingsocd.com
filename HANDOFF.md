@@ -112,7 +112,8 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   Revisado después del deploy: los 8 tabs de Admin abren sin errores (1280 y 390),
   admin.gsocd.com sirve el código nuevo, y los 3 proyectos solo tienen el aviso de
   `url.parse()` (deprecation de Node, no es falla).
-- **SOLO EN LOCAL, esperando el "dale" (26/09/2026): filas de botones iguales en los 3 portales.**
+- **SUBIDO A PRODUCCIÓN (26/09/2026, "ándale, súbelo"): filas de botones iguales en los 3 portales.**
+  Verificado: los 3 deploys READY y admin/orders/tech sirven los pins nuevos.
   - gsocd-shared: `action-row/action-row.js` nuevo (clase `gs-act-row`: escritorio en una fila;
     teléfono de dos en dos, mismo ancho) y `doc-viewer` con la tira chiquita de documentos
     (`addButtonHtml` "+", `iconsHtml` iconos + "Gallery →", `stripMsgHtml`). Commits locales
@@ -121,7 +122,7 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
     En Orders ya no hay cajas "Photos"/"Documents" dentro de la orden: cámara (solo teléfono),
     "+" e iconos van en la fila de botones y abren Gallery > Docs filtrado.
   - Mini de los 3: https://claude.ai/artifact/1HNZFdjgSXZVXvdHFj7AwR
-  - Orden para subir: gsocd-shared → Admin → Orders → Tech.
+  - Subido en orden: gsocd-shared 68efbd7 → Admin → Orders 872690e → Tech 85f175b.
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
