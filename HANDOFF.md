@@ -100,7 +100,7 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   con el viejo. El viejo sigue escrito en `ordersgsocd.com/lib/graph.js` (repo
   público): pendiente quitarlo del código y, cuando se pueda, cambiar el secret
   en todos lados.
-- **SOLO EN LOCAL, esperando el "dale" (26/09/2026):** Admin, botón "Upload
+- **SUBIDO (26/09/2026, `d7f99d8`, "súbelo a producción"):** Admin, botón "Upload
   document" en la misma fila que los demás botones de la orden (Approvals:
   Approve/Bypass · Review: Print · Active/History: Print/Completed/Cancelled),
   para ahorrar espacio. La caja "Documents" solo sale si la orden tiene
@@ -109,6 +109,9 @@ Subido el 26/09/2026 (dueño: "súbelo a producción y ya"):
   En Review, Print y Upload van al final de la fila de la decisión (Reassign /
   Reschedule / Cancel...), ya no en fila aparte. Mini (admin.html real, API
   simulada): https://claude.ai/artifact/Xr5oFk38yXr3c9Kp7guqHn
+  Revisado después del deploy: los 8 tabs de Admin abren sin errores (1280 y 390),
+  admin.gsocd.com sirve el código nuevo, y los 3 proyectos solo tienen el aviso de
+  `url.parse()` (deprecation de Node, no es falla).
 - Notas: pendiente de Yardi/AppFolio/Entrata/RealPage, etapa de investigación.
 
 Si al hacer `git fetch` algo de esto NO está en `origin`, el push falló o la
