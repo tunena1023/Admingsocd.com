@@ -996,6 +996,12 @@
   #panel-developer .tag-deactivate { background: #FBEAEA; color: var(--red, #B33A3A); }
   #panel-developer .warn-box { border: 1px solid var(--gold); background: #FDF8EC; border-radius: 4px; padding: 14px 18px; font-size: 13px; margin-top: 20px; line-height: 1.6; }
   #panel-developer .skip-note { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
+  #panel-developer .bk-block { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 18px; }
+  #panel-developer .bk-head { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  #panel-developer .bk-head span { font-size: 12px; color: var(--gray); }
+  #panel-developer .bk-label { display: block; font-size: 12px; color: var(--gray); margin: 12px 0 6px; }
+  #panel-developer .bk-select { width: 100%; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff; }
+  #panel-developer .bk-status-wrap { overflow-x: auto; }
   #panel-developer table.cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
   #panel-developer table.cat-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); padding: 8px 10px; border-bottom: 1px solid var(--border); }
   #panel-developer table.cat-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -2273,6 +2279,55 @@
             <button class="gs-ofp-btn-secondary" onclick="loadCatalogBackups()">Show backups</button>
           </div>
           <div id="qbm-backups"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="backups-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); bkLoadStatus()">
+        <div><div class="order-id">Backups</div>
+        <div class="order-desc">Every list is saved once a day when it changed, and before every bulk change. Put a client, an order or a setting list back the way it was.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Backups are kept for 90 days in SharePoint (Documents › Backups). Putting something back always saves how it is
+          now first, so you can undo it too. Photos and document files are not in these backups.
+        </p>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put a client back</b><span>The client with its buildings, contacts and holidays, together.</span></div>
+          <label for="bk-client" class="bk-label">Client</label>
+          <select id="bk-client" class="bk-select" onchange="bkRecordPicked('client')"></select>
+          <div id="bk-client-dates"></div>
+          <div id="bk-client-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put an order back</b><span>The order with its services, assignments and schedule, together.</span></div>
+          <label for="bk-order" class="bk-label">Order number</label>
+          <input id="bk-order" class="bk-select" list="bk-order-list" placeholder="e.g. GS-1001-1008" onchange="bkRecordPicked('order')">
+          <datalist id="bk-order-list"></datalist>
+          <div id="bk-order-dates"></div>
+          <div id="bk-order-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head"><b>Put a setting list back</b><span>The whole list, as it was.</span></div>
+          <label for="bk-list" class="bk-label">List</label>
+          <select id="bk-list" class="bk-select" onchange="bkListPicked()"></select>
+          <div id="bk-list-dates"></div>
+          <div id="bk-list-preview"></div>
+        </div>
+
+        <div class="bk-block">
+          <div class="bk-head" style="justify-content:space-between;flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:2px"><b>Last backup of each list</b><span>The service catalog has its own backups in Migrate from QuickBooks.</span></div>
+            <button class="gs-ofp-btn-secondary" id="bk-now-btn" onclick="bkBackupNow()">Back up now</button>
+          </div>
+          <div id="bk-status"></div>
         </div>
       </div>
     </div>
@@ -9706,6 +9761,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     if (canEdit) {
       document.getElementById('import-section').classList.add('role-eligible');
       document.getElementById('qb-migrate-section').classList.add('role-eligible');
+      document.getElementById('backups-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
       document.getElementById('bulk-hours-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
@@ -10795,6 +10851,195 @@ async function resolveExtraRequest(orderId, requestId, decision) {
   window.loadCatalogBackups = loadCatalogBackups;
   window.restoreCatalogBackup = restoreCatalogBackup;
   window.previewCatalogRestore = previewCatalogRestore;
+
+  /* ============================================================
+     BACKUPS DE TODO (26/09/2026, PLAN-RESPALDOS.md fase 1) --
+     developer-admin backup-status / record-backup-dates / restore-record
+     / list-list-backups / restore-list / backup-now (lib/backup-store.js).
+     Siempre: escoger -> vista previa (dryRun, no escribe) -> boton.
+  ============================================================ */
+  const BK_REASON = {
+    'daily': 'Daily backup', 'manual': 'Backed up by hand', 'before-restore': 'Before putting something back',
+    'before-bulk-update': 'Before a bulk client change', 'before-bulk-import': 'Before a client import',
+    'before-bulk-hours': 'Before bulk office hours', 'before-wipe': 'Before Wipe test data',
+    'before-package-fix': 'Before the package fix', 'before-import': 'Before an import', 'before-clear': 'Before clearing service times'
+  };
+  const BK_LIST_LABEL = {
+    Clients: 'Client', ClientContacts: 'Contacts', ClientAddresses: 'Buildings', ClientHolidays: 'Holidays',
+    Orders: 'Order', OrderServices: 'Services', ServiceAssignments: 'Assignments', Scheduling: 'Schedule'
+  };
+  let bkStatusCache = null, bkDatesCache = {};
+
+  function bkWhen(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  const bkReason = r => BK_REASON[r] || r;
+  const bkVal = v => qbmShort(v === true ? 'Yes' : v === false ? 'No' : (v !== null && typeof v === 'object') ? JSON.stringify(v) : v);
+
+  async function bkLoadStatus(force) {
+    const clientSel = document.getElementById('bk-client');
+    if (clientSel && !clientSel.options.length) {
+      const list = (allClients || []).slice().sort((a, b) => String(a.businessName || '').localeCompare(String(b.businessName || '')));
+      clientSel.innerHTML = '<option value="">Select a client…</option>' +
+        list.map(c => '<option value="' + esc(c.clientId) + '">' + esc((c.businessName || c.clientId) + ' · ' + c.clientId) + '</option>').join('');
+    }
+    const dl = document.getElementById('bk-order-list');
+    if (dl && !dl.options.length) dl.innerHTML = (allOrders || []).map(o => '<option value="' + esc(o.OrderID) + '">' + esc(o.BusinessName || '') + '</option>').join('');
+    if (bkStatusCache && !force) return;
+    const box = document.getElementById('bk-status');
+    box.innerHTML = '<p class="empty-note">Loading...</p>';
+    try {
+      bkStatusCache = await devApi('backup-status');
+      const lists = bkStatusCache.lists || [];
+      const sel = document.getElementById('bk-list');
+      sel.innerHTML = '<option value="">Select a list…</option>' + lists.filter(l => l.config).map(l => '<option value="' + esc(l.list) + '">' + esc(l.list) + '</option>').join('');
+      const short = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+      const withBackup = lists.filter(l => l.last).length;
+      box.innerHTML = '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px">' + withBackup + ' of ' + lists.length + ' lists backed up · show all</summary>' +
+        '<div class="bk-status-wrap"><table class="cat-table"><thead><tr><th>List</th><th>Last backup</th><th>Kept</th></tr></thead><tbody>' +
+        lists.map(l => '<tr><td>' + esc(l.list) + '</td><td style="white-space:nowrap">' + (l.last ? esc(short(l.last.at)) + '<div style="font-size:11px;color:var(--gray);white-space:normal">' + esc(bkReason(l.last.reason)) + '</div>' : '<span style="color:var(--gray)">None yet</span>') + '</td><td>' + l.count + '</td></tr>').join('') +
+        '</tbody></table></div></details>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkBackupNow() {
+    const btn = document.getElementById('bk-now-btn');
+    if (!bkStatusCache) await bkLoadStatus();
+    const groups = (bkStatusCache && bkStatusCache.groups) || [];
+    btn.disabled = true;
+    let saved = 0;
+    try {
+      for (let i = 0; i < groups.length; i++) {
+        btn.textContent = 'Backing up ' + (i + 1) + ' of ' + groups.length + '…';
+        const r = await devApi('backup-now', { group: groups[i] });
+        saved += (r.results || []).filter(x => x.saved).length;
+      }
+      showToast(saved ? saved + ' lists backed up.' : 'Nothing changed since the last backup.');
+      bkDatesCache = {};
+      await bkLoadStatus(true);
+    } catch (e) { showToast('Could not back up: ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Back up now'; }
+  }
+
+  async function bkRecordPicked(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const datesBox = document.getElementById('bk-' + kind + '-dates');
+    document.getElementById('bk-' + kind + '-preview').innerHTML = '';
+    if (!value) { datesBox.innerHTML = ''; return; }
+    datesBox.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      if (!bkDatesCache[kind]) bkDatesCache[kind] = (await devApi('record-backup-dates', { kind })).dates || [];
+      const dates = bkDatesCache[kind];
+      datesBox.innerHTML = !dates.length ? '<p class="empty-note">No backups yet.</p>' :
+        '<label for="bk-' + kind + '-at" class="bk-label">Put it back as it was on</label>' +
+        '<select id="bk-' + kind + '-at" class="bk-select" onchange="bkPreviewRecord(\'' + kind + '\')"><option value="">Select a date…</option>' +
+        dates.map(d => '<option value="' + esc(d.at) + '">' + esc(bkWhen(d.at) + ' — ' + bkReason(d.reason)) + '</option>').join('') + '</select>';
+    } catch (e) { datesBox.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  function bkPlansHtml(plans, labels) {
+    let n = 0;
+    const blocks = plans.map(p => {
+      const rows = [];
+      p.updates.forEach(u => rows.push('<div class="diff-row" style="display:block"><span><span class="diff-tag tag-update"></span> ' + esc(u.title || ('#' + u.id)) + '</span>' +
+        u.changes.map(c => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 18px">' + esc(c.field) + ': <s>' + esc(bkVal(c.from)) + '</s> → <b style="color:var(--black)">' + esc(bkVal(c.to)) + '</b></div>').join('') + '</div>'));
+      p.creates.forEach(c => rows.push('<div class="diff-row"><span><span class="diff-tag tag-create"></span> Comes back: ' + esc(c.title || '(no title)') + '</span></div>'));
+      p.deletes.forEach(d => rows.push('<div class="diff-row"><span><span class="diff-tag tag-deactivate"></span> Removed (added after this backup): ' + esc(d.title || '(no title)') + '</span></div>'));
+      n += rows.length;
+      return rows.length ? '<div class="diff-card"><div class="diff-card-header"><span>' + esc((labels && labels[p.list]) || p.list) + '</span><span class="diff-count">' + rows.length + '</span></div>' + rows.join('') + '</div>' : '';
+    }).join('');
+    return { html: blocks, count: n };
+  }
+
+  async function bkPreviewRecord(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const at = document.getElementById('bk-' + kind + '-at').value;
+    const box = document.getElementById('bk-' + kind + '-preview');
+    if (!at) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing that backup with today...</p>';
+    try {
+      const r = await devApi('restore-record', { kind, value, at, dryRun: true });
+      if (document.getElementById('bk-' + kind + '-at').value !== at) return;
+      const noun = kind === 'client' ? 'client' : 'order';
+      if (!r.found) { box.innerHTML = '<p class="empty-note">This ' + noun + ' is not in that backup (it did not exist yet).</p>'; return; }
+      if (r.nothingToDo) { box.innerHTML = '<p class="empty-note">This ' + noun + ' is already the same as in that backup.</p>'; return; }
+      const p = bkPlansHtml(r.plans, BK_LIST_LABEL);
+      box.innerHTML = '<p style="font-size:13px;margin:12px 0 8px">Putting ' + esc(value) + ' back as it was on ' + esc(bkWhen(at)) + ' changes this:</p>' + p.html +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">How it is now is saved as a backup first, so you can undo this.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="bk-' + kind + '-go" onclick="bkRestoreRecord(\'' + kind + '\')">Put this ' + noun + ' back</button></div>' +
+        '<div id="bk-' + kind + '-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkRestoreRecord(kind) {
+    const value = document.getElementById('bk-' + kind).value.trim();
+    const at = document.getElementById('bk-' + kind + '-at').value;
+    const btn = document.getElementById('bk-' + kind + '-go');
+    const out = document.getElementById('bk-' + kind + '-result');
+    btn.disabled = true;
+    out.textContent = 'Saving how it is now and putting it back...';
+    try {
+      const r = await devApi('restore-record', { kind, value, at });
+      out.innerHTML = r.success ? '<b>Done.</b> ' + r.changed + ' changes.' : '<span style="color:var(--red)">Put back with errors: ' + (r.failed || []).map(esc).join('; ') + '</span>';
+      showToast(r.success ? (kind === 'client' ? 'Client' : 'Order') + ' put back.' : 'Put back with some errors.');
+      bkDatesCache = {};
+      bkStatusCache = null;
+      /* No loadAll(): reinicia Developer y lo regresa a Services. Los
+         clientes se recargan aqui; las ordenes las trae el refresco de 30 s. */
+      if (kind === 'client' && typeof refreshAllClients === 'function') refreshAllClients();
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+
+  async function bkListPicked() {
+    const list = document.getElementById('bk-list').value;
+    const datesBox = document.getElementById('bk-list-dates');
+    document.getElementById('bk-list-preview').innerHTML = '';
+    if (!list) { datesBox.innerHTML = ''; return; }
+    datesBox.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      const b = (await devApi('list-list-backups', { list })).backups || [];
+      datesBox.innerHTML = !b.length ? '<p class="empty-note">No backups of ' + esc(list) + ' yet.</p>' :
+        '<label for="bk-list-at" class="bk-label">Put it back as it was on</label>' +
+        '<select id="bk-list-at" class="bk-select" onchange="bkPreviewList()"><option value="">Select a backup…</option>' +
+        b.map(x => '<option value="' + esc(x.name) + '">' + esc(bkWhen(x.at) + ' — ' + bkReason(x.reason)) + '</option>').join('') + '</select>';
+    } catch (e) { datesBox.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkPreviewList() {
+    const list = document.getElementById('bk-list').value;
+    const name = document.getElementById('bk-list-at').value;
+    const box = document.getElementById('bk-list-preview');
+    if (!name) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="empty-note">Comparing that backup with today...</p>';
+    try {
+      const r = await devApi('restore-list', { list, name, dryRun: true });
+      if (document.getElementById('bk-list-at').value !== name) return;
+      const p = bkPlansHtml([r.plan]);
+      box.innerHTML = !p.count ? '<p class="empty-note">' + esc(list) + ' is already the same as in that backup.</p>' :
+        '<p style="font-size:13px;margin:12px 0 8px">Putting ' + esc(list) + ' back changes this:</p>' + p.html +
+        '<p style="font-size:12px;color:var(--gray);margin:10px 0">How it is now is saved as a backup first, so you can undo this.</p>' +
+        '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="bk-list-go" onclick="bkRestoreList()">Put ' + esc(list) + ' back</button></div>' +
+        '<div id="bk-list-result" style="margin-top:12px;font-size:13px"></div>';
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+
+  async function bkRestoreList() {
+    const list = document.getElementById('bk-list').value;
+    const name = document.getElementById('bk-list-at').value;
+    const btn = document.getElementById('bk-list-go');
+    const out = document.getElementById('bk-list-result');
+    btn.disabled = true;
+    out.textContent = 'Saving how it is now and putting it back...';
+    try {
+      const r = await devApi('restore-list', { list, name });
+      out.innerHTML = r.success ? '<b>Done.</b> ' + r.changed + ' changes.' : '<span style="color:var(--red)">Put back with errors: ' + (r.failed || []).map(esc).join('; ') + '</span>';
+      showToast(r.success ? list + ' put back.' : 'Put back with some errors.');
+      bkStatusCache = null;
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+
+  Object.assign(window, { bkLoadStatus, bkBackupNow, bkRecordPicked, bkPreviewRecord, bkRestoreRecord, bkListPicked, bkPreviewList, bkRestoreList });
 
 
   /* ============================================================

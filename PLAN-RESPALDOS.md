@@ -345,7 +345,7 @@ Todo con `lib/quickbooks.js`.
 - [x] 1.2 listas en `GROUPS` y campos de sistema excluidos (probado con renglones simulados; **falta revisar con un renglón real de SharePoint** que no quede fuera una columna)
 - [x] 1.3 respaldo diario: `cron-backups.js`, un cron por grupo en `vercel.json` (07,08,09,10,12 UTC; Vercel permite 100 crons, 1/día en Hobby)
 - [x] 1.4 respaldo antes de: bulk-import/update clients, bulk hours, wipe (x2), package fix, service times import/clear, catalog import (`backupBefore` en developer-admin.js). Falta: `quickbooks-clients.js` (va con la fase 2)
-- [ ] 1.5 mini de la pantalla Backups → OK del dueño → construir
+- [x] 1.5 pantalla Backups construida (Developer › Settings › Backups: regresar cliente / orden / lista de configuración, con vista previa; estado de cada lista; Back up now). Mini: https://claude.ai/artifact/UymUh41KXd4veVpUA2xSvB (abrir con `#migrate` para Migrate). **Falta el OK del dueño al mini**
 - [x] 1.6 pruebas: `node tests/backup-store.sim.js` (27 OK). Falta la prueba contra SharePoint real después del deploy
 - [ ] 2.1 foto diaria de QuickBooks
 - [ ] 2.2 GSMS → QuickBooks al instante + registro por cambio + Undo in QuickBooks (después de a–c)
