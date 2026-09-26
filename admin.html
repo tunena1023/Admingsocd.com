@@ -996,6 +996,8 @@
   #panel-developer .tag-deactivate { background: #FBEAEA; color: var(--red, #B33A3A); }
   #panel-developer .warn-box { border: 1px solid var(--gold); background: #FDF8EC; border-radius: 4px; padding: 14px 18px; font-size: 13px; margin-top: 20px; line-height: 1.6; }
   #panel-developer .skip-note { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
+  #panel-developer .cat-desc-btn { background: none; border: 0; padding: 2px 0 0; color: var(--gold-dk); font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline; }
+  #panel-developer tr.cat-desc-row td { background: #FBF9F4; }
   #panel-developer .bk-block { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 18px; }
   #panel-developer .bk-head { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
   #panel-developer .bk-head span { font-size: 12px; color: var(--gray); }
@@ -2329,6 +2331,23 @@
           </div>
           <div id="bk-status"></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="qb-changes-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this); qbcLoad()">
+        <div><div class="order-id">QuickBooks changes</div>
+        <div class="order-desc">Everything GSMS sent to QuickBooks. Undo puts QuickBooks and GSMS back to how they were before that change.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <span id="qbc-env" style="font-size:12px;color:var(--gray)"></span>
+          <button class="gs-ofp-btn-secondary" onclick="qbcLoad(true)">Refresh</button>
+        </div>
+        <div id="qbc-list"></div>
       </div>
     </div>
   </section>
@@ -9762,6 +9781,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       document.getElementById('import-section').classList.add('role-eligible');
       document.getElementById('qb-migrate-section').classList.add('role-eligible');
       document.getElementById('backups-section').classList.add('role-eligible');
+      document.getElementById('qb-changes-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
       document.getElementById('bulk-hours-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
@@ -10093,7 +10113,8 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       '<th>Service</th><th>SKU</th><th>Division</th><th>Type</th><th>Category</th><th>Areas</th><th>Price</th><th>Active</th><th>Qty?</th>' +
       '</tr></thead><tbody>' +
       rows.map(r => '<tr class="' + (r.active ? '' : 'inactive') + '">' +
-        '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) + '</td>' +
+        '<td>' + (window.GSServiceTooltip ? GSServiceTooltip.nameHtml(r.sku, esc(r.serviceName)) : esc(r.serviceName)) +
+          (canEditCatalog ? '<div><button type="button" class="cat-desc-btn" onclick="toggleCatDesc(\'' + escAttr(r.sku) + '\')">' + (r.description ? 'Edit description' : 'Add description') + '</button></div>' : '') + '</td>' +
         '<td class="diff-sku">' + esc(r.sku) + '</td>' +
         '<td>' + esc(r.division) + '</td>' +
         '<td>' + esc(r.propertyType) + '</td>' +
@@ -10112,13 +10133,47 @@ async function resolveExtraRequest(orderId, requestId, decision) {
           ' onchange="toggleCatalogRequiresQty(\'' + r.id + '\', this.checked)">' +
           '<span class="svc-toggle-track"></span>' +
         '</label></td>' +
-        '</tr>').join('') +
+        '</tr>' +
+        (canEditCatalog ? '<tr class="cat-desc-row" id="catdesc-' + escAttr(r.sku) + '" style="display:none"><td colspan="9">' +
+          '<label for="catdesc-in-' + escAttr(r.sku) + '" style="display:block;font-size:11px;color:var(--gray);margin-bottom:4px">Description (clients and technicians see it; it is also sent to QuickBooks)</label>' +
+          '<textarea id="catdesc-in-' + escAttr(r.sku) + '" rows="3" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:12px">' + esc(r.description || '') + '</textarea>' +
+          '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><button type="button" class="gs-ofp-btn-primary" style="width:auto;padding:6px 14px;font-size:11px" onclick="saveCatDesc(\'' + escAttr(r.sku) + '\', this)">Save</button>' +
+          '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:11px" onclick="toggleCatDesc(\'' + escAttr(r.sku) + '\')">Cancel</button></div>' +
+          '</td></tr>' : '')).join('') +
       '</tbody></table>' +
       '<datalist id="catalog-category-options">' +
         [...new Set(allCatalogRows.map(r => r.category).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '">').join('') +
       '</datalist>';
     mountCatalogAreaDropdowns();
   }
+
+  /* Descripcion (26/09/2026): se edita aqui y se manda a QuickBooks
+     (developer-admin save-service-description -> lib/qb-sync.js). */
+  function toggleCatDesc(sku) {
+    const row = document.getElementById('catdesc-' + sku);
+    if (!row) return;
+    const open = row.style.display === 'none';
+    row.style.display = open ? '' : 'none';
+    const r = allCatalogRows.find(x => x.sku === sku);
+    const ta = document.getElementById('catdesc-in-' + sku);
+    if (ta && r) { ta.value = r.description || ''; if (open) ta.focus(); }
+  }
+  async function saveCatDesc(sku, btn) {
+    const ta = document.getElementById('catdesc-in-' + sku);
+    const description = ta.value.trim();
+    btn.disabled = true;
+    try {
+      const res = await devApi('save-service-description', { sku, description });
+      const r = allCatalogRows.find(x => x.sku === sku);
+      if (r) r.description = description;
+      if (window.GSServiceTooltip) GSServiceTooltip.register(allCatalogRows);
+      const q = res.quickbooks || {};
+      showToast(res.unchanged ? 'No changes.' : q.error ? 'Saved in GSMS. QuickBooks could not be updated: ' + q.error : q.updated ? 'Description saved and sent to QuickBooks.' : q.skipped ? 'Description saved. ' + q.skipped + '.' : 'Description saved.');
+      renderCatalogTable();
+    } catch (e) { btn.disabled = false; showToast('Could not save: ' + e.message); }
+  }
+  window.toggleCatDesc = toggleCatDesc;
+  window.saveCatDesc = saveCatDesc;
 
   async function saveCatalogCategory(id, category) {
     try {
@@ -10719,10 +10774,11 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     }
     if (p.descKept.length) {
       html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
-        '<span>GSMS keeps its own description (QuickBooks has a shorter one)</span><span class="diff-count">' + p.descKept.length + '</span></summary>' +
+        '<span>Description is different in QuickBooks — GSMS keeps its own</span><span class="diff-count">' + p.descKept.length + '</span></summary>' +
         p.descKept.map(it => '<div class="diff-row" style="display:block"><span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>' +
           '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 4px">QuickBooks: ' + esc(qbmShort(it.qbDescription)) + '</div></div>').join('') +
-        '<p class="skip-note" style="margin:8px 12px 12px">To change one of these, write the full description in QuickBooks and run this again.</p></details>';
+        '<div style="margin:10px 12px 12px"><button type="button" class="gs-ofp-btn-secondary" id="qbm-senddesc-btn" onclick="qbmSendDescriptions()">Send these GSMS descriptions to QuickBooks</button>' +
+        '<div id="qbm-senddesc-result" style="font-size:12px;margin-top:8px;color:var(--gray)">Each one is recorded in QuickBooks changes and can be undone.</div></div></details>';
     }
     if (p.appOnly.length) {
       html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
@@ -10769,6 +10825,25 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
     }
   }
+
+  async function qbmSendDescriptions() {
+    if (!qbmPreview || !qbmPreview.descKept.length) return;
+    const btn = document.getElementById('qbm-senddesc-btn');
+    const out = document.getElementById('qbm-senddesc-result');
+    const skus = qbmPreview.descKept.map(x => x.sku);
+    btn.disabled = true;
+    let sent = 0; const problems = [];
+    try {
+      for (let i = 0; i < skus.length; i += 8) {
+        out.textContent = 'Sending ' + Math.min(i + 8, skus.length) + ' of ' + skus.length + '…';
+        const r = await devApi('qb-send-descriptions', { skus: skus.slice(i, i + 8) });
+        (r.results || []).forEach(x => { if (x.updated) sent++; else if (x.error || x.skipped) problems.push(x.sku + ': ' + (x.error || x.skipped)); });
+      }
+      out.innerHTML = '<b>' + sent + ' sent to QuickBooks.</b>' + (problems.length ? '<br><span style="color:var(--red)">' + problems.map(esc).join('<br>') + '</span>' : '');
+      showToast(sent + ' descriptions sent to QuickBooks.');
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+  window.qbmSendDescriptions = qbmSendDescriptions;
 
   function qbmBackupLabel(name) {
     const m = String(name).match(/^catalog-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d+Z-(.+)\.json$/);
@@ -11038,6 +11113,56 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       bkStatusCache = null;
     } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
   }
+
+  /* QUICKBOOKS CHANGES (26/09/2026, lib/qb-sync.js): lista y Undo. */
+  let qbcLoaded = false;
+  const QBC_REASON = { 'client-edit': 'Client edited in GSMS', 'new-client': 'New client', 'update-button': 'Update in QuickBooks button',
+    'create-button': 'Create in QuickBooks button', 'restore': 'Client put back from a backup', 'description': 'Description edited in GSMS',
+    'send-descriptions': 'Descriptions sent from Migrate', 'daily-check': 'Daily QuickBooks check', 'client-portal': 'Client edited it in orders.gsocd.com', 'undo': 'Undo' };
+  async function qbcLoad(force) {
+    if (qbcLoaded && !force) return;
+    const box = document.getElementById('qbc-list');
+    box.innerHTML = '<p class="empty-note">Loading...</p>';
+    try {
+      const r = await devApi('qb-changes');
+      qbcLoaded = true;
+      document.getElementById('qbc-env').textContent = 'QuickBooks ' + (r.env === 'production' ? '(real company)' : '(sandbox)') + ' · last ' + (r.changes || []).length + ' changes';
+      const list = r.changes || [];
+      box.innerHTML = !list.length ? '<p class="empty-note">Nothing has been sent to QuickBooks yet.</p>' : list.map(c =>
+        '<div class="diff-card" id="qbc-' + esc(c.name.replace(/[^A-Za-z0-9-]/g, '')) + '"><div class="diff-card-header" style="flex-wrap:wrap;gap:6px">' +
+          '<span>' + esc(c.label || c.gsmsRef || '') + ' <span class="diff-sku">' + esc(c.gsmsRef || '') + '</span></span>' +
+          '<span style="font-size:11px;color:var(--gray)">' + esc(bkWhen(c.at)) + '</span></div>' +
+          '<div class="diff-row" style="display:block">' +
+            '<div style="font-size:12px;color:var(--gray)">' + esc(QBC_REASON[c.reason] || c.reason || '') + (c.by ? ' · ' + esc(c.by) : '') + '</div>' +
+            c.lines.map(l => '<div style="font-size:12px;margin-top:3px">' + esc(l.field) + ': ' + (l.from ? '<s>' + esc(qbmShort(l.from)) + '</s> → ' : '') + '<b>' + esc(qbmShort(l.to)) + '</b></div>').join('') +
+            (c.error ? '<div style="font-size:12px;color:var(--red);margin-top:4px">Not sent: ' + esc(c.error) + '</div>' : '') +
+            (c.undone ? '<div style="font-size:12px;color:var(--gray);margin-top:4px">Undone.</div>' : '') +
+            (c.canUndo ? '<div style="margin-top:8px"><button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:6px 14px;font-size:11px" onclick="qbcUndo(\'' + jsStr(c.name) + '\', this, false)">' + (c.action === 'create' ? 'Undo (make it inactive in QuickBooks)' : 'Undo') + '</button></div>' : '') +
+            '<div class="qbc-out" style="font-size:12px;margin-top:6px"></div>' +
+          '</div></div>').join('');
+    } catch (e) { box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>'; }
+  }
+  async function qbcUndo(name, btn, force) {
+    const out = btn.closest('.diff-row').querySelector('.qbc-out');
+    btn.disabled = true;
+    out.textContent = 'Undoing…';
+    try {
+      const r = await devApi('qb-undo-change', { name, force });
+      if (r.conflict) {
+        btn.disabled = false;
+        const QBF = { BillAddr: 'address', PrimaryPhone: 'phone', PrimaryEmailAddr: 'email', DisplayName: 'business name', CompanyName: 'business name', GivenName: 'contact', FamilyName: 'contact', Description: 'description', Active: 'active' };
+        const names = [...new Set(r.fields.map(f => QBF[f] || f))];
+        out.innerHTML = '<span style="color:var(--red)">QuickBooks changed after this (' + esc(names.join(', ')) + '). Undo would overwrite that.</span> ' +
+          '<button type="button" class="gs-ofp-btn-secondary" style="width:auto;padding:4px 10px;font-size:11px;margin-top:6px" onclick="qbcUndo(\'' + jsStr(name) + '\', this, true)">Undo anyway</button>';
+        return;
+      }
+      showToast('Undone in QuickBooks' + (r.gsms && r.gsms.restored ? ' and GSMS.' : '.'));
+      qbClientsPromise = null;
+      await qbcLoad(true);
+    } catch (e) { btn.disabled = false; out.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>'; }
+  }
+  window.qbcLoad = qbcLoad;
+  window.qbcUndo = qbcUndo;
 
   Object.assign(window, { bkLoadStatus, bkBackupNow, bkRecordPicked, bkPreviewRecord, bkRestoreRecord, bkListPicked, bkPreviewList, bkRestoreList });
 
@@ -15153,6 +15278,17 @@ function startAddBuilding(clientId) {
     <p class="dialog-error" id="${cid}-ctl-error" style="font-size:11px;color:#B33A3A;margin-top:8px"></p>`;
 }
 
+/* Lo que paso en QuickBooks despues de guardar un cliente (lib/qb-sync.js,
+   26/09/2026). Sin cambios que toquen QuickBooks: null. */
+function qbSyncNote(q) {
+  if (!q) return '';
+  if (q.error) return ' QuickBooks could not be updated (' + q.error + '). The client shows as "Different in QuickBooks" until it is sent again.';
+  if (q.created) return ' Added to QuickBooks.';
+  if (q.updated) return ' QuickBooks updated too.';
+  if (q.skipped && /not connected/i.test(q.skipped)) return ' QuickBooks is not connected, so it was not updated.';
+  return '';
+}
+
 async function savePrimaryEdit(clientId) {
   const cid = 'client-' + clientId.replace(/[^a-z0-9]/gi,'_');
   const $f = f => document.getElementById(cid + '-ctl-' + f);
@@ -15186,8 +15322,8 @@ async function savePrimaryEdit(clientId) {
 
   showLoadingOverlay('Saving client…');
   try {
-    await api('/admin-update-client', { body });
-    showToast('Client updated.');
+    const res = await api('/admin-update-client', { body });
+    showToast('Client updated.' + qbSyncNote(res && res.quickbooks));
     qbClientsPromise = null; // si cambio algo, que se vuelva a comparar con QuickBooks
     await reloadAndReopen(clientId);
   } catch (e) {
@@ -15426,7 +15562,7 @@ async function saveNewClient() {
       errEl.textContent = 'A client with that email already exists: ' + res.clientId;
       return;
     }
-    showToast('Client ' + res.clientId + ' created successfully.');
+    showToast('Client ' + res.clientId + ' created successfully.' + qbSyncNote(res.quickbooks));
     document.getElementById('add-client-form').style.display = 'none';
     ['new-business','new-contact','new-email','new-phone','new-address','new-suite','new-city','new-zip']
       .forEach(id => document.getElementById(id).value = '');
