@@ -152,16 +152,22 @@ tipo+división+nombre). Llamar el handler con
    GSMS." → la FASE 2 cambia (ver sección 5): cada cambio que GSMS manda a
    QuickBooks se registra con cómo estaba antes, y tiene "Undo in QuickBooks".
 
-### Preguntas abiertas (hechas al dueño el 26/09, esperando respuesta)
+### Respuestas del dueño a las preguntas a–c (26/09/2026)
 
-- a) ¿Qué va a QuickBooks al instante? Clientes existentes (hoy manual con
-  password del director: ¿quitar el password?), clientes nuevos (el 25/09 decidió
-  que NO se crearan solos: ¿cambia?), descripciones de servicios (hoy no se
-  editan en GSMS: ¿agregar editor?).
-- b) Conflictos: propuesta = GSMS solo manda los campos que cambió en esa
-  edición, nunca pisa lo demás.
-- c) Servicios en dos direcciones: propuesta = descripción se edita en GSMS → QB;
-  nombre/precio/SKU se editan en QB → GSMS con Migrate.
+- a) **"Los 3"** van a QuickBooks al instante:
+  - clientes existentes: cada cambio hecho en GSMS se manda solo (ya no hace
+    falta el botón "Update in QuickBooks" con password del director para esto);
+  - clientes nuevos: se crean solos en QuickBooks al darse de alta en GSMS
+    (registro en Orders o alta en Admin). Esto cambia la decisión del 25/09;
+  - descripciones de servicios: se podrán editar en GSMS y se mandan a QB.
+- b) "Nadie se va a meter en QuickBooks. Ambos siempre van a ser desde GSMS."
+  → para **clientes**, GSMS es la fuente de verdad. Aun así, mandar solo los
+  campos cambiados y avisar en el Undo si QB no coincide (cuesta poco y protege).
+- c) "Me agrada la idea": **servicios** — la **descripción** se edita en GSMS y
+  va a QB; **nombre, precio y SKU** se editan en QB y llegan a GSMS con Migrate
+  (Migrate ya protege la descripción de GSMS: nunca la pisa con una más corta;
+  con el editor nuevo, Migrate debe **ignorar la descripción de QB** por
+  completo, porque ahora la dueña es GSMS).
 
 ---
 
@@ -280,7 +286,7 @@ Todo con `lib/quickbooks.js`.
 
 ### 2.2 GSMS → QuickBooks al instante, con registro y "Undo in QuickBooks"
 
-(Requisito 4 del dueño. Confirmar las preguntas abiertas a–c antes de construir.)
+(Requisito 4 del dueño; respuestas a–c en la sección 3.)
 
 - Un solo lugar por donde pasa **toda** escritura a QuickBooks: p. ej.
   `lib/qb-sync.js` con `pushChange({ entity, id, fields, reason, by })`:
@@ -334,7 +340,7 @@ Todo con `lib/quickbooks.js`.
       Check QuickBooks en admin.gsocd.com y ver el primer respaldo en
       `Documents/Backups/ServicesCatalog`
 - [x] Dueño: decisiones 1–4 (sección 3) — 90 días, cliente todo junto, orden todo junto, GSMS→QB inmediato
-- [ ] Dueño: contestar preguntas abiertas a–c (sección 3)
+- [x] Dueño: preguntas a–c (sección 3) — los 3 al instante; clientes solo desde GSMS; descripción en GSMS, nombre/precio/SKU en QB
 - [ ] 1.1 `lib/backup-store.js`
 - [ ] 1.2 lista de listas y campos excluidos, probada con renglones reales
 - [ ] 1.3 respaldo diario de todas las listas (decidir cron nuevo vs tandas)
