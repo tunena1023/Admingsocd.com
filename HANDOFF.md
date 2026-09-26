@@ -15,11 +15,13 @@
 Última actualización: 26/09/2026, sesión `claude/brave-hopper-6t1lxt`.
 
 > **LO MÁS NUEVO — empieza por aquí:** el dueño pidió proteger TODA la
-> información de GSMS (respaldos y regresar a como estaba). Plan completo, paso a
-> paso, con lo hecho y lo que falta: **PLAN-RESPALDOS.md**. Hay 2 commits en la
-> rama `claude/brave-hopper-6t1lxt` (`fea5007`, `5e77365`: Migrate from QuickBooks
-> y respaldos del catálogo) que **NO están en `main`/producción**: esperan el
-> "dale" del dueño.
+> información de GSMS (respaldos y regresar a como estaba) y que los cambios
+> hechos en GSMS lleguen a QuickBooks al instante, con Undo. Plan completo, paso
+> a paso, con lo hecho, lo que falta y cómo subirlo: **PLAN-RESPALDOS.md**
+> (sección 2 = estado; sección 7 = casillas). Todo está en la rama
+> `claude/brave-hopper-6t1lxt` (PR tunena1023/Admingsocd.com#2) y en la rama del
+> mismo nombre de ordersgsocd.com. **Nada de eso está en `main`/producción**:
+> falta el "dale" del dueño para producción y que ponga `QB_SYNC_SECRET` en Vercel.
 
 ---
 

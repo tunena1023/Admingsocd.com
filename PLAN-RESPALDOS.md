@@ -99,6 +99,21 @@ tipo+división+nombre). Llamar el handler con
 `{httpMethod:'POST', body: JSON.stringify({action, email})}` y un renglón
 `Developer` en la lista Staff falsa.
 
+### También en la rama (26/09/2026, después de lo de arriba; NO en producción)
+
+- Admin `903e3de`, `2f78a1d`: fase 1 (respaldos de todas las listas + pantalla Backups).
+- Admin `217b418`, `f8dede6`: fase 2 (GSMS → QuickBooks al instante, QuickBooks changes + Undo, descripciones).
+- Orders `46052c8` (rama `claude/brave-hopper-6t1lxt` de ordersgsocd.com): aviso a Admin.
+- Pruebas: `node tests/backup-store.sim.js` (27 OK) y `node tests/qb-sync.sim.js` (20 OK), después de `npm install`.
+- Crons nuevos en `vercel.json`: cron-backup-config 07, -clients 08, -orders 09, -history 10, -other 12, cron-qb-sync 13 (UTC); el de recurrentes sigue a las 11.
+
+### Para subir a producción (cuando el dueño dé el "dale" para producción)
+
+1. Admin: merge del PR tunena1023/Admingsocd.com#2 (rama `claude/brave-hopper-6t1lxt`) a `main`.
+2. Orders: merge de la rama `claude/brave-hopper-6t1lxt` de ordersgsocd.com a `main` (sin la llave no hace nada, así que el orden no importa).
+3. Dueño: `QB_SYNC_SECRET` en Vercel (Admin y Orders). Recordarle también las versiones de SharePoint (sección 6).
+4. Después del deploy, revisar en vivo: Developer › Settings › Backups › "Back up now" (y ver los archivos en Documents/Backups), editar un cliente de prueba y verlo en QuickBooks changes, Undo, y el primer cron de cada grupo en los logs de Vercel (`get_runtime_logs`).
+
 ### Ya en producción (26/09/2026)
 
 - Orders `311e84b`: se quitó del código el respaldo escrito del Client Secret de
@@ -347,8 +362,9 @@ Todo con `lib/quickbooks.js`.
 - [x] 1.4 respaldo antes de: bulk-import/update clients, bulk hours, wipe (x2), package fix, service times import/clear, catalog import (`backupBefore` en developer-admin.js). Falta: `quickbooks-clients.js` (va con la fase 2)
 - [x] 1.5 pantalla Backups construida (Developer › Settings › Backups: regresar cliente / orden / lista de configuración, con vista previa; estado de cada lista; Back up now). Mini: https://claude.ai/artifact/UymUh41KXd4veVpUA2xSvB (abrir con `#migrate` para Migrate). **Falta el OK del dueño al mini**
 - [x] 1.6 pruebas: `node tests/backup-store.sim.js` (27 OK). Falta la prueba contra SharePoint real después del deploy
-- [ ] 2.1 foto diaria de QuickBooks
+- [ ] 2.1 foto diaria de QuickBooks (opcional ahora: cada cambio ya guarda el "antes" en su registro)
 - [x] 2.2 backend GSMS → QuickBooks al instante (`lib/qb-sync.js`): ediciones de cliente en Admin (`admin-update-client.js`), alta (`register-client.js`), botones de QuickBooks › Clients, regreso de cliente desde Backups, descripciones (`save-service-description`, `qb-send-descriptions`); lista de cambios y Undo que regresa QuickBooks **y** GSMS (`qb-changes`, `qb-undo-change`); aviso desde Orders (`qb-sync-client`, llave `QB_SYNC_SECRET`); revisión diaria (`cron-qb-sync`, 13 UTC). Migrate ya no toma la descripción de QB si GSMS tiene una. Pruebas: `node tests/qb-sync.sim.js` (20 OK)
 - [x] 2.2 pantallas: Developer › Settings › QuickBooks changes (lista + Undo, aviso si QuickBooks cambió después), "Add/Edit description" en Service Catalog, "Send these GSMS descriptions to QuickBooks" en Migrate, aviso al guardar/crear cliente. Mini: mismo link (`#qbchanges`, `#catalog`, `#migrate`). **Falta OK del dueño**
-- [ ] 2.2 Orders: llamar `qb-sync-client` al editar perfil / registrarse (rama en ordersgsocd.com) + dueño pone `QB_SYNC_SECRET` en Vercel (Admin y Orders)
+- [x] 2.2 Orders: `lib/qb-notify.js` llama `qb-sync-client` al editar perfil / registrarse — commit `46052c8` en la rama `claude/brave-hopper-6t1lxt` de **ordersgsocd.com** (NO en main)
+- [ ] Dueño: poner `QB_SYNC_SECRET` (la misma, 16+ caracteres) en Vercel, en Admin y en Orders (Production)
 - [ ] Dueño: versiones de SharePoint prendidas (sección 6)
