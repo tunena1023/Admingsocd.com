@@ -275,22 +275,12 @@
     .appr-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
     /* Documentos (26/09/2026): la caja no ocupa lugar si no hay documentos;
        el boton vive en la fila de botones de la orden. */
-    .adm-docs-upload { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .adm-docs-icons { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .adm-docs-icons:empty { display: none; }
-    .adm-doc-ic { all: unset; box-sizing: border-box; cursor: pointer; width: 28px; height: 34px; border-radius: 3px; display: inline-flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font: 700 8px/1 Inter, sans-serif; letter-spacing: .04em; color: #fff; background: #6B6B6B; position: relative; }
-    .adm-doc-ic::before { content: ""; position: absolute; top: 0; right: 0; width: 8px; height: 8px; background: rgba(255,255,255,.45); border-bottom-left-radius: 2px; }
-    .adm-doc-ic.pdf { background: #B23B2E; } .adm-doc-ic.doc, .adm-doc-ic.docx { background: #2B5797; }
-    .adm-doc-ic:hover { filter: brightness(1.1); } .adm-doc-ic:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-    .adm-docs-gallery { font-size: 12px; font-weight: 600; color: var(--gold-dk); text-decoration: underline; }
-    .adm-docs-msg { font-size: 12px; color: var(--gray); }
-    .adm-docs-msg:empty { display: none; }
     /* Telefono: el acomodo de dos en dos de las filas de botones lo pone
        gsocd-shared/action-row (clase gs-act-row), igual en los 3 portales. */
     @media (max-width: 768px) {
       .eo-status-bar { align-items: stretch !important; }
-      .adm-docs-msg { order: 100; }
-      .lbl-long { display: none; }
     }
     .appr-bar .field-group { margin-bottom: 0; min-width: 240px; }
     .appr-hint { font-size: 12px; color: var(--gray); margin-top: 10px; line-height: 1.6; }
@@ -1620,7 +1610,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.49.0/nav-premium/nav-premium.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.30.0/order-card-header/order-card-header.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@f9af97cecb79115d4a7d51705609b674d513bb89/gallery-groups/gallery-groups.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@3a752aba65890da6b375d3c9ee4bad034cf29dc1/doc-viewer/doc-viewer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@de10f09db292e153863b91f7de93552b833c3878/doc-viewer/doc-viewer.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.26.0/photo-hover-preview/photo-hover-preview.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.0.0/lightbox/lightbox.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.32.0/print-button/print-button.js"></script>
@@ -1634,7 +1624,7 @@
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@71670c4e06fbb09c07fe248cf4a5a89c3399b384/camera-queue/camera-queue.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@v1.8.0/order-badges/order-badges.js"></script>
 <!-- Filas de botones de las tarjetas (26/09/2026): mismo acomodo en los 3 portales. -->
-<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@e41c4c23fb7205e762adfea2a49d1dfd9f381fcc/action-row/action-row.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tunena1023/gsocd-shared@68efbd7643c8f3d28c047c3267f6ba3c9d002bd5/action-row/action-row.js"></script>
 
 <nav>
   <div class="nav-logo">
@@ -7390,15 +7380,13 @@ function orderDocsBoxHtml(orderId, inBar) {
 
 function orderDocsUploadBtnHtml(orderId) {
   const id = esc(orderId);
-  return `<span class="adm-docs-upload gs-act-group"><button type="button" class="gs-ofp-btn-secondary" title="PDF, Word or text files (up to 25 MB). The client sees them too." onclick="adminUploadDoc('${id}', this)">📄 Upload<span class="lbl-long"> document</span></button><span class="adm-docs-icons gs-act-full" data-order="${id}"></span><span class="adm-docs-msg gs-act-full" role="status"></span></span>`;
+  /* La tira ("+", iconos, Gallery) es de gsocd-shared/doc-viewer, la
+     misma que usa Orders. */
+  return `<span class="adm-docs-upload gs-doc-strip gs-act-cell">${GSDocViewer.addButtonHtml(`adminUploadDoc('${jsStr(orderId)}', this)`)}<span class="adm-docs-icons" data-order="${id}"></span>${GSDocViewer.stripMsgHtml()}</span>`;
 }
 
 function orderDocIconsHtml(orderId, docs) {
-  if (!docs.length) return '';
-  const id = jsStr(orderId);
-  const ext = n => { const m = String(n || '').toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : ''; };
-  return docs.map(d => `<button type="button" class="adm-doc-ic gs-act-keep ${esc(ext(d.name))}" title="${escAttr(d.name)}" aria-label="${escAttr(d.name)} (open in Gallery)" onclick="openOrderDocsInGallery('${id}')">${esc(ext(d.name).toUpperCase())}</button>`).join('') +
-    `<a class="adm-docs-gallery" href="#" onclick="openOrderDocsInGallery('${id}');return false">Gallery →</a>`;
+  return GSDocViewer.iconsHtml(docs, `openOrderDocsInGallery('${jsStr(orderId)}')`);
 }
 
 function openOrderDocsInGallery(orderId) {
@@ -7454,7 +7442,7 @@ async function adminDeleteDoc(d) {
    varios tabs a la vez, por eso no se busca por id). */
 function adminUploadDoc(orderId, btn) {
   GSDocViewer.pickFile(async file => {
-    const msg = btn && btn.parentNode.querySelector('.adm-docs-msg');
+    const msg = btn && btn.parentNode.querySelector('.gs-doc-strip-msg');
     const say = (t, err) => { if (msg) { msg.textContent = t; msg.style.color = err ? 'var(--red, #c0392b)' : 'var(--gray)'; } };
     const sayBriefly = t => { say(t); setTimeout(() => { if (msg && msg.textContent === t) msg.textContent = ''; }, 5000); };
     const bad = GSDocViewer.allowed(file);
