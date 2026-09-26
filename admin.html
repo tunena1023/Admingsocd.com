@@ -2250,6 +2250,34 @@
     </div>
   </section>
 
+  <section id="qb-migrate-section" data-category="settings" style="display:none">
+    <div class="order-card">
+      <div class="order-card-header" onclick="toggleDevCard(this)">
+        <div><div class="order-id">Migrate from QuickBooks</div>
+        <div class="order-desc">Read the services straight from QuickBooks and update the catalog by SKU. A backup is saved first.</div></div>
+        <span class="dev-chevron">▸</span>
+      </div>
+      <div class="appr-body" style="display:none">
+        <p class="section-sub" style="margin-top:16px">
+          Same result as uploading the Products/Services report, without the file: GSMS reads QuickBooks directly and
+          matches by SKU, with the same SKU rules as the import. Nothing changes until you confirm. Before anything is
+          written, the whole catalog is saved as a backup, and you can go back to it below. Existing orders never
+          change — each order keeps its own copy of its services. QuickBooks is only read, never changed.
+        </p>
+        <button class="gs-ofp-btn-secondary" id="qbm-check-btn" onclick="qbMigratePreview()">Check QuickBooks</button>
+        <div id="qbm-preview"></div>
+        <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div><b style="font-size:13px">Backups</b>
+            <div style="font-size:12px;color:var(--gray)">Go back to how the catalog was before a migration.</div></div>
+            <button class="gs-ofp-btn-secondary" onclick="loadCatalogBackups()">Show backups</button>
+          </div>
+          <div id="qbm-backups"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="import-recurring-section" data-category="settings" style="display:none">
     <div class="order-card">
       <div class="order-card-header" onclick="toggleDevCard(this)">
@@ -9677,6 +9705,7 @@ async function resolveExtraRequest(orderId, requestId, decision) {
     document.getElementById('browse-section').classList.add('role-eligible');
     if (canEdit) {
       document.getElementById('import-section').classList.add('role-eligible');
+      document.getElementById('qb-migrate-section').classList.add('role-eligible');
       document.getElementById('bulk-clients-section').classList.add('role-eligible');
       document.getElementById('bulk-hours-section').classList.add('role-eligible');
       document.getElementById('all-clients-section').classList.add('role-eligible');
@@ -10578,6 +10607,160 @@ async function resolveExtraRequest(orderId, requestId, decision) {
       resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
     }
   }
+
+  /* ============================================================
+     MIGRATE FROM QUICKBOOKS (26/09/2026) -- lo mismo que subir el
+     reporte, pero leido directo de QuickBooks (developer-admin
+     qb-migrate-preview / qb-migrate-apply). Antes de escribir, el
+     servidor guarda un respaldo del catalogo; "Backups" deja regresar
+     a cualquiera (restore-catalog-backup). La descripcion de la app no
+     se pisa con una vacia o mas corta de QuickBooks (descKept).
+  ============================================================ */
+  let qbmPreview = null;
+
+  function qbmShort(v) {
+    const s = String(v == null || v === '' ? '—' : v);
+    return s.length > 90 ? s.slice(0, 90) + '…' : s;
+  }
+
+  async function qbMigratePreview() {
+    const box = document.getElementById('qbm-preview');
+    const btn = document.getElementById('qbm-check-btn');
+    qbmPreview = null;
+    btn.disabled = true;
+    box.innerHTML = '<p class="empty-note">Reading QuickBooks and comparing with the catalog...</p>';
+    try {
+      qbmPreview = await devApi('qb-migrate-preview');
+      renderQbMigratePreview();
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    } finally { btn.disabled = false; }
+  }
+
+  function renderQbMigratePreview() {
+    const p = qbmPreview;
+    const box = document.getElementById('qbm-preview');
+    if (!p) { box.innerHTML = ''; return; }
+    const nothing = !p.toCreate.length && !p.toUpdate.length && !p.toReactivate.length && !p.toDeactivate.length;
+    let html = '<p style="font-size:12px;color:var(--gray);margin:12px 0 0">' + p.qbCount + ' items read from QuickBooks.</p>';
+
+    if (p.toCreate.length) html += catalogDiffCard('New services', 'tag-create', p.toCreate, false, 'qbm-create');
+    if (p.toUpdate.length) {
+      html += '<div class="diff-card"><div class="diff-card-header"><span>Will be updated</span><span class="diff-count">' + p.toUpdate.length + '</span></div>' +
+        p.toUpdate.map(it => '<div class="diff-row" style="display:block">' +
+          '<span><span class="diff-tag tag-update"></span> ' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>' +
+          (it.changes || []).map(c => '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 18px">' + esc(c.field) + ': ' +
+            '<s>' + esc(qbmShort(c.from)) + '</s> → <b style="color:var(--black)">' + esc(qbmShort(c.to)) + '</b></div>').join('') +
+          '</div>').join('') + '</div>';
+    }
+    if (p.toReactivate.length) {
+      html += '<div class="warn-box">These services are off in GSMS and active in QuickBooks. Uncheck any you don\'t want to turn back on.</div>' +
+        catalogDiffCard('Reactivate', 'tag-reactivate', p.toReactivate, true, 'qbm-reactivate');
+    }
+    if (p.toDeactivate.length) {
+      html += '<div class="warn-box">These services are inactive in QuickBooks. Uncheck any you want to keep active in GSMS.</div>' +
+        catalogDiffCard('Turn off (inactive in QuickBooks)', 'tag-deactivate', p.toDeactivate, true, 'qbm-deactivate');
+    }
+    if (p.descKept.length) {
+      html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
+        '<span>GSMS keeps its own description (QuickBooks has a shorter one)</span><span class="diff-count">' + p.descKept.length + '</span></summary>' +
+        p.descKept.map(it => '<div class="diff-row" style="display:block"><span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span>' +
+          '<div style="font-size:12px;color:var(--gray);margin:3px 0 0 4px">QuickBooks: ' + esc(qbmShort(it.qbDescription)) + '</div></div>').join('') +
+        '<p class="skip-note" style="margin:8px 12px 12px">To change one of these, write the full description in QuickBooks and run this again.</p></details>';
+    }
+    if (p.appOnly.length) {
+      html += '<details class="diff-card" style="padding:0"><summary class="diff-card-header" style="cursor:pointer">' +
+        '<span>Only in GSMS (not in QuickBooks yet) — they stay as they are</span><span class="diff-count">' + p.appOnly.length + '</span></summary>' +
+        p.appOnly.map(it => '<div class="diff-row"><span>' + esc(it.serviceName) + ' <span class="diff-sku">' + esc(it.sku) + '</span></span></div>').join('') +
+        '</details>';
+    }
+    if (p.skippedNoSku.length || p.skippedUnrecognized.length) {
+      html += '<p class="skip-note">' +
+        (p.skippedNoSku.length ? 'Skipped, no SKU in QuickBooks: ' + p.skippedNoSku.map(esc).join(', ') + '. ' : '') +
+        (p.skippedUnrecognized.length ? 'Skipped, unrecognized SKU prefix: ' + p.skippedUnrecognized.map(esc).join(', ') + '.' : '') +
+        '</p>';
+    }
+    if (nothing) html += '<p class="empty-note">No changes — the catalog already matches QuickBooks.</p>';
+    else html += '<div class="btn-actions"><button class="gs-ofp-btn-primary" id="qbm-apply-btn" onclick="confirmQbMigrate()">Back up and migrate</button></div>';
+    html += '<div id="qbm-result" style="margin-top:14px;font-size:13px"></div>';
+    box.innerHTML = html;
+  }
+
+  async function confirmQbMigrate() {
+    if (!qbmPreview) return;
+    const checked = (kind, list) => list.filter((it, i) => {
+      const el = document.querySelector('.diff-check[data-kind="' + kind + '"][data-idx="' + i + '"]');
+      return el && el.checked;
+    }).map(it => it.sku);
+    const reactivateSkus = checked('qbm-reactivate', qbmPreview.toReactivate);
+    const deactivateSkus = checked('qbm-deactivate', qbmPreview.toDeactivate);
+    const resultBox = document.getElementById('qbm-result');
+    const btn = document.getElementById('qbm-apply-btn');
+    btn.disabled = true;
+    resultBox.innerHTML = 'Saving a backup and updating the catalog...';
+    try {
+      const res = await devApi('qb-migrate-apply', { reactivateSkus, deactivateSkus });
+      document.getElementById('qbm-preview').innerHTML = '<div id="qbm-result" style="margin-top:14px;font-size:13px"></div>';
+      document.getElementById('qbm-result').innerHTML = res.created + ' created, ' + res.updated + ' updated, ' + res.reactivated + ' reactivated, ' + res.deactivated + ' turned off.' +
+        (res.backup ? '<br><span style="color:var(--gray)">Backup saved: ' + esc(res.backup) + '</span>' : '') +
+        ((res.failed || []).length ? '<br><span style="color:var(--red)">Could not update: ' + res.failed.map(esc).join('; ') + '</span>' : '');
+      showToast(res.success ? 'Catalog migrated from QuickBooks.' : 'Migrated with some errors — see below.');
+      qbmPreview = null;
+      loadCatalogBrowse();
+      loadCatalogBackups();
+    } catch (e) {
+      btn.disabled = false;
+      resultBox.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    }
+  }
+
+  function qbmBackupLabel(name) {
+    const m = String(name).match(/^catalog-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d+Z-(.+)\.json$/);
+    if (!m) return name;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+    const why = m[7] === 'before-qb-migrate' ? 'Before migrating from QuickBooks' : m[7] === 'before-restore' ? 'Before a restore' : m[7];
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' — ' + why;
+  }
+
+  async function loadCatalogBackups() {
+    const box = document.getElementById('qbm-backups');
+    box.innerHTML = '<p class="empty-note">Loading backups...</p>';
+    try {
+      const res = await devApi('list-catalog-backups');
+      const list = res.backups || [];
+      box.innerHTML = !list.length ? '<p class="empty-note">No backups yet — one is saved every time you migrate.</p>' :
+        '<div class="diff-card">' + list.map(b => '<div class="diff-row" style="justify-content:space-between;gap:10px">' +
+          '<span>' + esc(qbmBackupLabel(b.name)) + '</span>' +
+          '<button class="gs-ofp-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="restoreCatalogBackup(\'' + jsStr(b.name) + '\', this)">Restore</button>' +
+          '</div>').join('') + '</div>';
+    } catch (e) {
+      box.innerHTML = '<p class="empty-note">' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function restoreCatalogBackup(name, btn) {
+    if (!confirm('Put the service catalog back the way it was in this backup?\n\n' + qbmBackupLabel(name) +
+      '\n\nServices created after it are turned off (not deleted). Existing orders do not change. A backup of the current catalog is saved first, so you can undo this too.')) return;
+    btn.disabled = true;
+    try {
+      const res = await devApi('restore-catalog-backup', { name });
+      showToast(res.success ? 'Catalog restored.' : 'Restored with some errors.');
+      loadCatalogBrowse();
+      await loadCatalogBackups();
+      document.getElementById('qbm-backups').insertAdjacentHTML('afterbegin',
+        '<p style="font-size:13px;margin:10px 0">' + res.restored + ' services put back, ' + res.turnedOff + ' turned off' +
+        (res.missing ? ', ' + res.missing + ' no longer exist' : '') + '.' +
+        ((res.failed || []).length ? ' <span style="color:var(--red)">Could not update: ' + res.failed.map(esc).join('; ') + '</span>' : '') + '</p>');
+    } catch (e) {
+      btn.disabled = false;
+      showToast('Could not restore: ' + e.message);
+    }
+  }
+
+  window.qbMigratePreview = qbMigratePreview;
+  window.confirmQbMigrate = confirmQbMigrate;
+  window.loadCatalogBackups = loadCatalogBackups;
+  window.restoreCatalogBackup = restoreCatalogBackup;
 
 
   /* ============================================================
